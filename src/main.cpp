@@ -3238,13 +3238,11 @@ int main(int argc, char *argv[]) {
     // etc.) are available but not initialized here since AI processing
     // endpoints are not needed yet. They can be enabled later when needed.
 
-    // Initialize watchdog and health monitor from environment variables
-    uint32_t watchdog_check_interval =
-        EnvConfig::getUInt32("WATCHDOG_CHECK_INTERVAL_MS", 5000);
-    uint32_t watchdog_timeout =
-        EnvConfig::getUInt32("WATCHDOG_TIMEOUT_MS", 30000);
-    uint32_t health_monitor_interval =
-        EnvConfig::getUInt32("HEALTH_MONITOR_INTERVAL_MS", 1000);
+    // Initialize watchdog and health monitor from config.json (with env var fallback)
+    auto monitoringConfig = systemConfig.getMonitoringConfig();
+    uint32_t watchdog_check_interval = monitoringConfig.watchdogCheckIntervalMs;
+    uint32_t watchdog_timeout = monitoringConfig.watchdogTimeoutMs;
+    uint32_t health_monitor_interval = monitoringConfig.healthMonitorIntervalMs;
 
     g_watchdog =
         std::make_unique<Watchdog>(watchdog_check_interval, watchdog_timeout);
@@ -3652,25 +3650,26 @@ int main(int argc, char *argv[]) {
     shutdownWatchdogThread.detach(); // Detach so it runs independently
     PLOG_INFO << "[Main] Shutdown watchdog thread started";
 
-    // Set HTTP server configuration from environment variables
-    // Default: 500MB for video uploads (can be overridden via
-    // CLIENT_MAX_BODY_SIZE env var)
-    size_t max_body_size = EnvConfig::getSizeT(
-        "CLIENT_MAX_BODY_SIZE", 500 * 1024 * 1024); // Default: 500MB
-    size_t max_memory_body_size = EnvConfig::getSizeT(
-        "CLIENT_MAX_MEMORY_BODY_SIZE", 100 * 1024 * 1024); // Default: 100MB
-    int thread_num =
-        EnvConfig::getInt("THREAD_NUM", 0, 0, 256); // 0 = auto-detect
-    std::string log_level_str = EnvConfig::getString("LOG_LEVEL", "INFO");
+    // Set HTTP server configuration from config.json (with env var fallback)
+    // Priority: config.json > Environment Variables > Defaults
+    // Note: webServerConfig was already loaded at line 2049, reuse it
+    auto performanceConfig = systemConfig.getPerformanceConfig();
+    auto loggingConfig = systemConfig.getLoggingConfig();
+    
+    // Get full web server config with all settings (reload to get new fields)
+    auto fullWebServerConfig = systemConfig.getWebServerConfig();
 
-    // Performance optimization settings
-    size_t keepalive_requests = EnvConfig::getSizeT("KEEPALIVE_REQUESTS", 100);
-    size_t keepalive_timeout = EnvConfig::getSizeT("KEEPALIVE_TIMEOUT", 60);
-    bool enable_reuse_port = EnvConfig::getBool("ENABLE_REUSE_PORT", true);
+    size_t max_body_size = fullWebServerConfig.maxBodySize;
+    size_t max_memory_body_size = fullWebServerConfig.maxMemoryBodySize;
+    size_t keepalive_requests = fullWebServerConfig.keepaliveRequests;
+    size_t keepalive_timeout = fullWebServerConfig.keepaliveTimeout;
+    bool enable_reuse_port = fullWebServerConfig.reusePort;
+
+    int thread_num = performanceConfig.threadNum;
 
     // Parse log level
     trantor::Logger::LogLevel log_level = trantor::Logger::kInfo;
-    std::string log_upper = log_level_str;
+    std::string log_upper = loggingConfig.logLevel;
     std::transform(log_upper.begin(), log_upper.end(), log_upper.begin(),
                    ::toupper);
     if (log_upper == "TRACE")
@@ -3695,11 +3694,10 @@ int main(int argc, char *argv[]) {
     // Use more threads to handle concurrent requests and prevent blocking
     // RTSP retry loops run in SDK threads and won't block API thread pool
     if (thread_num == 0) {
-      // For AI server with RTSP/file sources, use at least 16 threads
-      // This ensures API requests are not blocked by instance operations
-      actual_thread_num = std::max(actual_thread_num, 16U);
+      // For AI server with RTSP/file sources, use at least min_threads from config
+      actual_thread_num = std::max(actual_thread_num, performanceConfig.minThreads);
       // Cap at reasonable maximum to avoid too many threads
-      actual_thread_num = std::min(actual_thread_num, 64U);
+      actual_thread_num = std::min(actual_thread_num, performanceConfig.maxThreads);
     }
 
     PLOG_INFO << "[Performance] Thread pool size: " << actual_thread_num;

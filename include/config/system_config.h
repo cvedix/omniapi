@@ -76,6 +76,11 @@ public:
     uint16_t port = 8080;
     std::string name = "default";
     bool corsEnabled = false;
+    size_t maxBodySize = 524288000; // 500MB
+    size_t maxMemoryBodySize = 104857600; // 100MB
+    size_t keepaliveRequests = 100;
+    size_t keepaliveTimeout = 60;
+    bool reusePort = true;
   };
   WebServerConfig getWebServerConfig() const;
 
@@ -85,6 +90,26 @@ public:
   void setWebServerConfig(const WebServerConfig &config);
 
   /**
+   * @brief Get performance configuration
+   */
+  struct PerformanceConfig {
+    int threadNum = 0; // 0 = auto-detect
+    unsigned int minThreads = 16;
+    unsigned int maxThreads = 64;
+  };
+  PerformanceConfig getPerformanceConfig() const;
+
+  /**
+   * @brief Get monitoring configuration
+   */
+  struct MonitoringConfig {
+    uint32_t watchdogCheckIntervalMs = 5000;
+    uint32_t watchdogTimeoutMs = 30000;
+    uint32_t healthMonitorIntervalMs = 1000;
+  };
+  MonitoringConfig getMonitoringConfig() const;
+
+  /**
    * @brief Get logging configuration
    */
   struct LoggingConfig {
@@ -92,6 +117,10 @@ public:
     std::string logLevel = "debug";
     size_t maxLogFileSize = 52428800; // 50MB
     int maxLogFiles = 3;
+    std::string logDir = "./logs";
+    int retentionDays = 30;
+    int maxDiskUsagePercent = 85;
+    int cleanupIntervalHours = 24;
   };
   LoggingConfig getLoggingConfig() const;
 
