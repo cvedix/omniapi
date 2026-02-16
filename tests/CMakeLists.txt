@@ -72,8 +72,9 @@ set(TEST_SOURCES
 add_executable(edge_ai_api_tests ${TEST_SOURCES})
 
 # Link libraries
+# Note: We use gtest (not gtest_main) because we have our own main() in test_main.cpp
+# This allows us to add custom signal handlers and test event listeners
 target_link_libraries(edge_ai_api_tests PRIVATE
-    gtest_main
     gtest
 )
 

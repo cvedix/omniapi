@@ -5,12 +5,14 @@
 #include "instances/instance_storage.h"
 #include "solutions/solution_registry.h"
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <json/json.h>
+#include <mutex>
 #include <thread>
 #include <unistd.h>
 
@@ -140,6 +142,9 @@ TEST_F(InstanceConfigureStreamTest, ConfigureStreamOutput_MissingEnabled) {
 
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/core/instance/" + instanceId + "/output/stream");
@@ -151,13 +156,35 @@ TEST_F(InstanceConfigureStreamTest, ConfigureStreamOutput_MissingEnabled) {
   req->setBody(body.toStyledString());
 
   handler_->configureStreamOutput(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k400BadRequest);
 
   auto json = response->getJsonObject();
@@ -171,6 +198,9 @@ TEST_F(InstanceConfigureStreamTest, ConfigureStreamOutput_MissingURI) {
 
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/core/instance/" + instanceId + "/output/stream");
@@ -182,13 +212,35 @@ TEST_F(InstanceConfigureStreamTest, ConfigureStreamOutput_MissingURI) {
   req->setBody(body.toStyledString());
 
   handler_->configureStreamOutput(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k400BadRequest);
 
   auto json = response->getJsonObject();
@@ -202,6 +254,9 @@ TEST_F(InstanceConfigureStreamTest, ConfigureStreamOutput_InvalidURI) {
 
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/core/instance/" + instanceId + "/output/stream");
@@ -215,13 +270,35 @@ TEST_F(InstanceConfigureStreamTest, ConfigureStreamOutput_InvalidURI) {
   req->setBody(body.toStyledString());
 
   handler_->configureStreamOutput(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k400BadRequest);
 
   auto json = response->getJsonObject();
@@ -421,19 +498,43 @@ TEST_F(InstanceConfigureStreamTest, GetStreamOutput_Disabled) {
   // Stream output should be disabled by default
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/core/instance/" + instanceId + "/output/stream");
   req->setMethod(Get);
 
   handler_->getStreamOutput(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
   ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k200OK);
 
@@ -450,19 +551,44 @@ TEST_F(InstanceConfigureStreamTest, GetStreamOutput_Disabled) {
 TEST_F(InstanceConfigureStreamTest, GetStreamOutput_InstanceNotFound) {
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/core/instance/non-existent-id/output/stream");
   req->setMethod(Get);
 
   handler_->getStreamOutput(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k404NotFound);
 
   auto json = response->getJsonObject();
@@ -486,10 +612,36 @@ TEST_F(InstanceConfigureStreamTest, GetStreamOutput_AfterDisable) {
     req->setBody(body.toStyledString());
 
     bool callbackCalled = false;
-    handler_->configureStreamOutput(
-        req, [&](const HttpResponsePtr &resp) { callbackCalled = true; });
+    std::mutex callbackMutex;
+    std::condition_variable callbackCv;
+    std::string callbackError;
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    handler_->configureStreamOutput(req, [&](const HttpResponsePtr &resp) {
+      try {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callbackCalled = true;
+        callbackCv.notify_one();
+      } catch (const std::exception &e) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callbackError = std::string("Exception in callback: ") + e.what();
+        callbackCalled = true;
+        callbackCv.notify_one();
+      } catch (...) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callbackError = "Unknown exception in callback";
+        callbackCalled = true;
+        callbackCv.notify_one();
+      }
+    });
+
+    // Wait for callback with timeout
+    std::unique_lock<std::mutex> lock(callbackMutex);
+    if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+      FAIL() << "Enable stream callback not called within timeout";
+    }
+    if (!callbackError.empty()) {
+      FAIL() << callbackError;
+    }
     ASSERT_TRUE(callbackCalled);
   }
 
@@ -504,29 +656,79 @@ TEST_F(InstanceConfigureStreamTest, GetStreamOutput_AfterDisable) {
     req->setBody(body.toStyledString());
 
     bool callbackCalled = false;
-    handler_->configureStreamOutput(
-        req, [&](const HttpResponsePtr &resp) { callbackCalled = true; });
+    std::mutex callbackMutex;
+    std::condition_variable callbackCv;
+    std::string callbackError;
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    handler_->configureStreamOutput(req, [&](const HttpResponsePtr &resp) {
+      try {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callbackCalled = true;
+        callbackCv.notify_one();
+      } catch (const std::exception &e) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callbackError = std::string("Exception in callback: ") + e.what();
+        callbackCalled = true;
+        callbackCv.notify_one();
+      } catch (...) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callbackError = "Unknown exception in callback";
+        callbackCalled = true;
+        callbackCv.notify_one();
+      }
+    });
+
+    // Wait for callback with timeout
+    std::unique_lock<std::mutex> lock(callbackMutex);
+    if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+      FAIL() << "Disable stream callback not called within timeout";
+    }
+    if (!callbackError.empty()) {
+      FAIL() << callbackError;
+    }
     ASSERT_TRUE(callbackCalled);
   }
 
   // Finally get stream output - should be disabled
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/core/instance/" + instanceId + "/output/stream");
   req->setMethod(Get);
 
   handler_->getStreamOutput(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(1000), [&] { return callbackCalled; })) {
+    FAIL() << "Get stream output callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
   ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k200OK);
 

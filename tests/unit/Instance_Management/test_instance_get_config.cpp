@@ -7,12 +7,14 @@
 #include "models/create_instance_request.h"
 #include "solutions/solution_registry.h"
 #include <chrono>
+#include <condition_variable>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <json/json.h>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <unistd.h>
 
@@ -93,16 +95,39 @@ TEST_F(InstanceGetConfigTest, GetConfigReturnsValidJson) {
 
   HttpResponsePtr response;
   bool callbackCalled = false;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   handler_->getConfig(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  // Wait for async callback
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
   ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k200OK);
   EXPECT_EQ(response->contentType(), CT_APPLICATION_JSON);
@@ -146,15 +171,39 @@ TEST_F(InstanceGetConfigTest, GetConfigNotFound) {
 
   HttpResponsePtr response;
   bool callbackCalled = false;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   handler_->getConfig(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
   ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k404NotFound);
 
@@ -172,15 +221,39 @@ TEST_F(InstanceGetConfigTest, GetConfigEmptyInstanceId) {
 
   HttpResponsePtr response;
   bool callbackCalled = false;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   handler_->getConfig(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
   ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k400BadRequest);
 
@@ -199,21 +272,48 @@ TEST_F(InstanceGetConfigTest, GetConfigRegistryNotInitialized) {
 
   HttpResponsePtr response;
   bool callbackCalled = false;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   handler_->getConfig(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
   ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k500InternalServerError);
 
   auto json = response->getJsonObject();
   ASSERT_NE(json, nullptr);
   EXPECT_TRUE(json->isMember("error"));
+
+  // Restore manager for other tests
+  InstanceHandler::setInstanceManager(instance_manager_.get());
 }
 
 // Test getConfig includes DisplayName when set
@@ -228,15 +328,39 @@ TEST_F(InstanceGetConfigTest, GetConfigIncludesDisplayName) {
 
   HttpResponsePtr response;
   bool callbackCalled = false;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   handler_->getConfig(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
   ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k200OK);
 

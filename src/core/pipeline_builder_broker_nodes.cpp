@@ -1,6 +1,7 @@
 #include "core/pipeline_builder_broker_nodes.h"
 #include "core/pipeline_builder_model_resolver.h"
 #include <cvedix/utils/mqtt_client/cvedix_mqtt_client.h>
+#include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 #include <filesystem>
@@ -926,6 +927,16 @@ PipelineBuilderBrokerNodes::createJSONKafkaBrokerNode(
 
     if (nodeName.empty()) {
       throw std::invalid_argument("Node name cannot be empty");
+    }
+
+    // Check if Kafka is disabled via environment variable (for tests)
+    const char *disable_kafka = std::getenv("DISABLE_KAFKA");
+    if (disable_kafka && (std::string(disable_kafka) == "1" || std::string(disable_kafka) == "true")) {
+      std::cerr << "[PipelineBuilderBrokerNodes] Kafka is disabled via DISABLE_KAFKA environment variable"
+                << std::endl;
+      std::cerr << "[PipelineBuilderBrokerNodes] Skipping JSON Kafka broker node creation"
+                << std::endl;
+      return nullptr;
     }
 
     std::cerr << "[PipelineBuilderBrokerNodes] Creating JSON Kafka broker node:"

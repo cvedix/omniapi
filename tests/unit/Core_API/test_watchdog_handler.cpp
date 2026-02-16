@@ -1,3 +1,19 @@
+/**
+ * ⚠️ CẢNH BÁO: KHÔNG ĐƯỢC THAY ĐỔI CODE Ở NỘI DUNG NÀY
+ * 
+ * File test này đã được xác nhận hoạt động đúng với API hiện tại.
+ * Nếu cần thay đổi code trong file này, phải đảm bảo:
+ * 1. Test vẫn pass sau khi thay đổi
+ * 2. Test vẫn phù hợp với API handler hiện tại (WatchdogHandler)
+ * 3. Tất cả các test case vẫn hoạt động như cũ
+ * 
+ * API được test: GET /v1/core/watchdog
+ * Handler: WatchdogHandler::getWatchdogStatus()
+ * 
+ * Các test case hiện tại:
+ * - WatchdogEndpointReturnsValidJson: Kiểm tra response JSON hợp lệ với cấu trúc watchdog và health_monitor
+ */
+
 #include "api/watchdog_handler.h"
 #include "core/health_monitor.h"
 #include "core/watchdog.h"

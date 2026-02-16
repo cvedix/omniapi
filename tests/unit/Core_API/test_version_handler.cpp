@@ -1,3 +1,22 @@
+/**
+ * ⚠️ CẢNH BÁO: KHÔNG ĐƯỢC THAY ĐỔI CODE Ở NỘI DUNG NÀY
+ * 
+ * File test này đã được xác nhận hoạt động đúng với API hiện tại.
+ * Nếu cần thay đổi code trong file này, phải đảm bảo:
+ * 1. Test vẫn pass sau khi thay đổi
+ * 2. Test vẫn phù hợp với API handler hiện tại (VersionHandler)
+ * 3. Tất cả các test case vẫn hoạt động như cũ
+ * 
+ * API được test: GET /v1/core/version
+ * Handler: VersionHandler::getVersion()
+ * 
+ * Các test case hiện tại:
+ * - VersionEndpointReturnsValidJson: Kiểm tra response JSON hợp lệ
+ * - VersionFieldTypes: Kiểm tra kiểu dữ liệu các field
+ * - VersionServiceName: Kiểm tra tên service và api_version
+ * - VersionApiVersionFormat: Kiểm tra định dạng api_version
+ */
+
 #include "api/version_handler.h"
 #include <chrono>
 #include <drogon/HttpRequest.h>

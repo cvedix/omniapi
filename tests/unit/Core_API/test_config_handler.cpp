@@ -1,3 +1,35 @@
+/**
+ * ⚠️ CẢNH BÁO: KHÔNG ĐƯỢC THAY ĐỔI CODE Ở NỘI DUNG NÀY
+ * 
+ * File test này đã được xác nhận hoạt động đúng với API hiện tại.
+ * Nếu cần thay đổi code trong file này, phải đảm bảo:
+ * 1. Test vẫn pass sau khi thay đổi
+ * 2. Test vẫn phù hợp với API handler hiện tại (ConfigHandler)
+ * 3. Tất cả các test case vẫn hoạt động như cũ
+ * 
+ * API được test:
+ * - GET /v1/core/config - ConfigHandler::getConfig() (có test DISABLED)
+ * - GET /v1/core/config/{path} - ConfigHandler::getConfigSection()
+ * - POST /v1/core/config - ConfigHandler::createOrUpdateConfig()
+ * - PUT /v1/core/config - ConfigHandler::replaceConfig()
+ * - PATCH /v1/core/config/{path} - ConfigHandler::updateConfigSection()
+ * - DELETE /v1/core/config/{path} - ConfigHandler::deleteConfigSection()
+ * - POST /v1/core/config/reset - ConfigHandler::resetConfig()
+ * - OPTIONS - ConfigHandler::handleOptions()
+ * 
+ * Các test case hiện tại:
+ * - DISABLED_GetConfigReturnsValidJson: Test bị tắt (cần kiểm tra lại)
+ * - GetConfigSectionWithValidPath: Kiểm tra get config section với path hợp lệ
+ * - GetConfigSectionWithInvalidPath: Kiểm tra get config section với path không hợp lệ
+ * - CreateOrUpdateConfigWithValidJson: Kiểm tra create/update config với JSON hợp lệ
+ * - CreateOrUpdateConfigWithInvalidJson: Kiểm tra create/update config với JSON không hợp lệ
+ * - ReplaceConfigWithValidJson: Kiểm tra replace config với JSON hợp lệ
+ * - UpdateConfigSectionWithValidJson: Kiểm tra update config section
+ * - DeleteConfigSection: Kiểm tra delete config section
+ * - ResetConfig: Kiểm tra reset config
+ * - HandleOptions: Kiểm tra OPTIONS request
+ */
+
 #include "api/config_handler.h"
 #include "config/system_config.h"
 #include <chrono>

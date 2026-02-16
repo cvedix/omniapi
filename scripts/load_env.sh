@@ -78,6 +78,17 @@ set -a  # Automatically export all variables
 source "$ENV_FILE"
 set +a  # Stop automatically exporting
 
+# Config file path - Auto-detection will find config.json in order:
+# 1. ./config.json (current directory - development)
+# 2. /opt/edge_ai_api/config/config.json (production)
+# 3. /etc/edge_ai_api/config.json (system)
+# Can be overridden by CONFIG_FILE in .env file
+if [ -n "$CONFIG_FILE" ]; then
+    echo "[Config] Using config.json from CONFIG_FILE: $CONFIG_FILE"
+else
+    echo "[Config] Using auto-detection (will find config.json automatically)"
+fi
+
 # Change to project root
 cd "$PROJECT_ROOT" || exit 1
 

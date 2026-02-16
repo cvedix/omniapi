@@ -90,33 +90,58 @@ void InstanceHandler::getStatusSummary(
 
   auto start_time = std::chrono::steady_clock::now();
 
-  if (isApiLoggingEnabled()) {
+  if (isApiLoggingEnabled() && req) {
     PLOG_INFO << "[API] GET /v1/core/instance/status/summary - Get instance "
                  "status summary";
-    PLOG_DEBUG << "[API] Request from: " << req->getPeerAddr().toIpPort();
+    try {
+      PLOG_DEBUG << "[API] Request from: " << req->getPeerAddr().toIpPort();
+    } catch (...) {
+      // Ignore errors getting peer address
+    }
   }
 
   try {
-    // Check if registry is set
-    if (!instance_manager_) {
+    // Check if registry is set and capture pointer locally to avoid race conditions
+    IInstanceManager *manager = instance_manager_;
+    if (!manager) {
       if (isApiLoggingEnabled()) {
         PLOG_ERROR << "[API] GET /v1/core/instance/status/summary - Error: "
                       "Instance registry not initialized";
       }
-      callback(createErrorResponse(500, "Internal server error",
-                                   "Instance registry not initialized"));
+      try {
+        auto errorResp = createErrorResponse(500, "Internal server error",
+                                            "Instance registry not initialized");
+        if (errorResp) {
+          callback(errorResp);
+        }
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceHandler] Exception creating error response: " << e.what() << std::endl;
+        // Try to create a minimal error response
+        try {
+          Json::Value errorJson;
+          errorJson["error"] = "Internal server error";
+          auto resp = HttpResponse::newHttpJsonResponse(errorJson);
+          resp->setStatusCode(k500InternalServerError);
+          callback(resp);
+        } catch (...) {
+          std::cerr << "[InstanceHandler] Failed to create fallback error response" << std::endl;
+        }
+      } catch (...) {
+        std::cerr << "[InstanceHandler] Unknown exception creating error response" << std::endl;
+      }
       return;
     }
 
     // Get all instances in one lock acquisition (optimized)
     // CRITICAL: Use async with timeout to prevent blocking if mutex is held
+    // Capture manager pointer locally to avoid race conditions
     std::vector<InstanceInfo> allInstances;
     try {
       auto future =
-          std::async(std::launch::async, [this]() -> std::vector<InstanceInfo> {
+          std::async(std::launch::async, [manager]() -> std::vector<InstanceInfo> {
             try {
-              if (instance_manager_) {
-                return instance_manager_->getAllInstances();
+              if (manager) {
+                return manager->getAllInstances();
               }
               return {};
             } catch (...) {
@@ -205,7 +230,14 @@ void InstanceHandler::getStatusSummary(
     }
     std::cerr << "[InstanceHandler] Exception in getStatusSummary: " << e.what()
               << std::endl;
-    callback(createErrorResponse(500, "Internal server error", e.what()));
+    try {
+      auto errorResp = createErrorResponse(500, "Internal server error", e.what());
+      if (errorResp) {
+        callback(errorResp);
+      }
+    } catch (...) {
+      std::cerr << "[InstanceHandler] Failed to create error response in exception handler" << std::endl;
+    }
   } catch (...) {
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -217,8 +249,15 @@ void InstanceHandler::getStatusSummary(
     }
     std::cerr << "[InstanceHandler] Unknown exception in getStatusSummary"
               << std::endl;
-    callback(createErrorResponse(500, "Internal server error",
-                                 "Unknown error occurred"));
+    try {
+      auto errorResp = createErrorResponse(500, "Internal server error",
+                                          "Unknown error occurred");
+      if (errorResp) {
+        callback(errorResp);
+      }
+    } catch (...) {
+      std::cerr << "[InstanceHandler] Failed to create error response in unknown exception handler" << std::endl;
+    }
   }
 }
 
@@ -3230,20 +3269,55 @@ InstanceHandler::readClassesFromFile(const std::string &labelsPath) const {
 void InstanceHandler::handleOptions(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback) {
-  // Set handler start time for accurate metrics
-  MetricsInterceptor::setHandlerStartTime(req);
+  try {
+    // Set handler start time for accurate metrics
+    if (req) {
+      MetricsInterceptor::setHandlerStartTime(req);
+    }
 
-  auto resp = HttpResponse::newHttpResponse();
-  resp->setStatusCode(k200OK);
-  resp->addHeader("Access-Control-Allow-Origin", "*");
-  resp->addHeader("Access-Control-Allow-Methods",
-                  "GET, POST, PUT, DELETE, OPTIONS");
-  resp->addHeader("Access-Control-Allow-Headers",
-                  "Content-Type, Authorization");
-  resp->addHeader("Access-Control-Max-Age", "3600");
+    auto resp = HttpResponse::newHttpResponse();
+    if (!resp) {
+      std::cerr << "[InstanceHandler] Failed to create response in handleOptions" << std::endl;
+      return;
+    }
 
-  // Record metrics and call callback
-  MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+    resp->setStatusCode(k200OK);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods",
+                    "GET, POST, PUT, DELETE, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers",
+                    "Content-Type, Authorization");
+    resp->addHeader("Access-Control-Max-Age", "3600");
+
+    // Record metrics and call callback
+    if (req) {
+      MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+    } else {
+      callback(resp);
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "[InstanceHandler] Exception in handleOptions: " << e.what() << std::endl;
+    try {
+      auto errorResp = HttpResponse::newHttpResponse();
+      if (errorResp) {
+        errorResp->setStatusCode(k500InternalServerError);
+        callback(errorResp);
+      }
+    } catch (...) {
+      std::cerr << "[InstanceHandler] Failed to create error response in handleOptions" << std::endl;
+    }
+  } catch (...) {
+    std::cerr << "[InstanceHandler] Unknown exception in handleOptions" << std::endl;
+    try {
+      auto errorResp = HttpResponse::newHttpResponse();
+      if (errorResp) {
+        errorResp->setStatusCode(k500InternalServerError);
+        callback(errorResp);
+      }
+    } catch (...) {
+      std::cerr << "[InstanceHandler] Failed to create error response in handleOptions" << std::endl;
+    }
+  }
 }
 
 bool InstanceHandler::parseUpdateRequest(const Json::Value &json,

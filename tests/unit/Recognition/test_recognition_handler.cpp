@@ -1,18 +1,28 @@
 #include "api/recognition_handler.h"
 #include <chrono>
+#include <condition_variable>
+#include <cstdlib>
 #include <drogon/HttpRequest.h>
 #include <drogon/HttpResponse.h>
 #include <gtest/gtest.h>
 #include <json/json.h>
+#include <mutex>
 #include <thread>
 
 using namespace drogon;
 
 class RecognitionHandlerTest : public ::testing::Test {
 protected:
-  void SetUp() override { handler_ = std::make_unique<RecognitionHandler>(); }
+  void SetUp() override { 
+    // Disable Kafka in test environment to avoid connection errors
+    setenv("DISABLE_KAFKA", "1", 1);
+    handler_ = std::make_unique<RecognitionHandler>(); 
+  }
 
-  void TearDown() override { handler_.reset(); }
+  void TearDown() override { 
+    handler_.reset();
+    unsetenv("DISABLE_KAFKA");
+  }
 
   std::unique_ptr<RecognitionHandler> handler_;
 };
@@ -87,6 +97,9 @@ TEST_F(RecognitionHandlerTest, DISABLED_RenameSubjectMissingApiKey) {
 TEST_F(RecognitionHandlerTest, RenameSubjectMissingSubjectInPath) {
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/recognition/subjects/");
@@ -100,13 +113,35 @@ TEST_F(RecognitionHandlerTest, RenameSubjectMissingSubjectInPath) {
   req->setBody(body.toStyledString());
 
   handler_->renameSubject(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k400BadRequest);
 
   auto json = response->getJsonObject();
@@ -118,6 +153,9 @@ TEST_F(RecognitionHandlerTest, RenameSubjectMissingSubjectInPath) {
 TEST_F(RecognitionHandlerTest, RenameSubjectInvalidJson) {
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/recognition/subjects/old_subject");
@@ -127,13 +165,35 @@ TEST_F(RecognitionHandlerTest, RenameSubjectInvalidJson) {
   req->setBody("invalid json");
 
   handler_->renameSubject(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k400BadRequest);
 
   auto json = response->getJsonObject();
@@ -176,6 +236,9 @@ TEST_F(RecognitionHandlerTest, RenameSubjectMissingSubjectField) {
 TEST_F(RecognitionHandlerTest, RenameSubjectEmptySubjectField) {
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/recognition/subjects/old_subject");
@@ -189,13 +252,35 @@ TEST_F(RecognitionHandlerTest, RenameSubjectEmptySubjectField) {
   req->setBody(body.toStyledString());
 
   handler_->renameSubject(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_EQ(response->statusCode(), k400BadRequest);
 
   auto json = response->getJsonObject();
@@ -239,6 +324,9 @@ TEST_F(RecognitionHandlerTest, DISABLED_RenameSubjectUrlEncoded) {
 TEST_F(RecognitionHandlerTest, RenameSubjectCorsHeaders) {
   bool callbackCalled = false;
   HttpResponsePtr response;
+  std::mutex callbackMutex;
+  std::condition_variable callbackCv;
+  std::string callbackError;
 
   auto req = HttpRequest::newHttpRequest();
   req->setPath("/v1/recognition/subjects/old_subject");
@@ -252,13 +340,35 @@ TEST_F(RecognitionHandlerTest, RenameSubjectCorsHeaders) {
   req->setBody(body.toStyledString());
 
   handler_->renameSubject(req, [&](const HttpResponsePtr &resp) {
-    callbackCalled = true;
-    response = resp;
+    try {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackCalled = true;
+      response = resp;
+      callbackCv.notify_one();
+    } catch (const std::exception &e) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = std::string("Exception in callback: ") + e.what();
+      callbackCalled = true;
+      callbackCv.notify_one();
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(callbackMutex);
+      callbackError = "Unknown exception in callback";
+      callbackCalled = true;
+      callbackCv.notify_one();
+    }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  // Wait for callback with timeout
+  std::unique_lock<std::mutex> lock(callbackMutex);
+  if (!callbackCv.wait_for(lock, std::chrono::milliseconds(500), [&] { return callbackCalled; })) {
+    FAIL() << "Callback not called within timeout";
+  }
 
   ASSERT_TRUE(callbackCalled);
+  if (!callbackError.empty()) {
+    FAIL() << callbackError;
+  }
+  ASSERT_NE(response, nullptr);
   EXPECT_TRUE(response->getHeader("Access-Control-Allow-Origin") == "*");
   EXPECT_TRUE(response->getHeader("Access-Control-Allow-Methods").find("PUT") !=
               std::string::npos);

@@ -122,10 +122,18 @@ void SystemConfigManager::initializeDefaults() {
   entity1.type = "options";
   entity1.value = "solutions";
   entity1.group = "groupBy";
+  
+  // Add available values - must include the default value
   DisplayableEntity de1;
-  de1.displayName = "securt 1 version 1.0";
-  de1.value = "securt";
+  de1.displayName = "Solutions";
+  de1.value = "solutions";
   entity1.availableValues.push_back(de1);
+  
+  DisplayableEntity de2;
+  de2.displayName = "securt 1 version 1.0";
+  de2.value = "securt";
+  entity1.availableValues.push_back(de2);
+  
   config_entities_.push_back(entity1);
 
   // Add more default entities as needed
@@ -167,30 +175,36 @@ Json::Value SystemConfigManager::getSystemConfigJson() const {
 }
 
 bool SystemConfigManager::updateSystemConfig(const std::vector<std::pair<std::string, std::string>> &updates) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::string configPath;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
 
-  for (const auto &update : updates) {
-    auto it = std::find_if(config_entities_.begin(), config_entities_.end(),
-                          [&update](const SystemConfigEntity &e) {
-                            return e.fieldId == update.first;
-                          });
+    for (const auto &update : updates) {
+      auto it = std::find_if(config_entities_.begin(), config_entities_.end(),
+                            [&update](const SystemConfigEntity &e) {
+                              return e.fieldId == update.first;
+                            });
 
-    if (it != config_entities_.end()) {
-      // Validate value if needed
-      if (!validateConfigValue(update.first, update.second)) {
-        std::cerr << "[SystemConfigManager] Invalid value for fieldId: " << update.first << std::endl;
+      if (it != config_entities_.end()) {
+        // Validate value if needed (use unlocked version since we already hold the lock)
+        if (!validateConfigValueUnlocked(update.first, update.second)) {
+          std::cerr << "[SystemConfigManager] Invalid value for fieldId: " << update.first << std::endl;
+          return false;
+        }
+        it->value = update.second;
+      } else {
+        std::cerr << "[SystemConfigManager] FieldId not found: " << update.first << std::endl;
         return false;
       }
-      it->value = update.second;
-    } else {
-      std::cerr << "[SystemConfigManager] FieldId not found: " << update.first << std::endl;
-      return false;
     }
-  }
 
-  // Save to file if path is set
-  if (!config_path_.empty()) {
-    saveConfig(config_path_);
+    // Store config path before releasing lock
+    configPath = config_path_;
+  } // Release lock here to avoid deadlock when saveConfig calls getSystemConfigJson()
+
+  // Save to file if path is set (outside of lock to avoid deadlock)
+  if (!configPath.empty()) {
+    saveConfig(configPath);
   }
 
   return true;
@@ -226,9 +240,7 @@ const SystemConfigEntity *SystemConfigManager::getConfigEntity(const std::string
   return nullptr;
 }
 
-bool SystemConfigManager::validateConfigValue(const std::string &fieldId, const std::string &value) const {
-  std::lock_guard<std::mutex> lock(mutex_);
-
+bool SystemConfigManager::validateConfigValueUnlocked(const std::string &fieldId, const std::string &value) const {
   auto it = std::find_if(config_entities_.begin(), config_entities_.end(),
                          [&fieldId](const SystemConfigEntity &e) {
                            return e.fieldId == fieldId;
@@ -250,6 +262,11 @@ bool SystemConfigManager::validateConfigValue(const std::string &fieldId, const 
 
   // For other types, accept any value (can add more validation later)
   return true;
+}
+
+bool SystemConfigManager::validateConfigValue(const std::string &fieldId, const std::string &value) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return validateConfigValueUnlocked(fieldId, value);
 }
 
 bool SystemConfigManager::saveConfig(const std::string &configPath) {

@@ -39,6 +39,8 @@ ReadWritePaths=/opt/edge_ai_api/logs /opt/edge_ai_api/data /opt/edge_ai_api/uplo
 # Environment variables
 # Load from .env file if exists, otherwise use defaults
 EnvironmentFile=-/opt/edge_ai_api/config/.env
+# Config file path - Auto-detection will use /opt/edge_ai_api/config/config.json
+# Priority: CONFIG_FILE env var > auto-detection (./config.json > /opt/edge_ai_api/config/config.json)
 Environment="API_HOST=0.0.0.0"
 Environment="API_PORT=8080"
 # Worker executable path (required for subprocess mode)
