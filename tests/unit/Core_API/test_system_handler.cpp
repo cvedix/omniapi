@@ -1,3 +1,38 @@
+/**
+ * ⚠️ CẢNH BÁO: KHÔNG ĐƯỢC THAY ĐỔI CODE Ở NỘI DUNG NÀY
+ * 
+ * File test này đã được xác nhận hoạt động đúng với API hiện tại.
+ * Nếu cần thay đổi code trong file này, phải đảm bảo:
+ * 1. Test vẫn pass sau khi thay đổi
+ * 2. Test vẫn phù hợp với API handler hiện tại (SystemHandler)
+ * 3. Tất cả các test case vẫn hoạt động như cũ
+ * 
+ * API được test:
+ * - GET /v1/core/system/config - SystemHandler::getSystemConfig()
+ * - PUT /v1/core/system/config - SystemHandler::updateSystemConfig()
+ * - GET /v1/core/system/preferences - SystemHandler::getPreferences()
+ * - GET /v1/core/system/decoders - SystemHandler::getDecoders()
+ * - GET /v1/core/system/registry - SystemHandler::getRegistry()
+ * - POST /v1/core/system/shutdown - SystemHandler::shutdown()
+ * - OPTIONS - SystemHandler::handleOptions()
+ * 
+ * Các test case hiện tại:
+ * - GetSystemConfigReturnsValidJson: Kiểm tra response JSON hợp lệ
+ * - GetSystemConfigHasValidStructure: Kiểm tra cấu trúc config
+ * - UpdateSystemConfigWithValidJson: Kiểm tra update config
+ * - UpdateSystemConfigWithInvalidJson: Kiểm tra invalid JSON
+ * - UpdateSystemConfigWithEmptyBody: Kiểm tra empty body
+ * - GetPreferencesReturnsValidJson: Kiểm tra preferences
+ * - GetPreferencesHasExpectedKeys: Kiểm tra keys trong preferences
+ * - GetDecodersReturnsValidJson: Kiểm tra decoders
+ * - GetDecodersHasValidStructure: Kiểm tra cấu trúc decoders
+ * - GetRegistryWithKeyReturnsValidJson: Kiểm tra registry với key
+ * - GetRegistryWithoutKeyReturnsError: Kiểm tra registry không có key
+ * - ShutdownReturnsValidJson: Kiểm tra shutdown endpoint
+ * - OptionsRequestReturnsCorsHeaders: Kiểm tra CORS headers
+ * - AllEndpointsHaveCorsHeaders: Kiểm tra tất cả endpoints có CORS headers
+ */
+
 #include "api/system_handler.h"
 #include "core/decoder_detector.h"
 #include "core/preferences_manager.h"

@@ -1,3 +1,24 @@
+/**
+ * ⚠️ CẢNH BÁO: KHÔNG ĐƯỢC THAY ĐỔI CODE Ở NỘI DUNG NÀY
+ * 
+ * File test này đã được xác nhận hoạt động đúng với API hiện tại.
+ * Nếu cần thay đổi code trong file này, phải đảm bảo:
+ * 1. Test vẫn pass sau khi thay đổi
+ * 2. Test vẫn phù hợp với API handler hiện tại (SwaggerHandler)
+ * 3. Tất cả các test case vẫn hoạt động như cũ
+ * 
+ * API được test: GET /swagger, GET /v1/swagger, GET /v2/swagger
+ * Handler: SwaggerHandler::getSwaggerUI()
+ * 
+ * Các test case hiện tại:
+ * - ValidateVersionFormat: Kiểm tra validation định dạng version
+ * - ExtractVersionFromPathViaRequest: Kiểm tra extract version từ path
+ * - SanitizePath: Kiểm tra sanitize path để tránh path traversal
+ * - SwaggerUIEndpoint: Kiểm tra endpoint Swagger UI
+ * - SwaggerUIWithVersion: Kiểm tra Swagger UI với version
+ * - InvalidVersionFormat: Kiểm tra invalid version format
+ */
+
 #include "api/swagger_handler.h"
 #include <chrono>
 #include <drogon/HttpRequest.h>

@@ -1,3 +1,21 @@
+/**
+ * ⚠️ CẢNH BÁO: KHÔNG ĐƯỢC THAY ĐỔI CODE Ở NỘI DUNG NÀY
+ * 
+ * File test này đã được xác nhận hoạt động đúng với API hiện tại.
+ * Nếu cần thay đổi code trong file này, phải đảm bảo:
+ * 1. Test vẫn pass sau khi thay đổi
+ * 2. Test vẫn phù hợp với API handler hiện tại (MetricsHandler)
+ * 3. Tất cả các test case vẫn hoạt động như cũ
+ * 
+ * API được test: GET /v1/core/metrics
+ * Handler: MetricsHandler::getMetrics()
+ * 
+ * Các test case hiện tại:
+ * - DISABLED_GetMetricsReturnsPrometheusFormat: Test bị tắt (cần kiểm tra lại)
+ * - MetricsEndpointIsAccessible: Kiểm tra endpoint có thể truy cập được
+ * - MetricsResponseIsNotEmpty: Kiểm tra response không rỗng
+ */
+
 #include "api/metrics_handler.h"
 #include <chrono>
 #include <drogon/HttpRequest.h>

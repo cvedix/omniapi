@@ -4335,10 +4335,19 @@ void RecognitionHandler::renameSubject(
     std::function<void(const HttpResponsePtr &)> &&callback) {
   auto start_time = std::chrono::steady_clock::now();
 
+  std::string peerAddr = "unknown";
+  if (req) {
+    try {
+      peerAddr = req->getPeerAddr().toIpPort();
+    } catch (const std::exception &e) {
+      // Ignore errors getting peer address
+    }
+  }
+
   if (isApiLoggingEnabled()) {
     PLOG_INFO
         << "[API] PUT /v1/recognition/subjects/{subject} - Rename face subject";
-    PLOG_DEBUG << "[API] Request from: " << req->getPeerAddr().toIpPort();
+    PLOG_DEBUG << "[API] Request from: " << peerAddr;
   }
 
   try {
@@ -4453,7 +4462,24 @@ void RecognitionHandler::renameSubject(
     }
 
     // Record metrics and call callback
-    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+    try {
+      if (req) {
+        MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+      } else {
+        callback(resp);
+      }
+    } catch (const std::exception &e) {
+      if (isApiLoggingEnabled()) {
+        PLOG_ERROR << "[RecognitionHandler] Exception in MetricsInterceptor: " << e.what();
+      }
+      try {
+        callback(resp);
+      } catch (const std::exception &e_cb) {
+        if (isApiLoggingEnabled()) {
+          PLOG_ERROR << "[RecognitionHandler] Exception calling callback: " << e_cb.what();
+        }
+      }
+    }
 
   } catch (const std::exception &e) {
     auto end_time = std::chrono::steady_clock::now();
@@ -4465,10 +4491,18 @@ void RecognitionHandler::renameSubject(
     }
     auto errorResp =
         createErrorResponse(500, "Internal server error", e.what());
-    errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
-    errorResp->addHeader("Access-Control-Allow-Headers",
-                         "Content-Type, x-api-key");
-    callback(errorResp);
+    if (errorResp) {
+      errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
+      errorResp->addHeader("Access-Control-Allow-Headers",
+                           "Content-Type, x-api-key");
+      try {
+        callback(errorResp);
+      } catch (const std::exception &e_cb) {
+        if (isApiLoggingEnabled()) {
+          PLOG_ERROR << "[RecognitionHandler] Exception calling error callback: " << e_cb.what();
+        }
+      }
+    }
   } catch (...) {
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -4480,10 +4514,18 @@ void RecognitionHandler::renameSubject(
     }
     auto errorResp = createErrorResponse(500, "Internal server error",
                                          "Unknown error occurred");
-    errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
-    errorResp->addHeader("Access-Control-Allow-Headers",
-                         "Content-Type, x-api-key");
-    callback(errorResp);
+    if (errorResp) {
+      errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
+      errorResp->addHeader("Access-Control-Allow-Headers",
+                           "Content-Type, x-api-key");
+      try {
+        callback(errorResp);
+      } catch (const std::exception &e_cb) {
+        if (isApiLoggingEnabled()) {
+          PLOG_ERROR << "[RecognitionHandler] Exception calling unknown error callback: " << e_cb.what();
+        }
+      }
+    }
   }
 }
 

@@ -114,6 +114,14 @@ private:
    */
   bool loadFromFile(const std::string &configPath);
 
+  /**
+   * @brief Validate config value without locking (assumes lock is already held)
+   * @param fieldId Field identifier
+   * @param value Value to validate
+   * @return true if value is valid
+   */
+  bool validateConfigValueUnlocked(const std::string &fieldId, const std::string &value) const;
+
   mutable std::mutex mutex_;
   std::vector<SystemConfigEntity> config_entities_;
   std::string config_path_;
