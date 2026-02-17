@@ -30,6 +30,12 @@ bool UpdateInstanceRequest::validate() const {
     return false;
   }
 
+  // Validate configuredFps if set (must be positive)
+  if (configuredFps != -1 && configuredFps <= 0) {
+    validation_error_ = "configuredFps must be > 0";
+    return false;
+  }
+
   // Validate detectorMode if provided
   if (!detectorMode.empty() && detectorMode != "SmartDetection" && detectorMode != "Detection") {
     validation_error_ = "detectorMode must be 'SmartDetection' or 'Detection'";
@@ -86,7 +92,7 @@ std::string UpdateInstanceRequest::getValidationError() const {
 
 bool UpdateInstanceRequest::hasUpdates() const {
   return !name.empty() || !group.empty() || persistent.has_value() ||
-         frameRateLimit != -1 || metadataMode.has_value() ||
+         frameRateLimit != -1 || configuredFps != -1 || metadataMode.has_value() ||
          statisticsMode.has_value() || diagnosticsMode.has_value() ||
          debugMode.has_value() || !detectorMode.empty() ||
          !detectionSensitivity.empty() || !movementSensitivity.empty() ||
