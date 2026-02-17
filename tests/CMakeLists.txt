@@ -40,6 +40,7 @@ set(TEST_SOURCES
     unit/Instance_Management/test_instance_get_config.cpp
     unit/Instance_Management/test_instance_configure_stream.cpp
     unit/Instance_Management/test_create_instance_handler.cpp
+    unit/Instance_Management/test_instance_fps_handler.cpp
     
     # Recognition tests
     unit/Recognition/test_recognition_handler.cpp
@@ -106,6 +107,7 @@ target_sources(edge_ai_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/api/node_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/group_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/create_instance_handler.cpp
+    ${CMAKE_SOURCE_DIR}/src/api/instance_fps_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/lines_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/jams_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/stops_handler.cpp
