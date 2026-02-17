@@ -47,6 +47,9 @@ struct CreateInstanceRequest {
   // SolutionManager settings
   int recommendedFrameRate = 0; // Recommended frame rate
 
+  // FPS configuration (target frame processing rate)
+  int fps = 0; // Target FPS (0 means use default: 5 FPS)
+
   // Auto management
   bool autoStart = false;
   bool autoRestart = false;

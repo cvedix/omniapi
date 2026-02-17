@@ -23,7 +23,8 @@ struct InstanceInfo {
   bool persistent = false;
   bool loaded = false;
   bool running = false;
-  double fps = 0.0;
+  double fps = 0.0; // Current/actual processing FPS
+  int configuredFps = 5; // Configured target FPS (default: 5 FPS)
   std::string version;
   int frameRateLimit = 0;
   bool metadataMode = false;
