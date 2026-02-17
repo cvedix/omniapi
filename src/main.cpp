@@ -1,6 +1,7 @@
 #include "api/create_instance_handler.h"
 #include "api/health_handler.h"
 #include "api/instance_handler.h"
+#include "api/instance_fps_handler.h"
 #include "api/quick_instance_handler.h"
 #include "api/swagger_handler.h"
 #include "api/scalar_handler.h"
@@ -2546,6 +2547,7 @@ int main(int argc, char *argv[]) {
     QuickInstanceHandler::setInstanceManager(instanceManager.get());
     QuickInstanceHandler::setSolutionRegistry(&solutionRegistry);
     InstanceHandler::setInstanceManager(instanceManager.get());
+    InstanceFpsHandler::setInstanceManager(instanceManager.get());
 
     // Register solution registry and storage with solution handler
     SolutionHandler::setSolutionRegistry(&solutionRegistry);
@@ -2648,6 +2650,7 @@ int main(int argc, char *argv[]) {
     static CreateInstanceHandler createInstanceHandler;
     static QuickInstanceHandler quickInstanceHandler;
     static InstanceHandler instanceHandler;
+    static InstanceFpsHandler instanceFpsHandler;
     static SolutionHandler solutionHandler;
     static GroupHandler groupHandler;
     static NodeHandler nodeHandler;

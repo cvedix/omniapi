@@ -305,6 +305,7 @@ set(SOURCES
     src/api/create_instance_handler.cpp
     src/api/quick_instance_handler.cpp
     src/api/instance_handler.cpp
+    src/api/instance_fps_handler.cpp
     src/api/solution_handler.cpp
     src/api/group_handler.cpp
     src/api/config_handler.cpp
