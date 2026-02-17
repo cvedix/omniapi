@@ -550,6 +550,11 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     req.autoStart = json["autoStart"].asBool();
   }
 
+  // FPS configuration (target frame processing rate)
+  if (json.isMember("fps") && json["fps"].isNumeric()) {
+    req.fps = json["fps"].asInt();
+  }
+
   // Get default parameters
   std::map<std::string, std::string> defaultParams =
       getDefaultParams(solutionType, inputType, outputType);

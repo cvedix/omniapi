@@ -92,6 +92,8 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   info.confThreshold = req.confThreshold;
   info.performanceMode = req.performanceMode;
   info.recommendedFrameRate = req.recommendedFrameRate;
+  // FPS configuration: default to 5 FPS if not specified (fps == 0)
+  info.configuredFps = (req.fps > 0) ? req.fps : 5;
   info.fps = 0.0;
   info.startTime = std::chrono::steady_clock::now();
   info.lastActivityTime = info.startTime;

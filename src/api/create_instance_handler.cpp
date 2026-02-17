@@ -403,6 +403,11 @@ bool CreateInstanceHandler::parseRequest(const Json::Value &json,
     req.recommendedFrameRate = json["recommendedFrameRate"].asInt();
   }
 
+  // FPS configuration (target frame processing rate)
+  if (json.isMember("fps") && json["fps"].isNumeric()) {
+    req.fps = json["fps"].asInt();
+  }
+
   // Additional parameters (e.g., RTSP_URL)
   // Helper function to trim whitespace (especially important for RTMP URLs)
   auto trim = [](const std::string &str) -> std::string {

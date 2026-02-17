@@ -2225,6 +2225,14 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
       hasChanges = true;
     }
 
+    if (req.configuredFps != -1) {
+      std::cerr << "[InstanceRegistry] Updating configuredFps: "
+                << info.configuredFps << " -> " << req.configuredFps
+                << std::endl;
+      info.configuredFps = req.configuredFps;
+      hasChanges = true;
+    }
+
     if (req.metadataMode.has_value()) {
       std::cerr << "[InstanceRegistry] Updating metadataMode: "
                 << info.metadataMode << " -> " << req.metadataMode.value()
@@ -2663,6 +2671,9 @@ InstanceRegistry::createInstanceInfo(const std::string &instanceId,
 
   // SolutionManager settings
   info.recommendedFrameRate = req.recommendedFrameRate;
+
+  // FPS configuration: default to 5 FPS if not specified (fps == 0)
+  info.configuredFps = (req.fps > 0) ? req.fps : 5;
 
   info.loaded = true;
   info.running = false;
