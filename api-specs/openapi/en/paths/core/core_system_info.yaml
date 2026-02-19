@@ -1,0 +1,31 @@
+# API endpoint: /v1/core/system/info
+# Tag: Core
+
+/v1/core/system/info:
+  get:
+    summary: Get system hardware information
+    description: Returns detailed hardware information including CPU, GPU, RAM, Disk, Mainboard, OS, and Battery
+    operationId: getSystemInfo
+    tags:
+    - Core
+    responses:
+      '200':
+        description: System hardware information
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemInfoResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for system info
+    operationId: getSystemInfoOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: CORS preflight response

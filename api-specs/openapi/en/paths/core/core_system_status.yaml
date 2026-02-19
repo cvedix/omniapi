@@ -1,0 +1,31 @@
+# API endpoint: /v1/core/system/status
+# Tag: Core
+
+/v1/core/system/status:
+  get:
+    summary: Get system status
+    description: Returns current system status including CPU usage, RAM usage, load average, and uptime
+    operationId: getSystemStatus
+    tags:
+    - Core
+    responses:
+      '200':
+        description: System status information
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemStatusResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for system status
+    operationId: getSystemStatusOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: CORS preflight response

@@ -1,0 +1,471 @@
+# API endpoint: /v1/core/config
+# Tag: Config
+
+/v1/core/config:
+  get:
+    summary: Get system configuration
+    description: 'Returns system configuration. If `path` query parameter is provided, returns the specific configuration
+      section.
+
+      Otherwise, returns the complete system configuration.
+
+
+      **Path Format:**
+
+      - Use forward slashes `/` or dots `.` to navigate nested configuration keys
+
+      - Examples: `system/max_running_instances`, `system.max_running_instances`, `gstreamer/decode_pipelines/auto`
+
+
+      **Recommended:** Use query parameter with forward slashes for better compatibility.
+
+      '
+    operationId: getConfig
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Configuration path to get a specific section. Use `/` or `.` as separators.
+
+        Examples: `system/max_running_instances`, `system.web_server`, `gstreamer/decode_pipelines/auto`
+
+        '
+      example: system/max_running_instances
+    responses:
+      '200':
+        description: Full system configuration
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Complete system configuration object
+              additionalProperties: true
+              example:
+                auto_device_list:
+                - hailo.auto
+                - blaize.auto
+                decoder_priority_list:
+                - blaize.auto
+                - software
+                gstreamer:
+                  decode_pipelines:
+                    auto:
+                      pipeline: decodebin ! videoconvert
+                system:
+                  web_server:
+                    enabled: true
+                    ip_address: 0.0.0.0
+                    port: 8080
+                  auto_reload: false
+                  max_running_instances: 0
+                  modelforge_permissive: false
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Create or update configuration (merge)
+    description: 'Updates the system configuration by merging the provided JSON with the existing configuration.
+
+      Only the provided fields will be updated; other fields remain unchanged.
+
+      The configuration is saved to the config file after update.
+
+
+      **Auto Restart:**
+
+      - By default, the server will NOT automatically restart after configuration changes
+
+      - To enable automatic restart, set `auto_restart=true` as a query parameter or in the JSON body
+
+      - When `auto_restart=true`, the server will restart after 3 seconds if web server config changed
+
+      '
+    operationId: createOrUpdateConfig
+    tags:
+    - Config
+    parameters:
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If set to `true`, the server will automatically restart after configuration update.
+
+        Default is `false` (no automatic restart).
+
+        Can also be set in the JSON body as `auto_restart` field.
+
+        '
+      example: false
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Configuration object to merge. Can optionally include `auto_restart` field (boolean) to trigger server
+              restart.
+            additionalProperties: true
+            example:
+              system:
+                web_server:
+                  port: 8080
+                auto_reload: false
+              auto_restart: false
+    responses:
+      '200':
+        description: Configuration updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Configuration updated successfully
+                config:
+                  type: object
+                  description: Updated full configuration
+                  additionalProperties: true
+                warning:
+                  type: string
+                  description: Warning message if server restart is scheduled (when auto_restart=true)
+                  example: Server will restart in 3 seconds (auto_restart requested).
+                restart_scheduled:
+                  type: boolean
+                  description: True if server restart is scheduled (when auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Info message if restart is required but auto_restart was not set
+                  example: Web server port/host changed. Please restart server manually to apply changes, or set auto_restart=true
+                    to restart automatically.
+                restart_required:
+                  type: boolean
+                  description: True if restart is required but auto_restart was not set
+                  example: false
+      '400':
+        description: Invalid request or validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Replace entire configuration
+    description: 'Replaces the entire system configuration with the provided JSON.
+
+      All existing configuration will be replaced with the new values.
+
+      The configuration is saved to the config file after replacement.
+
+
+      **Auto Restart:**
+
+      - By default, the server will NOT automatically restart after configuration changes
+
+      - To enable automatic restart, set `auto_restart=true` as a query parameter or in the JSON body
+
+      - When `auto_restart=true`, the server will restart after 3 seconds if web server config changed
+
+      '
+    operationId: replaceConfig
+    tags:
+    - Config
+    parameters:
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If set to `true`, the server will automatically restart after configuration replacement.
+
+        Default is `false` (no automatic restart).
+
+        Can also be set in the JSON body as `auto_restart` field.
+
+        '
+      example: false
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Complete configuration object to replace existing config. Can optionally include `auto_restart` field
+              (boolean) to trigger server restart.
+            additionalProperties: true
+            example:
+              auto_device_list:
+              - hailo.auto
+              system:
+                web_server:
+                  enabled: true
+                  port: 8080
+                auto_reload: false
+                max_running_instances: 0
+                modelforge_permissive: false
+              auto_restart: false
+    responses:
+      '200':
+        description: Configuration replaced successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Configuration replaced successfully
+                config:
+                  type: object
+                  description: New full configuration
+                  additionalProperties: true
+                warning:
+                  type: string
+                  description: Warning message if server restart is scheduled (when auto_reload=true and port/host changed)
+                  example: Web server port/host changed. Server will restart in 3 seconds to apply changes.
+                restart_scheduled:
+                  type: boolean
+                  description: True if server restart is scheduled (auto_reload=true and port/host changed)
+                  example: true
+                info:
+                  type: string
+                  description: Info message if restart is required but auto_reload is disabled
+                  example: Web server port/host changed, but auto_reload is disabled. Please restart server manually to apply
+                    changes.
+                restart_required:
+                  type: boolean
+                  description: True if restart is required but auto_reload is disabled
+                  example: false
+      '400':
+        description: Invalid request or validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  patch:
+    summary: Update configuration section (query parameter)
+    description: 'Updates a specific section of the system configuration at the given path.
+
+
+      **Path Format:**
+
+      - Use forward slashes `/` or dots `.` as separators
+
+      - Examples: `system/max_running_instances`, `system.max_running_instances`
+
+
+      Only the provided fields in the section will be updated.
+
+      The configuration is saved to the config file after update.
+
+
+      **Auto Restart:**
+
+      - By default, the server will NOT automatically restart after configuration changes
+
+      - To enable automatic restart, set `auto_restart=true` as a query parameter or in the JSON body
+
+      - When `auto_restart=true`, the server will restart after 3 seconds if web server config changed
+
+      '
+    operationId: updateConfigSectionQuery
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Configuration path using `/` or `.` as separators
+      example: system/max_running_instances
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If set to `true`, the server will automatically restart after configuration update.
+
+        Default is `false` (no automatic restart).
+
+        Can also be set in the JSON body as `auto_restart` field.
+
+        '
+      example: false
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Configuration section value to update. Can optionally include `auto_restart` field (boolean) to trigger
+              server restart.
+            additionalProperties: true
+            example:
+              port: 8080
+              auto_restart: false
+    responses:
+      '200':
+        description: Configuration section updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Configuration section updated successfully
+                path:
+                  type: string
+                  example: system/max_running_instances
+                value:
+                  type: object
+                  description: Updated configuration section value
+                  additionalProperties: true
+                warning:
+                  type: string
+                  description: Warning message if server restart is scheduled (when auto_restart=true)
+                  example: Server will restart in 3 seconds (auto_restart requested).
+                restart_scheduled:
+                  type: boolean
+                  description: True if server restart is scheduled (when auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Info message if restart is required but auto_restart was not set
+                  example: Web server port/host changed. Please restart server manually to apply changes, or set auto_restart=true
+                    to restart automatically.
+                restart_required:
+                  type: boolean
+                  description: True if restart is required but auto_restart was not set
+                  example: false
+      '400':
+        description: Invalid request or validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete configuration section (query parameter)
+    description: "Deletes a specific section of the system configuration at the given path.\n\n**Path Format:**\n- Supports\
+      \ both forward slashes `/` and dots `.` as separators\n- **Recommended:** Use forward slashes `/` for better compatibility\n\
+      - Examples:\n  - `system/max_running_instances` (with forward slash - recommended)\n  - `system.max_running_instances`\
+      \ (with dot)\n  - `system/web_server/port` (nested path with forward slash)\n  - `system.web_server.port` (nested path\
+      \ with dot)\n\nThe configuration is saved to the config file after deletion.\n\n**Auto Restart:**\n- By default, the\
+      \ server will NOT automatically restart after configuration deletion\n- To enable automatic restart, set `auto_restart=true`\
+      \ as a query parameter\n- When `auto_restart=true`, the server will restart after 3 seconds if web server config changed\n"
+    operationId: deleteConfigSectionQuery
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: query
+      required: true
+      schema:
+        type: string
+      description: 'Configuration path. Supports both `/` (forward slash) and `.` (dot) as separators.
+
+        **Recommended:** Use forward slashes `/` for better compatibility.
+
+        Examples: `system/max_running_instances`, `system.web_server`, `system/web_server/port`
+
+        '
+      example: system/max_running_instances
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If set to `true`, the server will automatically restart after configuration deletion.
+
+        Default is `false` (no automatic restart).
+
+        '
+      example: false
+    responses:
+      '200':
+        description: Configuration section deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Configuration section deleted successfully
+                path:
+                  type: string
+                  example: system/max_running_instances
+                warning:
+                  type: string
+                  description: Warning message if server restart is scheduled (when auto_restart=true)
+                  example: Server will restart in 3 seconds (auto_restart requested).
+                restart_scheduled:
+                  type: boolean
+                  description: True if server restart is scheduled (when auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Info message if restart is required but auto_restart was not set
+                  example: Web server port/host changed. Please restart server manually to apply changes, or set auto_restart=true
+                    to restart automatically.
+                restart_required:
+                  type: boolean
+                  description: True if restart is required but auto_restart was not set
+                  example: false
+      '400':
+        description: Invalid request (empty path)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Configuration section not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for config
+    operationId: configOptions
+    tags:
+    - Config
+    responses:
+      '200':
+        description: CORS preflight response

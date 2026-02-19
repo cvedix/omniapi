@@ -1,0 +1,212 @@
+# API endpoint: /v1/core/groups/{groupId}
+# Tag: Groups
+
+/v1/core/groups/{groupId}:
+  get:
+    summary: Get group details
+    description: 'Returns detailed information about a specific group including group metadata and list of instance IDs.
+
+
+      The response includes:
+
+      - Group configuration (ID, name, description)
+
+      - Group metadata (isDefault, readOnly, timestamps)
+
+      - Instance count
+
+      - List of instance IDs in the group
+
+
+      The group must exist. If the group is not found, a 404 error will be returned.
+
+      '
+    operationId: getGroup
+    tags:
+    - Groups
+    parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Group ID
+    responses:
+      '200':
+        description: Group details
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/GroupInfo'
+              - type: object
+                properties:
+                  instanceIds:
+                    type: array
+                    items:
+                      type: string
+                    description: List of instance IDs in this group
+      '404':
+        description: Group not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Update a group
+    description: 'Updates an existing group''s information. Only provided fields will be updated.
+
+
+      **Updateable Fields:**
+
+      - **groupName**: Update the display name of the group
+
+      - **description**: Update the description of the group
+
+
+      **Restrictions:**
+
+      - Group must exist
+
+      - Group must not be read-only
+
+      - Group ID cannot be changed
+
+
+      **Behavior:**
+
+      - Only provided fields will be updated
+
+      - Other fields remain unchanged
+
+      - Updated timestamp is automatically set
+
+      '
+    operationId: updateGroup
+    tags:
+    - Groups
+    parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Group ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateGroupRequest'
+          example:
+            groupName: Updated Group Name
+            description: Updated description
+    responses:
+      '200':
+        description: Group updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupInfo'
+      '400':
+        description: Bad request (validation failed or group is read-only)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Group not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete a group
+    description: 'Deletes a group from the system. This operation permanently removes the group.
+
+
+      **Prerequisites:**
+
+      - Group must exist
+
+      - Group must not be a default group
+
+      - Group must not be read-only
+
+      - Group must have no instances (all instances must be removed or moved to other groups first)
+
+
+      **Behavior:**
+
+      - Group configuration will be removed from memory
+
+      - Group file will be deleted from storage
+
+      - All resources associated with the group will be released
+
+
+      **Note:** This operation cannot be undone. Once deleted, the group must be recreated using the create group endpoint.
+
+      '
+    operationId: deleteGroup
+    tags:
+    - Groups
+    parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Group ID
+    responses:
+      '200':
+        description: Group deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                groupId:
+                  type: string
+      '400':
+        description: Failed to delete (group has instances, is default, or is read-only)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Group not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for group
+    operationId: getGroupOptions
+    tags:
+    - Groups
+    responses:
+      '200':
+        description: CORS preflight response

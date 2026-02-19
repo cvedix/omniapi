@@ -1,0 +1,3396 @@
+# Component schemas
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+      - status
+      - timestamp
+      - uptime
+      properties:
+        status:
+          type: string
+          enum:
+          - healthy
+          - degraded
+          - unhealthy
+          description: Health status of the service
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          description: Current timestamp in ISO 8601 format
+          example: '2024-01-01T00:00:00.000Z'
+        uptime:
+          type: integer
+          format: int64
+          description: Service uptime in seconds
+          example: 3600
+        service:
+          type: string
+          description: Service name
+          example: edge_ai_api
+        version:
+          type: string
+          description: Service version
+          example: 1.0.0
+    StatusResponse:
+      type: object
+      required:
+      - total
+      - configured
+      - running
+      - stopped
+      - timestamp
+      properties:
+        total:
+          type: integer
+          description: Total number of configured instances
+          example: 5
+        configured:
+          type: integer
+          description: Number of configured instances (same as total)
+          example: 5
+        running:
+          type: integer
+          description: Number of instances currently running
+          example: 3
+        stopped:
+          type: integer
+          description: Number of instances currently stopped
+          example: 2
+        timestamp:
+          type: string
+          format: date-time
+          description: Current timestamp in ISO 8601 format
+          example: '2024-01-01T00:00:00.000Z'
+    VersionResponse:
+      type: object
+      required:
+      - version
+      - api_version
+      - service
+      properties:
+        version:
+          type: string
+          description: Application version
+          example: 1.0.0
+        build_time:
+          type: string
+          description: Build timestamp
+          example: Jan 01 2024 00:00:00
+        git_commit:
+          type: string
+          description: Git commit hash
+          example: abc123def456
+        api_version:
+          type: string
+          description: API version
+          example: v1
+        service:
+          type: string
+          description: Service name
+          example: edge_ai_api
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: integer
+          description: Error code
+        message:
+          type: string
+          description: Detailed error message
+    LogFileInfo:
+      type: object
+      required:
+      - date
+      - size
+      - path
+      properties:
+        date:
+          type: string
+          format: date
+          description: Date of the log file (YYYY-MM-DD)
+          example: '2024-01-01'
+        size:
+          type: integer
+          format: int64
+          description: Size of the log file in bytes
+          example: 1024
+        path:
+          type: string
+          description: Full path to the log file
+          example: /var/log/edge_ai_api/api_2024-01-01.log
+    LogFilesResponse:
+      type: object
+      required:
+      - categories
+      properties:
+        categories:
+          type: object
+          description: Log files organized by category
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/LogFileInfo'
+          example:
+            api:
+            - date: '2024-01-01'
+              size: 1024
+              path: /var/log/edge_ai_api/api_2024-01-01.log
+            instance:
+            - date: '2024-01-01'
+              size: 2048
+              path: /var/log/edge_ai_api/instance_2024-01-01.log
+    LogEntry:
+      type: object
+      required:
+      - timestamp
+      - level
+      - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Log timestamp in ISO 8601 format
+          example: '2024-01-01T12:00:00.000Z'
+        level:
+          type: string
+          description: Log level (INFO, ERROR, WARNING, DEBUG, etc.)
+          example: INFO
+        message:
+          type: string
+          description: Log message
+          example: API request received
+    LogsResponse:
+      type: object
+      required:
+      - category
+      - category_dir
+      - files_count
+      - total_lines
+      - filtered_lines
+      - logs
+      properties:
+        category:
+          type: string
+          description: Log category
+          example: api
+        category_dir:
+          type: string
+          description: Directory path for this category
+          example: /var/log/edge_ai_api/api
+        files_count:
+          type: integer
+          description: Number of log files in this category
+          example: 1
+        total_lines:
+          type: integer
+          description: Total number of log lines before filtering
+          example: 1000
+        filtered_lines:
+          type: integer
+          description: Number of log lines after filtering
+          example: 500
+        logs:
+          type: array
+          description: Array of log entries
+          items:
+            $ref: '#/components/schemas/LogEntry'
+    LogsByDateResponse:
+      type: object
+      required:
+      - category
+      - date
+      - total_lines
+      - filtered_lines
+      - logs
+      properties:
+        category:
+          type: string
+          description: Log category
+          example: api
+        date:
+          type: string
+          format: date
+          description: Date of the log file (YYYY-MM-DD)
+          example: '2024-01-01'
+        total_lines:
+          type: integer
+          description: Total number of log lines before filtering
+          example: 1000
+        filtered_lines:
+          type: integer
+          description: Number of log lines after filtering
+          example: 500
+        logs:
+          type: array
+          description: Array of log entries
+          items:
+            $ref: '#/components/schemas/LogEntry'
+    SetInputRequest:
+      type: object
+      required:
+      - type
+      - uri
+      properties:
+        type:
+          type: string
+          description: Type of input source
+          enum:
+          - RTSP
+          - HLS
+          - Manual
+          example: Manual
+        uri:
+          type: string
+          format: uri
+          description: URI of the input source (must be valid)
+          example: http://localhost
+    InstanceConfig:
+      type: object
+      description: Instance configuration (config format, not runtime state)
+      properties:
+        InstanceId:
+          type: string
+          description: Unique identifier of the instance (UUID)
+          example: '{instanceId}'
+        DisplayName:
+          type: string
+          description: Display name of the instance
+          example: Test Instance
+        AutoStart:
+          type: boolean
+          description: Whether the instance should automatically start on system boot
+          example: false
+        AutoRestart:
+          type: boolean
+          description: Whether the instance should automatically restart on failure
+          example: false
+        Detector:
+          type: object
+          description: Detector configuration
+          properties:
+            preset_values:
+              type: object
+              description: Preset values for different detector modes
+              additionalProperties:
+                type: object
+          example:
+            preset_values:
+              MosaicInference:
+                Detector/conf_threshold: 0.7
+        DetectorRegions:
+          type: object
+          description: Detector regions configuration
+          additionalProperties: true
+        Input:
+          type: object
+          description: Input source configuration
+          properties:
+            match_fps:
+              type: boolean
+              description: Whether to match FPS
+            media_format:
+              type: object
+              properties:
+                color_format:
+                  type: integer
+                default_format:
+                  type: boolean
+                height:
+                  type: integer
+                is_software:
+                  type: boolean
+                name:
+                  type: string
+            media_type:
+              type: string
+              description: Type of media input (e.g., "Images", "IP Camera", "File")
+            output_fps:
+              type: integer
+              description: Output FPS
+            uri:
+              type: string
+              description: URI of the input source
+          example:
+            match_fps: true
+            media_format:
+              color_format: 0
+              default_format: true
+              height: 0
+              is_software: false
+              name: Same as Source
+            media_type: Images
+            output_fps: 8
+            uri: https://some_uri
+      required:
+      - InstanceId
+    SetConfigRequest:
+      type: object
+      required:
+      - path
+      - jsonValue
+      properties:
+        path:
+          type: string
+          description: 'The key for which the config value is to be updated. For nested structures, use forward slashes "/"
+            as separators.
+
+            Examples: "DisplayName", "Output/handlers/Mqtt", "Detector/conf_threshold"
+
+            '
+          example: Output/handlers/Mqtt
+        jsonValue:
+          type: string
+          description: 'A string containing a JSON value or object. Ensure proper escaping for strings or objects.
+
+            - For string values: "\"my string\"" (escaped JSON string)
+
+            - For object values: "{\"key\":\"value\"}" (escaped JSON object)
+
+            '
+          example: '{"uri":"mqtt://localhost:1883/events"}'
+    SetStateRequest:
+      type: object
+      required:
+      - path
+      - jsonValue
+      properties:
+        path:
+          type: string
+          description: 'The key for which the state value is to be updated. For nested structures, use forward slashes "/"
+            as separators.
+
+            Examples: "runtime/mode", "Output/handlers/Mqtt", "runtime/debug/enabled"
+
+            '
+          example: Output/handlers/Mqtt
+        jsonValue:
+          type: string
+          description: 'A string containing a JSON value or object. Ensure proper escaping for strings or objects.
+
+            - For string values: "\"my string\"" (escaped JSON string)
+
+            - For object values: "{\"key\":\"value\"}" (escaped JSON object)
+
+            - For number values: "123" or "45.67"
+
+            - For boolean values: "true" or "false"
+
+            '
+          example: '{"enabled":true,"broker":"localhost"}'
+    InstanceState:
+      type: object
+      description: 'Runtime state of an instance. State is different from config - state contains runtime settings that only
+        exist when the instance is loaded, while config contains persistent settings.
+
+        State is cleared when instance is unloaded. State does not persist after restart.
+
+        '
+      additionalProperties: true
+      example:
+        runtime:
+          mode: production
+          debug:
+            enabled: false
+        metrics:
+          interval: 60
+        Output:
+          handlers:
+            Mqtt:
+              enabled: true
+              broker: localhost
+              port: 1883
+    ConfigureStreamOutputRequest:
+      type: object
+      required:
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Indicates whether stream/record output is enabled
+          example: true
+        path:
+          type: string
+          description: 'The requested path to save output video MP4 files. Required when enabled is true and using record
+            output mode.
+
+            The path must be a directory that exists or can be created, and must have write permissions.
+
+            Directory will be created automatically if it doesn''t exist.
+
+            '
+          example: /opt/edge_ai_api/record
+        uri:
+          type: string
+          format: uri
+          description: 'The requested URI for the stream output. Required when enabled is true and using stream output mode.
+
+            Must start with rtmp://, rtsp://, or hls://
+
+            Either `path` (for record output) or `uri` (for stream output) must be provided when enabled is true.
+
+            '
+          example: rtmp://localhost:1935/live/stream
+    StreamOutputResponse:
+      type: object
+      required:
+      - enabled
+      - uri
+      properties:
+        enabled:
+          type: boolean
+          description: Indicates whether stream output is enabled
+          example: true
+        uri:
+          type: string
+          format: uri
+          description: 'The configured URI for the stream output. Empty string if disabled.
+
+            Can be rtmp://, rtsp://, or hls:// format
+
+            '
+          example: rtmp://localhost:1935/live/stream
+    SystemInfoResponse:
+      type: object
+      description: System hardware information
+      properties:
+        cpu:
+          type: object
+          properties:
+            vendor:
+              type: string
+              example: GenuineIntel
+            model:
+              type: string
+              example: Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz
+            physical_cores:
+              type: integer
+              example: 8
+            logical_cores:
+              type: integer
+              example: 16
+            max_frequency:
+              type: integer
+              description: Maximum frequency in MHz
+              example: 3792
+            regular_frequency:
+              type: integer
+              description: Regular frequency in MHz
+              example: 3792
+            min_frequency:
+              type: integer
+              description: Minimum frequency in MHz (-1 if not available)
+              example: -1
+            current_frequency:
+              type: integer
+              description: Current frequency in MHz (-1 if not available)
+              example: 3792
+            cache_size:
+              type: integer
+              format: int64
+              description: Cache size in bytes
+              example: 16777216
+        ram:
+          type: object
+          properties:
+            vendor:
+              type: string
+              example: Corsair
+            model:
+              type: string
+              example: CMK32GX4M2Z3600C18
+            name:
+              type: string
+              example: Physical Memory
+            serial_number:
+              type: string
+              example: N/A
+            size_mib:
+              type: integer
+              format: int64
+              description: Total size in MiB
+              example: 65437
+            free_mib:
+              type: integer
+              format: int64
+              description: Free memory in MiB
+              example: 54405
+            available_mib:
+              type: integer
+              format: int64
+              description: Available memory in MiB
+              example: 54405
+        gpu:
+          type: array
+          items:
+            type: object
+            properties:
+              vendor:
+                type: string
+                example: NVIDIA
+              model:
+                type: string
+                example: NVIDIA GeForce RTX 3070 Ti
+              driver_version:
+                type: string
+                example: 31.0.15.2698
+              memory_mib:
+                type: integer
+                format: int64
+                description: Memory size in MiB
+                example: 8190
+              min_frequency:
+                type: integer
+                example: -1
+              current_frequency:
+                type: integer
+                description: Current frequency in MHz
+                example: 0
+              max_frequency:
+                type: integer
+                example: -1
+        disk:
+          type: array
+          items:
+            type: object
+            properties:
+              vendor:
+                type: string
+                example: (Standard disk drives)
+              model:
+                type: string
+                example: WD_BLACK SN850 Heatsink 1TB
+              serial_number:
+                type: string
+                example: '***'
+              size_bytes:
+                type: integer
+                format: int64
+                description: Total size in bytes
+                example: 1000202273280
+              free_size_bytes:
+                type: integer
+                format: int64
+                description: Free size in bytes
+                example: 500000000000
+              volumes:
+                type: array
+                items:
+                  type: string
+                description: List of volume/partition names
+        mainboard:
+          type: object
+          properties:
+            vendor:
+              type: string
+              example: ASUSTeK COMPUTER INC.
+            name:
+              type: string
+              example: PRIME Z490-A
+            version:
+              type: string
+              example: Rev 1.xx
+            serial_number:
+              type: string
+              example: N/A
+        os:
+          type: object
+          properties:
+            name:
+              type: string
+              example: Ubuntu 22.04 LTS
+            short_name:
+              type: string
+              example: Linux
+            version:
+              type: string
+              example: '22.04'
+            kernel:
+              type: string
+              example: 5.15.0-72-generic
+            architecture:
+              type: string
+              example: 64 bit
+            endianess:
+              type: string
+              example: little endian
+        battery:
+          type: array
+          description: Battery information (empty array if no batteries)
+          items:
+            type: object
+            properties:
+              vendor:
+                type: string
+              model:
+                type: string
+              serial_number:
+                type: string
+              technology:
+                type: string
+              capacity_mwh:
+                type: integer
+                format: int64
+                description: Capacity in mWh
+              charging:
+                type: boolean
+                description: Whether battery is charging
+    SystemStatusResponse:
+      type: object
+      description: Current system status
+      properties:
+        cpu:
+          type: object
+          properties:
+            usage_percent:
+              type: number
+              format: double
+              description: CPU usage percentage (0-100)
+              example: 25.5
+            current_frequency_mhz:
+              type: integer
+              description: Current CPU frequency in MHz (-1 if not available)
+              example: 3792
+            temperature_celsius:
+              type: number
+              format: double
+              description: CPU temperature in Celsius (optional, -1 if not available)
+              example: 45.5
+        ram:
+          type: object
+          properties:
+            total_mib:
+              type: integer
+              format: int64
+              description: Total RAM in MiB
+              example: 65437
+            used_mib:
+              type: integer
+              format: int64
+              description: Used RAM in MiB
+              example: 11032
+            free_mib:
+              type: integer
+              format: int64
+              description: Free RAM in MiB
+              example: 54405
+            available_mib:
+              type: integer
+              format: int64
+              description: Available RAM in MiB
+              example: 54405
+            usage_percent:
+              type: number
+              format: double
+              description: RAM usage percentage (0-100)
+              example: 16.85
+            cached_mib:
+              type: integer
+              format: int64
+              description: Cached memory in MiB (optional)
+              example: 5000
+            buffers_mib:
+              type: integer
+              format: int64
+              description: Buffers memory in MiB (optional)
+              example: 1000
+        load_average:
+          type: object
+          properties:
+            1min:
+              type: number
+              format: double
+              description: Load average for 1 minute
+              example: 0.75
+            5min:
+              type: number
+              format: double
+              description: Load average for 5 minutes
+              example: 0.82
+            15min:
+              type: number
+              format: double
+              description: Load average for 15 minutes
+              example: 0.88
+        uptime_seconds:
+          type: integer
+          format: int64
+          description: System uptime in seconds
+          example: 86400
+    SystemConfigResponse:
+      type: object
+      description: System configuration entities response
+      properties:
+        systemConfig:
+          type: array
+          description: Array of system configuration entities
+          items:
+            type: object
+            properties:
+              fieldId:
+                type: string
+                description: Configuration field identifier
+                example: voice6
+              displayName:
+                type: string
+                description: Human-readable display name
+                example: voice n. 6
+              type:
+                type: string
+                description: Configuration type (options, string, number, boolean)
+                example: options
+              value:
+                type: string
+                description: Current configuration value
+                example: solutions
+              group:
+                type: string
+                description: Configuration group name
+                example: groupBy
+              availableValues:
+                type: array
+                description: Available values for options type
+                items:
+                  type: object
+                  properties:
+                    displayName:
+                      type: string
+                      example: securt 1 version 1.0
+                    value:
+                      type: string
+                      example: securt
+    SystemConfigUpdateRequest:
+      type: object
+      description: System configuration update request
+      required:
+      - systemConfig
+      properties:
+        systemConfig:
+          type: array
+          description: Array of configuration updates
+          items:
+            type: object
+            required:
+            - fieldId
+            - value
+            properties:
+              fieldId:
+                type: string
+                description: Configuration field identifier to update
+                example: voice6
+              value:
+                type: string
+                description: New configuration value
+                example: securt
+    SystemPreferencesResponse:
+      type: object
+      description: System preferences from rtconfig.json
+      additionalProperties:
+        oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+      example:
+        vms.show_area_crossing: true
+        vms.show_line_crossing: true
+        vms.show_intrusion: true
+        vms.show_crowding: true
+        vms.show_loitering: true
+        vms.show_object_left: true
+        vms.show_object_guarding: true
+        vms.show_tailgating: true
+        vms.show_fallen_person: true
+        vms.show_armed_person: true
+        vms.show_access_control_plate: true
+        vms.show_access_control_face: true
+        vms.show_appearance_search: true
+        vms.show_identities: true
+        vms.show_remote_mode: true
+        vms.show_thermal_support: true
+        vms.show_active_detection: true
+        vms.show_error_reporting: true
+        vms.show_trial_licenses: true
+        vms.hardware_decoding: true
+        global.default_performance_mode: Performance
+    SystemDecodersResponse:
+      type: object
+      description: Available system decoders information
+      additionalProperties:
+        type: object
+        additionalProperties:
+          type: integer
+          description: Number of available decoders for the codec
+      example:
+        nvidia:
+          hevc: 1
+          h264: 1
+    CreateInstanceRequest:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          description: 'Instance name (required, pattern: ^[A-Za-z0-9 -_]+$)'
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: 'Group name (optional, pattern: ^[A-Za-z0-9 -_]+$)'
+          example: cameras
+        solution:
+          type: string
+          description: Solution ID (optional, must match existing solution)
+          example: face_detection
+        persistent:
+          type: boolean
+          description: Save instance to JSON file
+          default: false
+        frameRateLimit:
+          type: integer
+          description: Frame rate limit (FPS)
+          default: 0
+          minimum: 0
+        metadataMode:
+          type: boolean
+          description: Enable metadata mode
+          default: false
+        statisticsMode:
+          type: boolean
+          description: Enable statistics mode
+          default: false
+        diagnosticsMode:
+          type: boolean
+          description: Enable diagnostics mode
+          default: false
+        debugMode:
+          type: boolean
+          description: Enable debug mode
+          default: false
+        detectorMode:
+          type: string
+          description: Detector mode
+          enum:
+          - SmartDetection
+          default: SmartDetection
+        detectionSensitivity:
+          type: string
+          description: Detection sensitivity level
+          enum:
+          - Low
+          - Medium
+          - High
+          default: Low
+        movementSensitivity:
+          type: string
+          description: Movement sensitivity level
+          enum:
+          - Low
+          - Medium
+          - High
+          default: Low
+        sensorModality:
+          type: string
+          description: Sensor modality
+          enum:
+          - RGB
+          - Thermal
+          default: RGB
+        autoStart:
+          type: boolean
+          description: Automatically start instance when created
+          default: false
+        autoRestart:
+          type: boolean
+          description: Automatically restart instance on error
+          default: false
+        blockingReadaheadQueue:
+          type: boolean
+          description: Use blocking readahead queue
+          default: false
+        inputOrientation:
+          type: integer
+          description: Input orientation (0-3)
+          default: 0
+          minimum: 0
+          maximum: 3
+        inputPixelLimit:
+          type: integer
+          description: Input pixel limit
+          default: 0
+          minimum: 0
+        RTSP_URL:
+          type: string
+          description: RTSP URL for source (required for face_detection solution)
+          example: rtsp://localhost:8554/stream
+        MODEL_NAME:
+          type: string
+          description: 'Model name to use (e.g., "yunet_2023mar", "yunet_2022mar", "yolov8n_face").
+
+            Can specify category with format "category:modelname" (e.g., "face:yunet_2023mar").
+
+            The system will automatically search for matching model files in system directories.
+
+            Takes priority over MODEL_PATH if both are provided.
+
+            '
+          example: yunet_2023mar
+        MODEL_PATH:
+          type: string
+          description: 'Direct path to model file (e.g., "./models/yunet.onnx", "/usr/share/cvedix/cvedix_data/models/face/yunet.onnx").
+
+            Used if MODEL_NAME is not provided or not found.
+
+            '
+          example: ./models/yunet.onnx
+        additionalParams:
+          type: object
+          description: "Additional solution-specific parameters. Supported keys:\n- RTSP_URL: RTSP stream URL\n- MODEL_NAME:\
+            \ Model name (e.g., \"yunet_2023mar\", \"face:yunet_2023mar\")\n- MODEL_PATH: Direct path to model file\n- CrossingLines:\
+            \ (ba_crossline only) JSON string array of crossing lines configuration.\n  Format: `[{\"id\":\"uuid\",\"name\"\
+            :\"Line Name\",\"coordinates\":[{\"x\":0,\"y\":250},{\"x\":700,\"y\":220}],\"direction\":\"Both\",\"classes\"\
+            :[\"Vehicle\"],\"color\":[255,0,0,255]}]`\n  Supports multiple lines. Can be managed via `/v1/core/instance/{instanceId}/lines`\
+            \ API endpoints.\n- StopZones: (ba_stop only) JSON string array of stop zone configurations for individual object\
+            \ stop detection.\n  Format: `[{\"id\":\"uuid\",\"name\":\"Zone 1\",\"roi\":[{\"x\":0,\"y\":0},{\"x\":100,\"y\"\
+            :0},{\"x\":100,\"y\":100}],\"min_stop_seconds\":3,\"check_interval_frames\":20,\"check_min_hit_frames\":50,\"\
+            check_max_distance\":5}]`\n  Supports multiple stop zones. Can be managed via `/v1/core/instance/{instanceId}/stops`\
+            \ API endpoints.\n- JamZones: (ba_jam only) JSON string array of traffic jam zone configuration.\n  Format: `[{\"\
+            id\":\"uuid\",\"name\":\"Jam Zone 1\",\"roi\":[{\"x\":0,\"y\":100},{\"x\":1920,\"y\":100},{\"x\":1920,\"y\":400},{\"\
+            x\":0,\"y\":400}],\"check_interval_frames\":20,\"check_min_hit_frames\":50,\"check_max_distance\":8,\"check_min_stops\"\
+            :8,\"check_notify_interval\":10}]`\n  Supports multiple zones. Can be managed via `/v1/core/instance/{instanceId}/jams`\
+            \ API endpoints.\n"
+          additionalProperties:
+            type: string
+    UpdateInstanceRequest:
+      type: object
+      description: Request body for updating an instance. All fields are optional - only provided fields will be updated.
+      properties:
+        name:
+          type: string
+          description: 'Instance name (pattern: ^[A-Za-z0-9 -_]+$)'
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: 'Group name (pattern: ^[A-Za-z0-9 -_]+$)'
+          example: cameras
+        persistent:
+          type: boolean
+          description: Save instance to JSON file
+        frameRateLimit:
+          type: integer
+          description: Frame rate limit (FPS)
+          minimum: 0
+        metadataMode:
+          type: boolean
+          description: Enable metadata mode
+        statisticsMode:
+          type: boolean
+          description: Enable statistics mode
+        diagnosticsMode:
+          type: boolean
+          description: Enable diagnostics mode
+        debugMode:
+          type: boolean
+          description: Enable debug mode
+        detectorMode:
+          type: string
+          description: Detector mode
+          enum:
+          - SmartDetection
+        detectionSensitivity:
+          type: string
+          description: Detection sensitivity level
+          enum:
+          - Low
+          - Medium
+          - High
+        movementSensitivity:
+          type: string
+          description: Movement sensitivity level
+          enum:
+          - Low
+          - Medium
+          - High
+        sensorModality:
+          type: string
+          description: Sensor modality
+          enum:
+          - RGB
+          - Thermal
+        autoStart:
+          type: boolean
+          description: Automatically start instance when created
+        autoRestart:
+          type: boolean
+          description: Automatically restart instance on error
+        inputOrientation:
+          type: integer
+          description: Input orientation (0-3)
+          minimum: 0
+          maximum: 3
+        inputPixelLimit:
+          type: integer
+          description: Input pixel limit
+          minimum: 0
+        RTSP_URL:
+          type: string
+          description: RTSP URL for source
+          example: rtsp://localhost:8554/stream
+        MODEL_NAME:
+          type: string
+          description: Model name to use
+          example: yunet_2023mar
+        MODEL_PATH:
+          type: string
+          description: Direct path to model file
+          example: ./models/yunet.onnx
+        FILE_PATH:
+          type: string
+          description: File path for file source
+          example: /path/to/video.mp4
+        RTMP_URL:
+          type: string
+          description: RTMP URL for streaming destination
+          example: rtmp://localhost:1935/live/stream
+        SFACE_MODEL_PATH:
+          type: string
+          description: Path to SFace encoder model
+        SFACE_MODEL_NAME:
+          type: string
+          description: Name of SFace encoder model
+        additionalParams:
+          type: object
+          description: Additional solution-specific parameters
+          additionalProperties:
+            type: string
+    InstanceSummary:
+      type: object
+      properties:
+        instanceId:
+          type: string
+          description: Unique instance identifier (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        displayName:
+          type: string
+          description: Display name of the instance
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: Group name
+          example: cameras
+        solutionId:
+          type: string
+          description: Solution ID
+          example: face_detection
+        solutionName:
+          type: string
+          description: Solution name
+          example: Face Detection
+        running:
+          type: boolean
+          description: Whether instance pipeline is running
+        loaded:
+          type: boolean
+          description: Whether instance is loaded
+        persistent:
+          type: boolean
+          description: Whether instance is persisted to storage
+        fps:
+          type: number
+          format: double
+          description: Current frames per second
+    InstanceInfo:
+      type: object
+      required:
+      - instanceId
+      - displayName
+      properties:
+        instanceId:
+          type: string
+          description: Unique instance identifier (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        displayName:
+          type: string
+          description: Display name of the instance
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: Group name
+          example: cameras
+        solutionId:
+          type: string
+          description: Solution ID
+          example: face_detection
+        solutionName:
+          type: string
+          description: Solution name
+          example: Face Detection
+        persistent:
+          type: boolean
+          description: Whether instance is persisted to storage
+        loaded:
+          type: boolean
+          description: Whether instance is loaded
+        running:
+          type: boolean
+          description: Whether instance pipeline is running
+        fps:
+          type: number
+          format: double
+          description: Current frames per second
+        version:
+          type: string
+          description: CVEDIX SDK version
+        frameRateLimit:
+          type: integer
+          description: Frame rate limit
+        metadataMode:
+          type: boolean
+          description: Metadata mode enabled
+        statisticsMode:
+          type: boolean
+          description: Statistics mode enabled
+        diagnosticsMode:
+          type: boolean
+          description: Diagnostics mode enabled
+        debugMode:
+          type: boolean
+          description: Debug mode enabled
+        readOnly:
+          type: boolean
+          description: Read-only flag
+        autoStart:
+          type: boolean
+          description: Auto-start enabled
+        autoRestart:
+          type: boolean
+          description: Auto-restart enabled
+        systemInstance:
+          type: boolean
+          description: System instance flag
+        inputPixelLimit:
+          type: integer
+          description: Input pixel limit
+        inputOrientation:
+          type: integer
+          description: Input orientation
+        detectorMode:
+          type: string
+          description: Detector mode
+        detectionSensitivity:
+          type: string
+          description: Detection sensitivity
+        movementSensitivity:
+          type: string
+          description: Movement sensitivity
+        sensorModality:
+          type: string
+          description: Sensor modality
+        originator:
+          type: object
+          properties:
+            address:
+              type: string
+              description: Originator address
+    InstanceOutputResponse:
+      type: object
+      description: Real-time output and processing results for an instance
+      required:
+      - timestamp
+      - instanceId
+      - displayName
+      - running
+      - loaded
+      - metrics
+      - input
+      - output
+      - status
+      properties:
+        timestamp:
+          type: string
+          description: Timestamp when the output information was retrieved (real-time)
+          example: '2025-01-15 14:30:25.123'
+        instanceId:
+          type: string
+          description: Unique instance identifier (UUID)
+          example: abc-123-def
+        displayName:
+          type: string
+          description: Display name of the instance
+          example: face_detection_file_source
+        solutionId:
+          type: string
+          description: Solution ID
+          example: face_detection
+        solutionName:
+          type: string
+          description: Solution name
+          example: Face Detection
+        running:
+          type: boolean
+          description: Whether instance pipeline is running
+          example: true
+        loaded:
+          type: boolean
+          description: Whether instance is loaded
+          example: true
+        metrics:
+          type: object
+          description: Processing metrics
+          required:
+          - fps
+          properties:
+            fps:
+              type: number
+              format: double
+              description: Current frames per second
+              example: 25.5
+            frameRateLimit:
+              type: integer
+              description: Frame rate limit (0 = no limit)
+              example: 0
+        input:
+          type: object
+          description: Input source information
+          required:
+          - type
+          properties:
+            type:
+              type: string
+              enum:
+              - FILE
+              - RTSP
+              - UNKNOWN
+              description: Type of input source
+              example: FILE
+            path:
+              type: string
+              description: File path (if type is FILE)
+              example: /path/to/video.mp4
+            url:
+              type: string
+              description: RTSP URL (if type is RTSP)
+              example: rtsp://localhost:8554/live/stream
+        output:
+          type: object
+          description: Output information
+          required:
+          - type
+          properties:
+            type:
+              type: string
+              enum:
+              - FILE
+              - RTMP_STREAM
+              description: Type of output
+              example: FILE
+            rtmpUrl:
+              type: string
+              description: RTMP URL (if type is RTMP_STREAM)
+              example: rtmp://localhost:1935/live/face_stream
+            rtspUrl:
+              type: string
+              description: RTSP URL for viewing (if type is RTMP_STREAM and available)
+              example: rtsp://localhost:8554/live/face_stream_0
+            files:
+              type: object
+              description: File output information (if type is FILE)
+              properties:
+                exists:
+                  type: boolean
+                  description: Whether output directory exists
+                  example: true
+                directory:
+                  type: string
+                  description: Output directory path
+                  example: ./output/abc-123-def
+                fileCount:
+                  type: integer
+                  description: Total number of output files
+                  example: 15
+                totalSizeBytes:
+                  type: integer
+                  format: int64
+                  description: Total size of all output files in bytes
+                  example: 15728640
+                totalSize:
+                  type: string
+                  description: Total size formatted as human-readable string
+                  example: 15 MB
+                latestFile:
+                  type: string
+                  description: Name of the most recently created file
+                  example: face_detection_20250115_143025.mp4
+                latestFileTime:
+                  type: string
+                  description: Modification time of the latest file
+                  example: '2025-01-15 14:30:25'
+                recentFileCount:
+                  type: integer
+                  description: Number of files created in the last minute
+                  example: 3
+                isActive:
+                  type: boolean
+                  description: Whether instance is actively creating new files (files created in last minute)
+                  example: true
+                expectedPaths:
+                  type: array
+                  items:
+                    type: string
+                  description: Expected output directory paths (if directory doesn't exist)
+                  example:
+                  - ./output/abc-123-def
+                  - ./build/output/abc-123-def
+                error:
+                  type: string
+                  description: Error message if directory reading failed
+                  example: 'Error reading directory: Permission denied'
+        detection:
+          type: object
+          description: Detection settings
+          properties:
+            sensitivity:
+              type: string
+              description: Detection sensitivity level
+              example: Low
+            mode:
+              type: string
+              description: Detector mode
+              example: SmartDetection
+            movementSensitivity:
+              type: string
+              description: Movement sensitivity level
+              example: Low
+            sensorModality:
+              type: string
+              description: Sensor modality
+              example: RGB
+        modes:
+          type: object
+          description: Processing modes
+          properties:
+            statisticsMode:
+              type: boolean
+              description: Statistics mode enabled
+              example: true
+            metadataMode:
+              type: boolean
+              description: Metadata mode enabled
+              example: false
+            debugMode:
+              type: boolean
+              description: Debug mode enabled
+              example: true
+            diagnosticsMode:
+              type: boolean
+              description: Diagnostics mode enabled
+              example: false
+        status:
+          type: object
+          description: Status summary
+          required:
+          - running
+          - processing
+          - message
+          properties:
+            running:
+              type: boolean
+              description: Whether instance is running
+              example: true
+            processing:
+              type: boolean
+              description: Whether instance is processing frames (running && fps > 0)
+              example: true
+            message:
+              type: string
+              description: Human-readable status message
+              example: Instance is running and processing frames
+    LastFrameResponse:
+      type: object
+      description: Last frame from a running instance
+      required:
+      - frame
+      - running
+      properties:
+        frame:
+          type: string
+          description: 'Base64-encoded JPEG frame. Empty string if no frame is available.
+
+            Frame is captured from pipeline after processing (includes OSD/detection overlays).
+
+            Frame is automatically cached when pipeline processes new frames.
+
+            '
+          example: /9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=
+        running:
+          type: boolean
+          description: Whether the instance is currently running
+          example: true
+    InstanceStatisticsResponse:
+      type: object
+      description: Real-time statistics for an instance
+      required:
+      - frames_processed
+      - source_framerate
+      - current_framerate
+      - latency
+      - start_time
+      - input_queue_size
+      - dropped_frames_count
+      - resolution
+      - format
+      - source_resolution
+      properties:
+        frames_processed:
+          type: integer
+          format: int64
+          description: Total number of frames processed since instance started
+          example: 1250
+        source_framerate:
+          type: number
+          format: double
+          description: Frame rate from source (FPS from RTSP stream or video file)
+          example: 30.0
+        current_framerate:
+          type: number
+          format: double
+          description: Current processing frame rate (FPS being processed)
+          example: 25.5
+        latency:
+          type: number
+          format: double
+          description: Average processing latency per frame (milliseconds)
+          example: 200.0
+        start_time:
+          type: integer
+          format: int64
+          description: Unix timestamp when instance started (seconds)
+          example: 1764900520
+        input_queue_size:
+          type: integer
+          format: int64
+          description: Current size of input queue
+          example: 2
+        dropped_frames_count:
+          type: integer
+          format: int64
+          description: Total number of dropped frames
+          example: 5
+        resolution:
+          type: string
+          description: Current processing resolution (format WIDTHxHEIGHT)
+          example: 1280x720
+        format:
+          type: string
+          description: Frame format (typically BGR for CVEDIX SDK)
+          example: BGR
+        source_resolution:
+          type: string
+          description: Original resolution from source (format WIDTHxHEIGHT)
+          example: 1920x1080
+    SolutionSummary:
+      type: object
+      properties:
+        solutionId:
+          type: string
+          description: Unique solution identifier
+          example: face_detection
+        solutionName:
+          type: string
+          description: Display name of the solution
+          example: Face Detection
+        solutionType:
+          type: string
+          description: Type of solution
+          example: face_detection
+        isDefault:
+          type: boolean
+          description: Whether this is a default solution (cannot be deleted)
+          example: true
+        pipelineNodeCount:
+          type: integer
+          description: Number of nodes in the pipeline
+          example: 3
+    SolutionConfig:
+      type: object
+      required:
+      - solutionId
+      - solutionName
+      - solutionType
+      - pipeline
+      properties:
+        solutionId:
+          type: string
+          description: Unique solution identifier
+          example: face_detection
+        solutionName:
+          type: string
+          description: Display name of the solution
+          example: Face Detection
+        solutionType:
+          type: string
+          description: Type of solution
+          example: face_detection
+        isDefault:
+          type: boolean
+          description: Whether this is a default solution
+          example: false
+        pipeline:
+          type: array
+          description: Pipeline node configurations
+          items:
+            type: object
+            required:
+            - nodeType
+            - nodeName
+            properties:
+              nodeType:
+                type: string
+                description: 'Type of node. Available node types:
+
+
+                  **Source:** rtsp_src, file_src, app_src, image_src, rtmp_src, udp_src
+
+
+                  **Detector:** yunet_face_detector, yolo_detector, yolov11_detector, mask_rcnn_detector, openpose_detector,
+                  enet_seg,
+
+                  trt_yolov8_detector, trt_yolov8_seg_detector, trt_yolov8_pose_detector, trt_yolov8_classifier,
+
+                  trt_vehicle_detector, trt_vehicle_plate_detector, trt_vehicle_plate_detector_v2, trt_insight_face_recognition,
+
+                  rknn_yolov8_detector, rknn_yolov11_detector, rknn_face_detector, ppocr_text_detector,
+
+                  face_swap, insight_face_recognition, mllm_analyser
+
+
+                  **Processor:** sface_feature_encoder, sort_track, face_osd_v2, ba_crossline, ba_crossline_osd,
+
+                  ba_jam, ba_jam_osd, classifier,
+
+                  lane_detector, restoration, trt_vehicle_feature_encoder, trt_vehicle_color_classifier,
+
+                  trt_vehicle_type_classifier, trt_vehicle_scanner
+
+
+                  **Destination:** file_des, rtmp_des, screen_des
+
+
+                  **Broker:** json_console_broker, json_enhanced_console_broker, json_mqtt_broker, json_kafka_broker,
+
+                  xml_file_broker, xml_socket_broker, msg_broker, ba_socket_broker, embeddings_socket_broker,
+
+                  embeddings_properties_socket_broker, plate_socket_broker, expr_socket_broker
+
+
+                  See GET /v1/core/node/template for complete list with descriptions.
+
+                  '
+                example: rtsp_src
+              nodeName:
+                type: string
+                description: Node name template (may contain {instanceId} placeholder)
+                example: source_{instanceId}
+              parameters:
+                type: object
+                description: Node-specific parameters
+                additionalProperties:
+                  type: string
+                example:
+                  url: rtsp://localhost/stream
+        defaults:
+          type: object
+          description: Default parameter values
+          additionalProperties:
+            type: string
+          example:
+            RTSP_URL: rtsp://localhost/stream
+    CreateSolutionRequest:
+      type: object
+      required:
+      - solutionId
+      - solutionName
+      - solutionType
+      - pipeline
+      properties:
+        solutionId:
+          type: string
+          description: Unique solution identifier (alphanumeric, underscore, hyphen only)
+          pattern: ^[A-Za-z0-9_-]+$
+          example: custom_face_detection
+        solutionName:
+          type: string
+          description: Display name of the solution
+          example: Custom Face Detection
+        solutionType:
+          type: string
+          description: Type of solution
+          example: face_detection
+        pipeline:
+          type: array
+          description: Pipeline node configurations
+          items:
+            type: object
+            required:
+            - nodeType
+            - nodeName
+            properties:
+              nodeType:
+                type: string
+                description: Type of node
+                example: rtsp_src
+              nodeName:
+                type: string
+                description: Node name template
+                example: source_{instanceId}
+              parameters:
+                type: object
+                description: Node-specific parameters
+                additionalProperties:
+                  type: string
+        defaults:
+          type: object
+          description: Default parameter values
+          additionalProperties:
+            type: string
+    UpdateSolutionRequest:
+      type: object
+      description: Request body for updating a solution. All fields except solutionId are optional.
+      properties:
+        solutionName:
+          type: string
+          description: Display name of the solution
+          example: Updated Solution Name
+        solutionType:
+          type: string
+          description: Type of solution
+          example: face_detection
+        pipeline:
+          type: array
+          description: Pipeline node configurations
+          items:
+            type: object
+            required:
+            - nodeType
+            - nodeName
+            properties:
+              nodeType:
+                type: string
+                description: Type of node
+              nodeName:
+                type: string
+                description: Node name template
+              parameters:
+                type: object
+                description: Node-specific parameters
+                additionalProperties:
+                  type: string
+        defaults:
+          type: object
+          description: Default parameter values
+          additionalProperties:
+            type: string
+    GroupInfo:
+      type: object
+      required:
+      - groupId
+      - groupName
+      properties:
+        groupId:
+          type: string
+          description: Unique group identifier
+          pattern: ^[A-Za-z0-9_-]+$
+          example: cameras
+        groupName:
+          type: string
+          description: Display name of the group
+          pattern: ^[A-Za-z0-9 -_]+$
+          example: Security Cameras
+        description:
+          type: string
+          description: Description of the group
+          example: Group for security camera instances
+        isDefault:
+          type: boolean
+          description: Whether this is a default group (cannot be deleted)
+          example: false
+        readOnly:
+          type: boolean
+          description: Whether this group is read-only (cannot be modified)
+          example: false
+        instanceCount:
+          type: integer
+          description: Number of instances in this group
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: '2024-01-01T00:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: '2024-01-01T00:00:00.000Z'
+    CreateGroupRequest:
+      type: object
+      required:
+      - groupId
+      properties:
+        groupId:
+          type: string
+          description: Unique group identifier (alphanumeric, underscore, hyphen only)
+          pattern: ^[A-Za-z0-9_-]+$
+          example: cameras
+        groupName:
+          type: string
+          description: Display name of the group (optional, defaults to groupId)
+          pattern: ^[A-Za-z0-9 -_]+$
+          example: Security Cameras
+        description:
+          type: string
+          description: Description of the group
+          example: Group for security camera instances
+    UpdateGroupRequest:
+      type: object
+      description: Request body for updating a group. All fields are optional.
+      properties:
+        groupName:
+          type: string
+          description: Display name of the group
+          pattern: ^[A-Za-z0-9 -_]+$
+          example: Updated Group Name
+        description:
+          type: string
+          description: Description of the group
+          example: Updated description
+    NodeResponse:
+      type: object
+      required:
+      - nodeId
+      - templateId
+      - inUse
+      - parameters
+      - createdAt
+      - input
+      - output
+      properties:
+        nodeId:
+          type: string
+          description: Unique node identifier
+          example: node_a1b2c3d4
+        templateId:
+          type: string
+          description: Template ID used to create this node
+          example: rtsp_src_template
+        displayName:
+          type: string
+          description: Human-readable display name from template
+          example: RTSP Source
+        nodeType:
+          type: string
+          description: Node type from template
+          example: rtsp_src
+        category:
+          type: string
+          description: Node category from template
+          enum:
+          - source
+          - detector
+          - processor
+          - destination
+          - broker
+          example: source
+        description:
+          type: string
+          description: Node description from template
+          example: Receive video stream from RTSP URL
+        inUse:
+          type: boolean
+          description: Whether node is currently in use
+          example: false
+        parameters:
+          type: object
+          description: Node configuration parameters
+          additionalProperties:
+            type: string
+          example:
+            rtsp_url: rtsp://localhost:8554/stream1
+            channel: '0'
+            resize_ratio: '1.0'
+        requiredParameters:
+          type: array
+          description: List of required parameter names (from template)
+          items:
+            type: string
+          example:
+          - rtsp_url
+        optionalParameters:
+          type: array
+          description: List of optional parameter names (from template)
+          items:
+            type: string
+          example:
+          - channel
+          - resize_ratio
+        templateDetailUrl:
+          type: string
+          description: URL to get detailed template information
+          example: /v1/core/node/template/rtsp_src_template
+        parameterSchema:
+          type: object
+          description: 'Detailed schema for all parameters, providing UI-friendly metadata including:
+
+            - Type information (string, number, integer, boolean)
+
+            - Validation rules (min, max, pattern, enum)
+
+            - UI hints (input type, widget type, placeholder)
+
+            - Descriptions and examples
+
+            - Categories for grouping
+
+            '
+          additionalProperties:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Parameter name
+              type:
+                type: string
+                description: Parameter data type
+                enum:
+                - string
+                - number
+                - integer
+                - boolean
+              required:
+                type: boolean
+                description: Whether this parameter is required
+              currentValue:
+                type: string
+                description: Current value of the parameter
+              default:
+                type: string
+                description: Default value
+              description:
+                type: string
+                description: Detailed description of the parameter
+              category:
+                type: string
+                description: Parameter category for UI grouping
+                enum:
+                - connection
+                - performance
+                - model
+                - output
+                - display
+                - general
+              uiHints:
+                type: object
+                properties:
+                  inputType:
+                    type: string
+                    description: HTML input type
+                    enum:
+                    - text
+                    - number
+                    - url
+                    - file
+                    - checkbox
+                  widget:
+                    type: string
+                    description: Recommended UI widget type
+                    enum:
+                    - input
+                    - slider
+                    - switch
+                    - url-input
+                    - file-picker
+                  placeholder:
+                    type: string
+                    description: Placeholder text for input field
+              validation:
+                type: object
+                properties:
+                  min:
+                    type: number
+                    description: Minimum value (for numbers)
+                  max:
+                    type: number
+                    description: Maximum value (for numbers)
+                  step:
+                    type: number
+                    description: Step value (for sliders)
+                  pattern:
+                    type: string
+                    description: Regex pattern (for strings)
+                  patternDescription:
+                    type: string
+                    description: Human-readable pattern description
+                  enum:
+                    type: array
+                    description: Allowed values (for enums)
+                    items:
+                      type: string
+              examples:
+                type: array
+                description: Example values
+                items:
+                  type: string
+          example:
+            rtsp_url:
+              name: rtsp_url
+              type: string
+              required: true
+              description: RTSP stream URL (e.g., rtsp://camera-ip:8554/stream)
+              category: connection
+              uiHints:
+                inputType: url
+                widget: url-input
+                placeholder: rtsp://camera-ip:8554/stream
+              validation:
+                pattern: ^(rtsp|rtmp|http|https|file|udp)://.+
+                patternDescription: Must be a valid URL (rtsp://, rtmp://, http://, https://, file://, or udp://)
+              examples:
+              - rtsp://192.168.1.100:8554/stream1
+              - rtsp://admin:password@camera-ip:554/stream
+            channel:
+              name: channel
+              type: integer
+              required: false
+              default: '0'
+              currentValue: '0'
+              description: Channel number for multi-channel processing (0-15)
+              category: connection
+              uiHints:
+                inputType: number
+                widget: input
+                placeholder: '0'
+              validation:
+                min: 0
+                max: 15
+        input:
+          type: array
+          description: 'What this node requires as input from the pipeline. Each item describes the input type with details.
+
+            - source nodes: external_source - receives input from external source (RTSP, file, etc.)
+
+            - detector nodes: video_frames - requires video frames from previous node
+
+            - processor nodes: video_frames, metadata - requires video frames and metadata
+
+            - destination nodes: video_frames, metadata - requires video frames and metadata
+
+            - broker nodes: metadata, detection_results - requires metadata and detection results
+
+            '
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Input type identifier
+                example: video_frames
+              description:
+                type: string
+                description: Detailed description of the input
+                example: Video frames from previous node
+              format:
+                type: string
+                description: Data format (if applicable)
+                example: BGR/RGB image frames
+              multiple:
+                type: boolean
+                description: Whether this input/output supports multiple connections
+                example: false
+              optional:
+                type: boolean
+                description: Whether this input is optional
+                example: false
+              minInputs:
+                type: integer
+                description: Minimum number of inputs required (for multiple inputs)
+                example: 2
+              maxInputs:
+                type: integer
+                description: Maximum number of inputs allowed (-1 for unlimited)
+                example: -1
+              maxOutputs:
+                type: integer
+                description: Maximum number of outputs (-1 for unlimited, only for outputs)
+                example: -1
+          example:
+          - type: external_source
+            description: Receives input from external source (file, RTSP, RTMP, etc.)
+          - type: video_frames
+            description: Video frames from multiple channels/nodes (supports multiple inputs)
+            format: BGR/RGB image frames
+            multiple: true
+            minInputs: 2
+            maxInputs: -1
+        output:
+          type: array
+          description: 'What this node produces as output for the pipeline. Each item describes the output type with details
+            including how to access it.
+
+            - source nodes: video_frames - outputs video frames
+
+            - detector nodes: video_frames, detection_results - outputs video frames and detection results
+
+            - processor nodes: video_frames, metadata - outputs processed video frames and metadata
+
+            - destination nodes: specific output type (rtsp_stream, rtmp_stream, video_file, etc.) - outputs to external destination
+
+            - broker nodes: specific output type (mqtt_messages, kafka_messages, socket_messages, etc.) - outputs to external
+            broker
+
+            '
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Output type identifier
+                example: rtsp_stream
+              description:
+                type: string
+                description: Detailed description of the output
+                example: RTSP video stream
+              protocol:
+                type: string
+                description: Protocol used (if applicable)
+                example: RTSP
+              format:
+                type: string
+                description: Data format (if applicable)
+                example: MP4 video file
+              accessInfo:
+                type: string
+                description: Information on how to access/use the output
+                example: 'Access via RTSP URL: rtsp://<host>:8000/stream (default: rtsp://localhost:8000/stream)'
+              example:
+                type: string
+                description: Example of how to access the output
+                example: rtsp://localhost:8000/stream
+              configurableParameters:
+                type: array
+                description: Parameters that can be configured to affect the output
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Parameter name
+                      example: port
+                    description:
+                      type: string
+                      description: Parameter description
+                      example: RTSP server port
+                    default:
+                      type: string
+                      description: Default value
+                      example: '8000'
+                    affects:
+                      type: string
+                      description: What part of the output this parameter affects
+                      example: RTSP URL port
+              multiple:
+                type: boolean
+                description: Whether this output supports multiple connections
+                example: false
+              maxOutputs:
+                type: integer
+                description: Maximum number of outputs (-1 for unlimited)
+                example: -1
+          example:
+          - type: rtsp_stream
+            description: RTSP video stream
+            protocol: RTSP
+            accessInfo: 'Access via RTSP URL: rtsp://<host>:8000/stream (default: rtsp://localhost:8000/stream)'
+            example: rtsp://localhost:8000/stream
+            configurableParameters:
+            - name: port
+              description: RTSP server port
+              default: '8000'
+              affects: RTSP URL port
+            - name: stream_name
+              description: RTSP stream name/path
+              default: stream
+              affects: RTSP URL path
+        createdAt:
+          type: string
+          format: date-time
+          description: Node creation timestamp (ISO 8601 format)
+          example: '2025-01-15T10:30:00Z'
+        message:
+          type: string
+          description: Success message (for create/update operations)
+          example: Node created successfully
+        oldNodeId:
+          type: string
+          description: Previous node ID (for update operations)
+          example: node_old123
+        newNodeId:
+          type: string
+          description: New node ID (for update operations)
+          example: node_new456
+    NodeListResponse:
+      type: object
+      required:
+      - nodes
+      - total
+      - available
+      - inUse
+      properties:
+        nodes:
+          type: array
+          description: List of pre-configured nodes
+          items:
+            $ref: '#/components/schemas/NodeResponse'
+        total:
+          type: integer
+          description: Total number of nodes in the list
+          example: 20
+        available:
+          type: integer
+          description: Total number of available (not in use) nodes
+          example: 15
+        inUse:
+          type: integer
+          description: Total number of nodes currently in use
+          example: 5
+    CreateNodeRequest:
+      type: object
+      required:
+      - templateId
+      properties:
+        templateId:
+          type: string
+          description: Template ID to use for creating the node
+          example: rtsp_src_template
+        parameters:
+          type: object
+          description: Node parameters (must include all required parameters from template)
+          additionalProperties:
+            type: string
+          example:
+            rtsp_url: rtsp://localhost:8554/stream1
+            channel: '0'
+            resize_ratio: '1.0'
+    UpdateNodeRequest:
+      type: object
+      required:
+      - parameters
+      properties:
+        parameters:
+          type: object
+          description: Updated node parameters
+          additionalProperties:
+            type: string
+          example:
+            rtsp_url: rtsp://localhost:8554/stream2
+            channel: '0'
+            resize_ratio: '0.5'
+    Coordinate:
+      type: object
+      required:
+      - x
+      - y
+      properties:
+        x:
+          type: number
+          format: double
+          description: The x coordinate
+          example: 100.0
+        y:
+          type: number
+          format: double
+          description: The y coordinate
+          example: 300.0
+    FaceDatabaseConnectionConfig:
+      type: object
+      required:
+      - type
+      - host
+      - database
+      - username
+      - password
+      properties:
+        type:
+          type: string
+          enum:
+          - mysql
+          - postgresql
+          description: Database type
+          example: mysql
+        host:
+          type: string
+          description: Database host address
+          example: localhost
+        port:
+          type: integer
+          description: Database port number
+          default: 3306
+          example: 3306
+        database:
+          type: string
+          description: Database name
+          example: face_db
+        username:
+          type: string
+          description: Database username
+          example: face_user
+        password:
+          type: string
+          description: Database password
+          example: secure_password
+        charset:
+          type: string
+          description: 'Character set for database connection (default: utf8mb4)'
+          default: utf8mb4
+          example: utf8mb4
+    CrossingLine:
+      type: object
+      required:
+      - id
+      - coordinates
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the line
+          example: b1234567-89ab-cdef-0123-456789abcdef
+        name:
+          type: string
+          description: Human-readable name for the line
+          example: Counting Line 1
+        coordinates:
+          type: array
+          description: List of coordinate objects defining the line (minimum 2 points)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 2
+          example:
+          - x: 100.0
+            y: 300.0
+          - x: 600.0
+            y: 300.0
+        direction:
+          type: string
+          description: Direction for counting (Up, Down, or Both)
+          enum:
+          - Up
+          - Down
+          - Both
+          default: Both
+          example: Both
+        classes:
+          type: array
+          description: Object classes to count
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        color:
+          type: array
+          description: Line color in RGBA format
+          items:
+            type: integer
+            minimum: 0
+            maximum: 255
+          minItems: 4
+          maxItems: 4
+          example:
+          - 255
+          - 0
+          - 0
+          - 255
+    CreateLineRequest:
+      type: object
+      required:
+      - coordinates
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the line
+          example: Counting Line 1
+        coordinates:
+          type: array
+          description: List of coordinate objects defining the line (minimum 2 points)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 2
+          example:
+          - x: 100.0
+            y: 300.0
+          - x: 600.0
+            y: 300.0
+        direction:
+          type: string
+          description: Direction for counting (Up, Down, or Both)
+          enum:
+          - Up
+          - Down
+          - Both
+          default: Both
+          example: Both
+        classes:
+          type: array
+          description: Object classes to count
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        color:
+          type: array
+          description: Line color in RGBA format (default is red)
+          items:
+            type: integer
+            minimum: 0
+            maximum: 255
+          minItems: 4
+          maxItems: 4
+          default:
+          - 255
+          - 0
+          - 0
+          - 255
+          example:
+          - 255
+          - 0
+          - 0
+          - 255
+    LinesResponse:
+      type: object
+      required:
+      - crossingLines
+      properties:
+        crossingLines:
+          type: array
+          description: List of crossing lines
+          items:
+            $ref: '#/components/schemas/CrossingLine'
+    StopZone:
+      type: object
+      required:
+      - id
+      - roi
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the stop zone
+          example: b1234567-89ab-cdef-0123-456789abcdef
+        name:
+          type: string
+          description: Human-readable name for the stop zone
+          example: Stop Zone 1
+        roi:
+          type: array
+          description: List of coordinate objects defining the ROI (minimum 3 points)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+          example:
+          - x: 100.0
+            y: 100.0
+          - x: 200.0
+            y: 100.0
+          - x: 200.0
+            y: 200.0
+        min_stop_seconds:
+          type: number
+          description: Minimum seconds object must be stationary to consider a stop
+          example: 3
+        check_interval_frames:
+          type: integer
+          description: 'Frames between stop checks (default: 20)'
+          default: 20
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: 'Consecutive frames object must be stationary to trigger a stop (default: 50)'
+          default: 50
+          example: 50
+        check_max_distance:
+          type: number
+          description: 'Maximum pixel movement between frames to still be considered stationary (default: 5)'
+          default: 5
+          example: 5
+    CreateStopRequest:
+      type: object
+      required:
+      - roi
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the stop zone
+          example: Stop Zone 1
+        roi:
+          type: array
+          description: List of coordinate objects defining the ROI (minimum 3 points)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+          example:
+          - x: 100.0
+            y: 100.0
+          - x: 200.0
+            y: 100.0
+          - x: 200.0
+            y: 200.0
+        min_stop_seconds:
+          type: number
+          description: Minimum seconds object must be stationary to consider a stop
+          default: 3
+          example: 3
+        check_interval_frames:
+          type: integer
+          description: 'Frames between stop checks (default: 20)'
+          default: 20
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: 'Consecutive frames object must be stationary to trigger a stop (default: 50)'
+          default: 50
+          example: 50
+        check_max_distance:
+          type: number
+          description: 'Maximum pixel movement between frames to still be considered stationary (default: 5)'
+          default: 5
+          example: 5
+    StopsResponse:
+      type: object
+      required:
+      - stopZones
+      properties:
+        stopZones:
+          type: array
+          description: List of stop zones
+          items:
+            $ref: '#/components/schemas/StopZone'
+    JamZone:
+      type: object
+      required:
+      - id
+      - roi
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the jam zone
+          example: b1234567-89ab-cdef-0123-456789abcdef
+        name:
+          type: string
+          description: Human-readable name for the zone
+          example: Downtown Jam Zone
+        roi:
+          type: array
+          description: Polygon ROI where jam detection is applied (min 3 points)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+          example:
+          - x: 0
+            y: 100
+          - x: 1920
+            y: 100
+          - x: 1920
+            y: 400
+          - x: 0
+            y: 400
+        check_interval_frames:
+          type: integer
+          description: Frames between checks
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: Frames object must be stopped
+          example: 50
+        check_max_distance:
+          type: integer
+          description: Max pixel movement to be considered 'stopped'
+          example: 8
+        check_min_stops:
+          type: integer
+          description: Min stopped objects for jam
+          example: 8
+        check_notify_interval:
+          type: integer
+          description: Seconds between notifications
+          example: 10
+    CreateJamRequest:
+      type: object
+      required:
+      - roi
+      properties:
+        name:
+          type: string
+          description: Human-readable name for the zone
+          example: Downtown Jam Zone
+        roi:
+          type: array
+          description: Polygon ROI where jam detection is applied (min 3 points)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+        check_interval_frames:
+          type: integer
+          description: Frames between checks
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: Frames object must be stopped
+          example: 50
+        check_max_distance:
+          type: integer
+          description: Max pixel movement to be considered 'stopped'
+          example: 8
+        check_min_stops:
+          type: integer
+          description: Min stopped objects for jam
+          example: 8
+        check_notify_interval:
+          type: integer
+          description: Seconds between notifications
+          example: 10
+    JamsResponse:
+      type: object
+      required:
+      - jamZones
+      properties:
+        jamZones:
+          type: array
+          description: List of jam zones
+          items:
+            $ref: '#/components/schemas/JamZone'
+    CreateJamsResponse:
+      type: object
+      required:
+      - message
+      - count
+      - zones
+      properties:
+        message:
+          type: string
+          description: Informational message about the operation
+          example: Zones created successfully
+        count:
+          type: integer
+          description: Number of zones created
+          example: 2
+        zones:
+          type: array
+          description: Created zone objects
+          items:
+            $ref: '#/components/schemas/JamZone'
+    CreateStopsResponse:
+      type: object
+      required:
+      - message
+      - count
+      - stops
+      properties:
+        message:
+          type: string
+          description: Informational message about the operation
+          example: Stops created successfully
+        count:
+          type: integer
+          description: Number of stops created
+          example: 2
+        stops:
+          type: array
+          description: Created stop objects
+          items:
+            $ref: '#/components/schemas/StopZone'
+    TemplateResponse:
+      type: object
+      required:
+      - templateId
+      - nodeType
+      - displayName
+      - category
+      - isPreConfigured
+      - defaultParameters
+      - requiredParameters
+      - optionalParameters
+      properties:
+        templateId:
+          type: string
+          description: Unique template identifier
+          example: rtsp_src_template
+        nodeType:
+          type: string
+          description: Node type identifier
+          example: rtsp_src
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: RTSP Source
+        description:
+          type: string
+          description: Template description
+          example: Receive video stream from RTSP URL
+        category:
+          type: string
+          description: Node category
+          enum:
+          - source
+          - detector
+          - processor
+          - destination
+          - broker
+          example: source
+        isPreConfigured:
+          type: boolean
+          description: Whether this template creates pre-configured nodes
+          example: false
+        defaultParameters:
+          type: object
+          description: Default parameter values
+          additionalProperties:
+            type: string
+          example:
+            channel: '0'
+            resize_ratio: '1.0'
+        requiredParameters:
+          type: array
+          description: List of required parameter names
+          items:
+            type: string
+          example:
+          - rtsp_url
+        optionalParameters:
+          type: array
+          description: List of optional parameter names
+          items:
+            type: string
+          example:
+          - channel
+          - resize_ratio
+    TemplateListResponse:
+      type: object
+      required:
+      - templates
+      - total
+      properties:
+        templates:
+          type: array
+          description: List of node templates
+          items:
+            $ref: '#/components/schemas/TemplateResponse'
+        total:
+          type: integer
+          description: Total number of templates
+          example: 10
+    NodeStatsResponse:
+      type: object
+      required:
+      - totalTemplates
+      - totalPreConfiguredNodes
+      - availableNodes
+      - inUseNodes
+      - nodesByCategory
+      properties:
+        totalTemplates:
+          type: integer
+          description: Total number of node templates
+          example: 10
+        totalPreConfiguredNodes:
+          type: integer
+          description: Total number of pre-configured nodes
+          example: 20
+        availableNodes:
+          type: integer
+          description: Number of available (not in use) nodes
+          example: 15
+        inUseNodes:
+          type: integer
+          description: Number of nodes currently in use
+          example: 5
+        nodesByCategory:
+          type: object
+          description: Count of nodes by category
+          additionalProperties:
+            type: integer
+          example:
+            source: 5
+            detector: 8
+            processor: 4
+            destination: 3
+            broker: 0
+    SecuRTInstanceWrite:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          description: Instance name
+          example: My SecuRT Instance
+        detectorMode:
+          type: string
+          enum:
+          - SmartDetection
+          - Detection
+          description: Detector mode
+          default: SmartDetection
+          example: SmartDetection
+        detectionSensitivity:
+          type: string
+          enum:
+          - Low
+          - Medium
+          - High
+          description: Detection sensitivity level
+          default: Low
+          example: Low
+        movementSensitivity:
+          type: string
+          enum:
+          - Low
+          - Medium
+          - High
+          description: Movement sensitivity level
+          default: Low
+          example: Low
+        sensorModality:
+          type: string
+          enum:
+          - RGB
+          - Thermal
+          description: Sensor modality
+          default: RGB
+          example: RGB
+        frameRateLimit:
+          type: number
+          format: double
+          description: Frame rate limit (FPS, 0 = unlimited)
+          default: 0
+          example: 0
+        metadataMode:
+          type: boolean
+          description: Enable metadata mode (output detection results as JSON)
+          default: false
+          example: false
+        statisticsMode:
+          type: boolean
+          description: Enable statistics mode
+          default: false
+          example: false
+        diagnosticsMode:
+          type: boolean
+          description: Enable diagnostics mode
+          default: false
+          example: false
+        debugMode:
+          type: boolean
+          description: Enable debug mode
+          default: false
+          example: false
+    SecuRTInstanceStats:
+      type: object
+      properties:
+        startTime:
+          type: integer
+          format: int64
+          description: Start time as Unix timestamp in milliseconds
+          example: 1704067200000
+        frameRate:
+          type: number
+          format: double
+          description: Current frame rate (FPS)
+          example: 30.5
+        latency:
+          type: number
+          format: double
+          description: Average latency in milliseconds
+          example: 33.2
+        framesProcessed:
+          type: integer
+          description: Total frames processed
+          example: 91500
+        trackCount:
+          type: integer
+          description: Current track count
+          example: 5
+        isRunning:
+          type: boolean
+          description: Whether instance is running
+          example: true
+    SecuRTInputRequest:
+      type: object
+      required:
+      - type
+      - uri
+      properties:
+        type:
+          type: string
+          description: Type of input source
+          enum:
+          - File
+          - RTSP
+          - RTMP
+          - HLS
+          example: RTSP
+        uri:
+          type: string
+          description: URI of the input source
+          example: rtsp://192.168.1.100:554/stream1
+        additionalParams:
+          type: object
+          description: Additional parameters for input configuration
+          properties:
+            RTSP_TRANSPORT:
+              type: string
+              enum:
+              - tcp
+              - udp
+              description: RTSP transport protocol (for RTSP input only)
+              example: tcp
+            GST_DECODER_NAME:
+              type: string
+              description: GStreamer decoder name (e.g., "avdec_h264", "decodebin")
+              example: avdec_h264
+            USE_URISOURCEBIN:
+              type: string
+              enum:
+              - 'true'
+              - 'false'
+              - '1'
+              - '0'
+              description: Use urisourcebin format for auto-detection (for RTSP input only)
+              example: 'false'
+          additionalProperties: true
+    SecuRTOutputRequest:
+      type: object
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          description: Type of output destination
+          enum:
+          - MQTT
+          - RTMP
+          - RTSP
+          - HLS
+          example: MQTT
+        broker:
+          type: string
+          description: MQTT broker address (required for MQTT output)
+          example: localhost
+        port:
+          type: string
+          description: 'MQTT broker port (optional, default: 1883)'
+          example: '1883'
+        topic:
+          type: string
+          description: 'MQTT topic (optional, default: securt/{instanceId})'
+          example: securt/detections
+        username:
+          type: string
+          description: MQTT username (optional)
+          example: ''
+        password:
+          type: string
+          description: MQTT password (optional)
+          example: ''
+        uri:
+          type: string
+          format: uri
+          description: Output URI (required for RTMP/RTSP/HLS output)
+          example: rtmp://live.example.com/live/stream
+    ColorRGBA:
+      type: array
+      items:
+        type: number
+        format: double
+        minimum: 0.0
+        maximum: 1.0
+      minItems: 4
+      maxItems: 4
+      description: Color in RGBA format [r, g, b, a] with values 0.0-1.0
+      example:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    AreaBaseWrite:
+      type: object
+      required:
+      - name
+      - coordinates
+      - classes
+      properties:
+        name:
+          type: string
+          description: Area name
+          example: Main Entry Area
+        coordinates:
+          type: array
+          minItems: 3
+          description: Array of coordinates defining the area polygon
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          example:
+          - x: 0.0
+            y: 0.0
+          - x: 1.0
+            y: 0.0
+          - x: 1.0
+            y: 1.0
+          - x: 0.0
+            y: 1.0
+        classes:
+          type: array
+          minItems: 1
+          description: Object classes to detect in this area
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    AreaBaseRead:
+      type: object
+      required:
+      - id
+      - name
+      - coordinates
+      - classes
+      properties:
+        id:
+          type: string
+          description: Area ID (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: Area name
+          example: Main Entry Area
+        coordinates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coordinate'
+        classes:
+          type: array
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    CrossingAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        properties:
+          ignoreStationaryObjects:
+            type: boolean
+            description: Ignore stationary objects
+            default: false
+            example: false
+          areaEvent:
+            type: string
+            enum:
+            - Enter
+            - Exit
+            - Both
+            description: Area event type
+            default: Both
+            example: Both
+    CrossingAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          ignoreStationaryObjects:
+            type: boolean
+            example: false
+          areaEvent:
+            type: string
+            enum:
+            - Enter
+            - Exit
+            - Both
+            example: Both
+    IntrusionAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    IntrusionAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    LoiteringAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Duration threshold in seconds
+            example: 5
+    LoiteringAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 5
+    CrowdingAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - objectCount
+        - seconds
+        properties:
+          objectCount:
+            type: integer
+            minimum: 1
+            description: Crowding threshold (number of objects)
+            example: 5
+          seconds:
+            type: integer
+            minimum: 1
+            description: Duration before trigger in seconds
+            example: 3
+    CrowdingAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          objectCount:
+            type: integer
+            example: 5
+          seconds:
+            type: integer
+            example: 3
+    OccupancyAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    OccupancyAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    CrowdEstimationAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    CrowdEstimationAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    DwellingAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Duration threshold in seconds
+            example: 10
+    DwellingAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 10
+    ArmedPersonAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    ArmedPersonAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    ObjectLeftAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Duration threshold in seconds
+            example: 5
+    ObjectLeftAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 5
+    ObjectRemovedAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Duration threshold in seconds
+            example: 5
+    ObjectRemovedAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 5
+    FallenPersonAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    FallenPersonAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    VehicleGuardAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+      x-internal: true
+    VehicleGuardAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+      x-internal: true
+    FaceCoveredAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+      x-internal: true
+    FaceCoveredAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+      x-internal: true
+    ObjectEnterExitAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        properties:
+          alertOnEnter:
+            type: boolean
+            default: true
+            description: Alert when object enters the area
+            example: true
+          alertOnExit:
+            type: boolean
+            default: true
+            description: Alert when object exits the area
+            example: true
+    ObjectEnterExitAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          alertOnEnter:
+            type: boolean
+            description: Alert when object enters the area
+            example: true
+          alertOnExit:
+            type: boolean
+            description: Alert when object exits the area
+            example: true
+    LineBaseWrite:
+      type: object
+      required:
+      - name
+      - coordinates
+      properties:
+        name:
+          type: string
+          description: Line name
+          example: Main Counting Line
+        coordinates:
+          type: array
+          minItems: 2
+          maxItems: 2
+          description: Array of exactly 2 coordinates defining the line
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          example:
+          - x: 0.0
+            y: 250.0
+          - x: 700.0
+            y: 220.0
+        classes:
+          type: array
+          minItems: 1
+          description: Object classes to detect on this line
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        direction:
+          type: string
+          enum:
+          - Up
+          - Down
+          - Both
+          description: Line crossing direction
+          default: Both
+          example: Both
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    LineBaseRead:
+      type: object
+      required:
+      - id
+      - name
+      - coordinates
+      - classes
+      properties:
+        id:
+          type: string
+          description: Line ID (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: Line name
+          example: Main Counting Line
+        coordinates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coordinate'
+        classes:
+          type: array
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+        direction:
+          type: string
+          enum:
+          - Up
+          - Down
+          - Both
+          example: Both
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    CountingLineWrite:
+      $ref: '#/components/schemas/LineBaseWrite'
+    CountingLineRead:
+      $ref: '#/components/schemas/LineBaseRead'
+    CrossingLineWrite:
+      $ref: '#/components/schemas/LineBaseWrite'
+    CrossingLineRead:
+      $ref: '#/components/schemas/LineBaseRead'
+    TailgatingLineWrite:
+      allOf:
+      - $ref: '#/components/schemas/LineBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Time window in seconds for tailgating detection
+            example: 1
+    TailgatingLineRead:
+      allOf:
+      - $ref: '#/components/schemas/LineBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 1
+    ONVIFCamera:
+      type: object
+      description: ONVIF camera information
+      properties:
+        ip:
+          type: string
+          format: ipv4
+          description: Camera IP address
+          example: '{ip_address}'
+        uuid:
+          type: string
+          description: Camera UUID (unique identifier)
+          example: 00000000-0000-0000-0000-000000000000
+        manufacturer:
+          type: string
+          description: Camera manufacturer name
+          example: Hikvision
+        model:
+          type: string
+          description: Camera model name
+          example: DS-2CD2347G1-LU
+        serialNumber:
+          type: string
+          description: Camera serial number
+          example: ABC123456
+    ONVIFStream:
+      type: object
+      description: ONVIF video stream information
+      properties:
+        token:
+          type: string
+          description: Stream profile token
+          example: Profile_1
+        width:
+          type: integer
+          description: Stream width in pixels
+          example: 1920
+        height:
+          type: integer
+          description: Stream height in pixels
+          example: 1080
+        fps:
+          type: integer
+          description: Frame rate (frames per second)
+          example: 30
+          uri:
+            type: string
+            format: uri
+            description: RTSP stream URI
+            example: rtsp://{ip_address}:554/Streaming/Channels/101
+    ONVIFCredentialsRequest:
+      type: object
+      required:
+      - username
+      - password
+      description: ONVIF camera credentials
+      properties:
+        username:
+          type: string
+          description: Camera username
+          example: admin
+        password:
+          type: string
+          format: password
+          description: Camera password
+          example: password123

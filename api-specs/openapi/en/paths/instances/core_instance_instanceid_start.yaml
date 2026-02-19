@@ -1,0 +1,74 @@
+# API endpoint: /v1/core/instance/{instanceId}/start
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/start:
+  post:
+    summary: Start an instance
+    description: 'Starts the pipeline for an instance. The instance must have a pipeline configured and a valid solution.
+
+
+      **Prerequisites:**
+
+      - Instance must exist
+
+      - Instance must have a valid solution configuration
+
+      - Instance must not be read-only
+
+      - Input source must be properly configured (if required by solution)
+
+
+      **Behavior:**
+
+      - If the instance is already running, the request will succeed without error
+
+      - The pipeline will be built and started based on the instance''s solution configuration
+
+      - Processing will begin according to the configured input source and detector settings
+
+      - Returns the updated instance information with `running: true`
+
+
+      **Note:** Starting an instance may take a few seconds as the pipeline is initialized.
+
+      '
+    operationId: startInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: Instance started successfully
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/InstanceInfo'
+              - type: object
+                properties:
+                  message:
+                    type: string
+      '400':
+        description: Failed to start instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

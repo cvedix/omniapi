@@ -1,0 +1,52 @@
+# API endpoint: /v1/securt/instance/{instanceId}/area/{areaId}
+# Tag: Area SecuRT
+
+/v1/securt/instance/{instanceId}/area/{areaId}:
+  delete:
+    summary: Delete area by ID
+    description: Deletes a specific area by its ID
+    operationId: deleteArea
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    - name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Area ID
+    responses:
+      '204':
+        description: Area deleted successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Area or instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for delete area
+    operationId: deleteAreaOptions
+    tags:
+    - Area SecuRT
+    responses:
+      '200':
+        description: CORS preflight response

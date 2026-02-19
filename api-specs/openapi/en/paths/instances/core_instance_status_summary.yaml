@@ -1,0 +1,54 @@
+# API endpoint: /v1/core/instance/status/summary
+# Tag: Instances
+
+/v1/core/instance/status/summary:
+  get:
+    summary: Get instance status summary
+    description: 'Returns a summary of instance status including total number of configured instances,
+
+      number of running instances, and number of stopped instances.
+
+      '
+    operationId: getStatusSummary
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Instance status summary
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusResponse'
+            example:
+              total: 5
+              configured: 5
+              running: 3
+              stopped: 2
+              timestamp: '2024-01-01T00:00:00.000Z'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for status summary endpoint
+    operationId: statusSummaryOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: CORS preflight response
+        headers:
+          Access-Control-Allow-Origin:
+            schema:
+              type: string
+              example: '*'
+          Access-Control-Allow-Methods:
+            schema:
+              type: string
+              example: GET, OPTIONS
+          Access-Control-Allow-Headers:
+            schema:
+              type: string
+              example: Content-Type, Authorization

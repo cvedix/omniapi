@@ -1,0 +1,331 @@
+# API endpoint: /v1/core/solution/{solutionId}/parameters
+# Tag: Solutions
+
+/v1/core/solution/{solutionId}/parameters:
+  get:
+    summary: Get solution parameter schema
+    description: 'Returns the parameter schema required to create an instance with this solution.
+
+      This includes:
+
+      - **Additional Parameters**: Solution-specific parameters extracted from pipeline nodes (e.g., RTSP_URL, MODEL_PATH,
+      FILE_PATH)
+
+      - **Standard Fields**: Common instance creation fields (name, group, persistent, autoStart, etc.)
+
+
+      Parameters marked as required must be provided in the `additionalParams` object when creating an instance.
+
+      Parameters with default values are optional.
+
+      '
+    operationId: getSolutionParameters
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Solution ID
+    responses:
+      '200':
+        description: Solution parameter schema
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                solutionId:
+                  type: string
+                  description: Solution ID
+                  example: face_detection
+                solutionName:
+                  type: string
+                  description: Solution display name
+                  example: Face Detection
+                solutionType:
+                  type: string
+                  description: Solution type
+                  example: face_detection
+                pipeline:
+                  type: array
+                  description: Pipeline nodes with detailed parameter information
+                  items:
+                    type: object
+                    properties:
+                      nodeType:
+                        type: string
+                        description: Node type identifier
+                        example: rtsp_src
+                      nodeName:
+                        type: string
+                        description: Node name template
+                        example: source_{instanceId}
+                      displayName:
+                        type: string
+                        description: Node display name
+                        example: RTSP Source
+                      description:
+                        type: string
+                        description: Node description
+                        example: Receive video stream from RTSP URL
+                      category:
+                        type: string
+                        description: Node category
+                        enum:
+                        - source
+                        - detector
+                        - processor
+                        - destination
+                        - broker
+                        example: source
+                      requiredParameters:
+                        type: array
+                        description: Required parameters for this node type
+                        items:
+                          type: string
+                        example:
+                        - rtsp_url
+                      optionalParameters:
+                        type: array
+                        description: Optional parameters for this node type
+                        items:
+                          type: string
+                        example:
+                        - channel
+                        - resize_ratio
+                      defaultParameters:
+                        type: object
+                        description: Default parameter values
+                        additionalProperties:
+                          type: string
+                        example:
+                          channel: '0'
+                          resize_ratio: '1.0'
+                      parameters:
+                        type: object
+                        description: Current parameter values in solution
+                        additionalProperties:
+                          type: string
+                        example:
+                          rtsp_url: ${RTSP_URL}
+                  example:
+                  - nodeType: rtsp_src
+                    nodeName: source_{instanceId}
+                    displayName: RTSP Source
+                    description: Receive video stream from RTSP URL
+                    category: source
+                    requiredParameters:
+                    - rtsp_url
+                    optionalParameters:
+                    - channel
+                    - resize_ratio
+                    defaultParameters:
+                      channel: '0'
+                      resize_ratio: '1.0'
+                    parameters:
+                      rtsp_url: ${RTSP_URL}
+                additionalParams:
+                  type: object
+                  description: Solution-specific parameters extracted from pipeline nodes
+                  additionalProperties:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: Parameter name
+                      type:
+                        type: string
+                        description: Parameter type
+                        example: string
+                      required:
+                        type: boolean
+                        description: Whether this parameter is required
+                      default:
+                        type: string
+                        description: Default value if available
+                      description:
+                        type: string
+                        description: Parameter description
+                      usedInNodes:
+                        type: array
+                        description: List of node types that use this parameter
+                        items:
+                          type: string
+                        example:
+                        - rtsp_src
+                        - rtmp_src
+                  example:
+                    RTSP_URL:
+                      name: RTSP_URL
+                      type: string
+                      required: true
+                      description: URL for rtsp_src node
+                    MODEL_PATH:
+                      name: MODEL_PATH
+                      type: string
+                      required: false
+                      default: ./models/default.onnx
+                      description: File path for yunet_face_detector node
+                requiredAdditionalParams:
+                  type: array
+                  description: List of required additional parameter names
+                  items:
+                    type: string
+                  example:
+                  - RTSP_URL
+                standardFields:
+                  type: object
+                  description: Standard instance creation fields
+                  additionalProperties:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        description: Field type
+                      required:
+                        type: boolean
+                        description: Whether this field is required
+                      default:
+                        description: Default value
+                      description:
+                        type: string
+                        description: Field description
+                      pattern:
+                        type: string
+                        description: Validation pattern (for strings)
+                      enum:
+                        type: array
+                        description: Allowed values (for enums)
+                        items:
+                          type: string
+                      minimum:
+                        type: number
+                        description: Minimum value (for numbers)
+                  example:
+                    name:
+                      type: string
+                      required: true
+                      description: 'Instance name (pattern: ^[A-Za-z0-9 -_]+$)'
+                      pattern: ^[A-Za-z0-9 -_]+$
+                    group:
+                      type: string
+                      required: false
+                      description: 'Group name (pattern: ^[A-Za-z0-9 -_]+$)'
+                      pattern: ^[A-Za-z0-9 -_]+$
+                    persistent:
+                      type: boolean
+                      required: false
+                      default: false
+                      description: Save instance to JSON file
+                    autoStart:
+                      type: boolean
+                      required: false
+                      default: false
+                      description: Automatically start instance when created
+                requiredStandardFields:
+                  type: array
+                  description: List of required standard field names
+                  items:
+                    type: string
+                  example:
+                  - name
+            example:
+              solutionId: face_detection
+              solutionName: Face Detection
+              solutionType: face_detection
+              pipeline:
+              - nodeType: rtsp_src
+                nodeName: source_{instanceId}
+                displayName: RTSP Source
+                description: Receive video stream from RTSP URL
+                category: source
+                requiredParameters:
+                - rtsp_url
+                optionalParameters:
+                - channel
+                - resize_ratio
+                defaultParameters:
+                  channel: '0'
+                  resize_ratio: '1.0'
+                parameters:
+                  rtsp_url: ${RTSP_URL}
+              - nodeType: yunet_face_detector
+                nodeName: detector_{instanceId}
+                displayName: YuNet Face Detector
+                description: Detect faces using YuNet model
+                category: detector
+                requiredParameters:
+                - model_path
+                optionalParameters:
+                - score_threshold
+                - nms_threshold
+                - top_k
+                defaultParameters:
+                  score_threshold: '0.7'
+                  nms_threshold: '0.5'
+                  top_k: '50'
+                parameters:
+                  model_path: ${MODEL_PATH}
+              additionalParams:
+                RTSP_URL:
+                  name: RTSP_URL
+                  type: string
+                  required: true
+                  description: Required parameter for rtsp_src (rtsp_url)
+                  usedInNodes:
+                  - rtsp_src
+                MODEL_PATH:
+                  name: MODEL_PATH
+                  type: string
+                  required: true
+                  description: Required parameter for yunet_face_detector (model_path)
+                  usedInNodes:
+                  - yunet_face_detector
+              requiredAdditionalParams:
+              - RTSP_URL
+              standardFields:
+                name:
+                  type: string
+                  required: true
+                  description: 'Instance name (pattern: ^[A-Za-z0-9 -_]+$)'
+                  pattern: ^[A-Za-z0-9 -_]+$
+                group:
+                  type: string
+                  required: false
+                  description: 'Group name (pattern: ^[A-Za-z0-9 -_]+$)'
+                  pattern: ^[A-Za-z0-9 -_]+$
+                persistent:
+                  type: boolean
+                  required: false
+                  default: false
+                  description: Save instance to JSON file
+                autoStart:
+                  type: boolean
+                  required: false
+                  default: false
+                  description: Automatically start instance when created
+              requiredStandardFields:
+              - name
+      '404':
+        description: Solution not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for solution parameters
+    operationId: getSolutionParametersOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: CORS preflight response

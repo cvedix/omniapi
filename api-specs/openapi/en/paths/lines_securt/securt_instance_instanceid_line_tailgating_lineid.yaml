@@ -1,0 +1,64 @@
+# API endpoint: /v1/securt/instance/{instanceId}/line/tailgating/{lineId}
+# Tag: Lines SecuRT
+
+/v1/securt/instance/{instanceId}/line/tailgating/{lineId}:
+  put:
+    summary: Create tailgating line with ID
+    description: Creates a tailgating line with a specific ID for a SecuRT instance
+    operationId: createTailgatingLineWithId
+    tags:
+    - Lines SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    - name: lineId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Line ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TailgatingLineWrite'
+    responses:
+      '201':
+        description: Tailgating line created successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Line already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for tailgating line with ID
+    operationId: createTailgatingLineWithIdOptions
+    tags:
+    - Lines SecuRT
+    responses:
+      '200':
+        description: CORS preflight response

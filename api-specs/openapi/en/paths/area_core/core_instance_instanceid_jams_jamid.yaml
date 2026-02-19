@@ -1,0 +1,150 @@
+# API endpoint: /v1/core/instance/{instanceId}/jams/{jamId}
+# Tag: Area Core
+
+/v1/core/instance/{instanceId}/jams/{jamId}:
+  get:
+    summary: Get a specific jam zone
+    description: 'Returns a specific jam zone by ID for a ba_jam instance.
+
+      '
+    operationId: getJam
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The unique identifier of the instance
+      example: '{instanceId}'
+    - name: jamId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The unique identifier of the jam zone to retrieve
+      example: '{jamId}'
+    responses:
+      '200':
+        description: Jam zone retrieved successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JamZone'
+      '404':
+        description: Instance or zone not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Update an existing jam zone
+    description: 'Updates an existing jam zone by ID. Partial updates are supported.
+
+      '
+    operationId: updateJam
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The unique identifier of the instance
+      example: '{instanceId}'
+    - name: jamId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The unique identifier of the jam zone to update
+      example: '{jamId}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateJamRequest'
+    responses:
+      '200':
+        description: Jam zone updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Zone updated successfully
+      '400':
+        description: Bad request (invalid ROI or parameters)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance or zone not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete a specific jam zone
+    description: 'Deletes a specific jam zone by ID.
+
+      '
+    operationId: deleteJam
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The unique identifier of the instance
+      example: '{instanceId}'
+    - name: jamId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The unique identifier of the jam zone to delete
+      example: '{jamId}'
+    responses:
+      '200':
+        description: Jam zone deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Zone deleted successfully
+      '404':
+        description: Instance or zone not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

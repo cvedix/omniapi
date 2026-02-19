@@ -1,0 +1,63 @@
+# API endpoint: /v1/core/system/config
+# Tag: Core
+
+/v1/core/system/config:
+  get:
+    summary: Get system configuration entities
+    description: Returns system configuration entities with fieldId, displayName, type, value, group, and availableValues
+    operationId: coreGetSystemConfigV1
+    tags:
+    - Core
+    responses:
+      '200':
+        description: System configuration entities
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemConfigResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Update system configuration
+    description: Update system configuration entities
+    operationId: corePutSystemConfigV1
+    tags:
+    - Core
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SystemConfigUpdateRequest'
+    responses:
+      '200':
+        description: Configuration updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: success
+                message:
+                  type: string
+                  example: System config updated successfully
+      '406':
+        description: Not Acceptable - Invalid configuration
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for system config
+    operationId: coreSystemConfigOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: CORS preflight response

@@ -1,0 +1,151 @@
+# API endpoint: /v1/securt/instance/{instanceId}
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}:
+  put:
+    summary: Create SecuRT instance with specific ID
+    description: Creates a SecuRT instance with the specified instance ID. If the instance already exists, returns a conflict
+      error.
+    operationId: createSecuRTInstanceWithId
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SecuRTInstanceWrite'
+          example:
+            name: My SecuRT Instance
+            detectorMode: SmartDetection
+            detectionSensitivity: Low
+            movementSensitivity: Low
+            sensorModality: RGB
+            frameRateLimit: 0
+            metadataMode: false
+            statisticsMode: false
+            diagnosticsMode: false
+            debugMode: false
+    responses:
+      '201':
+        description: Instance created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instanceId:
+                  type: string
+                  description: The ID of the created instance
+                  example: securt-instance-123
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Instance already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  patch:
+    summary: Update SecuRT instance
+    description: Updates an existing SecuRT instance with the provided configuration. Only provided fields will be updated.
+    operationId: updateSecuRTInstance
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SecuRTInstanceWrite'
+          example:
+            name: Updated Instance Name
+            detectorMode: Detection
+            detectionSensitivity: Medium
+    responses:
+      '204':
+        description: Instance updated successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete SecuRT instance
+    description: Deletes an existing SecuRT instance. The instance must exist.
+    operationId: deleteSecuRTInstance
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    responses:
+      '204':
+        description: Instance deleted successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for instance operations
+    operationId: securtInstanceOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: CORS preflight response

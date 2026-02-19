@@ -1,0 +1,138 @@
+# API endpoint: /v1/securt/instance/{instanceId}/analytics_entities
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/analytics_entities:
+  get:
+    summary: Get analytics entities for SecuRT instance
+    description: Returns all analytics entities (areas and lines) configured for a SecuRT instance. This includes all types
+      of areas (crossing, intrusion, loitering, crowding, occupancy, crowd estimation, dwelling, armed person, object left,
+      object removed, fallen person) and all types of lines (crossing, counting, tailgating).
+    operationId: securtGetAnalyticsEntitiesV1
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    responses:
+      '200':
+        description: Analytics entities retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                crossingAreas:
+                  type: array
+                  description: Crossing areas
+                  items:
+                    type: object
+                intrusionAreas:
+                  type: array
+                  description: Intrusion areas
+                  items:
+                    type: object
+                loiteringAreas:
+                  type: array
+                  description: Loitering areas
+                  items:
+                    type: object
+                crowdingAreas:
+                  type: array
+                  description: Crowding areas
+                  items:
+                    type: object
+                occupancyAreas:
+                  type: array
+                  description: Occupancy areas
+                  items:
+                    type: object
+                crowdEstimationAreas:
+                  type: array
+                  description: Crowd estimation areas
+                  items:
+                    type: object
+                dwellingAreas:
+                  type: array
+                  description: Dwelling areas
+                  items:
+                    type: object
+                armedPersonAreas:
+                  type: array
+                  description: Armed person areas
+                  items:
+                    type: object
+                objectLeftAreas:
+                  type: array
+                  description: Object left areas
+                  items:
+                    type: object
+                objectRemovedAreas:
+                  type: array
+                  description: Object removed areas
+                  items:
+                    type: object
+                fallenPersonAreas:
+                  type: array
+                  description: Fallen person areas
+                  items:
+                    type: object
+                crossingLines:
+                  type: array
+                  description: Crossing lines
+                  items:
+                    type: object
+                countingLines:
+                  type: array
+                  description: Counting lines
+                  items:
+                    type: object
+                tailgatingLines:
+                  type: array
+                  description: Tailgating lines
+                  items:
+                    type: object
+            example:
+              crossingAreas: []
+              intrusionAreas: []
+              loiteringAreas: []
+              crowdingAreas: []
+              occupancyAreas: []
+              crowdEstimationAreas: []
+              dwellingAreas: []
+              armedPersonAreas: []
+              objectLeftAreas: []
+              objectRemovedAreas: []
+              fallenPersonAreas: []
+              crossingLines: []
+              countingLines: []
+              tailgatingLines: []
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for analytics entities
+    operationId: securtGetAnalyticsEntitiesV1Options
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: CORS preflight response

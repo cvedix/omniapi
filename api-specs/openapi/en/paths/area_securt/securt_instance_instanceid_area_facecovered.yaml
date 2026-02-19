@@ -1,0 +1,113 @@
+# API endpoint: /v1/securt/instance/{instanceId}/area/faceCovered
+# Tag: Area SecuRT
+
+/v1/securt/instance/{instanceId}/area/faceCovered:
+  post:
+    summary: Create face covered area (experimental)
+    description: Creates a new face covered area for a SecuRT instance. This is an experimental feature.
+    operationId: createFaceCoveredArea
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FaceCoveredAreaWrite'
+    responses:
+      '201':
+        description: Face covered area created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                areaId:
+                  type: string
+                  description: Created area ID
+                  example: '{instanceId}'
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Create face covered area with ID (experimental)
+    description: Creates a new face covered area with a specific ID for a SecuRT instance. This is an experimental feature.
+    operationId: createFaceCoveredAreaWithId
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    - name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Area ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FaceCoveredAreaWrite'
+    responses:
+      '201':
+        description: Face covered area created successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Area already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for face covered area
+    operationId: createFaceCoveredAreaOptions
+    tags:
+    - Area SecuRT
+    responses:
+      '200':
+        description: CORS preflight response

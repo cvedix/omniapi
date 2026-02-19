@@ -1,0 +1,76 @@
+# API endpoint: /v1/core/instance/{instanceId}/frame
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/frame:
+  get:
+    summary: Get last frame from instance
+    description: 'Returns the last processed frame from a running instance. The frame is encoded as JPEG and returned as a
+      base64-encoded string.
+
+
+      **Features:**
+
+      - Frame is captured from the pipeline after processing (includes OSD/detection overlays)
+
+      - Frame is automatically cached when pipeline processes new frames
+
+      - Frame cache is automatically cleaned up when instance stops or is deleted
+
+
+      **Important Notes:**
+
+      - Frame capture only works if the pipeline has an `app_des_node`
+
+      - If pipeline doesn''t have `app_des_node`, frame will be empty string
+
+      - Instance must be running to have a frame
+
+      - Frame is cached automatically each time pipeline processes a new frame
+
+      '
+    operationId: getLastFrame
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: Last frame retrieved successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LastFrameResponse'
+            example:
+              frame: /9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=
+              running: true
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for get last frame
+    operationId: getLastFrameOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: CORS preflight response

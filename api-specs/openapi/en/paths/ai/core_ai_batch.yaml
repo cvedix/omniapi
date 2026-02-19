@@ -1,0 +1,53 @@
+# API endpoint: /v1/core/ai/batch
+# Tag: AI
+
+/v1/core/ai/batch:
+  post:
+    summary: Process batch of images/frames
+    description: 'Processes multiple images/frames in a batch through the AI processing pipeline.
+
+      Currently returns 501 Not Implemented.
+
+      '
+    operationId: processBatch
+    tags:
+    - AI
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              images:
+                type: array
+                description: Array of base64-encoded images
+                items:
+                  type: string
+              config:
+                type: string
+                description: Processing configuration (JSON string)
+    responses:
+      '200':
+        description: Batch processing job submitted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_ids:
+                  type: array
+                  items:
+                    type: string
+      '400':
+        description: Bad request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '501':
+        description: Not implemented
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
