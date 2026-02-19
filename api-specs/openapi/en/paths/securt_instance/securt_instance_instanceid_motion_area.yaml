@@ -1,0 +1,74 @@
+# API endpoint: /v1/securt/instance/{instanceId}/motion_area
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/motion_area:
+  post:
+    summary: Set motion area
+    description: Configure motion detection area for a SecuRT instance
+    operationId: setMotionArea
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - coordinates
+            properties:
+              coordinates:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    x:
+                      type: number
+                    y:
+                      type: number
+                description: Array of coordinates defining the motion area polygon
+                example:
+                - x: 0
+                  y: 0
+                - x: 100
+                  y: 0
+                - x: 100
+                  y: 100
+                - x: 0
+                  y: 100
+    responses:
+      '204':
+        description: Motion area configured successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for motion area
+    operationId: motionAreaOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: CORS preflight response

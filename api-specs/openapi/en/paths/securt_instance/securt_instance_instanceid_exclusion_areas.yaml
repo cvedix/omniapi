@@ -1,0 +1,146 @@
+# API endpoint: /v1/securt/instance/{instanceId}/exclusion_areas
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/exclusion_areas:
+  post:
+    summary: Add exclusion area
+    description: Add an exclusion area to a SecuRT instance to exclude certain regions from analytics
+    operationId: addExclusionArea
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - coordinates
+            properties:
+              coordinates:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    x:
+                      type: number
+                    y:
+                      type: number
+                description: Array of coordinates defining the exclusion area polygon
+                example:
+                - x: 0
+                  y: 0
+                - x: 100
+                  y: 0
+                - x: 100
+                  y: 100
+                - x: 0
+                  y: 100
+    responses:
+      '204':
+        description: Exclusion area added successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Get exclusion areas
+    description: Get all exclusion areas for a SecuRT instance
+    operationId: getExclusionAreas
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    responses:
+      '200':
+        description: List of exclusion areas
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  coordinates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        x:
+                          type: number
+                        y:
+                          type: number
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete all exclusion areas
+    description: Delete all exclusion areas for a SecuRT instance
+    operationId: deleteExclusionAreas
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    responses:
+      '204':
+        description: All exclusion areas deleted successfully
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for exclusion areas
+    operationId: exclusionAreasOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: CORS preflight response

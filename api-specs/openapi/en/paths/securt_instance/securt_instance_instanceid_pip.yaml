@@ -1,0 +1,96 @@
+# API endpoint: /v1/securt/instance/{instanceId}/pip
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/pip:
+  post:
+    summary: Set picture-in-picture (PIP)
+    description: Enable or disable picture-in-picture feature for a SecuRT instance
+    operationId: setPIP
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - enable
+            properties:
+              enable:
+                type: boolean
+                description: Enable picture-in-picture
+                example: true
+    responses:
+      '204':
+        description: PIP configured successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Get picture-in-picture (PIP) configuration
+    description: Get PIP configuration for a SecuRT instance
+    operationId: getPIP
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    responses:
+      '200':
+        description: PIP configuration
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: PIP enabled status
+                  example: true
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for PIP
+    operationId: pipOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: CORS preflight response
