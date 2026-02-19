@@ -1,0 +1,48 @@
+# API endpoint: /hls/{instanceId}/stream.m3u8
+# Tag: Core
+
+/hls/{instanceId}/stream.m3u8:
+  get:
+    summary: Get HLS playlist
+    description: 'Get HLS (HTTP Live Streaming) playlist file (.m3u8) for an instance.
+
+      This endpoint serves the HLS playlist file that clients use to stream video from the instance.
+      The playlist contains references to video segments (.ts files) that are generated automatically.
+      '
+    operationId: getHlsPlaylist
+    tags:
+    - Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    responses:
+      '200':
+        description: HLS playlist file
+        content:
+          application/vnd.apple.mpegurl:
+            schema:
+              type: string
+              example: |
+                #EXTM3U
+                #EXT-X-VERSION:3
+                #EXT-X-TARGETDURATION:10
+                #EXTINF:10.0,
+                segment_0.ts
+                #EXTINF:10.0,
+                segment_1.ts
+      '404':
+        description: Instance not found or HLS not enabled
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
