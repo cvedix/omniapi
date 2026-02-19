@@ -1,0 +1,49 @@
+# API endpoint: /v1/core/license/info
+# Tag: Core
+
+/v1/core/license/info:
+  get:
+    summary: Get license information
+    description: Get detailed information about the current license
+    operationId: getLicenseInfo
+    tags:
+    - Core
+    responses:
+      '200':
+        description: License information
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                licenseType:
+                  type: string
+                  description: Type of license
+                  example: Standard
+                expirationDate:
+                  type: string
+                  format: date
+                  description: License expiration date
+                  example: '2024-12-31'
+                features:
+                  type: array
+                  items:
+                    type: string
+                  description: Enabled license features
+                  example:
+                  - face_detection
+                  - analytics
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for license info
+    operationId: getLicenseInfoOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: CORS preflight response
