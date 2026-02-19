@@ -1,0 +1,41 @@
+# API endpoint: /v1/core/instance/{instanceId}/preview
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/preview:
+  get:
+    summary: Get instance preview
+    description: Get preview image or frame from the instance
+    operationId: getInstancePreview
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: Preview image
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
