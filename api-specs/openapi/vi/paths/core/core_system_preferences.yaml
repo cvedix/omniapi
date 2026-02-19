@@ -1,0 +1,31 @@
+# API endpoint: /v1/core/system/preferences
+# Tag: Core
+
+/v1/core/system/preferences:
+  get:
+    summary: Lấy system preferences
+    description: Trả về system preferences từ rtconfig.json. Các settings này ảnh hưởng đến UI của VMS plugins và Web Panel.
+    operationId: coreGetPreferencesV1
+    tags:
+    - Core
+    responses:
+      '200':
+        description: System preferences
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemPreferencesResponse'
+      '500':
+        description: Lỗi server
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho system preferences
+    operationId: coreSystemPreferencesOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

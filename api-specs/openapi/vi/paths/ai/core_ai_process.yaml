@@ -1,0 +1,78 @@
+# API endpoint: /v1/core/ai/process
+# Tag: AI
+
+/v1/core/ai/process:
+  post:
+    summary: Xử lý một hình ảnh/khung hình
+    description: 'Xử lý một hình ảnh/khung hình qua pipeline xử lý AI.
+
+      Hỗ trợ hàng đợi dựa trên độ ưu tiên và giới hạn tốc độ.
+
+      '
+    operationId: processImage
+    tags:
+    - AI
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - image
+            properties:
+              image:
+                type: string
+                description: Dữ liệu hình ảnh được mã hóa Base64
+                example: /9j/4AAQSkZJRg...
+              config:
+                type: string
+                description: Cấu hình xử lý (chuỗi JSON)
+                example: '{"model": "yolo", "threshold": 0.5}'
+              priority:
+                type: string
+                enum:
+                - low
+                - medium
+                - high
+                default: medium
+                description: Request priority
+    responses:
+      '200':
+        description: Công việc xử lý đã được gửi thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id:
+                  type: string
+                  description: Định danh công việc duy nhất
+                  example: job_1234567890
+                status:
+                  type: string
+                  example: queued
+      '400':
+        description: Bad request (invalid JSON or missing required fields)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '429':
+        description: Rate limit exceeded
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '501':
+        description: Not implemented
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

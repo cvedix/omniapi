@@ -1,0 +1,60 @@
+# API endpoint: /v1/core/model/list
+# Tag: Models
+
+/v1/core/model/list:
+  get:
+    summary: Liệt kê các file mô hình đã tải lên
+    description: "Trả về danh sách các file mô hình đã được tải lên máy chủ.\n- Nếu tham số `directory` không được chỉ định:\
+      \ Tìm kiếm đệ quy và liệt kê tất cả các file mô hình\n  trong toàn bộ cây thư mục models (bao gồm tất cả các thư mục\
+      \ con).\n- Nếu tham số `directory` được chỉ định: Chỉ liệt kê các file trong thư mục cụ thể đó\n  (không đệ quy, không\
+      \ tìm kiếm thư mục con).\n"
+    operationId: listModels
+    tags:
+    - Models
+    parameters:
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con để liệt kê file từ đó (ví dụ: "projects/myproject/models", "detection/yolov8").
+
+        Nếu được chỉ định, chỉ liệt kê các file trong thư mục đó (không đệ quy).
+
+        Nếu không được chỉ định, tìm kiếm đệ quy tất cả các thư mục con.
+
+        '
+      example: projects/myproject/models
+    responses:
+      '200':
+        description: Danh sách các file mô hình
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                models:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                      path:
+                        type: string
+                      size:
+                        type: integer
+                      modified:
+                        type: string
+                count:
+                  type: integer
+                directory:
+                  type: string
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

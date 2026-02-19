@@ -1,0 +1,31 @@
+# API endpoint: /v1/core/system/info
+# Tag: Core
+
+/v1/core/system/info:
+  get:
+    summary: Lấy thông tin phần cứng hệ thống
+    description: Trả về thông tin phần cứng chi tiết bao gồm CPU, GPU, RAM, Disk, Mainboard, OS và Battery
+    operationId: getSystemInfo
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Thông tin phần cứng hệ thống
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemInfoResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho thông tin hệ thống
+    operationId: getSystemInfoOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

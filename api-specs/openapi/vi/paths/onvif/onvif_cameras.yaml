@@ -1,0 +1,50 @@
+# API endpoint: /v1/onvif/cameras
+# Tag: ONVIF
+
+/v1/onvif/cameras:
+  get:
+    summary: Lấy danh sách tất cả camera ONVIF đã khám phá
+    description: 'Lấy danh sách tất cả các camera ONVIF đã được khám phá trên mạng.
+
+      **Thông tin Camera:** - Mỗi camera bao gồm địa chỉ IP, UUID, nhà sản xuất, model và số serial - Camera được lọc dựa
+      trên whitelist hỗ trợ (nếu được cấu hình) - Chỉ các camera vượt qua kiểm tra whitelist mới được trả về
+
+      **Cách sử dụng:** 1. Đầu tiên gọi POST /v1/onvif/discover để khám phá camera 2. Sau đó gọi endpoint này để lấy danh
+      sách camera đã khám phá 3. Sử dụng camera ID (IP hoặc UUID) để lấy streams hoặc thiết lập credentials '
+    operationId: getONVIFCameras
+    tags:
+    - ONVIF
+    responses:
+      '200':
+        description: Danh sách camera ONVIF đã khám phá
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ONVIFCamera'
+            example:
+            - ip: 192.168.1.100
+              uuid: 00000000-0000-0000-0000-000000000000
+              manufacturer: Hikvision
+              model: DS-2CD2347G1-LU
+              serialNumber: ABC123456
+            - ip: 192.168.1.101
+              uuid: 11111111-1111-1111-1111-111111111111
+              manufacturer: Axis
+              model: P3245-LVE
+              serialNumber: DEF789012
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho camera ONVIF
+    operationId: getONVIFCamerasOptions
+    tags:
+    - ONVIF
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

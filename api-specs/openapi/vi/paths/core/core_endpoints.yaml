@@ -1,0 +1,23 @@
+# API endpoint: /v1/core/endpoints
+# Tag: Core
+
+/v1/core/endpoints:
+  get:
+    summary: Lấy thống kê endpoint
+    description: 'Trả về thống kê cho mỗi endpoint API bao gồm số lượng yêu cầu, thời gian phản hồi,
+
+      tỷ lệ lỗi và các số liệu hiệu suất khác.
+
+      '
+    operationId: getEndpointsStats
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Thống kê endpoint
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Thống kê cho mỗi endpoint
+              additionalProperties: true

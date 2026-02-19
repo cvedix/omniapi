@@ -1,0 +1,31 @@
+# API endpoint: /v1/core/system/decoders
+# Tag: Core
+
+/v1/core/system/decoders:
+  get:
+    summary: Lấy thông tin decoders có sẵn
+    description: Trả về thông tin về hardware và software decoders có sẵn trong hệ thống
+    operationId: coreGetDecodersV1
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Thông tin decoders
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemDecodersResponse'
+      '500':
+        description: Lỗi server
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho system decoders
+    operationId: coreSystemDecodersOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight
