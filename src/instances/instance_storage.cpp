@@ -606,7 +606,9 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
     Json::Value rtspHandler(Json::objectValue);
     Json::Value handlerConfig(Json::objectValue);
     handlerConfig["debug"] = info.debugMode ? "4" : "0";
-    handlerConfig["fps"] = info.frameRateLimit > 0 ? info.frameRateLimit : 10;
+    // Use configuredFps (from API /api/v1/instances/{id}/fps) for output FPS
+    // This ensures output stream matches processing FPS
+    handlerConfig["fps"] = info.configuredFps > 0 ? info.configuredFps : 5;
     handlerConfig["pipeline"] =
         "( appsrc name=cvedia-rt ! videoconvert ! videoscale ! x264enc ! "
         "video/x-h264,profile=high ! rtph264pay name=pay0 pt=96 )";
@@ -637,7 +639,11 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
 
   // Store SolutionManager settings
   Json::Value solutionManager(Json::objectValue);
-  solutionManager["frame_rate_limit"] = info.frameRateLimit;
+  // Use configuredFps (from API /api/v1/instances/{id}/fps) for frame_rate_limit
+  // This ensures SDK processing matches configured FPS
+  // Fallback to frameRateLimit if configuredFps not set (backward compatibility)
+  solutionManager["frame_rate_limit"] = 
+      info.configuredFps > 0 ? info.configuredFps : info.frameRateLimit;
   solutionManager["send_metadata"] = info.metadataMode;
   solutionManager["run_statistics"] = info.statisticsMode;
   solutionManager["send_diagnostics"] = info.diagnosticsMode;

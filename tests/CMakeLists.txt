@@ -170,6 +170,7 @@ target_sources(edge_ai_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/ai_cache.cpp
     ${CMAKE_SOURCE_DIR}/src/core/rate_limiter.cpp
     ${CMAKE_SOURCE_DIR}/src/core/resource_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/shutdown_flag.cpp
     ${CMAKE_SOURCE_DIR}/src/core/securt_instance_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/securt_instance_registry.cpp
     ${CMAKE_SOURCE_DIR}/src/core/securt_statistics_collector.cpp

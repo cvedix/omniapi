@@ -209,12 +209,27 @@ void CreateInstanceHandler::createInstance(
     // Build response
     Json::Value response = instanceInfoToJson(optInfo.value());
 
+    // Add async build status information
+    const auto &info = optInfo.value();
+    if (info.building) {
+      response["building"] = true;
+      response["status"] = "building";
+      response["message"] = "Pipeline is being built in background";
+    } else if (!info.buildError.empty()) {
+      response["building"] = false;
+      response["status"] = "error";
+      response["buildError"] = info.buildError;
+    } else {
+      response["building"] = false;
+      response["status"] = "ready";
+    }
+
     if (isApiLoggingEnabled()) {
-      const auto &info = optInfo.value();
       PLOG_INFO << "[API] POST /v1/core/instance - Success: Created instance "
                 << instanceId << " (" << info.displayName
-                << ", solution: " << info.solutionId << ") - "
-                << duration.count() << "ms";
+                << ", solution: " << info.solutionId
+                << ", building: " << (info.building ? "true" : "false")
+                << ") - " << duration.count() << "ms";
     }
 
     auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -685,6 +700,20 @@ CreateInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   json["movementSensitivity"] = info.movementSensitivity;
   json["sensorModality"] = info.sensorModality;
   json["originator"]["address"] = info.originator.address;
+
+  // Async pipeline build status
+  json["building"] = info.building;
+  if (!info.buildError.empty()) {
+    json["buildError"] = info.buildError;
+  }
+  // Add status field for convenience
+  if (info.building) {
+    json["status"] = "building";
+  } else if (!info.buildError.empty()) {
+    json["status"] = "error";
+  } else {
+    json["status"] = "ready";
+  }
 
   // Add streaming URLs if available
   if (!info.rtmpUrl.empty()) {

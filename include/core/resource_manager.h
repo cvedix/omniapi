@@ -55,6 +55,17 @@ public:
                                           int preferred_device = -1);
 
   /**
+   * @brief Try to allocate GPU with timeout (non-blocking for API responsiveness)
+   * @param memory_mb Required memory in MB
+   * @param preferred_device Preferred device ID (-1 for any)
+   * @param timeout_ms Max wait for internal lock in ms (0 = no wait)
+   * @return Allocation info, or nullptr if failed or timeout
+   */
+  std::shared_ptr<Allocation> tryAllocateGPU(size_t memory_mb,
+                                            int preferred_device = -1,
+                                            int timeout_ms = 5000);
+
+  /**
    * @brief Release GPU resource
    * @param allocation Allocation to release
    */
@@ -98,10 +109,15 @@ private:
 
   void detectGPUs();
   void updateGPUStats(int device_id);
+  void updateGPUMemoryUsage();
+
+  /** Called with mutex_ held. */
+  std::shared_ptr<Allocation> allocateGPUImpl(size_t memory_mb,
+                                              int preferred_device);
 
   std::vector<std::shared_ptr<GPUInfo>> gpus_;
   std::unordered_map<std::string, std::shared_ptr<Allocation>> allocations_;
-  mutable std::mutex mutex_;
+  mutable std::timed_mutex mutex_;
   size_t max_concurrent_per_device_;
   std::atomic<uint64_t> allocation_counter_{0};
 };

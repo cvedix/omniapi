@@ -1,6 +1,7 @@
 #include "instances/subprocess_instance_manager.h"
 #include "core/timeout_constants.h"
 #include "core/uuid_generator.h"
+#include "core/resource_manager.h"
 #include "models/solution_config.h"
 #include <chrono>
 #include <future>
@@ -32,6 +33,11 @@ SubprocessInstanceManager::SubprocessInstanceManager(
   // Start supervisor monitoring
   supervisor_->start();
 
+  // Initialize ResourceManager for GPU allocation
+  // Default: allow up to 4 concurrent instances per GPU
+  auto &resourceManager = ResourceManager::getInstance();
+  resourceManager.initialize(4);
+  
   std::cout << "[SubprocessInstanceManager] Initialized with worker: "
             << workerExecutable << std::endl;
 }
@@ -54,8 +60,8 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   // Build config for worker
   Json::Value config = buildWorkerConfig(req);
 
-  // Spawn worker process
-  if (!supervisor_->spawnWorker(instanceId, config)) {
+  // Allocate GPU and spawn worker
+  if (!allocateGPUAndSpawnWorker(instanceId, config)) {
     throw std::runtime_error("Failed to spawn worker for instance: " +
                              instanceId);
   }
@@ -247,6 +253,19 @@ bool SubprocessInstanceManager::deleteInstance(const std::string &instanceId) {
               << instanceId << std::endl;
   }
 
+  // Release GPU allocation if exists
+  {
+    std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
+    auto it = gpu_allocations_.find(instanceId);
+    if (it != gpu_allocations_.end()) {
+      auto &resourceManager = ResourceManager::getInstance();
+      resourceManager.releaseGPU(it->second);
+      gpu_allocations_.erase(it);
+      std::cout << "[SubprocessInstanceManager] Released GPU allocation for instance: " 
+                << instanceId << std::endl;
+    }
+  }
+
   // Remove from local cache
   {
     std::lock_guard<std::mutex> lock(instances_mutex_);
@@ -285,7 +304,7 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
         const auto &info = optStoredInfo.value();
         Json::Value config = buildWorkerConfigFromInstanceInfo(info);
         
-        if (supervisor_->spawnWorker(instanceId, config)) {
+        if (allocateGPUAndSpawnWorker(instanceId, config)) {
           // Add to local cache
           {
             std::lock_guard<std::mutex> lock(instances_mutex_);
@@ -954,7 +973,7 @@ SubprocessInstanceManager::getInstanceStatistics(
           config["AdditionalParams"] = params;
         }
 
-        if (supervisor_->spawnWorker(instanceId, config)) {
+        if (allocateGPUAndSpawnWorker(instanceId, config)) {
           // Add to cache
           {
             std::lock_guard<std::mutex> lock(instances_mutex_);
@@ -1461,7 +1480,7 @@ void SubprocessInstanceManager::loadPersistentInstances() {
     config["Persistent"] = info.persistent;
 
     // Spawn worker
-    if (supervisor_->spawnWorker(instanceId, config)) {
+    if (allocateGPUAndSpawnWorker(instanceId, config)) {
       std::lock_guard<std::mutex> lock(instances_mutex_);
       instances_[instanceId] = info;
       loadedCount++;
@@ -1531,7 +1550,7 @@ bool SubprocessInstanceManager::loadInstance(const std::string &instanceId) {
   // If worker doesn't exist, spawn it
   if (workerState == worker::WorkerState::STOPPED) {
     Json::Value config = buildWorkerConfigFromInstanceInfo(info);
-    if (!supervisor_->spawnWorker(instanceId, config)) {
+    if (!allocateGPUAndSpawnWorker(instanceId, config)) {
       std::cerr << "[SubprocessInstanceManager] Cannot load instance " << instanceId
                 << ": Failed to spawn worker process" << std::endl;
       return false; // Failed to spawn worker
@@ -1824,4 +1843,39 @@ void SubprocessInstanceManager::onWorkerError(const std::string &instanceId,
     it->second.running = false;
     it->second.retryCount++;
   }
+}
+
+bool SubprocessInstanceManager::allocateGPUAndSpawnWorker(const std::string &instanceId, 
+                                                         const Json::Value &config) {
+  // Allocate GPU resource for this instance
+  // Estimate memory requirement: 1.5GB per instance (can be adjusted)
+  int gpu_device_id = -1;
+  auto &resourceManager = ResourceManager::getInstance();
+  auto gpu_allocation = resourceManager.allocateGPU(1536); // 1.5GB
+  
+  if (gpu_allocation) {
+    gpu_device_id = gpu_allocation->device_id;
+    {
+      std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
+      gpu_allocations_[instanceId] = gpu_allocation;
+    }
+    std::cout << "[SubprocessInstanceManager] Allocated GPU " << gpu_device_id 
+              << " for instance " << instanceId << std::endl;
+  } else {
+    std::cout << "[SubprocessInstanceManager] No GPU available for instance " 
+              << instanceId << " - will use CPU" << std::endl;
+  }
+
+  // Spawn worker process with GPU device ID
+  if (!supervisor_->spawnWorker(instanceId, config, gpu_device_id)) {
+    // Release GPU allocation if worker spawn failed
+    if (gpu_allocation) {
+      resourceManager.releaseGPU(gpu_allocation);
+      std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
+      gpu_allocations_.erase(instanceId);
+    }
+    return false;
+  }
+  
+  return true;
 }

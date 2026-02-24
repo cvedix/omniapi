@@ -393,7 +393,8 @@ set(SOURCES
     src/models/group_info.cpp
     src/api/group_handler.cpp
     # Infrastructure components (available but not used in main yet)
-    # src/core/resource_manager.cpp
+    src/core/resource_manager.cpp
+    src/core/shutdown_flag.cpp
     # src/core/rate_limiter.cpp
     # src/core/ai_cache.cpp
     # src/core/priority_queue.cpp

@@ -586,6 +586,32 @@ void InstanceHandler::startInstance(
       return;
     }
 
+    // Check if instance is already running (per OpenAPI spec: "If the instance
+    // is already running, the request will succeed without error")
+    std::optional<InstanceInfo> optInfoCheck;
+    try {
+      optInfoCheck = instance_manager_->getInstance(instanceId);
+      if (optInfoCheck.has_value() && optInfoCheck.value().running) {
+        // Instance is already running, return success immediately
+        if (isApiLoggingEnabled()) {
+          PLOG_INFO << "[API] POST /v1/core/instance/" << instanceId
+                    << "/start - Instance already running, returning success";
+        }
+        Json::Value response = instanceInfoToJson(optInfoCheck.value());
+        response["message"] = "Instance is already running";
+        response["status"] = "running";
+        callback(createSuccessResponse(response));
+        return;
+      }
+    } catch (...) {
+      // If we can't check status, continue with normal start flow
+      if (isApiLoggingEnabled()) {
+        PLOG_WARNING << "[API] POST /v1/core/instance/" << instanceId
+                     << "/start - Could not check instance status, proceeding "
+                        "with start";
+      }
+    }
+
     // Start instance and wait for it to actually start successfully
     // This ensures API returns success only when instance is actually running
     bool startSuccess = false;
@@ -3391,7 +3417,9 @@ InstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
     Json::Value rtspHandler(Json::objectValue);
     Json::Value handlerConfig(Json::objectValue);
     handlerConfig["debug"] = info.debugMode ? "4" : "0";
-    handlerConfig["fps"] = info.frameRateLimit > 0 ? info.frameRateLimit : 10;
+    // Use configuredFps (from API /api/v1/instances/{id}/fps) for output FPS
+    // This ensures output stream matches processing FPS
+    handlerConfig["fps"] = info.configuredFps > 0 ? info.configuredFps : 5;
     handlerConfig["pipeline"] =
         "( appsrc name=cvedia-rt ! videoconvert ! videoscale ! x264enc ! "
         "video/x-h264,profile=high ! rtph264pay name=pay0 pt=96 )";
@@ -3470,8 +3498,12 @@ InstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   // SolutionManager
   Json::Value solutionManager(Json::objectValue);
   solutionManager["enable_debug"] = info.debugMode;
+  // Use configuredFps (from API /api/v1/instances/{id}/fps) for frame_rate_limit
+  // This ensures SDK processing matches configured FPS
+  // Fallback to frameRateLimit if configuredFps not set (backward compatibility)
   solutionManager["frame_rate_limit"] =
-      info.frameRateLimit > 0 ? info.frameRateLimit : 15;
+      info.configuredFps > 0 ? info.configuredFps : 
+      (info.frameRateLimit > 0 ? info.frameRateLimit : 5);
   solutionManager["input_pixel_limit"] =
       info.inputPixelLimit > 0 ? info.inputPixelLimit : 2000000;
   solutionManager["recommended_frame_rate"] =

@@ -23,6 +23,8 @@ struct InstanceInfo {
   bool persistent = false;
   bool loaded = false;
   bool running = false;
+  bool building = false; // Pipeline is being built in background (async)
+  std::string buildError; // Error message if pipeline build failed
   double fps = 0.0; // Current/actual processing FPS
   int configuredFps = 5; // Configured target FPS (default: 5 FPS)
   std::string version;
