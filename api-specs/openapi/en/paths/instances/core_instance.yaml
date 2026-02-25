@@ -171,6 +171,16 @@
       that can be used to control the instance.
 
 
+      **Async pipeline build (when solution is provided):**
+
+      - The API returns **201 Created** as soon as the instance is **registered** (ID allocated, stored in registry).
+      - The pipeline is built **asynchronously in the background** (can take 30+ seconds). The response is not delayed until the pipeline is ready.
+      - The response body includes **building**, **status**, and **message** so the client can tell whether the instance is ready:
+        - **building: true**, **status: "building"** — pipeline is still being built; do not call Start until **status** becomes **"ready"**.
+        - **building: false**, **status: "ready"** — pipeline is built; instance can be started.
+      - To know when the instance is ready, poll **GET /v1/core/instance/{instanceId}** until **status** is **"ready"** (or **building** is false), or wait for the build to complete before calling Start. If Start is called while **building** is true, the API returns an error: "Pipeline is still being built in background".
+
+
       **Configuration Options:**
 
       - **Basic Settings:** name, group, solution, persistent mode
@@ -211,12 +221,12 @@
 
       **Auto Start:**
 
-      - If `autoStart: true`, the instance will automatically start after creation
+      - If `autoStart: true`, the instance will automatically start **after** the pipeline build completes (in background). Until then, the instance is in **building** state.
 
-      - The pipeline will be built and started immediately
+      - Do not rely on 201 response alone to mean "instance is ready"; check **status** and **building** in the response (or poll GET instance) before calling Start.
 
 
-      **Returns:** The created instance information including the generated UUID that can be used for subsequent operations.
+      **Returns:** The created instance information including the generated UUID. When a solution is provided, the response includes **building**, **status**, and **message** so the client can know whether the instance is ready for Start.
 
       '
     operationId: createInstance
@@ -2137,39 +2147,80 @@
                 movementSensitivity: Medium
     responses:
       '201':
-        description: Instance created successfully
+        description: |
+          Instance registered successfully. When a solution is provided, the pipeline is built asynchronously;
+          the response may include **building: true** and **status: "building"**. Poll GET /v1/core/instance/{instanceId}
+          until **status** is **"ready"** before calling Start, or wait for the build to complete.
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/InstanceInfo'
-            example:
-              instanceId: 550e8400-e29b-41d4-a716-446655440000
-              displayName: Face Detection Camera 1
-              group: cameras
-              solutionId: face_detection
-              solutionName: Face Detection
-              persistent: true
-              loaded: true
-              running: true
-              fps: 0.0
-              version: 2025.0.1.2
-              frameRateLimit: 30
-              metadataMode: true
-              statisticsMode: true
-              diagnosticsMode: false
-              debugMode: false
-              readOnly: false
-              autoStart: true
-              autoRestart: false
-              systemInstance: false
-              inputPixelLimit: 1920
-              inputOrientation: 0
-              detectorMode: SmartDetection
-              detectionSensitivity: Medium
-              movementSensitivity: Low
-              sensorModality: RGB
-              originator:
-                address: ''
+            examples:
+              building:
+                summary: Instance created, pipeline building (async)
+                value:
+                  instanceId: 550e8400-e29b-41d4-a716-446655440000
+                  displayName: Face Detection Camera 1
+                  group: cameras
+                  solutionId: face_detection
+                  solutionName: Face Detection
+                  persistent: true
+                  loaded: false
+                  running: false
+                  building: true
+                  status: building
+                  message: Pipeline is being built in background
+                  fps: 0.0
+                  version: 2025.0.1.2
+                  frameRateLimit: 30
+                  metadataMode: true
+                  statisticsMode: true
+                  diagnosticsMode: false
+                  debugMode: false
+                  readOnly: false
+                  autoStart: true
+                  autoRestart: false
+                  systemInstance: false
+                  inputPixelLimit: 1920
+                  inputOrientation: 0
+                  detectorMode: SmartDetection
+                  detectionSensitivity: Medium
+                  movementSensitivity: Low
+                  sensorModality: RGB
+                  originator:
+                    address: ''
+              ready:
+                summary: Instance created and pipeline ready (or no solution)
+                value:
+                  instanceId: 550e8400-e29b-41d4-a716-446655440000
+                  displayName: Face Detection Camera 1
+                  group: cameras
+                  solutionId: face_detection
+                  solutionName: Face Detection
+                  persistent: true
+                  loaded: true
+                  running: true
+                  building: false
+                  status: ready
+                  fps: 0.0
+                  version: 2025.0.1.2
+                  frameRateLimit: 30
+                  metadataMode: true
+                  statisticsMode: true
+                  diagnosticsMode: false
+                  debugMode: false
+                  readOnly: false
+                  autoStart: true
+                  autoRestart: false
+                  systemInstance: false
+                  inputPixelLimit: 1920
+                  inputOrientation: 0
+                  detectorMode: SmartDetection
+                  detectionSensitivity: Medium
+                  movementSensitivity: Low
+                  sensorModality: RGB
+                  originator:
+                    address: ''
       '400':
         description: Bad request (validation failed)
         content:

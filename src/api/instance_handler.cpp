@@ -3749,6 +3749,19 @@ InstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   json["AutoStart"] = info.autoStart;
   json["Solution"] = info.solutionId;
 
+  // Async pipeline build status (match POST create response; required for polling GET before start)
+  json["instanceId"] = info.instanceId;
+  json["building"] = info.building;
+  if (info.building) {
+    json["status"] = "building";
+    json["message"] = "Pipeline is being built in background";
+  } else if (!info.buildError.empty()) {
+    json["status"] = "error";
+    json["buildError"] = info.buildError;
+  } else {
+    json["status"] = "ready";
+  }
+
   // OriginatorInfo
   Json::Value originator(Json::objectValue);
   originator["address"] =

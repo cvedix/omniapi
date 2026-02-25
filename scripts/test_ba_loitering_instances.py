@@ -13,7 +13,12 @@ from typing import Dict, List, Optional
 # API base URL
 BASE_URL = "http://localhost:8080"
 CREATE_INSTANCE_URL = f"{BASE_URL}/v1/core/instance"
+GET_INSTANCE_URL_TEMPLATE = f"{BASE_URL}/v1/core/instance/{{instance_id}}"
 START_INSTANCE_URL_TEMPLATE = f"{BASE_URL}/v1/core/instance/{{instance_id}}/start"
+
+# Wait for pipeline build (async): poll until status is "ready"
+WAIT_READY_TIMEOUT_SEC = 120
+WAIT_READY_POLL_INTERVAL_SEC = 2
 
 # Request body template
 INSTANCE_BODY = {
@@ -52,21 +57,25 @@ def create_instance(instance_number: int) -> Optional[Dict]:
     """
     try:
         print(f"\n[{instance_number}] Creating instance...")
-        # Increased timeout to 60 seconds because pipeline building can take 30+ seconds
-        # Pipeline building is synchronous and blocks the HTTP response
+        # Create returns 201 immediately; pipeline is built asynchronously in background.
+        # Script will wait for status "ready" before calling start (see wait_for_instance_ready).
         response = requests.post(
             CREATE_INSTANCE_URL,
             json=INSTANCE_BODY,
             headers={"Content-Type": "application/json"},
-            timeout=60
+            timeout=30
         )
         
         if response.status_code == 200 or response.status_code == 201:
             data = response.json()
             instance_id = data.get("instanceId")
+            building = data.get("building", False)
+            status = data.get("status", "")
             print(f"[{instance_number}] ✓ Instance created successfully")
             print(f"[{instance_number}]   Instance ID: {instance_id}")
             print(f"[{instance_number}]   Display Name: {data.get('displayName', 'N/A')}")
+            if building or status == "building":
+                print(f"[{instance_number}]   Status: pipeline building in background (wait for ready before start)")
             return data
         else:
             print(f"[{instance_number}] ✗ Failed to create instance")
@@ -113,6 +122,44 @@ def start_instance(instance_id: str, instance_number: int) -> bool:
     except requests.exceptions.RequestException as e:
         print(f"[{instance_number}] ✗ Error starting instance: {str(e)}")
         return False
+
+
+def wait_for_instance_ready(
+    instance_id: str,
+    instance_number: int,
+    timeout_sec: int = WAIT_READY_TIMEOUT_SEC,
+    poll_interval_sec: float = WAIT_READY_POLL_INTERVAL_SEC,
+) -> bool:
+    """
+    Poll GET instance until status is "ready" (pipeline build finished).
+    Required because create returns 201 immediately while pipeline builds in background.
+
+    Returns:
+        True if instance is ready, False on timeout or error.
+    """
+    url = GET_INSTANCE_URL_TEMPLATE.format(instance_id=instance_id)
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                time.sleep(poll_interval_sec)
+                continue
+            data = resp.json()
+            building = data.get("building", False)
+            status = data.get("status", "")
+            if not building and status == "ready":
+                print(f"[{instance_number}] ✓ Instance ready (pipeline built)")
+                return True
+            if status == "error":
+                build_error = data.get("buildError", "unknown")
+                print(f"[{instance_number}] ✗ Instance build failed: {build_error}")
+                return False
+        except requests.exceptions.RequestException:
+            pass
+        time.sleep(poll_interval_sec)
+    print(f"[{instance_number}] ✗ Timeout waiting for instance ready ({timeout_sec}s)")
+    return False
 
 
 def test_instances(num_instances: int) -> Dict[str, List]:
@@ -169,13 +216,14 @@ def test_instances(num_instances: int) -> Dict[str, List]:
         for instance_info in results["created"]:
             instance_id = instance_info["instance_id"]
             instance_number = instance_info["instance_number"]
-            
+            # Wait for pipeline build to complete before start (create returns 201 immediately, build is async)
+            if not wait_for_instance_ready(instance_id, instance_number):
+                results["failed_start"].append(instance_id)
+                continue
             if start_instance(instance_id, instance_number):
                 results["started"].append(instance_id)
             else:
                 results["failed_start"].append(instance_id)
-            
-            # Small delay between requests
             time.sleep(0.5)
     
     return results

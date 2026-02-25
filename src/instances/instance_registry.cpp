@@ -522,6 +522,7 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
   InstanceInfo existingInfo;
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipelineToStop;
   bool wasRunning = false;
+  bool usedExistingPipeline = false; // true when we waited for async build and use that pipeline
 
   // Get existing instance info
   {
@@ -536,72 +537,117 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
 
     existingInfo = instanceIt->second;
 
-    // ✅ ASYNC BUILD CHECK: Kiểm tra pipeline đang được build
+    // ✅ ASYNC BUILD: If pipeline is building, wait for it (then use that pipeline)
     if (existingInfo.building) {
-      std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
-                << ": Pipeline is still being built in background" << std::endl;
-      std::cerr << "[InstanceRegistry] Please wait for pipeline build to complete "
-                   "or check instance status via GET /v1/core/instance/"
-                << instanceId << std::endl;
-      return false;
-    }
-
-    // ✅ ASYNC BUILD CHECK: Kiểm tra lỗi build pipeline
-    if (!existingInfo.buildError.empty()) {
-      std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
-                << ": Pipeline build failed: " << existingInfo.buildError
-                << std::endl;
-      return false;
-    }
-
-    // ✅ ASYNC BUILD CHECK: Kiểm tra pipeline đã được build chưa
-    auto pipelineIt = pipelines_.find(instanceId);
-    if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
-      std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
-                << ": Pipeline not built yet" << std::endl;
-      std::cerr << "[InstanceRegistry] If instance was just created, pipeline may "
-                   "still be building in background"
-                << std::endl;
-      std::cerr << "[InstanceRegistry] Check instance status via GET "
-                   "/v1/core/instance/"
-                << instanceId << " to see build status" << std::endl;
-      return false;
-    }
-
-    // Stop instance if it's running (unless skipAutoStop is true)
-    wasRunning = instanceIt->second.running;
-
-    if (wasRunning && !skipAutoStop) {
+      constexpr int kWaitBuildTimeoutSec = 120;
+      constexpr int kWaitBuildPollMs = 500;
       std::cerr << "[InstanceRegistry] Instance " << instanceId
-                << " is currently running, stopping it first..." << std::endl;
-      instanceIt->second.running = false;
-
-      // Get pipeline copy before releasing lock
-      auto pipelineIt = pipelines_.find(instanceId);
-      if (pipelineIt != pipelines_.end() && !pipelineIt->second.empty()) {
-        pipelineToStop = pipelineIt->second;
+                << " pipeline is building, waiting up to " << kWaitBuildTimeoutSec
+                << "s..." << std::endl;
+      lock.unlock();
+      int waited_ms = 0;
+      bool build_done = false;
+      while (waited_ms < kWaitBuildTimeoutSec * 1000) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(kWaitBuildPollMs));
+        waited_ms += kWaitBuildPollMs;
+        if (ShutdownFlag::isRequested()) {
+          return false;
+        }
+        lock.lock();
+        instanceIt = instances_.find(instanceId);
+        if (instanceIt == instances_.end()) {
+          lock.unlock();
+          return false;
+        }
+        if (!instanceIt->second.building) {
+          build_done = true;
+          existingInfo = instanceIt->second;
+          if (!existingInfo.buildError.empty()) {
+            std::cerr << "[InstanceRegistry] ✗ Cannot start instance "
+                      << instanceId
+                      << ": Pipeline build failed: " << existingInfo.buildError
+                      << std::endl;
+            lock.unlock();
+            return false;
+          }
+          auto pipelineIt = pipelines_.find(instanceId);
+          if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+            std::cerr << "[InstanceRegistry] ✗ Pipeline not ready for instance "
+                      << instanceId << std::endl;
+            lock.unlock();
+            return false;
+          }
+          usedExistingPipeline = true;
+          wasRunning = instanceIt->second.running;
+          std::cerr << "[InstanceRegistry] Pipeline build completed, "
+                       "proceeding with start"
+                    << std::endl;
+          break;
+        }
+        lock.unlock();
       }
-    } else if (wasRunning && skipAutoStop) {
-      // If skipAutoStop is true, instance should already be stopped
-      // Fail if instance is still running to prevent resource conflicts
-      if (instanceIt->second.running) {
-        std::cerr << "[InstanceRegistry] ✗ Error: Instance " << instanceId
-                  << " is still running despite skipAutoStop=true" << std::endl;
-        std::cerr << "[InstanceRegistry] Instance must be stopped before "
-                     "calling startInstance with skipAutoStop=true"
+      if (!build_done) {
+        std::cerr << "[InstanceRegistry] ✗ Timeout waiting for pipeline build "
+                     "for instance "
+                  << instanceId << " (" << kWaitBuildTimeoutSec << "s)"
                   << std::endl;
-        return false; // Fail early to prevent resource conflicts
+        return false;
       }
+      // Hold lock; fall through to run stop/erase only when !usedExistingPipeline
     }
 
-    // Remove old pipeline from map to ensure fresh build
-    // This is safe because:
-    // - If wasRunning && !skipAutoStop: pipeline copy is saved in
-    // pipelineToStop before erase
-    // - If wasRunning && skipAutoStop: instance should already be stopped, so
-    // no active pipeline
-    // - If !wasRunning: no active pipeline to worry about
-    pipelines_.erase(instanceId);
+    if (!usedExistingPipeline) {
+      // ✅ ASYNC BUILD CHECK: Kiểm tra lỗi build pipeline
+      if (!existingInfo.buildError.empty()) {
+        std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
+                  << ": Pipeline build failed: " << existingInfo.buildError
+                  << std::endl;
+        return false;
+      }
+
+      // ✅ ASYNC BUILD CHECK: Kiểm tra pipeline đã được build chưa
+      auto pipelineIt = pipelines_.find(instanceId);
+      if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+        std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
+                  << ": Pipeline not built yet" << std::endl;
+        std::cerr << "[InstanceRegistry] If instance was just created, pipeline "
+                     "may still be building in background"
+                  << std::endl;
+        std::cerr << "[InstanceRegistry] Check instance status via GET "
+                     "/v1/core/instance/"
+                  << instanceId << " to see build status" << std::endl;
+        return false;
+      }
+
+      // Stop instance if it's running (unless skipAutoStop is true)
+      wasRunning = instanceIt->second.running;
+
+      if (wasRunning && !skipAutoStop) {
+        std::cerr << "[InstanceRegistry] Instance " << instanceId
+                  << " is currently running, stopping it first..." << std::endl;
+        instanceIt->second.running = false;
+
+        // Get pipeline copy before releasing lock
+        auto pipelineIt = pipelines_.find(instanceId);
+        if (pipelineIt != pipelines_.end() && !pipelineIt->second.empty()) {
+          pipelineToStop = pipelineIt->second;
+        }
+      } else if (wasRunning && skipAutoStop) {
+        // If skipAutoStop is true, instance should already be stopped
+        if (instanceIt->second.running) {
+          std::cerr << "[InstanceRegistry] ✗ Error: Instance " << instanceId
+                    << " is still running despite skipAutoStop=true"
+                    << std::endl;
+          std::cerr << "[InstanceRegistry] Instance must be stopped before "
+                       "calling startInstance with skipAutoStop=true"
+                    << std::endl;
+          return false;
+        }
+      }
+
+      // Remove old pipeline from map to ensure fresh build (only when not using just-built pipeline)
+      pipelines_.erase(instanceId);
+    }
   } // Release lock
 
   // Stop pipeline if it was running and not skipping auto-stop (do this outside
@@ -615,7 +661,9 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
   std::cerr << "[InstanceRegistry] ========================================"
             << std::endl;
   std::cerr << "[InstanceRegistry] Starting instance " << instanceId
-            << " (creating new pipeline)..." << std::endl;
+            << (usedExistingPipeline ? " (using built pipeline)..."
+                                    : " (creating new pipeline)...")
+            << std::endl;
   std::cerr << "[InstanceRegistry] ========================================"
             << std::endl;
 
@@ -625,50 +673,60 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
               << ", solution: " << existingInfo.solutionId << ")";
   }
 
-  // Rebuild pipeline from instance info (this creates a fresh pipeline)
-  // Check instance still exists before rebuilding (may have been deleted)
-  {
-    std::unique_lock<std::shared_timed_mutex> lock(
-        mutex_); // Exclusive lock for write operations
-    if (instances_.find(instanceId) == instances_.end()) {
-      std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
-                << " was deleted during start operation" << std::endl;
-      return false;
-    }
-  } // Release lock
-
-  if (!rebuildPipelineFromInstanceInfo(instanceId)) {
-    std::cerr << "[InstanceRegistry] ✗ Failed to rebuild pipeline for instance "
-              << instanceId << std::endl;
-    return false;
-  }
-
-  // Get pipeline copy after rebuild
-  // Check instance still exists (may have been deleted during rebuild)
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipelineCopy;
-  {
-    std::unique_lock<std::shared_timed_mutex> lock(
-        mutex_); // Exclusive lock for write operations
-    if (instances_.find(instanceId) == instances_.end()) {
-      std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
-                << " was deleted during rebuild" << std::endl;
-      // Cleanup pipeline that was just created
-      pipelines_.erase(instanceId);
-      return false;
-    }
+
+  if (usedExistingPipeline) {
+    // Use pipeline that was just built by createInstance (async build)
+    std::unique_lock<std::shared_timed_mutex> lock(mutex_);
     auto pipelineIt = pipelines_.find(instanceId);
     if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
-      std::cerr << "[InstanceRegistry] ✗ Pipeline rebuild failed or returned "
-                   "empty pipeline"
-                << std::endl;
+      std::cerr << "[InstanceRegistry] ✗ Pipeline not found for instance "
+                << instanceId << std::endl;
       return false;
     }
     pipelineCopy = pipelineIt->second;
-  } // Release lock
+    std::cerr << "[InstanceRegistry] ✓ Using pipeline from async build"
+              << std::endl;
+  } else {
+    // Rebuild pipeline from instance info (this creates a fresh pipeline)
+    {
+      std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+      if (instances_.find(instanceId) == instances_.end()) {
+        std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
+                  << " was deleted during start operation" << std::endl;
+        return false;
+      }
+    }
 
-  std::cerr
-      << "[InstanceRegistry] ✓ Pipeline rebuilt successfully (fresh pipeline)"
-      << std::endl;
+    if (!rebuildPipelineFromInstanceInfo(instanceId)) {
+      std::cerr << "[InstanceRegistry] ✗ Failed to rebuild pipeline for instance "
+                << instanceId << std::endl;
+      return false;
+    }
+
+    // Get pipeline copy after rebuild
+    {
+      std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+      if (instances_.find(instanceId) == instances_.end()) {
+        std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
+                  << " was deleted during rebuild" << std::endl;
+        pipelines_.erase(instanceId);
+        return false;
+      }
+      auto pipelineIt = pipelines_.find(instanceId);
+      if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+        std::cerr << "[InstanceRegistry] ✗ Pipeline rebuild failed or returned "
+                     "empty pipeline"
+                  << std::endl;
+        return false;
+      }
+      pipelineCopy = pipelineIt->second;
+    }
+
+    std::cerr
+        << "[InstanceRegistry] ✓ Pipeline rebuilt successfully (fresh pipeline)"
+        << std::endl;
+  }
 
   // Wait for models to be ready (use adaptive timeout)
   // OPTIMIZED: Reduced timeout to minimize impact on other instances

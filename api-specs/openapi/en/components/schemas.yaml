@@ -1135,6 +1135,19 @@ components:
         loaded:
           type: boolean
           description: Whether instance is loaded
+        building:
+          type: boolean
+          description: True while the pipeline is being built asynchronously in the background; do not call Start until false.
+        status:
+          type: string
+          description: "Instance readiness: 'building' (pipeline building), 'ready' (can start), 'error' (build failed)."
+          enum: [building, ready, error]
+        message:
+          type: string
+          description: Human-readable message when status is building (e.g. Pipeline is being built in background).
+        buildError:
+          type: string
+          description: Error message if pipeline build failed (when status is error).
         running:
           type: boolean
           description: Whether instance pipeline is running
