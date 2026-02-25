@@ -1,0 +1,63 @@
+# API endpoint: /v1/core/system/config
+# Tag: Core
+
+/v1/core/system/config:
+  get:
+    summary: Lấy system configuration entities
+    description: Trả về system configuration entities với fieldId, displayName, type, value, group, và availableValues
+    operationId: coreGetSystemConfigV1
+    tags:
+    - Core
+    responses:
+      '200':
+        description: System configuration entities
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemConfigResponse'
+      '500':
+        description: Lỗi server
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Cập nhật system configuration
+    description: Cập nhật system configuration entities
+    operationId: corePutSystemConfigV1
+    tags:
+    - Core
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SystemConfigUpdateRequest'
+    responses:
+      '200':
+        description: Cấu hình đã được cập nhật thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: success
+                message:
+                  type: string
+                  example: System config updated successfully
+      '406':
+        description: Not Acceptable - Cấu hình không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho system config
+    operationId: coreSystemConfigOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -5,6 +5,7 @@
 #include "instances/instance_storage.h"
 #include "solutions/solution_registry.h"
 #include "worker/worker_supervisor.h"
+#include "core/resource_manager.h"
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -110,6 +111,10 @@ private:
   // Both mutex and map are mutable to allow cache updates in const methods
   mutable std::mutex instances_mutex_;
   mutable std::unordered_map<std::string, InstanceInfo> instances_;
+  
+  // GPU allocation tracking (maps instance ID to GPU allocation)
+  std::unordered_map<std::string, std::shared_ptr<ResourceManager::Allocation>> gpu_allocations_;
+  mutable std::mutex gpu_allocations_mutex_;
 
   /**
    * @brief Build config JSON from CreateInstanceRequest
@@ -138,4 +143,12 @@ private:
    * @brief Handle worker errors
    */
   void onWorkerError(const std::string &instanceId, const std::string &error);
+
+  /**
+   * @brief Helper: Allocate GPU and spawn worker with GPU device ID
+   * @param instanceId Instance ID
+   * @param config Worker configuration
+   * @return true if successful
+   */
+  bool allocateGPUAndSpawnWorker(const std::string &instanceId, const Json::Value &config);
 };

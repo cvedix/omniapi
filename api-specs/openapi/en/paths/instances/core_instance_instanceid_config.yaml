@@ -1,0 +1,150 @@
+# API endpoint: /v1/core/instance/{instanceId}/config
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/config:
+  get:
+    summary: Get instance configuration
+    description: 'Returns the configuration of an instance. This endpoint provides the configuration settings of the instance,
+      which are different from runtime state. Configuration includes settings like AutoRestart, AutoStart, Detector settings,
+      Input configuration, etc.
+
+
+      **Note:** This returns the configuration format, not the runtime state. For runtime state information, use the instance
+      details endpoint.
+
+      '
+    operationId: getConfig
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique identifier of the instance (UUID)
+      example: '{Updated}'
+    responses:
+      '200':
+        description: Instance configuration
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceConfig'
+            example:
+              AutoRestart: false
+              AutoStart: false
+              Detector:
+                preset_values:
+                  MosaicInference:
+                    Detector/conf_threshold: 0.7
+              DetectorRegions: {}
+              DisplayName: Test Instance
+              Input:
+                match_fps: true
+                media_format:
+                  color_format: 0
+                  default_format: true
+                  height: 0
+                  is_software: false
+                  name: Same as Source
+                media_type: Images
+                output_fps: 8
+                uri: https://some_uri
+              InstanceId: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Set config value at a specific path
+    description: 'Sets a configuration value at the specified path. The path is a key in the configuration, and for nested
+      structures, it will be nested keys separated by forward slashes "/".
+
+
+      **Note:** This operation will overwrite the value at the given path.
+
+
+      **Path Examples:**
+
+      - Simple path: `"DisplayName"` - Sets top-level DisplayName
+
+      - Nested path: `"Output/handlers/Mqtt"` - Sets Mqtt handler in Output.handlers
+
+
+      **jsonValue Format:**
+
+      - For string values: `"\"my string\""` (escaped JSON string)
+
+      - For object values: `"{\"key\":\"value\"}"` (escaped JSON object)
+
+
+      The instance must exist and not be read-only. If the instance is currently running, it will be automatically restarted
+      to apply the changes.
+
+      '
+    operationId: setConfig
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique identifier of the instance (UUID)
+      example: '{Test}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SetConfigRequest'
+          examples:
+            stringValue:
+              summary: Set string value
+              value:
+                path: my/nested/path
+                jsonValue: '"my string"'
+            objectValue:
+              summary: Set object value
+              value:
+                path: Output/handlers/Mqtt
+                jsonValue: '{"uri":"mqtt://localhost:1883/events"}'
+    responses:
+      '204':
+        description: Config value set successfully
+      '400':
+        description: Bad request (invalid input or missing required fields)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for set config
+    operationId: setConfigOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: CORS preflight response

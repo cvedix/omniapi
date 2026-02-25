@@ -1,0 +1,105 @@
+# API endpoint: /v1/core/instance/{instanceId}/stops/batch
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/stops/batch:
+  post:
+    summary: Batch update stop zones
+    description: 'Update multiple stop zones for a ba_stop instance in a single request.
+
+      This endpoint allows updating multiple stop zones at once, which is more efficient than updating them individually.
+      The instance will be restarted automatically to apply the changes if it is currently running.
+      '
+    operationId: batchUpdateStops
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+              - id
+              - roi
+              properties:
+                id:
+                  type: string
+                  description: Stop zone ID
+                name:
+                  type: string
+                  description: Stop zone name
+                roi:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      x:
+                        type: number
+                      y:
+                        type: number
+                  description: Region of interest (polygon with at least 3 points)
+                threshold:
+                  type: number
+                  description: Detection threshold
+                duration:
+                  type: integer
+                  description: Minimum stop duration in seconds
+            example:
+            - id: stop1
+              name: Zone 1
+              roi:
+              - x: 0
+                y: 0
+              - x: 100
+                y: 0
+              - x: 100
+                y: 100
+              - x: 0
+                y: 100
+    responses:
+      '200':
+        description: Stop zones updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updated:
+                  type: integer
+                  description: Number of stop zones updated
+                  example: 2
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for batch update stops
+    operationId: batchUpdateStopsOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: CORS preflight response

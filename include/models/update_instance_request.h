@@ -16,6 +16,7 @@ struct UpdateInstanceRequest {
   // Configuration flags (optional - only update if provided)
   std::optional<bool> persistent;
   int frameRateLimit = -1; // Use -1 to indicate not set
+  int configuredFps = -1; // Use -1 to indicate not set (default: 5 FPS)
   std::optional<bool> metadataMode;
   std::optional<bool> statisticsMode;
   std::optional<bool> diagnosticsMode;

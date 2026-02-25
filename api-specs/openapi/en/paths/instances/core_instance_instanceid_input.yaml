@@ -1,0 +1,71 @@
+# API endpoint: /v1/core/instance/{instanceId}/input
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/input:
+  post:
+    summary: Set input source for an instance
+    description: 'Sets the input source configuration for an instance. Replaces the Input field in the Instance File according
+      to the request.
+
+
+      **Input Types:**
+
+      - **RTSP**: Uses `rtsp_src` node for RTSP streams
+
+      - **HLS**: Uses `hls_src` node for HLS streams
+
+      - **Manual**: Uses `v4l2_src` node for V4L2 devices
+
+
+      The instance must exist and not be read-only. If the instance is currently running, it will be automatically restarted
+      to apply the changes.
+
+      '
+    operationId: setInstanceInput
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique identifier of the instance (UUID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SetInputRequest'
+          example:
+            type: Manual
+            uri: http://localhost
+    responses:
+      '204':
+        description: Input settings updated successfully
+      '400':
+        description: Bad request (invalid input or missing required fields)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for set input
+    operationId: setInstanceInputOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: CORS preflight response

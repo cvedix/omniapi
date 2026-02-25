@@ -1,0 +1,97 @@
+# API endpoint: /v1/securt/instance/{instanceId}/output
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/output:
+  post:
+    summary: Set output destination for SecuRT instance
+    description: 'Configures output destination for a SecuRT instance. Supports multiple output types including MQTT, RTMP,
+      RTSP, and HLS.
+
+      **Output Types:**
+
+      - **MQTT**: Publish analytics results to MQTT broker - Required: `broker` (MQTT broker address) - Optional: `port` (default:
+      1883), `topic` (default: securt/{instanceId}), `username`, `password`
+
+      - **RTMP**: Stream video to RTMP server - Required: `uri` (must start with rtmp://)
+
+      - **RTSP**: Stream video to RTSP server - Required: `uri` (must start with rtsp://)
+
+      - **HLS**: Stream video via HLS - Required: `uri` (must start with hls://, http://, or https://)
+
+      **Behavior:**
+
+      - If the instance is currently running, it will be automatically restarted to apply the changes
+
+      - Multiple outputs can be configured by calling this endpoint multiple times
+
+      - Output configuration is stored in instance AdditionalParams
+
+      '
+    operationId: setSecuRTInstanceOutput
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SecuRTOutputRequest'
+          examples:
+            mqttOutput:
+              summary: MQTT output
+              value:
+                type: MQTT
+                broker: localhost
+                port: '1883'
+                topic: securt/detections
+            rtmpOutput:
+              summary: RTMP output
+              value:
+                type: RTMP
+                uri: rtmp://live.example.com/live/stream_key
+            rtspOutput:
+              summary: RTSP output
+              value:
+                type: RTSP
+                uri: rtsp://localhost:8554/stream
+            hlsOutput:
+              summary: HLS output
+              value:
+                type: HLS
+                uri: hls://localhost:8080/hls/stream
+    responses:
+      '204':
+        description: Output settings updated successfully
+      '400':
+        description: Invalid request (invalid output type or missing required fields)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for output
+    operationId: setSecuRTInstanceOutputOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: CORS preflight response

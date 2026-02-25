@@ -2,6 +2,7 @@
 #include "core/timeout_constants.h"
 #include <chrono>
 #include <climits> // for PATH_MAX
+#include <cstdlib> // for setenv
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -65,7 +66,7 @@ void WorkerSupervisor::stop() {
 }
 
 bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
-                                   const Json::Value &config) {
+                                   const Json::Value &config, int gpu_device_id) {
   std::lock_guard<std::timed_mutex> lock(workers_mutex_);
 
   // Check if worker already exists
@@ -122,6 +123,18 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   }
 
   if (pid == 0) {
+    // Child process - set CUDA_VISIBLE_DEVICES if GPU device ID is specified
+    if (gpu_device_id >= 0) {
+      std::string cuda_visible_devices = std::to_string(gpu_device_id);
+      if (setenv("CUDA_VISIBLE_DEVICES", cuda_visible_devices.c_str(), 1) != 0) {
+        std::cerr << "[Worker] Warning: Failed to set CUDA_VISIBLE_DEVICES=" 
+                  << cuda_visible_devices << std::endl;
+      } else {
+        std::cout << "[Worker] Set CUDA_VISIBLE_DEVICES=" << cuda_visible_devices 
+                  << " for instance " << instance_id << std::endl;
+      }
+    }
+    
     // Child process - exec worker
     // Arguments: worker_executable --instance-id <id> --socket <path> --config
     // <json>

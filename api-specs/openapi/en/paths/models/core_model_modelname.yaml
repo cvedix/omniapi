@@ -1,0 +1,147 @@
+# API endpoint: /v1/core/model/{modelName}
+# Tag: Models
+
+/v1/core/model/{modelName}:
+  put:
+    summary: Rename a model file
+    description: 'Renames a model file on the server.
+
+      You can specify a subdirectory using the `directory` query parameter if the file is in a subdirectory.
+
+      '
+    operationId: renameModel
+    tags:
+    - Models
+    parameters:
+    - name: modelName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Current name of the model file to rename
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Subdirectory path where the model file is located (e.g., "projects/myproject/models", "detection/yolov8").
+
+        If not specified, the file is assumed to be in the base models directory.
+
+        '
+      example: projects/myproject/models
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - newName
+            properties:
+              newName:
+                type: string
+                description: New name for the model file (must have valid model file extension)
+                example: my_model_v2.onnx
+    responses:
+      '200':
+        description: Model file renamed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                oldName:
+                  type: string
+                newName:
+                  type: string
+                path:
+                  type: string
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Model file not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: New name already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete a model file
+    description: 'Deletes a model file from the server.
+
+      You can specify a subdirectory using the `directory` query parameter if the file is in a subdirectory.
+
+      '
+    operationId: deleteModel
+    tags:
+    - Models
+    parameters:
+    - name: modelName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Name of the model file to delete
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Subdirectory path where the model file is located (e.g., "projects/myproject/models", "detection/yolov8").
+
+        If not specified, the file is assumed to be in the base models directory.
+
+        '
+      example: projects/myproject/models
+    responses:
+      '200':
+        description: Model file deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                filename:
+                  type: string
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Model file not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

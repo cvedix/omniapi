@@ -1,0 +1,73 @@
+# API endpoint: /v1/core/video/upload
+# Tag: Video
+
+/v1/core/video/upload:
+  post:
+    summary: Upload a video file
+    description: 'Uploads a video file (MP4, AVI, MKV, etc.) to the server.
+
+      The file will be saved in the videos directory. You can specify a subdirectory
+
+      using the `directory` query parameter (e.g., `projects/myproject/videos`).
+
+      If the directory doesn''t exist, it will be created automatically.
+
+      If no directory is specified, files will be saved in the base videos directory.
+
+      '
+    operationId: uploadVideo
+    tags:
+    - Video
+    parameters:
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con nơi file video sẽ được lưu.
+
+        Sử dụng dấu gạch chéo để phân tách các cấp thư mục (ví dụ: "projects/myproject/videos", "users/user123", "category1/subcategory").
+
+        Thư mục sẽ được tạo tự động nếu không tồn tại.
+
+        Nếu không được chỉ định, file sẽ được lưu trong thư mục videos gốc.
+
+        '
+      example: projects/myproject/videos
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              files:
+                type: array
+                items:
+                  type: string
+                  format: binary
+                description: File video để tải lên. Chọn nhiều file để tải lên cùng lúc (.mp4, .avi, .mkv, .mov, .flv, .wmv,
+                  .webm, v.v.)
+              file:
+                type: string
+                format: binary
+                description: Một file video để tải lên (thay thế cho mảng files)
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+            description: File video dưới dạng dữ liệu nhị phân
+    responses:
+      '201':
+        description: File video đã được tải lên thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                count:
+                  type: integer

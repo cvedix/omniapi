@@ -10,11 +10,13 @@ info:
     Máy chủ hỗ trợ các tính năng ghi log chi tiết có thể được bật qua các tham số dòng lệnh:
 
 
-    - **Ghi log API** (`--log-api` hoặc `--debug-api`): Ghi lại tất cả các yêu cầu và phản hồi API cùng với thời gian phản hồi
+    - **Ghi log API** (`--log-api` hoặc `--debug-api`): Ghi lại tất cả các yêu cầu và phản hồi API cùng với thời gian phản
+    hồi
 
     - **Ghi log Thực thi Instance** (`--log-instance` hoặc `--debug-instance`): Ghi lại các sự kiện vòng đời instance (start/stop/status)
 
-    - **Ghi log Đầu ra SDK** (`--log-sdk-output` hoặc `--debug-sdk-output`): Ghi lại đầu ra SDK khi các instance xử lý dữ liệu
+    - **Ghi log Đầu ra SDK** (`--log-sdk-output` hoặc `--debug-sdk-output`): Ghi lại đầu ra SDK khi các instance xử lý dữ
+    liệu
 
 
     Ví dụ sử dụng:
@@ -127,7 +129,8 @@ paths:
   /v1/core/system/status:
     get:
       summary: Lấy trạng thái hệ thống
-      description: Trả về trạng thái hệ thống hiện tại bao gồm mức sử dụng CPU, mức sử dụng RAM, tải trung bình và thời gian hoạt động
+      description: Trả về trạng thái hệ thống hiện tại bao gồm mức sử dụng CPU, mức sử dụng RAM, tải trung bình và thời gian
+        hoạt động
       operationId: getSystemStatus
       tags:
       - Core
@@ -492,8 +495,8 @@ paths:
                   info:
                     type: string
                     description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
-                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi, hoặc đặt auto_restart=true
-                      để khởi động lại tự động.
+                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay
+                      đổi, hoặc đặt auto_restart=true để khởi động lại tự động.
                   restart_required:
                     type: boolean
                     description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
@@ -583,7 +586,8 @@ paths:
                     additionalProperties: true
                   warning:
                     type: string
-                    description: Thông báo cảnh báo nếu khởi động lại máy chủ được lên lịch (khi auto_reload=true và cổng/máy chủ thay đổi)
+                    description: Thông báo cảnh báo nếu khởi động lại máy chủ được lên lịch (khi auto_reload=true và cổng/máy
+                      chủ thay đổi)
                     example: Cổng/máy chủ web server đã thay đổi. Máy chủ sẽ khởi động lại sau 3 giây để áp dụng thay đổi.
                   restart_scheduled:
                     type: boolean
@@ -592,8 +596,8 @@ paths:
                   info:
                     type: string
                     description: Thông báo thông tin nếu cần khởi động lại nhưng auto_reload bị tắt
-                    example: Cổng/máy chủ web server đã thay đổi, nhưng auto_reload bị tắt. Vui lòng khởi động lại máy chủ thủ công để
-                      áp dụng thay đổi.
+                    example: Cổng/máy chủ web server đã thay đổi, nhưng auto_reload bị tắt. Vui lòng khởi động lại máy chủ
+                      thủ công để áp dụng thay đổi.
                   restart_required:
                     type: boolean
                     description: True nếu cần khởi động lại nhưng auto_reload bị tắt
@@ -667,8 +671,8 @@ paths:
           application/json:
             schema:
               type: object
-              description: Giá trị phần cấu hình để cập nhật. Có thể tùy chọn bao gồm trường `auto_restart` (boolean) để
-                kích hoạt khởi động lại máy chủ.
+              description: Giá trị phần cấu hình để cập nhật. Có thể tùy chọn bao gồm trường `auto_restart` (boolean) để kích
+                hoạt khởi động lại máy chủ.
               additionalProperties: true
               example:
                 port: 8080
@@ -702,8 +706,8 @@ paths:
                   info:
                     type: string
                     description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
-                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi, hoặc đặt auto_restart=true
-                      để khởi động lại tự động.
+                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay
+                      đổi, hoặc đặt auto_restart=true để khởi động lại tự động.
                   restart_required:
                     type: boolean
                     description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
@@ -723,12 +727,13 @@ paths:
     delete:
       summary: Xóa phần cấu hình (tham số truy vấn)
       description: "Xóa một phần cụ thể của cấu hình hệ thống tại đường dẫn đã cho.\n\n**Định dạng Đường dẫn:**\n- Hỗ trợ\
-        \ cả dấu gạch chéo `/` và dấu chấm `.` làm dấu phân cách\n- **Khuyến nghị:** Sử dụng dấu gạch chéo `/` để tương thích tốt hơn\n\
-        - Ví dụ:\n  - `system/max_running_instances` (với dấu gạch chéo - khuyến nghị)\n  - `system.max_running_instances`\
-        \ (với dấu chấm)\n  - `system/web_server/port` (đường dẫn lồng nhau với dấu gạch chéo)\n  - `system.web_server.port` (đường dẫn\
-        \ lồng nhau với dấu chấm)\n\nCấu hình được lưu vào file cấu hình sau khi xóa.\n\n**Tự động Khởi động lại:**\n- Theo mặc định,\
-        \ máy chủ sẽ KHÔNG tự động khởi động lại sau khi xóa cấu hình\n- Để bật khởi động lại tự động, đặt `auto_restart=true`\
-        \ làm tham số truy vấn\n- Khi `auto_restart=true`, máy chủ sẽ khởi động lại sau 3 giây nếu cấu hình web server thay đổi\n"
+        \ cả dấu gạch chéo `/` và dấu chấm `.` làm dấu phân cách\n- **Khuyến nghị:** Sử dụng dấu gạch chéo `/` để tương thích\
+        \ tốt hơn\n- Ví dụ:\n  - `system/max_running_instances` (với dấu gạch chéo - khuyến nghị)\n  - `system.max_running_instances`\
+        \ (với dấu chấm)\n  - `system/web_server/port` (đường dẫn lồng nhau với dấu gạch chéo)\n  - `system.web_server.port`\
+        \ (đường dẫn lồng nhau với dấu chấm)\n\nCấu hình được lưu vào file cấu hình sau khi xóa.\n\n**Tự động Khởi động lại:**\n\
+        - Theo mặc định, máy chủ sẽ KHÔNG tự động khởi động lại sau khi xóa cấu hình\n- Để bật khởi động lại tự động, đặt\
+        \ `auto_restart=true` làm tham số truy vấn\n- Khi `auto_restart=true`, máy chủ sẽ khởi động lại sau 3 giây nếu cấu\
+        \ hình web server thay đổi\n"
       operationId: deleteConfigSectionQuery
       tags:
       - Config
@@ -783,8 +788,8 @@ paths:
                   info:
                     type: string
                     description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
-                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi, hoặc đặt auto_restart=true
-                      để khởi động lại tự động.
+                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay
+                      đổi, hoặc đặt auto_restart=true để khởi động lại tự động.
                   restart_required:
                     type: boolean
                     description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
@@ -863,7 +868,8 @@ paths:
           application/json:
             schema:
               type: object
-              description: Body JSON tùy chọn. Có thể bao gồm trường `auto_restart` (boolean) để kích hoạt khởi động lại máy chủ.
+              description: Body JSON tùy chọn. Có thể bao gồm trường `auto_restart` (boolean) để kích hoạt khởi động lại máy
+                chủ.
               properties:
                 auto_restart:
                   type: boolean
@@ -895,8 +901,8 @@ paths:
                   info:
                     type: string
                     description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
-                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi, hoặc đặt auto_restart=true
-                      để khởi động lại tự động.
+                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay
+                      đổi, hoặc đặt auto_restart=true để khởi động lại tự động.
                   restart_required:
                     type: boolean
                     description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
@@ -1073,8 +1079,8 @@ paths:
                   info:
                     type: string
                     description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
-                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi, hoặc đặt auto_restart=true
-                      để khởi động lại tự động.
+                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay
+                      đổi, hoặc đặt auto_restart=true để khởi động lại tự động.
                   restart_required:
                     type: boolean
                     description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
@@ -1172,8 +1178,8 @@ paths:
                   info:
                     type: string
                     description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
-                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi, hoặc đặt auto_restart=true
-                      để khởi động lại tự động.
+                    example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay
+                      đổi, hoặc đặt auto_restart=true để khởi động lại tự động.
                   restart_required:
                     type: boolean
                     description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
@@ -1885,10 +1891,10 @@ paths:
   /v1/core/model/list:
     get:
       summary: Liệt kê các file mô hình đã tải lên
-      description: "Trả về danh sách các file mô hình đã được tải lên máy chủ.\n- Nếu tham số `directory` không được\
-        \ chỉ định: Tìm kiếm đệ quy và liệt kê tất cả các file mô hình\n  trong toàn bộ cây thư mục models (bao gồm tất cả\
-        \ các thư mục con).\n- Nếu tham số `directory` được chỉ định: Chỉ liệt kê các file trong thư mục cụ thể đó\n  (không đệ quy,\
-        \ không tìm kiếm thư mục con).\n"
+      description: "Trả về danh sách các file mô hình đã được tải lên máy chủ.\n- Nếu tham số `directory` không được chỉ định:\
+        \ Tìm kiếm đệ quy và liệt kê tất cả các file mô hình\n  trong toàn bộ cây thư mục models (bao gồm tất cả các thư mục\
+        \ con).\n- Nếu tham số `directory` được chỉ định: Chỉ liệt kê các file trong thư mục cụ thể đó\n  (không đệ quy, không\
+        \ tìm kiếm thư mục con).\n"
       operationId: listModels
       tags:
       - Models
@@ -2128,8 +2134,8 @@ paths:
                   items:
                     type: string
                     format: binary
-                  description: File video để tải lên. Chọn nhiều file để tải lên cùng lúc (.mp4, .avi, .mkv, .mov, .flv,
-                    .wmv, .webm, v.v.)
+                  description: File video để tải lên. Chọn nhiều file để tải lên cùng lúc (.mp4, .avi, .mkv, .mov, .flv, .wmv,
+                    .webm, v.v.)
                 file:
                   type: string
                   format: binary
@@ -2160,14 +2166,11 @@ paths:
 
         Endpoint này khởi động quá trình khám phá bất đồng bộ để tìm kiếm các camera tuân thủ ONVIF trên mạng cục bộ.
 
-        **Tham số Timeout:**
-        - Tham số truy vấn tùy chọn `timeout` (1-30 giây, mặc định: 5)
-        - Điều khiển thời gian chờ phản hồi từ camera trong quá trình khám phá
+        **Tham số Timeout:** - Tham số truy vấn tùy chọn `timeout` (1-30 giây, mặc định: 5) - Điều khiển thời gian chờ phản
+        hồi từ camera trong quá trình khám phá
 
-        **Phản hồi:**
-        - Trả về 204 No Content khi quá trình khám phá được khởi động
-        - Sử dụng GET /v1/onvif/cameras để lấy danh sách camera đã khám phá sau khi hoàn tất
-        '
+        **Phản hồi:** - Trả về 204 No Content khi quá trình khám phá được khởi động - Sử dụng GET /v1/onvif/cameras để lấy
+        danh sách camera đã khám phá sau khi hoàn tất '
       operationId: discoverONVIFCameras
       tags:
       - ONVIF
@@ -2204,16 +2207,11 @@ paths:
       summary: Lấy danh sách tất cả camera ONVIF đã khám phá
       description: 'Lấy danh sách tất cả các camera ONVIF đã được khám phá trên mạng.
 
-        **Thông tin Camera:**
-        - Mỗi camera bao gồm địa chỉ IP, UUID, nhà sản xuất, model và số serial
-        - Camera được lọc dựa trên whitelist hỗ trợ (nếu được cấu hình)
-        - Chỉ các camera vượt qua kiểm tra whitelist mới được trả về
+        **Thông tin Camera:** - Mỗi camera bao gồm địa chỉ IP, UUID, nhà sản xuất, model và số serial - Camera được lọc dựa
+        trên whitelist hỗ trợ (nếu được cấu hình) - Chỉ các camera vượt qua kiểm tra whitelist mới được trả về
 
-        **Cách sử dụng:**
-        1. Đầu tiên gọi POST /v1/onvif/discover để khám phá camera
-        2. Sau đó gọi endpoint này để lấy danh sách camera đã khám phá
-        3. Sử dụng camera ID (IP hoặc UUID) để lấy streams hoặc thiết lập credentials
-        '
+        **Cách sử dụng:** 1. Đầu tiên gọi POST /v1/onvif/discover để khám phá camera 2. Sau đó gọi endpoint này để lấy danh
+        sách camera đã khám phá 3. Sử dụng camera ID (IP hoặc UUID) để lấy streams hoặc thiết lập credentials '
       operationId: getONVIFCameras
       tags:
       - ONVIF
@@ -2227,16 +2225,16 @@ paths:
                 items:
                   $ref: '#/components/schemas/ONVIFCamera'
               example:
-                - ip: 192.168.1.100
-                  uuid: 00000000-0000-0000-0000-000000000000
-                  manufacturer: Hikvision
-                  model: DS-2CD2347G1-LU
-                  serialNumber: ABC123456
-                - ip: 192.168.1.101
-                  uuid: 11111111-1111-1111-1111-111111111111
-                  manufacturer: Axis
-                  model: P3245-LVE
-                  serialNumber: DEF789012
+              - ip: 192.168.1.100
+                uuid: 00000000-0000-0000-0000-000000000000
+                manufacturer: Hikvision
+                model: DS-2CD2347G1-LU
+                serialNumber: ABC123456
+              - ip: 192.168.1.101
+                uuid: 11111111-1111-1111-1111-111111111111
+                manufacturer: Axis
+                model: P3245-LVE
+                serialNumber: DEF789012
         '500':
           description: Lỗi máy chủ
           content:
@@ -2256,21 +2254,15 @@ paths:
       summary: Lấy streams cho một camera ONVIF
       description: 'Lấy các video streams có sẵn cho một camera ONVIF cụ thể.
 
-        **Camera ID:**
-        - Có thể là địa chỉ IP của camera (ví dụ: "192.168.1.100") hoặc UUID
-        - Định dạng địa chỉ IP: 0-255.0-255.0-255.0-255
+        **Camera ID:** - Có thể là địa chỉ IP của camera (ví dụ: "192.168.1.100") hoặc UUID - Định dạng địa chỉ IP: 0-255.0-255.0-255.0-255
 
-        **Thông tin Stream:**
-        - Mỗi stream bao gồm profile token, độ phân giải (width/height), frame rate (fps) và RTSP URI
-        - Streams được lấy bằng dịch vụ ONVIF Media
-        - Credentials của camera phải được thiết lập trước khi lấy streams (nếu yêu cầu xác thực)
+        **Thông tin Stream:** - Mỗi stream bao gồm profile token, độ phân giải (width/height), frame rate (fps) và RTSP URI
+        - Streams được lấy bằng dịch vụ ONVIF Media - Credentials của camera phải được thiết lập trước khi lấy streams (nếu
+        yêu cầu xác thực)
 
-        **Cách sử dụng:**
-        1. Khám phá camera bằng POST /v1/onvif/discover
-        2. Lấy danh sách camera bằng GET /v1/onvif/cameras
-        3. Thiết lập credentials bằng POST /v1/onvif/camera/{cameraid}/credentials (nếu cần)
-        4. Lấy streams bằng endpoint này
-        '
+        **Cách sử dụng:** 1. Khám phá camera bằng POST /v1/onvif/discover 2. Lấy danh sách camera bằng GET /v1/onvif/cameras
+        3. Thiết lập credentials bằng POST /v1/onvif/camera/{cameraid}/credentials (nếu cần) 4. Lấy streams bằng endpoint
+        này '
       operationId: getONVIFStreams
       tags:
       - ONVIF
@@ -2292,16 +2284,16 @@ paths:
                 items:
                   $ref: '#/components/schemas/ONVIFStream'
               example:
-                - token: Profile_1
-                  width: 1920
-                  height: 1080
-                  fps: 30
-                  uri: rtsp://192.168.1.100:554/Streaming/Channels/101
-                - token: Profile_2
-                  width: 640
-                  height: 480
-                  fps: 15
-                  uri: rtsp://192.168.1.100:554/Streaming/Channels/102
+              - token: Profile_1
+                width: 1920
+                height: 1080
+                fps: 30
+                uri: rtsp://192.168.1.100:554/Streaming/Channels/101
+              - token: Profile_2
+                width: 640
+                height: 480
+                fps: 15
+                uri: rtsp://192.168.1.100:554/Streaming/Channels/102
         '400':
           description: Yêu cầu không hợp lệ (thiếu hoặc không hợp lệ camera ID)
           content:
@@ -2333,21 +2325,13 @@ paths:
       summary: Thiết lập credentials cho một camera ONVIF
       description: 'Thiết lập thông tin xác thực cho một camera ONVIF cụ thể.
 
-        **Camera ID:**
-        - Có thể là địa chỉ IP của camera (ví dụ: "192.168.1.100") hoặc UUID
-        - Định dạng địa chỉ IP: 0-255.0-255.0-255.0-255
+        **Camera ID:** - Có thể là địa chỉ IP của camera (ví dụ: "192.168.1.100") hoặc UUID - Định dạng địa chỉ IP: 0-255.0-255.0-255.0-255
 
-        **Credentials:**
-        - Username và password là bắt buộc
-        - Credentials được lưu trữ an toàn và được sử dụng cho các thao tác ONVIF tiếp theo
-        - Nếu camera không được tìm thấy, có thể được đề xuất nếu phát hiện IP tương tự
+        **Credentials:** - Username và password là bắt buộc - Credentials được lưu trữ an toàn và được sử dụng cho các thao
+        tác ONVIF tiếp theo - Nếu camera không được tìm thấy, có thể được đề xuất nếu phát hiện IP tương tự
 
-        **Cách sử dụng:**
-        1. Khám phá camera bằng POST /v1/onvif/discover
-        2. Lấy danh sách camera bằng GET /v1/onvif/cameras
-        3. Thiết lập credentials bằng endpoint này
-        4. Lấy streams bằng GET /v1/onvif/streams/{cameraid}
-        '
+        **Cách sử dụng:** 1. Khám phá camera bằng POST /v1/onvif/discover 2. Lấy danh sách camera bằng GET /v1/onvif/cameras
+        3. Thiết lập credentials bằng endpoint này 4. Lấy streams bằng GET /v1/onvif/streams/{cameraid} '
       operationId: setONVIFCredentials
       tags:
       - ONVIF
@@ -2400,17 +2384,14 @@ paths:
   /v1/core/instance/{instanceId}/consume_events:
     get:
       summary: Lấy events từ instance
-      description: 'Lấy events từ hàng đợi events của instance. Events được publish bởi instance processing pipeline và có thể được lấy qua endpoint này.
+      description: 'Lấy events từ hàng đợi events của instance. Events được publish bởi instance processing pipeline và có
+        thể được lấy qua endpoint này.
 
-        **Định dạng Event:**
-        - Mỗi event có `dataType` (ví dụ: "detection", "tracking", "analytics") và `jsonObject` (chuỗi JSON đã serialize)
-        - Events tuân theo schema tại https://bin.cvedia.com/schema/
+        **Định dạng Event:** - Mỗi event có `dataType` (ví dụ: "detection", "tracking", "analytics") và `jsonObject` (chuỗi
+        JSON đã serialize) - Events tuân theo schema tại https://bin.cvedia.com/schema/
 
-        **Hành vi:**
-        - Trả về tất cả events có sẵn từ hàng đợi
-        - Events sẽ bị xóa khỏi hàng đợi sau khi lấy
-        - Trả về 204 No Content nếu không có events
-        - Trả về 200 OK với mảng events nếu có events'
+        **Hành vi:** - Trả về tất cả events có sẵn từ hàng đợi - Events sẽ bị xóa khỏi hàng đợi sau khi lấy - Trả về 204 No
+        Content nếu không có events - Trả về 200 OK với mảng events nếu có events'
       operationId: coreConsumeEventsV1
       tags:
       - Instances
@@ -2421,7 +2402,7 @@ paths:
         schema:
           type: string
         description: Định danh duy nhất của instance
-        example: "{instanceId}"
+        example: '{instanceId}'
       responses:
         '200':
           description: Lấy events thành công
@@ -2439,10 +2420,10 @@ paths:
                       type: string
                       description: Chuỗi JSON đã serialize chứa dữ liệu event
               example:
-                - dataType: detection
-                  jsonObject: '{"timestamp": "2024-01-01T00:00:00Z", "objects": []}'
-                - dataType: tracking
-                  jsonObject: '{"timestamp": "2024-01-01T00:00:01Z", "tracks": []}'
+              - dataType: detection
+                jsonObject: '{"timestamp": "2024-01-01T00:00:00Z", "objects": []}'
+              - dataType: tracking
+                jsonObject: '{"timestamp": "2024-01-01T00:00:01Z", "tracks": []}'
         '204':
           description: Không có events
         '404':
@@ -2470,11 +2451,8 @@ paths:
       summary: Cấu hình HLS output cho instance
       description: 'Bật hoặc tắt HLS (HTTP Live Streaming) output cho instance. Khi bật, trả về URI của HLS stream.
 
-        **HLS Output:**
-        - HLS stream có thể truy cập qua HTTP
-        - File playlist (.m3u8) được tạo tự động
-        - Video segments (.ts files) được tạo tự động
-        - Stream có thể phát trong VLC, trình duyệt web, hoặc các trình phát tương thích HLS khác'
+        **HLS Output:** - HLS stream có thể truy cập qua HTTP - File playlist (.m3u8) được tạo tự động - Video segments (.ts
+        files) được tạo tự động - Stream có thể phát trong VLC, trình duyệt web, hoặc các trình phát tương thích HLS khác'
       operationId: coreSetOutputHlsV1
       tags:
       - Instances
@@ -2485,7 +2463,7 @@ paths:
         schema:
           type: string
         description: Định danh duy nhất của instance
-        example: "{instanceId}"
+        example: '{instanceId}'
       requestBody:
         required: true
         content:
@@ -2493,7 +2471,7 @@ paths:
             schema:
               type: object
               required:
-                - enabled
+              - enabled
               properties:
                 enabled:
                   type: boolean
@@ -2552,10 +2530,8 @@ paths:
       summary: Cấu hình RTSP output cho instance
       description: 'Bật hoặc tắt RTSP (Real-Time Streaming Protocol) output cho instance tại URI được chỉ định.
 
-        **RTSP Output:**
-        - RTSP stream có thể truy cập qua RTSP clients (VLC, ffplay, v.v.)
-        - URI có thể được cung cấp trong request body hoặc sẽ dùng mặc định
-        - Stream hỗ trợ nhiều RTSP clients đồng thời'
+        **RTSP Output:** - RTSP stream có thể truy cập qua RTSP clients (VLC, ffplay, v.v.) - URI có thể được cung cấp trong
+        request body hoặc sẽ dùng mặc định - Stream hỗ trợ nhiều RTSP clients đồng thời'
       operationId: coreSetOutputRtspV1
       tags:
       - Instances
@@ -2566,7 +2542,7 @@ paths:
         schema:
           type: string
         description: Định danh duy nhất của instance
-        example: "{instanceId}"
+        example: '{instanceId}'
       requestBody:
         required: true
         content:
@@ -2574,7 +2550,7 @@ paths:
             schema:
               type: object
               required:
-                - enabled
+              - enabled
               properties:
                 enabled:
                   type: boolean
@@ -2629,20 +2605,15 @@ paths:
   /v1/core/instance/{instanceId}/push/encoded/{codecId}:
     post:
       summary: Đẩy frame đã encode vào instance
-      description: 'Đẩy một frame đã được encode (H.264/H.265) vào instance để xử lý. Frame sẽ được decode và xử lý bởi instance pipeline.
+      description: 'Đẩy một frame đã được encode (H.264/H.265) vào instance để xử lý. Frame sẽ được decode và xử lý bởi instance
+        pipeline.
 
-        **Codec được hỗ trợ:**
-        - `h264`: H.264/AVC
-        - `h265`: H.265/HEVC
-        - `hevc`: Bí danh cho h265
+        **Codec được hỗ trợ:** - `h264`: H.264/AVC - `h265`: H.265/HEVC - `hevc`: Bí danh cho h265
 
-        **Định dạng Request:**
-        - Content-Type: `multipart/form-data`
-        - Field `frame`: Dữ liệu frame đã encode (binary)
-        - Field `timestamp`: Timestamp int64 (tùy chọn, mặc định là thời gian hiện tại)
+        **Định dạng Request:** - Content-Type: `multipart/form-data` - Field `frame`: Dữ liệu frame đã encode (binary) - Field
+        `timestamp`: Timestamp int64 (tùy chọn, mặc định là thời gian hiện tại)
 
-        Instance phải đang chạy để nhận frames. Frames được đưa vào hàng đợi và xử lý bất đồng bộ.
-        '
+        Instance phải đang chạy để nhận frames. Frames được đưa vào hàng đợi và xử lý bất đồng bộ. '
       operationId: corePostEncodedFrameV1
       tags:
       - Instances
@@ -2658,7 +2629,10 @@ paths:
         required: true
         schema:
           type: string
-          enum: [h264, h265, hevc]
+          enum:
+          - h264
+          - h265
+          - hevc
         description: Định danh codec (h264, h265, hoặc hevc)
       requestBody:
         required: true
@@ -2667,7 +2641,7 @@ paths:
             schema:
               type: object
               required:
-                - frame
+              - frame
               properties:
                 frame:
                   type: string
@@ -2715,23 +2689,15 @@ paths:
   /v1/core/instance/{instanceId}/push/compressed:
     post:
       summary: Đẩy frame đã nén vào instance
-      description: 'Đẩy một frame đã được nén (JPEG, PNG, BMP, v.v.) vào instance để xử lý. Frame sẽ được decode bằng OpenCV và xử lý bởi instance pipeline.
+      description: 'Đẩy một frame đã được nén (JPEG, PNG, BMP, v.v.) vào instance để xử lý. Frame sẽ được decode bằng OpenCV
+        và xử lý bởi instance pipeline.
 
-        **Định dạng được hỗ trợ:**
-        - JPEG/JPEG
-        - PNG
-        - BMP
-        - TIFF
-        - WebP
-        - Các định dạng khác được hỗ trợ bởi OpenCV `imdecode()`
+        **Định dạng được hỗ trợ:** - JPEG/JPEG - PNG - BMP - TIFF - WebP - Các định dạng khác được hỗ trợ bởi OpenCV `imdecode()`
 
-        **Định dạng Request:**
-        - Content-Type: `multipart/form-data`
-        - Field `frame`: Dữ liệu frame đã nén (binary)
-        - Field `timestamp`: Timestamp int64 (tùy chọn, mặc định là thời gian hiện tại)
+        **Định dạng Request:** - Content-Type: `multipart/form-data` - Field `frame`: Dữ liệu frame đã nén (binary) - Field
+        `timestamp`: Timestamp int64 (tùy chọn, mặc định là thời gian hiện tại)
 
-        Instance phải đang chạy để nhận frames. Frames được đưa vào hàng đợi và xử lý bất đồng bộ.
-        '
+        Instance phải đang chạy để nhận frames. Frames được đưa vào hàng đợi và xử lý bất đồng bộ. '
       operationId: corePostCompressedFrameV1
       tags:
       - Instances
@@ -2749,7 +2715,7 @@ paths:
             schema:
               type: object
               required:
-                - frame
+              - frame
               properties:
                 frame:
                   type: string
@@ -2959,11 +2925,11 @@ components:
           type: string
           format: ipv4
           description: Địa chỉ IP camera
-          example: "{ip_address}"
+          example: '{ip_address}'
         uuid:
           type: string
           description: UUID camera (định danh duy nhất)
-          example: "{Hỗ}"
+          example: '{Hỗ}'
         manufacturer:
           type: string
           description: Tên nhà sản xuất camera
@@ -3000,7 +2966,7 @@ components:
           type: string
           format: uri
           description: RTSP stream URI
-          example: "rtsp://{ip_address}:554/Streaming/Channels/101"
+          example: rtsp://{ip_address}:554/Streaming/Channels/101
     ONVIFCredentialsRequest:
       type: object
       required:

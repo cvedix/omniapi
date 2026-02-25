@@ -1,0 +1,137 @@
+# API endpoint: /v1/core/solution/{solutionId}
+# Tag: Solutions
+
+/v1/core/solution/{solutionId}:
+  get:
+    summary: Get solution details
+    description: Returns detailed information about a specific solution including full pipeline configuration.
+    operationId: getSolution
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Solution ID
+    responses:
+      '200':
+        description: Solution details
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolutionConfig'
+      '404':
+        description: Solution not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Update a solution
+    description: Updates an existing custom solution configuration. Default solutions cannot be updated.
+    operationId: updateSolution
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Solution ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateSolutionRequest'
+    responses:
+      '200':
+        description: Solution updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolutionConfig'
+      '400':
+        description: Bad request (validation failed)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Cannot update default solution
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Solution not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete a solution
+    description: Deletes a custom solution. Default solutions cannot be deleted.
+    operationId: deleteSolution
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Solution ID
+    responses:
+      '200':
+        description: Solution deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                solutionId:
+                  type: string
+      '403':
+        description: Cannot delete default solution
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Solution not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for solution
+    operationId: getSolutionOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: CORS preflight response

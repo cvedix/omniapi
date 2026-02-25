@@ -1,6 +1,7 @@
 #include "api/create_instance_handler.h"
 #include "api/health_handler.h"
 #include "api/instance_handler.h"
+#include "api/instance_fps_handler.h"
 #include "api/quick_instance_handler.h"
 #include "api/swagger_handler.h"
 #include "api/scalar_handler.h"
@@ -45,6 +46,7 @@
 #include "core/categorized_logger.h"
 #include "core/cors_filter.h"
 #include "core/env_config.h"
+#include "core/shutdown_flag.h"
 #include "core/health_monitor.h"
 #include "core/logger.h"
 #include "core/logging_flags.h"
@@ -333,6 +335,7 @@ void signalHandler(int signal) {
                 << std::endl;
       g_shutdown = true;
       g_shutdown_requested = true;
+      ShutdownFlag::setRequested(); // Let long-running handlers abort quickly
       g_shutdown_request_time = std::chrono::steady_clock::now();
 
       // CRITICAL: Release signal handling lock IMMEDIATELY after setting
@@ -2546,6 +2549,7 @@ int main(int argc, char *argv[]) {
     QuickInstanceHandler::setInstanceManager(instanceManager.get());
     QuickInstanceHandler::setSolutionRegistry(&solutionRegistry);
     InstanceHandler::setInstanceManager(instanceManager.get());
+    InstanceFpsHandler::setInstanceManager(instanceManager.get());
 
     // Register solution registry and storage with solution handler
     SolutionHandler::setSolutionRegistry(&solutionRegistry);
@@ -2648,6 +2652,7 @@ int main(int argc, char *argv[]) {
     static CreateInstanceHandler createInstanceHandler;
     static QuickInstanceHandler quickInstanceHandler;
     static InstanceHandler instanceHandler;
+    static InstanceFpsHandler instanceFpsHandler;
     static SolutionHandler solutionHandler;
     static GroupHandler groupHandler;
     static NodeHandler nodeHandler;
@@ -3571,9 +3576,8 @@ int main(int argc, char *argv[]) {
           // API requests)
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-          // If shutdown was requested but process is still running after 300ms,
-          // force exit Reduced from 500ms to 300ms to handle blocked API
-          // requests faster
+          // If shutdown was requested but process is still running after 150ms,
+          // force exit (develop: fast exit when Ctrl+C during blocked createInstance).
           if (g_shutdown_requested.load() && !g_force_exit.load()) {
             auto now = std::chrono::steady_clock::now();
             auto elapsed =
@@ -3581,8 +3585,8 @@ int main(int argc, char *argv[]) {
                     now - g_shutdown_request_time)
                     .count();
 
-            if (elapsed > 300) {
-              // Shutdown requested but process still running after 300ms
+            if (elapsed > 150) {
+              // Shutdown requested but process still running after 150ms
               // This could be due to:
               // 1. RTSP retry loops blocking shutdown
               // 2. Blocked API requests in main event loop

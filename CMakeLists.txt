@@ -305,6 +305,7 @@ set(SOURCES
     src/api/create_instance_handler.cpp
     src/api/quick_instance_handler.cpp
     src/api/instance_handler.cpp
+    src/api/instance_fps_handler.cpp
     src/api/solution_handler.cpp
     src/api/group_handler.cpp
     src/api/config_handler.cpp
@@ -392,7 +393,8 @@ set(SOURCES
     src/models/group_info.cpp
     src/api/group_handler.cpp
     # Infrastructure components (available but not used in main yet)
-    # src/core/resource_manager.cpp
+    src/core/resource_manager.cpp
+    src/core/shutdown_flag.cpp
     # src/core/rate_limiter.cpp
     # src/core/ai_cache.cpp
     # src/core/priority_queue.cpp

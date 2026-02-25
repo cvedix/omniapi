@@ -1,0 +1,106 @@
+# API endpoint: /v1/securt/instance/{instanceId}/area/dwelling
+# Tag: Area SecuRT
+
+/v1/securt/instance/{instanceId}/area/dwelling:
+  post:
+    summary: Create dwelling area
+    operationId: createDwellingArea
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DwellingAreaWrite'
+    responses:
+      '201':
+        description: Dwelling area created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                areaId:
+                  type: string
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Create dwelling area with ID
+    operationId: createDwellingAreaWithId
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DwellingAreaWrite'
+    responses:
+      '201':
+        description: Dwelling area created successfully
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Area already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for dwelling area
+    operationId: createDwellingAreaOptions
+    tags:
+    - Area SecuRT
+    responses:
+      '200':
+        description: CORS preflight response

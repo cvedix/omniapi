@@ -46,6 +46,10 @@ static bool parseUpdateRequestFromJson(const Json::Value &json,
     req.frameRateLimit = json["frameRateLimit"].asInt();
   }
 
+  if (json.isMember("configuredFps") && json["configuredFps"].isNumeric()) {
+    req.configuredFps = json["configuredFps"].asInt();
+  }
+
   if (json.isMember("metadataMode") && json["metadataMode"].isBool()) {
     req.metadataMode = json["metadataMode"].asBool();
   }

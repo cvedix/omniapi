@@ -1,0 +1,32 @@
+# API endpoint: /v1/core/system/shutdown
+# Tag: Core
+
+/v1/core/system/shutdown:
+  post:
+    summary: Shutdown system
+    description: Initiates system shutdown
+    operationId: corePostShutdownV1
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Shutdown initiated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: success
+                message:
+                  type: string
+                  example: System shutdown initiated
+  options:
+    summary: CORS preflight for system shutdown
+    operationId: coreSystemShutdownOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: CORS preflight response

@@ -1,0 +1,42 @@
+# API endpoint: /v1/core/ai/status
+# Tag: AI
+
+/v1/core/ai/status:
+  get:
+    summary: Lấy trạng thái xử lý AI
+    description: 'Trả về trạng thái hiện tại của hệ thống xử lý AI bao gồm kích thước hàng đợi,
+
+      dung lượng tối đa hàng đợi, khả năng sử dụng GPU và thông tin tài nguyên khác.
+
+      '
+    operationId: getAIStatus
+    tags:
+    - AI
+    responses:
+      '200':
+        description: Trạng thái xử lý AI
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                queue_size:
+                  type: integer
+                  format: int64
+                  description: Số lượng mục hiện tại trong hàng đợi xử lý
+                  example: 5
+                queue_max:
+                  type: integer
+                  format: int64
+                  description: Dung lượng hàng đợi tối đa
+                  example: 100
+                gpu_total:
+                  type: integer
+                  format: int64
+                  description: Tổng số GPU có sẵn
+                  example: 2
+                gpu_available:
+                  type: integer
+                  format: int64
+                  description: Số lượng GPU có sẵn
+                  example: 1

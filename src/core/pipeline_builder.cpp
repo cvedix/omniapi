@@ -160,8 +160,8 @@ namespace fs = std::filesystem;
 // Static flag to ensure CVEDIX logger is initialized only once
 static std::once_flag cvedix_init_flag;
 
-// Helper function to select decoder from priority list
-static std::string
+// Helper function to select decoder from priority list (currently unused; kept for future use)
+static __attribute__((unused)) std::string
 selectDecoderFromPriority(const std::string &defaultDecoder) {
   try {
     auto &systemConfig = SystemConfig::getInstance();
@@ -201,8 +201,8 @@ selectDecoderFromPriority(const std::string &defaultDecoder) {
   }
 }
 
-// Helper function to log GPU availability
-static void logGPUAvailability() {
+// Helper function to log GPU availability (currently unused; kept for debugging)
+static __attribute__((unused)) void logGPUAvailability() {
   std::cerr << "[PipelineBuilder] ========================================"
             << std::endl;
   std::cerr << "[PipelineBuilder] Checking GPU availability for inference..."
@@ -1509,6 +1509,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     }
     return nodes.empty() ? nullptr : nodes[0];
   };
+  (void)findLastNonDestNode; // Reserved for DES attachment logic
 
 // 1. Auto-add MQTT broker nodes if MQTT config is provided but not in pipeline
 #ifdef CVEDIX_WITH_MQTT
@@ -1531,6 +1532,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                            hasNodeType("json_jam_mqtt_broker") ||
                            hasNodeType("json_stop_mqtt_broker") ||
                            hasNodeType("json_console_broker");
+      (void)hasMQTTBroker; // May be used for conditional broker add
 
       if (hasBACrossline && !hasNodeType("json_crossline_mqtt_broker")) {
         // Auto-add crossline MQTT broker - attach to ba_crossline node

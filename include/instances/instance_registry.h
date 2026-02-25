@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/pipeline_builder.h"
+#include "core/resource_manager.h"
 #include "instances/instance_info.h"
 #include "instances/instance_statistics.h"
 #include "instances/instance_storage.h"
@@ -256,6 +257,13 @@ private:
       mp4_watchers_;
   mutable std::mutex mp4_watcher_mutex_; // Mutex for MP4 watcher management
 
+  // GPU allocation tracking (maps instance ID to GPU allocation)
+  // Note: In in-process mode, all instances share the same process,
+  // so we can't set CUDA_VISIBLE_DEVICES per instance. However, we still
+  // track allocations to manage GPU resources and ensure we don't exceed limits.
+  std::unordered_map<std::string, std::shared_ptr<ResourceManager::Allocation>> gpu_allocations_;
+  mutable std::mutex gpu_allocations_mutex_;
+
   // CRITICAL: Read-write lock to allow concurrent start operations but
   // serialize cleanup operations This allows multiple instances to start
   // simultaneously while preventing conflicts during cleanup
@@ -412,6 +420,19 @@ private:
    * @return true if pipeline was rebuilt successfully
    */
   bool rebuildPipelineFromInstanceInfo(const std::string &instanceId);
+
+  /**
+   * @brief Build pipeline asynchronously in background thread
+   * @param instanceId Instance ID
+   * @param req Create instance request
+   * @param solution Solution configuration
+   * @param existingRTMPStreamKeys Existing RTMP stream keys for conflict detection
+   */
+  void buildPipelineAsync(
+      const std::string &instanceId,
+      const CreateInstanceRequest &req,
+      const SolutionConfig &solution,
+      const std::set<std::string> &existingRTMPStreamKeys);
 
   /**
    * @brief Start video loop monitoring thread for file-based instances

@@ -1,0 +1,48 @@
+# API endpoint: /v1/core/ai/metrics
+# Tag: AI
+
+/v1/core/ai/metrics:
+  get:
+    summary: Lấy số liệu xử lý AI
+    description: 'Trả về số liệu chi tiết về xử lý AI bao gồm thống kê hiệu suất,
+
+      thống kê cache và thông tin giới hạn tốc độ.
+
+      '
+    operationId: getAIMetrics
+    tags:
+    - AI
+    responses:
+      '200':
+        description: Số liệu xử lý AI
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cache:
+                  type: object
+                  properties:
+                    size:
+                      type: integer
+                      format: int64
+                      description: Kích thước cache hiện tại
+                    max_size:
+                      type: integer
+                      format: int64
+                      description: Dung lượng cache tối đa
+                    hit_rate:
+                      type: number
+                      format: float
+                      description: Tỷ lệ cache hit (0.0 đến 1.0)
+                rate_limiter:
+                  type: object
+                  properties:
+                    total_keys:
+                      type: integer
+                      format: int64
+                      description: Tổng số khóa giới hạn tốc độ
+                    active_keys:
+                      type: integer
+                      format: int64
+                      description: Số lượng khóa giới hạn tốc độ đang hoạt động

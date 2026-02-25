@@ -1,0 +1,29 @@
+# API endpoint: /v1/core/health
+# Tag: Core
+
+/v1/core/health:
+  get:
+    summary: Health check endpoint
+    description: Returns the health status of the API service
+    operationId: getHealth
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Service is healthy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthResponse'
+            example:
+              status: healthy
+              timestamp: '2024-01-01T00:00:00.000Z'
+              uptime: 3600
+              service: edge_ai_api
+              version: 1.0.0
+      '500':
+        description: Service is unhealthy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

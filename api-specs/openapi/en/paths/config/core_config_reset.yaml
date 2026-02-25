@@ -1,0 +1,95 @@
+# API endpoint: /v1/core/config/reset
+# Tag: Config
+
+/v1/core/config/reset:
+  post:
+    summary: Reset configuration to defaults
+    description: 'Resets the entire system configuration to default values.
+
+      All existing configuration will be replaced with default values.
+
+      The configuration is saved to the config file after reset.
+
+
+      **Warning:** This operation will replace all configuration with default values.
+
+      Consider backing up your configuration before resetting.
+
+
+      **Auto Restart:**
+
+      - By default, the server will NOT automatically restart after configuration reset
+
+      - To enable automatic restart, set `auto_restart=true` as a query parameter or in the JSON body
+
+      - When `auto_restart=true`, the server will restart after 3 seconds if web server config changed
+
+      '
+    operationId: resetConfig
+    tags:
+    - Config
+    parameters:
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If set to `true`, the server will automatically restart after configuration reset.
+
+        Default is `false` (no automatic restart).
+
+        Can also be set in the JSON body as `auto_restart` field.
+
+        '
+      example: false
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Optional JSON body. Can include `auto_restart` field (boolean) to trigger server restart.
+            properties:
+              auto_restart:
+                type: boolean
+                description: If true, server will restart after reset
+                example: false
+    responses:
+      '200':
+        description: Configuration reset successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Configuration reset to defaults successfully
+                config:
+                  type: object
+                  description: Default configuration object
+                  additionalProperties: true
+                warning:
+                  type: string
+                  description: Warning message if server restart is scheduled (when auto_restart=true)
+                  example: Server will restart in 3 seconds (auto_restart requested).
+                restart_scheduled:
+                  type: boolean
+                  description: True if server restart is scheduled (when auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Info message if restart is required but auto_restart was not set
+                  example: Web server port/host changed. Please restart server manually to apply changes, or set auto_restart=true
+                    to restart automatically.
+                restart_required:
+                  type: boolean
+                  description: True if restart is required but auto_restart was not set
+                  example: false
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

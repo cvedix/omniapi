@@ -62,6 +62,12 @@ bool CreateInstanceRequest::validate() const {
     return false;
   }
 
+  // Validate fps (must be positive integer if set)
+  if (fps < 0) {
+    validation_error_ = "fps must be >= 0";
+    return false;
+  }
+
   return true;
 }
 

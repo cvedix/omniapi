@@ -1,0 +1,224 @@
+# Component schemas
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        timestamp:
+          type: string
+        uptime:
+          type: integer
+        service:
+          type: string
+        version:
+          type: string
+    VersionResponse:
+      type: object
+      properties:
+        version:
+          type: string
+        build_time:
+          type: string
+        git_commit:
+          type: string
+        api_version:
+          type: string
+        service:
+          type: string
+    SystemInfoResponse:
+      type: object
+      additionalProperties: true
+    SystemStatusResponse:
+      type: object
+      additionalProperties: true
+    SystemConfigResponse:
+      type: object
+      description: System configuration entities response
+      properties:
+        systemConfig:
+          type: array
+          description: Array of system configuration entities
+          items:
+            type: object
+            properties:
+              fieldId:
+                type: string
+                description: Configuration field identifier
+                example: voice6
+              displayName:
+                type: string
+                description: Human-readable display name
+                example: voice n. 6
+              type:
+                type: string
+                description: Configuration type (options, string, number, boolean)
+                example: options
+              value:
+                type: string
+                description: Current configuration value
+                example: solutions
+              group:
+                type: string
+                description: Configuration group name
+                example: groupBy
+              availableValues:
+                type: array
+                description: Available values for options type
+                items:
+                  type: object
+                  properties:
+                    displayName:
+                      type: string
+                      example: securt 1 version 1.0
+                    value:
+                      type: string
+                      example: securt
+    SystemConfigUpdateRequest:
+      type: object
+      description: System configuration update request
+      required:
+      - systemConfig
+      properties:
+        systemConfig:
+          type: array
+          description: Array of configuration updates
+          items:
+            type: object
+            required:
+            - fieldId
+            - value
+            properties:
+              fieldId:
+                type: string
+                description: Configuration field identifier to update
+                example: voice6
+              value:
+                type: string
+                description: New configuration value
+                example: securt
+    SystemPreferencesResponse:
+      type: object
+      description: System preferences from rtconfig.json
+      additionalProperties:
+        oneOf:
+        - type: boolean
+        - type: string
+        - type: number
+      example:
+        vms.show_area_crossing: true
+        vms.show_line_crossing: true
+        vms.show_intrusion: true
+        vms.show_crowding: true
+        vms.show_loitering: true
+        vms.show_object_left: true
+        vms.show_object_guarding: true
+        vms.show_tailgating: true
+        vms.show_fallen_person: true
+        vms.show_armed_person: true
+        vms.show_access_control_plate: true
+        vms.show_access_control_face: true
+        vms.show_appearance_search: true
+        vms.show_identities: true
+        vms.show_remote_mode: true
+        vms.show_thermal_support: true
+        vms.show_active_detection: true
+        vms.show_error_reporting: true
+        vms.show_trial_licenses: true
+        vms.hardware_decoding: true
+        global.default_performance_mode: Performance
+    SystemDecodersResponse:
+      type: object
+      description: Available system decoders information
+      additionalProperties:
+        type: object
+        additionalProperties:
+          type: integer
+          description: Number of available decoders for the codec
+      example:
+        nvidia:
+          hevc: 1
+          h264: 1
+    LogFilesResponse:
+      type: object
+      additionalProperties: true
+    LogsResponse:
+      type: object
+      additionalProperties: true
+    LogsByDateResponse:
+      type: object
+      additionalProperties: true
+    ONVIFCamera:
+      type: object
+      description: Thông tin camera ONVIF
+      properties:
+        ip:
+          type: string
+          format: ipv4
+          description: Địa chỉ IP camera
+          example: '{ip_address}'
+        uuid:
+          type: string
+          description: UUID camera (định danh duy nhất)
+          example: '{Hỗ}'
+        manufacturer:
+          type: string
+          description: Tên nhà sản xuất camera
+          example: Hikvision
+        model:
+          type: string
+          description: Tên model camera
+          example: DS-2CD2347G1-LU
+        serialNumber:
+          type: string
+          description: Số serial camera
+          example: ABC123456
+    ONVIFStream:
+      type: object
+      description: Thông tin video stream ONVIF
+      properties:
+        token:
+          type: string
+          description: Token profile stream
+          example: Profile_1
+        width:
+          type: integer
+          description: Độ rộng stream tính bằng pixel
+          example: 1920
+        height:
+          type: integer
+          description: Độ cao stream tính bằng pixel
+          example: 1080
+        fps:
+          type: integer
+          description: Frame rate (số khung hình mỗi giây)
+          example: 30
+        uri:
+          type: string
+          format: uri
+          description: RTSP stream URI
+          example: rtsp://{ip_address}:554/Streaming/Channels/101
+    ONVIFCredentialsRequest:
+      type: object
+      required:
+      - username
+      - password
+      description: Credentials camera ONVIF
+      properties:
+        username:
+          type: string
+          description: Username camera
+          example: admin
+        password:
+          type: string
+          format: password
+          description: Password camera
+          example: password123

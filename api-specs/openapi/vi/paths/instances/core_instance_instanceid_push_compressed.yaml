@@ -1,0 +1,77 @@
+# API endpoint: /v1/core/instance/{instanceId}/push/compressed
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/push/compressed:
+  post:
+    summary: Đẩy frame đã nén vào instance
+    description: 'Đẩy một frame đã được nén (JPEG, PNG, BMP, v.v.) vào instance để xử lý. Frame sẽ được decode bằng OpenCV
+      và xử lý bởi instance pipeline.
+
+      **Định dạng được hỗ trợ:** - JPEG/JPEG - PNG - BMP - TIFF - WebP - Các định dạng khác được hỗ trợ bởi OpenCV `imdecode()`
+
+      **Định dạng Request:** - Content-Type: `multipart/form-data` - Field `frame`: Dữ liệu frame đã nén (binary) - Field
+      `timestamp`: Timestamp int64 (tùy chọn, mặc định là thời gian hiện tại)
+
+      Instance phải đang chạy để nhận frames. Frames được đưa vào hàng đợi và xử lý bất đồng bộ. '
+    operationId: corePostCompressedFrameV1
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance (UUID)
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+            - frame
+            properties:
+              frame:
+                type: string
+                format: binary
+                description: Dữ liệu frame đã nén (JPEG, PNG, BMP, v.v.)
+              timestamp:
+                type: integer
+                format: int64
+                description: Timestamp frame tính bằng milliseconds (tùy chọn)
+    responses:
+      '204':
+        description: Frame đã được đẩy thành công
+      '400':
+        description: Yêu cầu không hợp lệ (dữ liệu frame không hợp lệ hoặc thiếu trường bắt buộc)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Instance hiện không đang chạy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ (lỗi decode, hàng đợi đầy, v.v.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho endpoint push compressed frame
+    operationId: pushCompressedFrameOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

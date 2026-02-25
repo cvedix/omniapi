@@ -1,0 +1,23 @@
+# API endpoint: /v1/core/watchdog
+# Tag: Core
+
+/v1/core/watchdog:
+  get:
+    summary: Get watchdog status
+    description: 'Returns watchdog and health monitor statistics including instance health checks,
+
+      restart counts, and monitoring information.
+
+      '
+    operationId: getWatchdogStatus
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Watchdog status information
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Watchdog and health monitor statistics
+              additionalProperties: true

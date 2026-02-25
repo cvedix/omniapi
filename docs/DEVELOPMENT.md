@@ -120,7 +120,10 @@ api/
 ├── api-specs/          # API documentation
 │   ├── openapi/        # OpenAPI specifications
 │   │   ├── en/        # English version
-│   │   └── vi/        # Vietnamese version
+│   │   │   ├── openapi.yaml  # File chính (merged)
+│   │   │   ├── paths/       # Các file endpoint (mỗi endpoint một file)
+│   │   │   └── components/  # Component schemas
+│   │   └── vi/        # Vietnamese version (cấu trúc tương tự)
 │   ├── scalar/         # Scalar documentation files
 │   └── postman/        # Postman collections
 │
@@ -347,75 +350,122 @@ set(SOURCES
 
 ### Bước 5: Cập Nhật OpenAPI Specification
 
-Thêm endpoint vào `api-specs/openapi/en/openapi.yaml` và `api-specs/openapi/vi/openapi.yaml`:
+OpenAPI specification được tổ chức với **mỗi endpoint một file riêng** để dễ quản lý.
+
+#### Cấu trúc OpenAPI
+
+```
+api-specs/openapi/
+├── en/                          # English version
+│   ├── openapi.yaml            # File chính (được merge tự động)
+│   ├── paths/                  # Các file endpoint được tổ chức theo tag
+│   │   ├── core/              # Core API endpoints
+│   │   │   ├── core_health.yaml
+│   │   │   └── ...
+│   │   ├── ai/                # AI API endpoints
+│   │   └── ...                # Các tag khác
+│   └── components/
+│       └── schemas.yaml       # Component schemas
+└── vi/                          # Vietnamese version (cấu trúc tương tự)
+```
+
+#### Thêm endpoint mới
+
+1. **Tạo file endpoint mới** trong thư mục tag tương ứng:
+
+```bash
+# Ví dụ: Thêm endpoint /v1/my/feature với tag "My Feature"
+# Tạo file: api-specs/openapi/en/paths/my_feature/core_my_feature.yaml
+```
+
+2. **Nội dung file endpoint** (`api-specs/openapi/en/paths/my_feature/core_my_feature.yaml`):
 
 ```yaml
-paths:
-  /v1/my/feature:
-    get:
-      summary: Get feature data
-      description: Retrieve feature information by ID
-      operationId: getFeature
-      tags:
-        - My Feature
-      parameters:
-        - name: id
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Feature ID
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  data:
-                    type: string
-        '400':
-          description: Bad Request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    
-    post:
-      summary: Create new feature
-      description: Create a new feature
-      operationId: createFeature
-      tags:
-        - My Feature
-      requestBody:
+# API endpoint: /v1/my/feature
+# Tag: My Feature
+
+/v1/my/feature:
+  get:
+    summary: Get feature data
+    description: Retrieve feature information by ID
+    operationId: getFeature
+    tags:
+      - My Feature
+    parameters:
+      - name: id
+        in: query
         required: true
+        schema:
+          type: string
+        description: Feature ID
+    responses:
+      '200':
+        description: Success
         content:
           application/json:
             schema:
               type: object
-              required:
-                - name
               properties:
+                id:
+                  type: string
+                data:
+                  type: string
+      '400':
+        description: Bad Request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  
+  post:
+    summary: Create new feature
+    description: Create a new feature
+    operationId: createFeature
+    tags:
+      - My Feature
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+    responses:
+      '201':
+        description: Created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
                 name:
                   type: string
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  name:
-                    type: string
-                  status:
-                    type: string
+                status:
+                  type: string
 ```
+
+3. **Merge lại file chính**:
+
+```bash
+# Merge file endpoint vào openapi.yaml chính
+python3 scripts/merge_openapi.py api-specs/openapi/en
+
+# Làm tương tự cho tiếng Việt
+python3 scripts/merge_openapi.py api-specs/openapi/vi
+```
+
+4. **Kiểm tra** trên Swagger/Scalar để đảm bảo endpoint hiển thị đúng.
+
+**Lưu ý**: 
+- Tên file dựa trên path của endpoint (ví dụ: `/v1/my/feature` → `core_my_feature.yaml`)
+- File được đặt trong thư mục tag tương ứng (ví dụ: `paths/my_feature/`)
+- Luôn merge lại file chính sau khi chỉnh sửa endpoint
 
 ---
 
@@ -630,9 +680,18 @@ http://localhost:8080/v2/swagger      # API v2
 
 #### Cập Nhật Swagger Documentation
 
-1. Cập nhật `api-specs/openapi/en/openapi.yaml` (file chính)
-2. Đồng bộ sang `api-specs/openapi/vi/openapi.yaml` (dịch nếu cần)
-3. Server tự động load và serve các file này
+1. **Chỉnh sửa file endpoint** trong `api-specs/openapi/en/paths/<tag>/<endpoint>.yaml`
+2. **Merge lại file chính**:
+   ```bash
+   python3 scripts/merge_openapi.py api-specs/openapi/en
+   ```
+3. **Đồng bộ sang tiếng Việt**: Cập nhật file tương ứng trong `api-specs/openapi/vi/paths/<tag>/` và merge:
+   ```bash
+   python3 scripts/merge_openapi.py api-specs/openapi/vi
+   ```
+4. Server tự động load và serve file `openapi.yaml` đã merge
+
+**Lưu ý**: Không chỉnh sửa trực tiếp file `openapi.yaml` chính. Luôn chỉnh sửa file endpoint riêng và merge lại.
 
 ### Scalar API Reference
 
@@ -671,20 +730,45 @@ http://localhost:8080/v1/document?lang=vi  # Tiếng Việt
 ```
 api-specs/
 ├── openapi/
-│   ├── en/
-│   │   └── openapi.yaml        # OpenAPI spec (English)
-│   └── vi/
-│       └── openapi.yaml        # OpenAPI spec (Tiếng Việt)
+│   ├── en/                     # English version
+│   │   ├── openapi.yaml        # File chính (được merge tự động)
+│   │   ├── paths/              # Các file endpoint (mỗi endpoint một file)
+│   │   │   ├── core/          # Core API endpoints
+│   │   │   │   ├── core_health.yaml
+│   │   │   │   └── ...
+│   │   │   ├── ai/            # AI API endpoints
+│   │   │   └── ...            # Các tag khác
+│   │   └── components/
+│   │       └── schemas.yaml   # Component schemas
+│   └── vi/                     # Vietnamese version (cấu trúc tương tự)
+│       ├── openapi.yaml
+│       ├── paths/
+│       └── components/
 ├── scalar/
 │   ├── index.html              # Scalar HTML template
 │   └── standalone.css         # Scalar CSS (optional, có thể dùng CDN)
+└── scripts/                    # Scripts hỗ trợ
+    ├── split_openapi.py       # Tách file OpenAPI lớn thành các file nhỏ
+    └── merge_openapi.py       # Merge các file endpoint lại thành file chính
 ```
 
 #### Cập Nhật Scalar Documentation
 
-1. **Cập nhật OpenAPI spec**: Sửa `api-specs/openapi/en/openapi.yaml`
-2. **Đồng bộ sang tiếng Việt**: Cập nhật `api-specs/openapi/vi/openapi.yaml`
-3. **Kiểm tra**: Truy cập `/v1/document` và kiểm tra cả hai ngôn ngữ
+1. **Chỉnh sửa file endpoint**: Sửa file trong `api-specs/openapi/en/paths/<tag>/<endpoint>.yaml`
+2. **Merge lại file chính**:
+   ```bash
+   python3 scripts/merge_openapi.py api-specs/openapi/en
+   ```
+3. **Đồng bộ sang tiếng Việt**: Cập nhật file tương ứng trong `api-specs/openapi/vi/paths/<tag>/` và merge:
+   ```bash
+   python3 scripts/merge_openapi.py api-specs/openapi/vi
+   ```
+4. **Kiểm tra**: Truy cập `/v1/document` và kiểm tra cả hai ngôn ngữ
+
+**Lưu ý**: 
+- Mỗi endpoint có file riêng để dễ quản lý
+- Luôn merge lại file chính sau khi chỉnh sửa
+- Xem thêm hướng dẫn chi tiết: [api-specs/openapi/README.md](../../api-specs/openapi/README.md)
 
 #### Scalar Files Setup
 
@@ -852,10 +936,15 @@ resp->addHeader("Access-Control-Allow-Origin", "*");
 
 ### Documentation
 
-1. **Cập nhật OpenAPI spec khi thêm endpoint mới**
-2. **Đồng bộ cả tiếng Anh và tiếng Việt**
-3. **Thêm examples vào OpenAPI spec**
+1. **Cập nhật OpenAPI spec khi thêm endpoint mới**:
+   - Tạo file endpoint mới trong `api-specs/openapi/en/paths/<tag>/<endpoint>.yaml`
+   - Merge lại file chính: `python3 scripts/merge_openapi.py api-specs/openapi/en`
+2. **Đồng bộ cả tiếng Anh và tiếng Việt**:
+   - Cập nhật file tương ứng trong `api-specs/openapi/vi/paths/<tag>/`
+   - Merge lại: `python3 scripts/merge_openapi.py api-specs/openapi/vi`
+3. **Thêm examples vào OpenAPI spec** (trong file endpoint)
 4. **Cập nhật manual test guides nếu cần**
+5. **Không chỉnh sửa trực tiếp file `openapi.yaml` chính** - luôn chỉnh sửa file endpoint riêng và merge lại
 
 ---
 
@@ -917,8 +1006,12 @@ ctest --output-on-failure -V
 
 1. Kiểm tra server đang chạy
 2. Kiểm tra file OpenAPI spec tồn tại: `api-specs/openapi/en/openapi.yaml`
-3. Kiểm tra log server để xem lỗi
-4. Kiểm tra file Scalar HTML: `api-specs/scalar/index.html` (nếu có)
+3. **Nếu đã chỉnh sửa file endpoint, đảm bảo đã merge lại**:
+   ```bash
+   python3 scripts/merge_openapi.py api-specs/openapi/en
+   ```
+4. Kiểm tra log server để xem lỗi
+5. Kiểm tra file Scalar HTML: `api-specs/scalar/index.html` (nếu có)
 
 ### Port đã được sử dụng
 

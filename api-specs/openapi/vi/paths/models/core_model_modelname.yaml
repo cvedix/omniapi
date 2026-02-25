@@ -1,0 +1,147 @@
+# API endpoint: /v1/core/model/{modelName}
+# Tag: Models
+
+/v1/core/model/{modelName}:
+  put:
+    summary: Đổi tên một file mô hình
+    description: 'Đổi tên một file mô hình trên máy chủ.
+
+      Bạn có thể chỉ định thư mục con bằng tham số truy vấn `directory` nếu file nằm trong thư mục con.
+
+      '
+    operationId: renameModel
+    tags:
+    - Models
+    parameters:
+    - name: modelName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Tên hiện tại của file mô hình cần đổi tên
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con nơi file mô hình được đặt (ví dụ: "projects/myproject/models", "detection/yolov8").
+
+        Nếu không được chỉ định, file được giả định nằm trong thư mục models cơ sở.
+
+        '
+      example: projects/myproject/models
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - newName
+            properties:
+              newName:
+                type: string
+                description: Tên mới cho file mô hình (phải có phần mở rộng file mô hình hợp lệ)
+                example: my_model_v2.onnx
+    responses:
+      '200':
+        description: File mô hình đã được đổi tên thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                oldName:
+                  type: string
+                newName:
+                  type: string
+                path:
+                  type: string
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy file mô hình
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Tên mới đã tồn tại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa một file mô hình
+    description: 'Xóa một file mô hình khỏi máy chủ.
+
+      Bạn có thể chỉ định thư mục con bằng tham số truy vấn `directory` nếu file nằm trong thư mục con.
+
+      '
+    operationId: deleteModel
+    tags:
+    - Models
+    parameters:
+    - name: modelName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Tên file mô hình cần xóa
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con nơi file mô hình được đặt (ví dụ: "projects/myproject/models", "detection/yolov8").
+
+        Nếu không được chỉ định, file được giả định nằm trong thư mục models cơ sở.
+
+        '
+      example: projects/myproject/models
+    responses:
+      '200':
+        description: File mô hình đã được xóa thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                filename:
+                  type: string
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy file mô hình
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

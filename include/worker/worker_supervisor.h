@@ -86,9 +86,10 @@ public:
    * @brief Spawn a new worker process for an instance
    * @param instance_id Instance ID
    * @param config Instance configuration (JSON)
+   * @param gpu_device_id Optional GPU device ID (-1 to disable GPU, >=0 to use specific GPU)
    * @return true if worker spawned successfully
    */
-  bool spawnWorker(const std::string &instance_id, const Json::Value &config);
+  bool spawnWorker(const std::string &instance_id, const Json::Value &config, int gpu_device_id = -1);
 
   /**
    * @brief Terminate a worker process
