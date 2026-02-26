@@ -1,0 +1,75 @@
+# API endpoint: /v1/core/node/preconfigured
+# Tag: Node
+
+/v1/core/node/preconfigured:
+  get:
+    summary: Liệt kê node cấu hình sẵn
+    description: Lấy danh sách tất cả node cấu hình sẵn trong node pool
+    operationId: getPreConfiguredNodes
+    tags:
+    - Node
+    responses:
+      '200':
+        description: List of pre-configured nodes
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nodes:
+                  type: array
+                  items:
+                    type: object
+                total:
+                  type: integer
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo node cấu hình sẵn
+    description: Tạo node cấu hình sẵn mới từ template
+    operationId: createPreConfiguredNode
+    tags:
+    - Node
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - templateId
+            properties:
+              templateId:
+                type: string
+                description: Template ID to use for creating the node
+              parameters:
+                type: object
+                additionalProperties:
+                  type: string
+                description: Node parameters
+    responses:
+      '201':
+        description: Node created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nodeId:
+                  type: string
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

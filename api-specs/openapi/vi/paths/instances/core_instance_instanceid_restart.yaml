@@ -1,0 +1,81 @@
+# API endpoint: /v1/core/instance/{instanceId}/restart
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/restart:
+  post:
+    summary: Khởi động lại instance
+    description: 'Khởi động lại instance bằng cách dừng (nếu đang chạy) rồi start lại. Hữu ích để áp dụng
+      configuration changes or recovering from errors.
+
+
+      **Behavior:**
+
+      - If the instance is running, it will be stopped first
+
+      - Then the instance will be started again
+
+      - This ensures a clean restart with the current configuration
+
+      - Returns the updated instance information after restart
+
+
+      **Use Cases:**
+
+      - Apply configuration changes that require a restart
+
+      - Recover from errors or unexpected states
+
+      - Refresh the pipeline with updated settings
+
+
+      **Note:** Restarting an instance may take several seconds as the pipeline is stopped and then restarted.
+
+      '
+    operationId: restartInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: Instance restarted successfully
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/InstanceInfo'
+              - type: object
+                properties:
+                  message:
+                    type: string
+      '400':
+        description: Khởi động lại instance thất bại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho khởi động lại instance
+    operationId: restartInstanceOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

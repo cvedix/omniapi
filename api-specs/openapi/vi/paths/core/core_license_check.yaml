@@ -1,0 +1,40 @@
+# API endpoint: /v1/core/license/check
+# Tag: Core
+
+/v1/core/license/check:
+  get:
+    summary: Check license validity
+    description: Check if the license is valid and active
+    operationId: checkLicense
+    tags:
+    - Core
+    responses:
+      '200':
+        description: License check result
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                valid:
+                  type: boolean
+                  description: License validity status
+                  example: true
+                message:
+                  type: string
+                  description: License status message
+                  example: License is valid
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for license check
+    operationId: checkLicenseOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

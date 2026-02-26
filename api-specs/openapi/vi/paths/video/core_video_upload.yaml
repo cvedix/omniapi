@@ -3,16 +3,8 @@
 
 /v1/core/video/upload:
   post:
-    summary: Upload a video file
-    description: 'Uploads a video file (MP4, AVI, MKV, etc.) to the server.
-
-      The file will be saved in the videos directory. You can specify a subdirectory
-
-      using the `directory` query parameter (e.g., `projects/myproject/videos`).
-
-      If the directory doesn''t exist, it will be created automatically.
-
-      If no directory is specified, files will be saved in the base videos directory.
+    summary: Tải lên file video
+    description: 'Tải file video (MP4, AVI, MKV, v.v.) lên máy chủ. File được lưu trong thư mục videos. Có thể chỉ định thư mục con qua tham số query `directory` (ví dụ: `projects/myproject/videos`). Thư mục sẽ được tạo tự động nếu chưa tồn tại. Nếu không chỉ định, file lưu tại thư mục videos gốc.
 
       '
     operationId: uploadVideo

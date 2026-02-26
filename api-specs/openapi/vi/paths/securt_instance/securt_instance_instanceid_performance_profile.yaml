@@ -1,0 +1,104 @@
+# API endpoint: /v1/securt/instance/{instanceId}/performance_profile
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/performance_profile:
+  post:
+    summary: Thiết lập performance profile
+    description: Cấu hình performance profile cho instance SecuRT
+    operationId: setPerformanceProfile
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - profile
+            properties:
+              profile:
+                type: string
+                enum:
+                - Performance
+                - Balanced
+                - Quality
+                description: Performance profile name
+                example: Balanced
+    responses:
+      '204':
+        description: Performance profile configured successfully
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Lấy performance profile
+    description: Lấy performance profile đã cấu hình của instance SecuRT
+    operationId: getPerformanceProfile
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    responses:
+      '200':
+        description: Performance profile configuration
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  type: string
+                  enum:
+                  - Performance
+                  - Balanced
+                  - Quality
+                  description: Current performance profile
+                  example: Balanced
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho performance profile
+    operationId: performanceProfileOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

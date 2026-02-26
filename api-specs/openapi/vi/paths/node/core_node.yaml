@@ -1,0 +1,90 @@
+# API endpoint: /v1/core/node
+# Tag: Node
+
+/v1/core/node:
+  get:
+    summary: Liệt kê tất cả node cấu hình sẵn
+    description: 'Trả về danh sách tất cả node cấu hình sẵn trong node pool. Có thể lọc theo trạng thái available và category.
+
+      '
+    operationId: listNodes
+    tags:
+    - Node
+    parameters:
+    - name: available
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - 'true'
+        - 'false'
+        - '1'
+        - '0'
+      description: Filter to show only available (not in use) nodes
+      example: 'true'
+    - name: category
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - source
+        - detector
+        - processor
+        - destination
+        - broker
+      description: Filter nodes by category
+      example: source
+    responses:
+      '200':
+        description: Đã lấy danh sách node thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeListResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo node cấu hình sẵn mới
+    description: Tạo node cấu hình sẵn mới từ template với tham số chỉ định
+    operationId: createNode
+    tags:
+    - Node
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateNodeRequest'
+    responses:
+      '201':
+        description: Node created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeResponse'
+      '400':
+        description: Bad request (missing required fields or invalid parameters)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho nodes
+    operationId: listNodesOptions
+    tags:
+    - Node
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

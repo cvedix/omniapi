@@ -1,0 +1,173 @@
+# API endpoint: /v1/core/instance/{instanceId}/lines/{lineId}
+# Tag: Lines Core
+
+/v1/core/instance/{instanceId}/lines/{lineId}:
+  get:
+    summary: Lấy một đường vượt (crossing line) theo ID
+    description: 'Trả về một đường vượt (crossing line) theo ID cho instance ba_crossline.
+
+      '
+    operationId: getLine
+    tags:
+    - Lines Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    - name: lineId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của đường cần lấy
+      example: '{lineId}'
+    responses:
+      '200':
+        description: Đã lấy đường thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingLine'
+      '404':
+        description: Không tìm thấy instance hoặc đường
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Cập nhật một đường vượt (crossing line) theo ID
+    description: 'Cập nhật một đường vượt (crossing line) theo ID cho instance ba_crossline. Đường được áp dụng ngay lên luồng video, không cần khởi động lại instance.
+
+      '
+    operationId: updateLine
+    tags:
+    - Lines Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    - name: lineId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của đường cần cập nhật
+      example: '{lineId}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateLineRequest'
+          examples:
+            updateLine:
+              summary: Cập nhật tọa độ và hướng đường
+              value:
+                name: Updated Counting Line
+                coordinates:
+                - x: 200.0
+                  y: 400.0
+                - x: 700.0
+                  y: 400.0
+                direction: Up
+                classes:
+                - Person
+                - Vehicle
+                color:
+                - 0
+                - 255
+                - 0
+                - 255
+    responses:
+      '200':
+        description: Đã cập nhật đường thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossingLine'
+      '400':
+        description: Yêu cầu không hợp lệ (tọa độ hoặc tham số sai)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance hoặc đường
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa một đường vượt (crossing line) theo ID
+    description: 'Xóa một đường vượt (crossing line) theo ID. Đường được gỡ ngay khỏi luồng video, không cần khởi động lại instance.
+
+      '
+    operationId: deleteLine
+    tags:
+    - Lines Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{Updated}'
+    - name: lineId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của đường cần xóa
+      example: '{lineId}'
+    responses:
+      '200':
+        description: Line deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Line deleted successfully
+      '404':
+        description: Không tìm thấy instance hoặc đường
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho line endpoints
+    operationId: lineOptions
+    tags:
+    - Lines Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -1,0 +1,186 @@
+# API endpoint: /v1/core/node/{nodeId}
+# Tag: Node
+
+/v1/core/node/{nodeId}:
+  get:
+    summary: Lấy chi tiết node
+    description: Trả về thông tin chi tiết của một node cấu hình sẵn
+    operationId: getNode
+    tags:
+    - Node
+    parameters:
+    - name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique node identifier
+      example: node_a1b2c3d4
+    responses:
+      '200':
+        description: Node details retrieved successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeResponse'
+            example:
+              nodeId: node_rtsp_des_default
+              templateId: rtsp_des_template
+              displayName: RTSP Destination
+              nodeType: rtsp_des
+              category: destination
+              description: Output video stream via RTSP
+              inUse: false
+              parameters:
+                channel: '0'
+                port: '8000'
+              requiredParameters:
+              - port
+              optionalParameters:
+              - channel
+              - stream_name
+              templateDetailUrl: /v1/core/node/template/rtsp_des_template
+              input:
+              - type: video_frames
+                description: Video frames from previous node
+                format: BGR/RGB image frames
+              - type: metadata
+                description: Metadata from previous nodes
+                format: JSON metadata
+              output:
+              - type: rtsp_stream
+                description: RTSP video stream
+                protocol: RTSP
+                accessInfo: 'Access via RTSP URL: rtsp://<host>:8000/stream (default: rtsp://localhost:8000/stream)'
+                example: rtsp://localhost:8000/stream
+                configurableParameters:
+                - name: port
+                  description: RTSP server port
+                  default: '8000'
+                  affects: RTSP URL port
+                - name: stream_name
+                  description: RTSP stream name/path
+                  default: stream
+                  affects: RTSP URL path
+              createdAt: '2025-12-16T11:33:52Z'
+      '404':
+        description: Node not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Cập nhật node
+    description: 'Cập nhật tham số node. Chỉ node không đang được sử dụng mới có thể cập nhật.
+
+      Note: Update operation deletes the old node and creates a new one with updated parameters.
+
+      '
+    operationId: updateNode
+    tags:
+    - Node
+    parameters:
+    - name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique node identifier
+      example: node_a1b2c3d4
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateNodeRequest'
+    responses:
+      '200':
+        description: Node updated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeResponse'
+      '400':
+        description: Bad request (missing parameters field)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Node not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Conflict (node is currently in use)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa node
+    description: Xóa node cấu hình sẵn. Chỉ node không đang được sử dụng mới có thể xóa.
+    operationId: deleteNode
+    tags:
+    - Node
+    parameters:
+    - name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique node identifier
+      example: node_a1b2c3d4
+    responses:
+      '200':
+        description: Node deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Node deleted successfully
+                nodeId:
+                  type: string
+                  example: node_a1b2c3d4
+      '404':
+        description: Node not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Conflict (node is currently in use)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho node
+    operationId: getNodeOptions
+    tags:
+    - Node
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

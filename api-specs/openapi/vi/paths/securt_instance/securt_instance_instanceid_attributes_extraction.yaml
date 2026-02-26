@@ -1,0 +1,105 @@
+# API endpoint: /v1/securt/instance/{instanceId}/attributes_extraction
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/attributes_extraction:
+  post:
+    summary: Thiết lập attributes extraction
+    description: Cấu hình trích xuất thuộc tính (attributes extraction) cho instance SecuRT
+    operationId: setAttributesExtraction
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+                description: Enable attributes extraction
+                example: true
+              attributes:
+                type: array
+                items:
+                  type: string
+                description: Array of attributes to extract
+                example:
+                - age
+                - gender
+                - clothing
+    responses:
+      '204':
+        description: Attributes extraction configured successfully
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Lấy cấu hình attributes extraction
+    description: Lấy cấu hình attributes extraction đã thiết lập cho instance SecuRT
+    operationId: getAttributesExtraction
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    responses:
+      '200':
+        description: Attributes extraction configuration
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                attributes:
+                  type: array
+                  items:
+                    type: string
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho attributes extraction
+    operationId: attributesExtractionOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

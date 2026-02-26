@@ -1,0 +1,53 @@
+# API endpoint: /v1/recognition/faces/all
+# Tag: Recognition
+
+/v1/recognition/faces/all:
+  delete:
+    summary: Xóa tất cả face subject
+    description: 'Xóa tất cả face subject khỏi database. Thao tác không thể hoàn tác.
+
+      All image IDs and subject mappings will be removed.
+
+
+      **Warning:** This endpoint will delete all registered faces. Use with caution.
+
+      '
+    operationId: deleteAllFaceSubjects
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Đã xóa tất cả face subject thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - deleted_count
+              - message
+              properties:
+                deleted_count:
+                  type: integer
+                  description: Total number of face subjects deleted
+                  example: 15
+                message:
+                  type: string
+                  description: Success message
+                  example: All face subjects deleted successfully
+            example:
+              deleted_count: 15
+              message: All face subjects deleted successfully
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho xóa tất cả face subject
+    operationId: deleteAllFaceSubjectsOptions
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

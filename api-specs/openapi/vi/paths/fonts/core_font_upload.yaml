@@ -1,0 +1,111 @@
+# API endpoint: /v1/core/font/upload
+# Tag: Fonts
+
+/v1/core/font/upload:
+  post:
+    summary: Tải lên file font
+    description: 'Tải file font (TTF, OTF, WOFF, WOFF2, v.v.) lên máy chủ. File lưu trong thư mục fonts. Có thể chỉ định thư mục con qua tham số query `directory`. Thư mục được tạo tự động nếu chưa tồn tại. Nếu không chỉ định, file lưu tại thư mục fonts gốc.
+
+      '
+    operationId: uploadFont
+    tags:
+    - Fonts
+    parameters:
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Subdirectory path where the font file should be saved.
+
+        Use forward slashes to separate directory levels (e.g., "projects/myproject/fonts", "themes/custom", "languages/vietnamese").
+
+        The directory will be created automatically if it doesn''t exist.
+
+        If not specified, files will be saved in the base fonts directory.
+
+        '
+      example: projects/myproject/fonts
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+            - file
+            properties:
+              files:
+                type: array
+                items:
+                  type: string
+                  format: binary
+                description: Font file(s) to upload. Select multiple files to upload at once (.ttf, .otf, .woff, .woff2, .eot,
+                  .ttc)
+              file:
+                type: string
+                format: binary
+                description: Single font file to upload (alternative to files array)
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+            description: Font file as binary data
+    responses:
+      '201':
+        description: Font file(s) uploaded successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                count:
+                  type: integer
+                  description: Number of files uploaded successfully
+                files:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                      originalFilename:
+                        type: string
+                      path:
+                        type: string
+                      size:
+                        type: integer
+                      url:
+                        type: string
+      '400':
+        description: Invalid request (missing file, invalid format, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Unauthorized (missing or invalid API key)
+      '409':
+        description: File already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for font upload
+    operationId: uploadFontOptions
+    tags:
+    - Fonts
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

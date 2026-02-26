@@ -1,0 +1,72 @@
+# API endpoint: /v1/core/node/build-solution
+# Tag: Node
+
+/v1/core/node/build-solution:
+  post:
+    summary: Build solution từ các node
+    description: 'Build cấu hình solution từ các node cấu hình sẵn đã chọn.
+
+      This endpoint allows creating a solution by combining multiple pre-configured nodes.
+      The solution will be created with the specified nodes and their configurations.
+      '
+    operationId: buildSolutionFromNodes
+    tags:
+    - Node
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - nodes
+            properties:
+              nodes:
+                type: array
+                items:
+                  type: string
+                description: Array of node IDs to include in the solution
+                example:
+                - node1
+                - node2
+              name:
+                type: string
+                description: Solution name
+                example: My Custom Solution
+              description:
+                type: string
+                description: Solution description
+    responses:
+      '201':
+        description: Solution built successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                solutionId:
+                  type: string
+                  description: Created solution ID
+                message:
+                  type: string
+                  example: Solution built successfully
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho build solution
+    operationId: buildSolutionOptions
+    tags:
+    - Node
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

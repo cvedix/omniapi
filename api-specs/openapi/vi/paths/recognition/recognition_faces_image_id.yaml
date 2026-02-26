@@ -1,0 +1,123 @@
+# API endpoint: /v1/recognition/faces/{image_id}
+# Tag: Recognition
+
+/v1/recognition/faces/{image_id}:
+  delete:
+    summary: Xóa face subject theo ID hoặc tên subject
+    description: 'Xóa face subject theo image ID hoặc tên subject.
+
+
+      - If the identifier is an **image_id**, only that specific face will be deleted.
+
+      - If the identifier is a **subject name**, all faces associated with that subject will be deleted.
+
+
+      The endpoint automatically detects whether the identifier is an image_id or subject name.
+
+      If no face is found with the given identifier, a 404 error is returned.
+
+      '
+    operationId: deleteFaceSubject
+    tags:
+    - Recognition
+    parameters:
+    - name: image_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'Either the UUID of the face subject to be deleted, or the subject name.
+
+        The endpoint will automatically detect the type of identifier.
+
+        '
+      example: '{subject}'
+    responses:
+      '200':
+        description: Face subject(s) deleted successfully
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+                required:
+                - image_id
+                - subject
+                properties:
+                  image_id:
+                    type: string
+                    description: UUID of the deleted face subject
+                    example: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                  subject:
+                    type: string
+                    description: Name of the person associated with the deleted face
+                    example: subject1
+              - type: object
+                required:
+                - subject
+                - deleted_count
+                - image_ids
+                properties:
+                  subject:
+                    type: string
+                    description: Name of the subject that was deleted
+                    example: subject1
+                  deleted_count:
+                    type: integer
+                    description: Number of faces deleted for this subject
+                    example: 3
+                  image_ids:
+                    type: array
+                    items:
+                      type: string
+                    description: List of image IDs that were deleted
+                    example:
+                    - 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                    - 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
+            examples:
+              single_face:
+                summary: Single face deleted
+                value:
+                  image_id: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                  subject: subject1
+              multiple_faces:
+                summary: All faces for a subject deleted
+                value:
+                  subject: subject1
+                  deleted_count: 3
+                  image_ids:
+                  - 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                  - 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
+                  - 8d357h7d-c587-6744-d3h3-6e1ce4ff2950
+      '400':
+        description: Bad request (missing image_id, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Unauthorized (missing or invalid API key)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Face subject not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho xóa face subject
+    operationId: deleteFaceSubjectOptions
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

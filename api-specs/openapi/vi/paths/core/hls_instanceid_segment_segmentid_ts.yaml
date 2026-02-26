@@ -1,0 +1,45 @@
+# API endpoint: /hls/{instanceId}/segment_{segmentId}.ts
+# Tag: Core
+
+/hls/{instanceId}/segment_{segmentId}.ts:
+  get:
+    summary: Lấy segment HLS
+    description: 'Lấy file segment video HLS (.ts) cho một instance. Endpoint phục vụ từng file segment được tham chiếu trong playlist HLS. Segment được tạo tự động khi bật đầu ra HLS cho instance.
+
+      '
+    operationId: getHlsSegment
+    tags:
+    - Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    - name: segmentId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'ID segment (ví dụ: "0", "1", "2")'
+    responses:
+      '200':
+        description: File segment video HLS
+        content:
+          video/mp2t:
+            schema:
+              type: string
+              format: binary
+      '404':
+        description: Không tìm thấy instance, HLS chưa bật, hoặc không tìm thấy segment
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

@@ -1,0 +1,100 @@
+# API endpoint: /v1/securt/experimental/instance/{instanceId}/surrender_detection
+# Tag: SecuRT Instance
+
+/v1/securt/experimental/instance/{instanceId}/surrender_detection:
+  post:
+    summary: Thiết lập surrender detection (Thử nghiệm)
+    description: 'Bật hoặc tắt surrender detection cho instance SecuRT. (Tính năng thử nghiệm.)
+
+      '
+    operationId: setSurrenderDetection
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - enable
+            properties:
+              enable:
+                type: boolean
+                description: Bật surrender detection
+                example: true
+    responses:
+      '204':
+        description: Đã cấu hình surrender detection thành công
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Lấy cấu hình surrender detection (Thử nghiệm)
+    description: 'Lấy cấu hình surrender detection của instance SecuRT. (Tính năng thử nghiệm.)
+
+      '
+    operationId: getSurrenderDetection
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    responses:
+      '200':
+        description: Surrender detection configuration
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: Surrender detection enabled status
+                  example: true
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho surrender detection
+    operationId: surrenderDetectionOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -1,0 +1,204 @@
+# API endpoint: /v1/core/instance/{instanceId}/jams
+# Tag: Area Core
+
+/v1/core/instance/{instanceId}/jams:
+  get:
+    summary: Lấy tất cả vùng kẹt xe (jam zones)
+    description: 'Trả về tất cả các vùng kẹt xe (jam zones) đã cấu hình cho instance ba_jam. Jam zones định nghĩa các ROI nơi thực hiện phát hiện ùn tắc giao thông.
+
+      '
+    operationId: getAllJams
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    responses:
+      '200':
+        description: Danh sách vùng kẹt xe (jam zones)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JamsResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo một hoặc nhiều vùng kẹt xe (jam zones)
+    description: 'Tạo một hoặc nhiều vùng kẹt xe (jam zones) cho instance ba_jam. Jam zones dùng để phát hiện ùn tắc giao thông trong một ROI chỉ định.
+
+
+      **Định dạng yêu cầu:**
+
+      - Một vùng: Gửi một object (CreateJamRequest)
+
+      - Nhiều vùng: Gửi mảng các object [CreateJamRequest, ...]
+
+
+      **Cập nhật thời gian thực:** Các vùng được áp dụng cho instance đang chạy khi có thể; nếu không sẽ khởi động lại instance.
+
+      '
+    operationId: createJam
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/CreateJamRequest'
+            - type: array
+              items:
+                $ref: '#/components/schemas/CreateJamRequest'
+          examples:
+            singleJam:
+              summary: Một vùng kẹt xe (object)
+              value:
+                name: Downtown Jam Zone
+                roi:
+                - x: 0
+                  y: 100
+                - x: 1920
+                  y: 100
+                - x: 1920
+                  y: 400
+                - x: 0
+                  y: 400
+                check_interval_frames: 20
+                check_min_hit_frames: 50
+                check_max_distance: 8
+                check_min_stops: 8
+                check_notify_interval: 10
+            multipleJams:
+              summary: Nhiều vùng kẹt xe (mảng)
+              value:
+              - name: Downtown Jam Zone
+                roi:
+                - x: 0
+                  y: 100
+                - x: 1920
+                  y: 100
+                - x: 1920
+                  y: 400
+                - x: 0
+                  y: 400
+                check_interval_frames: 20
+                check_min_hit_frames: 50
+                check_max_distance: 8
+                check_min_stops: 8
+                check_notify_interval: 10
+              - name: Uptown Jam Zone
+                roi:
+                - x: 100
+                  y: 200
+                - x: 500
+                  y: 200
+                - x: 500
+                  y: 400
+                - x: 100
+                  y: 400
+                check_interval_frames: 20
+                check_min_hit_frames: 50
+                check_max_distance: 8
+                check_min_stops: 8
+                check_notify_interval: 10
+    responses:
+      '201':
+        description: Tạo vùng thành công. Trả về một object vùng với yêu cầu đơn, hoặc object kèm metadata với yêu cầu mảng.
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/JamZone'
+              - $ref: '#/components/schemas/CreateJamsResponse'
+      '400':
+        description: Yêu cầu không hợp lệ (ROI hoặc tham số sai)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa tất cả vùng kẹt xe (jam zones)
+    description: 'Xóa tất cả vùng kẹt xe (jam zones) của instance ba_jam.
+
+
+      **Cập nhật thời gian thực:** Các vùng được gỡ khỏi instance đang chạy khi có thể; nếu không sẽ khởi động lại instance.
+
+      '
+    operationId: deleteAllJams
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{Downtown}'
+    responses:
+      '200':
+        description: Đã xóa tất cả vùng kẹt xe thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Đã xóa tất cả vùng kẹt xe (jam zones) thành công
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho các endpoint jams
+    operationId: jamsOptions
+    tags:
+    - Area Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

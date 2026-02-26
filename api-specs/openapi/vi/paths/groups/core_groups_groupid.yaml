@@ -1,0 +1,162 @@
+# API endpoint: /v1/core/groups/{groupId}
+# Tag: Groups
+
+/v1/core/groups/{groupId}:
+  get:
+    summary: Lấy chi tiết nhóm
+    description: 'Trả về thông tin chi tiết của một nhóm: cấu hình (ID, tên, mô tả), metadata (isDefault, readOnly, timestamps), số instance, danh sách instance IDs trong nhóm. Nhóm phải tồn tại; nếu không tìm thấy trả về 404.
+
+      '
+    operationId: getGroup
+    tags:
+    - Groups
+    parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh nhóm (groupId)
+    responses:
+      '200':
+        description: Chi tiết nhóm
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/GroupInfo'
+              - type: object
+                properties:
+                  instanceIds:
+                    type: array
+                    items:
+                      type: string
+                    description: Danh sách instance IDs trong nhóm này
+      '404':
+        description: Không tìm thấy nhóm
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Cập nhật nhóm
+    description: 'Cập nhật thông tin nhóm. Chỉ các trường gửi lên được cập nhật (groupName, description). Nhóm phải tồn tại, không read-only; group ID không đổi. Timestamp cập nhật tự động.
+
+      '
+    operationId: updateGroup
+    tags:
+    - Groups
+    parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh nhóm (groupId)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateGroupRequest'
+          example:
+            groupName: Updated Group Name
+            description: Updated description
+    responses:
+      '200':
+        description: Đã cập nhật nhóm thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupInfo'
+      '400':
+        description: Yêu cầu không hợp lệ (validation thất bại hoặc nhóm read-only)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy nhóm
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa nhóm
+    description: 'Xóa nhóm khỏi hệ thống (vĩnh viễn). Điều kiện: nhóm tồn tại, không phải nhóm mặc định, không read-only, không còn instance nào (cần chuyển hoặc xóa instance trước)
+
+
+      **Behavior:**
+
+      - Group configuration will be removed from memory
+
+      - Group file will be deleted from storage
+
+      - All resources associated with the group will be released
+
+
+      **Note:** This operation cannot be undone. Once deleted, the group must be recreated using the create group endpoint.
+
+      '
+    operationId: deleteGroup
+    tags:
+    - Groups
+    parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh nhóm (groupId)
+    responses:
+      '200':
+        description: Group deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                groupId:
+                  type: string
+      '400':
+        description: Xóa thất bại (nhóm còn instance, là nhóm mặc định, hoặc read-only)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy nhóm
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho group
+    operationId: getGroupOptions
+    tags:
+    - Groups
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

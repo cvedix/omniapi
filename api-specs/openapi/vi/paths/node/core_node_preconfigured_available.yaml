@@ -1,0 +1,30 @@
+# API endpoint: /v1/core/node/preconfigured/available
+# Tag: Node
+
+/v1/core/node/preconfigured/available:
+  get:
+    summary: Liệt kê node cấu hình sẵn có sẵn
+    description: Lấy danh sách node cấu hình sẵn có sẵn (không đang dùng)
+    operationId: getAvailableNodes
+    tags:
+    - Node
+    responses:
+      '200':
+        description: List of available pre-configured nodes
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nodes:
+                  type: array
+                  items:
+                    type: object
+                total:
+                  type: integer
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

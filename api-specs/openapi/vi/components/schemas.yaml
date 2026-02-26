@@ -1,78 +1,757 @@
 # Component schemas
 components:
   schemas:
+    HealthResponse:
+      type: object
+      required:
+      - status
+      - timestamp
+      - uptime
+      properties:
+        status:
+          type: string
+          enum:
+          - healthy
+          - degraded
+          - unhealthy
+          description: Trạng thái sức khỏe của dịch vụ
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm hiện tại theo định dạng ISO 8601
+          example: '2024-01-01T00:00:00.000Z'
+        uptime:
+          type: integer
+          format: int64
+          description: Thời gian hoạt động của dịch vụ (giây)
+          example: 3600
+        service:
+          type: string
+          description: Tên dịch vụ
+          example: edge_ai_api
+        version:
+          type: string
+          description: Phiên bản dịch vụ
+          example: 1.0.0
+    StatusResponse:
+      type: object
+      required:
+      - total
+      - configured
+      - running
+      - stopped
+      - timestamp
+      properties:
+        total:
+          type: integer
+          description: Tổng số instance đã cấu hình
+          example: 5
+        configured:
+          type: integer
+          description: Số instance đã cấu hình (bằng tổng số)
+          example: 5
+        running:
+          type: integer
+          description: Số instance đang chạy
+          example: 3
+        stopped:
+          type: integer
+          description: Số instance đã dừng
+          example: 2
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm hiện tại theo định dạng ISO 8601
+          example: '2024-01-01T00:00:00.000Z'
+    VersionResponse:
+      type: object
+      required:
+      - version
+      - api_version
+      - service
+      properties:
+        version:
+          type: string
+          description: Phiên bản ứng dụng
+          example: 1.0.0
+        build_time:
+          type: string
+          description: Thời điểm build
+          example: Jan 01 2024 00:00:00
+        git_commit:
+          type: string
+          description: Mã hash commit Git
+          example: abc123def456
+        api_version:
+          type: string
+          description: Phiên bản API
+          example: v1
+        service:
+          type: string
+          description: Tên dịch vụ
+          example: edge_ai_api
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
+          description: Thông báo lỗi
+        code:
+          type: integer
+          description: Mã lỗi
         message:
           type: string
-    HealthResponse:
+          description: Thông báo lỗi chi tiết
+    LogFileInfo:
       type: object
+      required:
+      - date
+      - size
+      - path
       properties:
-        status:
+        date:
           type: string
+          format: date
+          description: Ngày của file log (YYYY-MM-DD)
+          example: '2024-01-01'
+        size:
+          type: integer
+          format: int64
+          description: Kích thước file log (byte)
+          example: 1024
+        path:
+          type: string
+          description: Đường dẫn đầy đủ tới file log
+          example: /var/log/edge_ai_api/api_2024-01-01.log
+    LogFilesResponse:
+      type: object
+      required:
+      - categories
+      properties:
+        categories:
+          type: object
+          description: Các file log được nhóm theo danh mục
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/LogFileInfo'
+          example:
+            api:
+            - date: '2024-01-01'
+              size: 1024
+              path: /var/log/edge_ai_api/api_2024-01-01.log
+            instance:
+            - date: '2024-01-01'
+              size: 2048
+              path: /var/log/edge_ai_api/instance_2024-01-01.log
+    LogEntry:
+      type: object
+      required:
+      - timestamp
+      - level
+      - message
+      properties:
         timestamp:
           type: string
-        uptime:
-          type: integer
-        service:
+          format: date-time
+          description: Thời điểm log theo định dạng ISO 8601
+          example: '2024-01-01T12:00:00.000Z'
+        level:
           type: string
-        version:
+          description: Mức log (INFO, ERROR, WARNING, DEBUG, v.v.)
+          example: INFO
+        message:
           type: string
-    VersionResponse:
+          description: Nội dung log
+          example: API request received
+    LogsResponse:
       type: object
+      required:
+      - category
+      - category_dir
+      - files_count
+      - total_lines
+      - filtered_lines
+      - logs
       properties:
-        version:
+        category:
           type: string
-        build_time:
+          description: Danh mục log
+          example: api
+        category_dir:
           type: string
-        git_commit:
+          description: Đường dẫn thư mục cho danh mục này
+          example: /var/log/edge_ai_api/api
+        files_count:
+          type: integer
+          description: Số file log trong danh mục này
+          example: 1
+        total_lines:
+          type: integer
+          description: Tổng số dòng log trước khi lọc
+          example: 1000
+        filtered_lines:
+          type: integer
+          description: Số dòng log sau khi lọc
+          example: 500
+        logs:
+          type: array
+          description: Mảng các bản ghi log
+          items:
+            $ref: '#/components/schemas/LogEntry'
+    LogsByDateResponse:
+      type: object
+      required:
+      - category
+      - date
+      - total_lines
+      - filtered_lines
+      - logs
+      properties:
+        category:
           type: string
-        api_version:
+          description: Danh mục log
+          example: api
+        date:
           type: string
-        service:
+          format: date
+          description: Ngày của file log (YYYY-MM-DD)
+          example: '2024-01-01'
+        total_lines:
+          type: integer
+          description: Tổng số dòng log trước khi lọc
+          example: 1000
+        filtered_lines:
+          type: integer
+          description: Số dòng log sau khi lọc
+          example: 500
+        logs:
+          type: array
+          description: Mảng các bản ghi log
+          items:
+            $ref: '#/components/schemas/LogEntry'
+    SetInputRequest:
+      type: object
+      required:
+      - type
+      - uri
+      properties:
+        type:
           type: string
+          description: Loại nguồn đầu vào
+          enum:
+          - RTSP
+          - HLS
+          - Manual
+          example: Manual
+        uri:
+          type: string
+          format: uri
+          description: URI nguồn đầu vào (phải hợp lệ)
+          example: http://localhost
+    InstanceConfig:
+      type: object
+      description: Cấu hình instance (định dạng config, không phải trạng thái runtime)
+      properties:
+        InstanceId:
+          type: string
+          description: Định danh duy nhất của instance (UUID)
+          example: '{instanceId}'
+        DisplayName:
+          type: string
+          description: Tên hiển thị của instance
+          example: Test Instance
+        AutoStart:
+          type: boolean
+          description: Instance có tự khởi động khi hệ thống boot hay không
+          example: false
+        AutoRestart:
+          type: boolean
+          description: Instance có tự khởi động lại khi lỗi hay không
+          example: false
+        Detector:
+          type: object
+          description: Cấu hình detector
+          properties:
+            preset_values:
+              type: object
+              description: Giá trị mặc định cho các chế độ detector
+              additionalProperties:
+                type: object
+          example:
+            preset_values:
+              MosaicInference:
+                Detector/conf_threshold: 0.7
+        DetectorRegions:
+          type: object
+          description: Cấu hình vùng detector
+          additionalProperties: true
+        Input:
+          type: object
+          description: Cấu hình nguồn đầu vào
+          properties:
+            match_fps:
+              type: boolean
+              description: Có khớp FPS hay không
+            media_format:
+              type: object
+              properties:
+                color_format:
+                  type: integer
+                default_format:
+                  type: boolean
+                height:
+                  type: integer
+                is_software:
+                  type: boolean
+                name:
+                  type: string
+            media_type:
+              type: string
+              description: Loại đầu vào media (vd. "Images", "IP Camera", "File")
+            output_fps:
+              type: integer
+              description: FPS đầu ra
+            uri:
+              type: string
+              description: URI nguồn đầu vào
+          example:
+            match_fps: true
+            media_format:
+              color_format: 0
+              default_format: true
+              height: 0
+              is_software: false
+              name: Same as Source
+            media_type: Images
+            output_fps: 8
+            uri: https://some_uri
+      required:
+      - InstanceId
+    SetConfigRequest:
+      type: object
+      required:
+      - path
+      - jsonValue
+      properties:
+        path:
+          type: string
+          description: 'Khóa cần cập nhật giá trị cấu hình. Với cấu trúc lồng nhau, dùng dấu "/" làm phân cách.
+
+            Ví dụ: "DisplayName", "Output/handlers/Mqtt", "Detector/conf_threshold"
+
+            '
+          example: Output/handlers/Mqtt
+        jsonValue:
+          type: string
+          description: 'Chuỗi chứa giá trị hoặc đối tượng JSON. Đảm bảo escape đúng cho chuỗi/đối tượng.
+
+            - Giá trị chuỗi: "\"my string\"" (chuỗi JSON đã escape)
+
+            - Đối tượng: "{\"key\":\"value\"}" (đối tượng JSON đã escape)
+
+            '
+          example: '{"uri":"mqtt://localhost:1883/events"}'
+    SetStateRequest:
+      type: object
+      required:
+      - path
+      - jsonValue
+      properties:
+        path:
+          type: string
+          description: 'Khóa cần cập nhật giá trị state. Với cấu trúc lồng nhau, dùng dấu "/" làm phân cách.
+
+            Ví dụ: "runtime/mode", "Output/handlers/Mqtt", "runtime/debug/enabled"
+
+            '
+          example: Output/handlers/Mqtt
+        jsonValue:
+          type: string
+          description: 'Chuỗi chứa giá trị hoặc đối tượng JSON. Đảm bảo escape đúng.
+
+            - Chuỗi: "\"my string\"" (chuỗi JSON đã escape)
+
+            - Đối tượng: "{\"key\":\"value\"}" (đối tượng JSON đã escape)
+
+            - Số: "123" hoặc "45.67"
+
+            - Boolean: "true" hoặc "false"
+
+            '
+          example: '{"enabled":true,"broker":"localhost"}'
+    InstanceState:
+      type: object
+      description: 'Trạng thái runtime của instance. State khác config - state chứa cài đặt runtime chỉ tồn tại khi
+        instance đã load, còn config chứa cài đặt lưu trữ.
+
+        State bị xóa khi instance unload. State không tồn tại sau khi khởi động lại.
+
+        '
+      additionalProperties: true
+      example:
+        runtime:
+          mode: production
+          debug:
+            enabled: false
+        metrics:
+          interval: 60
+        Output:
+          handlers:
+            Mqtt:
+              enabled: true
+              broker: localhost
+              port: 1883
+    ConfigureStreamOutputRequest:
+      type: object
+      required:
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Có bật đầu ra stream/ghi hay không
+          example: true
+        path:
+          type: string
+          description: 'Đường dẫn lưu file video MP4 đầu ra. Bắt buộc khi enabled=true và dùng chế độ ghi.
+
+            Đường dẫn phải là thư mục tồn tại hoặc có thể tạo, và có quyền ghi.
+
+            Thư mục sẽ được tạo tự động nếu chưa tồn tại.
+
+            '
+          example: /opt/edge_ai_api/record
+        uri:
+          type: string
+          format: uri
+          description: 'URI đầu ra stream. Bắt buộc khi enabled=true và dùng chế độ stream.
+
+            Phải bắt đầu bằng rtmp://, rtsp:// hoặc hls://
+
+            Khi enabled=true phải cung cấp `path` (ghi file) hoặc `uri` (stream).
+
+            '
+          example: rtmp://localhost:1935/live/stream
+    StreamOutputResponse:
+      type: object
+      required:
+      - enabled
+      - uri
+      properties:
+        enabled:
+          type: boolean
+          description: Có bật đầu ra stream hay không
+          example: true
+        uri:
+          type: string
+          format: uri
+          description: 'URI đã cấu hình cho đầu ra stream. Chuỗi rỗng nếu tắt.
+
+            Có thể là định dạng rtmp://, rtsp:// hoặc hls://
+
+            '
+          example: rtmp://localhost:1935/live/stream
     SystemInfoResponse:
       type: object
-      additionalProperties: true
+      description: Thông tin phần cứng hệ thống
+      properties:
+        cpu:
+          type: object
+          properties:
+            vendor:
+              type: string
+              example: GenuineIntel
+            model:
+              type: string
+              example: Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz
+            physical_cores:
+              type: integer
+              example: 8
+            logical_cores:
+              type: integer
+              example: 16
+            max_frequency:
+              type: integer
+              description: Tần số tối đa (MHz)
+              example: 3792
+            regular_frequency:
+              type: integer
+              description: Tần số thường (MHz)
+              example: 3792
+            min_frequency:
+              type: integer
+              description: Tần số tối thiểu (MHz, -1 nếu không có)
+              example: -1
+            current_frequency:
+              type: integer
+              description: Tần số hiện tại (MHz, -1 nếu không có)
+              example: 3792
+            cache_size:
+              type: integer
+              format: int64
+              description: Kích thước cache (byte)
+              example: 16777216
+        ram:
+          type: object
+          properties:
+            vendor:
+              type: string
+              example: Corsair
+            model:
+              type: string
+              example: CMK32GX4M2Z3600C18
+            name:
+              type: string
+              example: Physical Memory
+            serial_number:
+              type: string
+              example: N/A
+            size_mib:
+              type: integer
+              format: int64
+              description: Tổng dung lượng (MiB)
+              example: 65437
+            free_mib:
+              type: integer
+              format: int64
+              description: Bộ nhớ trống (MiB)
+              example: 54405
+            available_mib:
+              type: integer
+              format: int64
+              description: Bộ nhớ khả dụng (MiB)
+              example: 54405
+        gpu:
+          type: array
+          items:
+            type: object
+            properties:
+              vendor:
+                type: string
+                example: NVIDIA
+              model:
+                type: string
+                example: NVIDIA GeForce RTX 3070 Ti
+              driver_version:
+                type: string
+                example: 31.0.15.2698
+              memory_mib:
+                type: integer
+                format: int64
+                description: Dung lượng bộ nhớ (MiB)
+                example: 8190
+              min_frequency:
+                type: integer
+                example: -1
+              current_frequency:
+                type: integer
+                description: Tần số hiện tại (MHz)
+                example: 0
+              max_frequency:
+                type: integer
+                example: -1
+        disk:
+          type: array
+          items:
+            type: object
+            properties:
+              vendor:
+                type: string
+                example: (Standard disk drives)
+              model:
+                type: string
+                example: WD_BLACK SN850 Heatsink 1TB
+              serial_number:
+                type: string
+                example: '***'
+              size_bytes:
+                type: integer
+                format: int64
+                description: Tổng dung lượng (byte)
+                example: 1000202273280
+              free_size_bytes:
+                type: integer
+                format: int64
+                description: Dung lượng trống (byte)
+                example: 500000000000
+              volumes:
+                type: array
+                items:
+                  type: string
+                description: Danh sách tên volume/phân vùng
+        mainboard:
+          type: object
+          properties:
+            vendor:
+              type: string
+              example: ASUSTeK COMPUTER INC.
+            name:
+              type: string
+              example: PRIME Z490-A
+            version:
+              type: string
+              example: Rev 1.xx
+            serial_number:
+              type: string
+              example: N/A
+        os:
+          type: object
+          properties:
+            name:
+              type: string
+              example: Ubuntu 22.04 LTS
+            short_name:
+              type: string
+              example: Linux
+            version:
+              type: string
+              example: '22.04'
+            kernel:
+              type: string
+              example: 5.15.0-72-generic
+            architecture:
+              type: string
+              example: 64 bit
+            endianess:
+              type: string
+              example: little endian
+        battery:
+          type: array
+          description: Thông tin pin (mảng rỗng nếu không có pin)
+          items:
+            type: object
+            properties:
+              vendor:
+                type: string
+              model:
+                type: string
+              serial_number:
+                type: string
+              technology:
+                type: string
+              capacity_mwh:
+                type: integer
+                format: int64
+                description: Dung lượng (mWh)
+              charging:
+                type: boolean
+                description: Pin đang sạc hay không
     SystemStatusResponse:
       type: object
-      additionalProperties: true
+      description: Trạng thái hệ thống hiện tại
+      properties:
+        cpu:
+          type: object
+          properties:
+            usage_percent:
+              type: number
+              format: double
+              description: Phần trăm sử dụng CPU (0-100)
+              example: 25.5
+            current_frequency_mhz:
+              type: integer
+              description: Tần số CPU hiện tại (MHz, -1 nếu không có)
+              example: 3792
+            temperature_celsius:
+              type: number
+              format: double
+              description: Nhiệt độ CPU (độ C, tùy chọn, -1 nếu không có)
+              example: 45.5
+        ram:
+          type: object
+          properties:
+            total_mib:
+              type: integer
+              format: int64
+              description: Tổng RAM (MiB)
+              example: 65437
+            used_mib:
+              type: integer
+              format: int64
+              description: RAM đã dùng (MiB)
+              example: 11032
+            free_mib:
+              type: integer
+              format: int64
+              description: RAM trống (MiB)
+              example: 54405
+            available_mib:
+              type: integer
+              format: int64
+              description: RAM khả dụng (MiB)
+              example: 54405
+            usage_percent:
+              type: number
+              format: double
+              description: Phần trăm sử dụng RAM (0-100)
+              example: 16.85
+            cached_mib:
+              type: integer
+              format: int64
+              description: Bộ nhớ cache (MiB, tùy chọn)
+              example: 5000
+            buffers_mib:
+              type: integer
+              format: int64
+              description: Bộ nhớ buffer (MiB, tùy chọn)
+              example: 1000
+        load_average:
+          type: object
+          properties:
+            1min:
+              type: number
+              format: double
+              description: Load average 1 phút
+              example: 0.75
+            5min:
+              type: number
+              format: double
+              description: Load average 5 phút
+              example: 0.82
+            15min:
+              type: number
+              format: double
+              description: Load average 15 phút
+              example: 0.88
+        uptime_seconds:
+          type: integer
+          format: int64
+          description: Thời gian hoạt động hệ thống (giây)
+          example: 86400
     SystemConfigResponse:
       type: object
-      description: System configuration entities response
+      description: Phản hồi các thực thể cấu hình hệ thống
       properties:
         systemConfig:
           type: array
-          description: Array of system configuration entities
+          description: Mảng các thực thể cấu hình hệ thống
           items:
             type: object
             properties:
               fieldId:
                 type: string
-                description: Configuration field identifier
+                description: Định danh trường cấu hình
                 example: voice6
               displayName:
                 type: string
-                description: Human-readable display name
+                description: Tên hiển thị dễ đọc
                 example: voice n. 6
               type:
                 type: string
-                description: Configuration type (options, string, number, boolean)
+                description: Kiểu cấu hình (options, string, number, boolean)
                 example: options
               value:
                 type: string
-                description: Current configuration value
+                description: Giá trị cấu hình hiện tại
                 example: solutions
               group:
                 type: string
-                description: Configuration group name
+                description: Tên nhóm cấu hình
                 example: groupBy
               availableValues:
                 type: array
-                description: Available values for options type
+                description: Các giá trị khả dụng cho kiểu options
                 items:
                   type: object
                   properties:
@@ -84,13 +763,13 @@ components:
                       example: securt
     SystemConfigUpdateRequest:
       type: object
-      description: System configuration update request
+      description: Yêu cầu cập nhật cấu hình hệ thống
       required:
       - systemConfig
       properties:
         systemConfig:
           type: array
-          description: Array of configuration updates
+          description: Mảng các cập nhật cấu hình
           items:
             type: object
             required:
@@ -99,15 +778,15 @@ components:
             properties:
               fieldId:
                 type: string
-                description: Configuration field identifier to update
+                description: Định danh trường cấu hình to update
                 example: voice6
               value:
                 type: string
-                description: New configuration value
+                description: Giá trị cấu hình mới
                 example: securt
     SystemPreferencesResponse:
       type: object
-      description: System preferences from rtconfig.json
+      description: Tùy chọn hệ thống từ rtconfig.json
       additionalProperties:
         oneOf:
         - type: boolean
@@ -137,25 +816,2513 @@ components:
         global.default_performance_mode: Performance
     SystemDecodersResponse:
       type: object
-      description: Available system decoders information
+      description: Thông tin bộ giải mã hệ thống khả dụng
       additionalProperties:
         type: object
         additionalProperties:
           type: integer
-          description: Number of available decoders for the codec
+          description: Số bộ giải mã khả dụng cho codec
       example:
         nvidia:
           hevc: 1
           h264: 1
-    LogFilesResponse:
+    CreateInstanceRequest:
       type: object
-      additionalProperties: true
-    LogsResponse:
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          description: 'Tên instance (bắt buộc, pattern: ^[A-Za-z0-9 -_]+$)'
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: 'Tên nhóm (tùy chọn, pattern: ^[A-Za-z0-9 -_]+$)'
+          example: cameras
+        solution:
+          type: string
+          description: ID giải pháp (tùy chọn, phải khớp giải pháp tồn tại)
+          example: face_detection
+        persistent:
+          type: boolean
+          description: Lưu instance vào file JSON
+          default: false
+        frameRateLimit:
+          type: integer
+          description: Giới hạn frame rate (FPS)
+          default: 0
+          minimum: 0
+        metadataMode:
+          type: boolean
+          description: Bật chế độ metadata
+          default: false
+        statisticsMode:
+          type: boolean
+          description: Bật chế độ thống kê
+          default: false
+        diagnosticsMode:
+          type: boolean
+          description: Bật chế độ chẩn đoán
+          default: false
+        debugMode:
+          type: boolean
+          description: Bật chế độ debug
+          default: false
+        detectorMode:
+          type: string
+          description: Chế độ detector
+          enum:
+          - SmartDetection
+          default: SmartDetection
+        detectionSensitivity:
+          type: string
+          description: Mức độ nhạy phát hiện
+          enum:
+          - Low
+          - Medium
+          - High
+          default: Low
+        movementSensitivity:
+          type: string
+          description: Mức độ nhạy chuyển động
+          enum:
+          - Low
+          - Medium
+          - High
+          default: Low
+        sensorModality:
+          type: string
+          description: Loại cảm biến
+          enum:
+          - RGB
+          - Thermal
+          default: RGB
+        autoStart:
+          type: boolean
+          description: Tự khởi động instance khi tạo
+          default: false
+        autoRestart:
+          type: boolean
+          description: Tự khởi động lại instance khi lỗi
+          default: false
+        blockingReadaheadQueue:
+          type: boolean
+          description: Dùng hàng đợi readahead chặn
+          default: false
+        inputOrientation:
+          type: integer
+          description: Hướng đầu vào (0-3)
+          default: 0
+          minimum: 0
+          maximum: 3
+        inputPixelLimit:
+          type: integer
+          description: Giới hạn pixel đầu vào
+          default: 0
+          minimum: 0
+        RTSP_URL:
+          type: string
+          description: URL RTSP nguồn (bắt buộc cho giải pháp face_detection)
+          example: rtsp://localhost:8554/stream
+        MODEL_NAME:
+          type: string
+          description: 'Tên model dùng (vd. "yunet_2023mar", "yunet_2022mar", "yolov8n_face").
+
+            Có thể chỉ định category dạng "category:modelname" (vd. "face:yunet_2023mar").
+
+            Hệ thống tự tìm file model trong thư mục hệ thống.
+
+            Ưu tiên hơn MODEL_PATH nếu cung cấp cả hai.
+
+            '
+          example: yunet_2023mar
+        MODEL_PATH:
+          type: string
+          description: 'Đường dẫn trực tiếp tới file model (vd. "./models/yunet.onnx", "/usr/share/cvedix/cvedix_data/models/face/yunet.onnx").
+
+            Dùng khi không cung cấp hoặc không tìm thấy MODEL_NAME.
+
+            '
+          example: ./models/yunet.onnx
+        additionalParams:
+          type: object
+          description: "Tham số bổ sung theo giải pháp. Các khóa hỗ trợ:\n- RTSP_URL: URL stream RTSP\n- MODEL_NAME: Tên model (vd. \"yunet_2023mar\", \"face:yunet_2023mar\")\n- MODEL_PATH: Đường dẫn trực tiếp tới file model\n- CrossingLines: (chỉ ba_crossline) Mảng chuỗi JSON cấu hình đường cắt. Định dạng: `[{\"id\":\"uuid\",\"name\":\"Line Name\",\"coordinates\":[{\"x\":0,\"y\":250},{\"x\":700,\"y\":220}],\"direction\":\"Both\",\"classes\":[\"Vehicle\"],\"color\":[255,0,0,255]}]`. Hỗ trợ nhiều đường. Quản lý qua API `/v1/core/instance/{instanceId}/lines`.\n- StopZones: (chỉ ba_stop) Mảng chuỗi JSON cấu hình vùng dừng. Quản lý qua API `/v1/core/instance/{instanceId}/stops`.\n- JamZones: (chỉ ba_jam) Mảng chuỗi JSON cấu hình vùng ùn tắc. Quản lý qua API `/v1/core/instance/{instanceId}/jams`.\n"
+          additionalProperties:
+            type: string
+    UpdateInstanceRequest:
       type: object
-      additionalProperties: true
-    LogsByDateResponse:
+      description: Body yêu cầu cập nhật instance. Mọi trường đều tùy chọn - chỉ các trường được gửi mới được cập nhật.
+      properties:
+        name:
+          type: string
+          description: 'Tên instance (pattern: ^[A-Za-z0-9 -_]+$)'
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: 'Tên nhóm (pattern: ^[A-Za-z0-9 -_]+$)'
+          example: cameras
+        persistent:
+          type: boolean
+          description: Lưu instance vào file JSON
+        frameRateLimit:
+          type: integer
+          description: Giới hạn frame rate (FPS)
+          minimum: 0
+        metadataMode:
+          type: boolean
+          description: Bật chế độ metadata
+        statisticsMode:
+          type: boolean
+          description: Bật chế độ thống kê
+        diagnosticsMode:
+          type: boolean
+          description: Bật chế độ chẩn đoán
+        debugMode:
+          type: boolean
+          description: Bật chế độ debug
+        detectorMode:
+          type: string
+          description: Chế độ detector
+          enum:
+          - SmartDetection
+        detectionSensitivity:
+          type: string
+          description: Mức độ nhạy phát hiện
+          enum:
+          - Low
+          - Medium
+          - High
+        movementSensitivity:
+          type: string
+          description: Mức độ nhạy chuyển động
+          enum:
+          - Low
+          - Medium
+          - High
+        sensorModality:
+          type: string
+          description: Loại cảm biến
+          enum:
+          - RGB
+          - Thermal
+        autoStart:
+          type: boolean
+          description: Tự khởi động instance khi tạo
+        autoRestart:
+          type: boolean
+          description: Tự khởi động lại instance khi lỗi
+        inputOrientation:
+          type: integer
+          description: Hướng đầu vào (0-3)
+          minimum: 0
+          maximum: 3
+        inputPixelLimit:
+          type: integer
+          description: Giới hạn pixel đầu vào
+          minimum: 0
+        RTSP_URL:
+          type: string
+          description: URL RTSP nguồn
+          example: rtsp://localhost:8554/stream
+        MODEL_NAME:
+          type: string
+          description: Tên model sử dụng
+          example: yunet_2023mar
+        MODEL_PATH:
+          type: string
+          description: Đường dẫn trực tiếp tới file model
+          example: ./models/yunet.onnx
+        FILE_PATH:
+          type: string
+          description: Đường dẫn file cho nguồn file
+          example: /path/to/video.mp4
+        RTMP_URL:
+          type: string
+          description: URL RTMP đích streaming
+          example: rtmp://localhost:1935/live/stream
+        SFACE_MODEL_PATH:
+          type: string
+          description: Đường dẫn tới model encoder SFace
+        SFACE_MODEL_NAME:
+          type: string
+          description: Tên model encoder SFace
+        additionalParams:
+          type: object
+          description: Tham số bổ sung theo giải pháp
+          additionalProperties:
+            type: string
+    InstanceSummary:
       type: object
-      additionalProperties: true
+      properties:
+        instanceId:
+          type: string
+          description: Định danh instance duy nhất (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        displayName:
+          type: string
+          description: Tên hiển thị của instance
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: Tên nhóm
+          example: cameras
+        solutionId:
+          type: string
+          description: ID giải pháp
+          example: face_detection
+        solutionName:
+          type: string
+          description: Tên giải pháp
+          example: Face Detection
+        running:
+          type: boolean
+          description: Pipeline instance có đang chạy hay không
+        loaded:
+          type: boolean
+          description: Instance đã được load hay chưa
+        persistent:
+          type: boolean
+          description: Instance đã lưu vào storage hay chưa
+        fps:
+          type: number
+          format: double
+          description: Số khung hình mỗi giây hiện tại
+    InstanceInfo:
+      type: object
+      required:
+      - instanceId
+      - displayName
+      properties:
+        instanceId:
+          type: string
+          description: Định danh instance duy nhất (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        displayName:
+          type: string
+          description: Tên hiển thị của instance
+          example: Face Detection Camera 1
+        group:
+          type: string
+          description: Tên nhóm
+          example: cameras
+        solutionId:
+          type: string
+          description: ID giải pháp
+          example: face_detection
+        solutionName:
+          type: string
+          description: Tên giải pháp
+          example: Face Detection
+        persistent:
+          type: boolean
+          description: Instance đã lưu vào storage hay chưa
+        loaded:
+          type: boolean
+          description: Instance đã được load hay chưa
+        building:
+          type: boolean
+          description: True khi pipeline đang được build bất đồng bộ trong nền; không gọi Start cho đến khi false.
+        status:
+          type: string
+          description: "Trạng thái sẵn sàng instance: 'building' (đang build pipeline), 'ready' (có thể start), 'error' (build thất bại)."
+          enum: [building, ready, error]
+        message:
+          type: string
+          description: Thông báo dễ đọc khi status là building (vd. Pipeline đang được build trong nền).
+        buildError:
+          type: string
+          description: Thông báo lỗi nếu build pipeline thất bại (khi status là error).
+        running:
+          type: boolean
+          description: Pipeline instance có đang chạy hay không
+        fps:
+          type: number
+          format: double
+          description: Số khung hình mỗi giây hiện tại
+        version:
+          type: string
+          description: Phiên bản CVEDIX SDK
+        frameRateLimit:
+          type: integer
+          description: Giới hạn frame rate
+        metadataMode:
+          type: boolean
+          description: Đã bật chế độ metadata
+        statisticsMode:
+          type: boolean
+          description: Đã bật chế độ thống kê
+        diagnosticsMode:
+          type: boolean
+          description: Đã bật chế độ chẩn đoán
+        debugMode:
+          type: boolean
+          description: Đã bật chế độ debug
+        readOnly:
+          type: boolean
+          description: Cờ chỉ đọc
+        autoStart:
+          type: boolean
+          description: Đã bật tự khởi động
+        autoRestart:
+          type: boolean
+          description: Đã bật tự khởi động lại
+        systemInstance:
+          type: boolean
+          description: Cờ instance hệ thống
+        inputPixelLimit:
+          type: integer
+          description: Giới hạn pixel đầu vào
+        inputOrientation:
+          type: integer
+          description: Hướng đầu vào
+        detectorMode:
+          type: string
+          description: Chế độ detector
+        detectionSensitivity:
+          type: string
+          description: Độ nhạy phát hiện
+        movementSensitivity:
+          type: string
+          description: Độ nhạy chuyển động
+        sensorModality:
+          type: string
+          description: Loại cảm biến
+        originator:
+          type: object
+          properties:
+            address:
+              type: string
+              description: Địa chỉ nguồn gốc
+    InstanceOutputResponse:
+      type: object
+      description: Kết quả đầu ra và xử lý theo thời gian thực của instance
+      required:
+      - timestamp
+      - instanceId
+      - displayName
+      - running
+      - loaded
+      - metrics
+      - input
+      - output
+      - status
+      properties:
+        timestamp:
+          type: string
+          description: Thời điểm lấy thông tin đầu ra (thời gian thực)
+          example: '2025-01-15 14:30:25.123'
+        instanceId:
+          type: string
+          description: Định danh instance duy nhất (UUID)
+          example: abc-123-def
+        displayName:
+          type: string
+          description: Tên hiển thị của instance
+          example: face_detection_file_source
+        solutionId:
+          type: string
+          description: ID giải pháp
+          example: face_detection
+        solutionName:
+          type: string
+          description: Tên giải pháp
+          example: Face Detection
+        running:
+          type: boolean
+          description: Pipeline instance có đang chạy hay không
+          example: true
+        loaded:
+          type: boolean
+          description: Instance đã được load hay chưa
+          example: true
+        metrics:
+          type: object
+          description: Chỉ số xử lý
+          required:
+          - fps
+          properties:
+            fps:
+              type: number
+              format: double
+              description: Số khung hình mỗi giây hiện tại
+              example: 25.5
+            frameRateLimit:
+              type: integer
+              description: Giới hạn frame rate (0 = no limit)
+              example: 0
+        input:
+          type: object
+          description: Thông tin nguồn đầu vào
+          required:
+          - type
+          properties:
+            type:
+              type: string
+              enum:
+              - FILE
+              - RTSP
+              - UNKNOWN
+              description: Loại nguồn đầu vào
+              example: FILE
+            path:
+              type: string
+              description: Đường dẫn file (nếu type là FILE)
+              example: /path/to/video.mp4
+            url:
+              type: string
+              description: URL RTSP (nếu type là RTSP)
+              example: rtsp://localhost:8554/live/stream
+        output:
+          type: object
+          description: Thông tin đầu ra
+          required:
+          - type
+          properties:
+            type:
+              type: string
+              enum:
+              - FILE
+              - RTMP_STREAM
+              description: Loại đầu ra
+              example: FILE
+            rtmpUrl:
+              type: string
+              description: URL RTMP (nếu type là RTMP_STREAM)
+              example: rtmp://localhost:1935/live/face_stream
+            rtspUrl:
+              type: string
+              description: URL RTSP để xem (nếu type là RTMP_STREAM và có sẵn)
+              example: rtsp://localhost:8554/live/face_stream_0
+            files:
+              type: object
+              description: Thông tin đầu ra file (nếu type là FILE)
+              properties:
+                exists:
+                  type: boolean
+                  description: Thư mục đầu ra có tồn tại hay không
+                  example: true
+                directory:
+                  type: string
+                  description: Đường dẫn thư mục đầu ra
+                  example: ./output/abc-123-def
+                fileCount:
+                  type: integer
+                  description: Tổng số file đầu ra
+                  example: 15
+                totalSizeBytes:
+                  type: integer
+                  format: int64
+                  description: Tổng kích thước tất cả file đầu ra (byte)
+                  example: 15728640
+                totalSize:
+                  type: string
+                  description: Tổng kích thước định dạng chuỗi dễ đọc
+                  example: 15 MB
+                latestFile:
+                  type: string
+                  description: Tên file được tạo gần nhất
+                  example: face_detection_20250115_143025.mp4
+                latestFileTime:
+                  type: string
+                  description: Thời gian sửa đổi của file mới nhất
+                  example: '2025-01-15 14:30:25'
+                recentFileCount:
+                  type: integer
+                  description: Số file được tạo trong phút qua
+                  example: 3
+                isActive:
+                  type: boolean
+                  description: Instance có đang tạo file mới (file tạo trong phút qua) hay không
+                  example: true
+                expectedPaths:
+                  type: array
+                  items:
+                    type: string
+                  description: Các đường dẫn thư mục đầu ra dự kiến (nếu thư mục chưa tồn tại)
+                  example:
+                  - ./output/abc-123-def
+                  - ./build/output/abc-123-def
+                error:
+                  type: string
+                  description: Thông báo lỗi if directory reading failed
+                  example: 'Error reading directory: Permission denied'
+        detection:
+          type: object
+          description: Cài đặt phát hiện
+          properties:
+            sensitivity:
+              type: string
+              description: Mức độ nhạy phát hiện
+              example: Low
+            mode:
+              type: string
+              description: Chế độ detector
+              example: SmartDetection
+            movementSensitivity:
+              type: string
+              description: Mức độ nhạy chuyển động
+              example: Low
+            sensorModality:
+              type: string
+              description: Loại cảm biến
+              example: RGB
+        modes:
+          type: object
+          description: Các chế độ xử lý
+          properties:
+            statisticsMode:
+              type: boolean
+              description: Đã bật chế độ thống kê
+              example: true
+            metadataMode:
+              type: boolean
+              description: Đã bật chế độ metadata
+              example: false
+            debugMode:
+              type: boolean
+              description: Đã bật chế độ debug
+              example: true
+            diagnosticsMode:
+              type: boolean
+              description: Đã bật chế độ chẩn đoán
+              example: false
+        status:
+          type: object
+          description: Tóm tắt trạng thái
+          required:
+          - running
+          - processing
+          - message
+          properties:
+            running:
+              type: boolean
+              description: Instance có đang chạy hay không
+              example: true
+            processing:
+              type: boolean
+              description: Instance có đang xử lý khung hình (running && fps > 0) hay không
+              example: true
+            message:
+              type: string
+              description: Thông báo trạng thái dễ đọc
+              example: Instance is running and processing frames
+    LastFrameResponse:
+      type: object
+      description: Khung hình cuối từ instance đang chạy
+      required:
+      - frame
+      - running
+      properties:
+        frame:
+          type: string
+          description: 'Khung JPEG mã hóa Base64. Chuỗi rỗng nếu không có khung.
+
+            Khung được chụp từ pipeline sau xử lý (gồm OSD/overlay phát hiện).
+
+            Khung được cache tự động khi pipeline xử lý khung mới.
+
+            '
+          example: /9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=
+        running:
+          type: boolean
+          description: Instance hiện có đang chạy hay không
+          example: true
+    InstanceStatisticsResponse:
+      type: object
+      description: Thống kê thời gian thực của instance
+      required:
+      - frames_processed
+      - source_framerate
+      - current_framerate
+      - latency
+      - start_time
+      - input_queue_size
+      - dropped_frames_count
+      - resolution
+      - format
+      - source_resolution
+      properties:
+        frames_processed:
+          type: integer
+          format: int64
+          description: Tổng số khung hình đã xử lý kể từ khi instance khởi động
+          example: 1250
+        source_framerate:
+          type: number
+          format: double
+          description: Frame rate từ nguồn (FPS từ stream RTSP hoặc file video)
+          example: 30.0
+        current_framerate:
+          type: number
+          format: double
+          description: Frame rate xử lý hiện tại (FPS đang xử lý)
+          example: 25.5
+        latency:
+          type: number
+          format: double
+          description: Độ trễ xử lý trung bình mỗi khung (miligiây)
+          example: 200.0
+        start_time:
+          type: integer
+          format: int64
+          description: Unix timestamp khi instance khởi động (giây)
+          example: 1764900520
+        input_queue_size:
+          type: integer
+          format: int64
+          description: Kích thước hiện tại của hàng đợi đầu vào
+          example: 2
+        dropped_frames_count:
+          type: integer
+          format: int64
+          description: Tổng số khung hình bị bỏ qua
+          example: 5
+        resolution:
+          type: string
+          description: Độ phân giải xử lý hiện tại (định dạng WIDTHxHEIGHT)
+          example: 1280x720
+        format:
+          type: string
+          description: Định dạng khung (thường là BGR cho CVEDIX SDK)
+          example: BGR
+        source_resolution:
+          type: string
+          description: Độ phân giải gốc từ nguồn (định dạng WIDTHxHEIGHT)
+          example: 1920x1080
+    SolutionSummary:
+      type: object
+      properties:
+        solutionId:
+          type: string
+          description: Định danh giải pháp duy nhất
+          example: face_detection
+        solutionName:
+          type: string
+          description: Tên hiển thị của giải pháp
+          example: Face Detection
+        solutionType:
+          type: string
+          description: Loại giải pháp
+          example: face_detection
+        isDefault:
+          type: boolean
+          description: Đây có phải giải pháp mặc định (không thể xóa) hay không
+          example: true
+        pipelineNodeCount:
+          type: integer
+          description: Số node trong pipeline
+          example: 3
+    SolutionConfig:
+      type: object
+      required:
+      - solutionId
+      - solutionName
+      - solutionType
+      - pipeline
+      properties:
+        solutionId:
+          type: string
+          description: Định danh giải pháp duy nhất
+          example: face_detection
+        solutionName:
+          type: string
+          description: Tên hiển thị của giải pháp
+          example: Face Detection
+        solutionType:
+          type: string
+          description: Loại giải pháp
+          example: face_detection
+        isDefault:
+          type: boolean
+          description: Đây có phải giải pháp mặc định hay không
+          example: false
+        pipeline:
+          type: array
+          description: Cấu hình các node pipeline
+          items:
+            type: object
+            required:
+            - nodeType
+            - nodeName
+            properties:
+              nodeType:
+                type: string
+                description: 'Loại node. Các loại có sẵn:
+
+
+                  **Source:** rtsp_src, file_src, app_src, image_src, rtmp_src, udp_src
+
+
+                  **Detector:** yunet_face_detector, yolo_detector, yolov11_detector, mask_rcnn_detector, openpose_detector,
+                  enet_seg,
+
+                  trt_yolov8_detector, trt_yolov8_seg_detector, trt_yolov8_pose_detector, trt_yolov8_classifier,
+
+                  trt_vehicle_detector, trt_vehicle_plate_detector, trt_vehicle_plate_detector_v2, trt_insight_face_recognition,
+
+                  rknn_yolov8_detector, rknn_yolov11_detector, rknn_face_detector, ppocr_text_detector,
+
+                  face_swap, insight_face_recognition, mllm_analyser
+
+
+                  **Processor:** sface_feature_encoder, sort_track, face_osd_v2, ba_crossline, ba_crossline_osd,
+
+                  ba_jam, ba_jam_osd, classifier,
+
+                  lane_detector, restoration, trt_vehicle_feature_encoder, trt_vehicle_color_classifier,
+
+                  trt_vehicle_type_classifier, trt_vehicle_scanner
+
+
+                  **Destination:** file_des, rtmp_des, screen_des
+
+
+                  **Broker:** json_console_broker, json_enhanced_console_broker, json_mqtt_broker, json_kafka_broker,
+
+                  xml_file_broker, xml_socket_broker, msg_broker, ba_socket_broker, embeddings_socket_broker,
+
+                  embeddings_properties_socket_broker, plate_socket_broker, expr_socket_broker
+
+
+                  Xem GET /v1/core/node/template để có danh sách đầy đủ kèm mô tả.
+
+                  '
+                example: rtsp_src
+              nodeName:
+                type: string
+                description: Mẫu tên node (có thể chứa placeholder {instanceId})
+                example: source_{instanceId}
+              parameters:
+                type: object
+                description: Tham số riêng của node
+                additionalProperties:
+                  type: string
+                example:
+                  url: rtsp://localhost/stream
+        defaults:
+          type: object
+          description: Giá trị tham số mặc định
+          additionalProperties:
+            type: string
+          example:
+            RTSP_URL: rtsp://localhost/stream
+    CreateSolutionRequest:
+      type: object
+      required:
+      - solutionId
+      - solutionName
+      - solutionType
+      - pipeline
+      properties:
+        solutionId:
+          type: string
+          description: Định danh giải pháp duy nhất (alphanumeric, underscore, hyphen only)
+          pattern: ^[A-Za-z0-9_-]+$
+          example: custom_face_detection
+        solutionName:
+          type: string
+          description: Tên hiển thị của giải pháp
+          example: Custom Face Detection
+        solutionType:
+          type: string
+          description: Loại giải pháp
+          example: face_detection
+        pipeline:
+          type: array
+          description: Cấu hình các node pipeline
+          items:
+            type: object
+            required:
+            - nodeType
+            - nodeName
+            properties:
+              nodeType:
+                type: string
+                description: Loại node
+                example: rtsp_src
+              nodeName:
+                type: string
+                description: Mẫu tên node
+                example: source_{instanceId}
+              parameters:
+                type: object
+                description: Tham số riêng của node
+                additionalProperties:
+                  type: string
+        defaults:
+          type: object
+          description: Giá trị tham số mặc định
+          additionalProperties:
+            type: string
+    UpdateSolutionRequest:
+      type: object
+      description: Body yêu cầu cập nhật giải pháp. Mọi trường trừ solutionId đều tùy chọn.
+      properties:
+        solutionName:
+          type: string
+          description: Tên hiển thị của giải pháp
+          example: Updated Solution Name
+        solutionType:
+          type: string
+          description: Loại giải pháp
+          example: face_detection
+        pipeline:
+          type: array
+          description: Cấu hình các node pipeline
+          items:
+            type: object
+            required:
+            - nodeType
+            - nodeName
+            properties:
+              nodeType:
+                type: string
+                description: Loại node
+              nodeName:
+                type: string
+                description: Mẫu tên node
+              parameters:
+                type: object
+                description: Tham số riêng của node
+                additionalProperties:
+                  type: string
+        defaults:
+          type: object
+          description: Giá trị tham số mặc định
+          additionalProperties:
+            type: string
+    GroupInfo:
+      type: object
+      required:
+      - groupId
+      - groupName
+      properties:
+        groupId:
+          type: string
+          description: Định danh nhóm duy nhất
+          pattern: ^[A-Za-z0-9_-]+$
+          example: cameras
+        groupName:
+          type: string
+          description: Tên hiển thị của nhóm
+          pattern: ^[A-Za-z0-9 -_]+$
+          example: Security Cameras
+        description:
+          type: string
+          description: Mô tả nhóm
+          example: Group for security camera instances
+        isDefault:
+          type: boolean
+          description: Đây có phải nhóm mặc định (không thể xóa) hay không
+          example: false
+        readOnly:
+          type: boolean
+          description: Nhóm này có chỉ đọc (không thể sửa) hay không
+          example: false
+        instanceCount:
+          type: integer
+          description: Số instance trong nhóm này
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+          description: Thời điểm tạo
+          example: '2024-01-01T00:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: Thời điểm cập nhật cuối
+          example: '2024-01-01T00:00:00.000Z'
+    CreateGroupRequest:
+      type: object
+      required:
+      - groupId
+      properties:
+        groupId:
+          type: string
+          description: Định danh nhóm duy nhất (alphanumeric, underscore, hyphen only)
+          pattern: ^[A-Za-z0-9_-]+$
+          example: cameras
+        groupName:
+          type: string
+          description: Tên hiển thị của nhóm (tùy chọn, mặc định là groupId)
+          pattern: ^[A-Za-z0-9 -_]+$
+          example: Security Cameras
+        description:
+          type: string
+          description: Mô tả nhóm
+          example: Group for security camera instances
+    UpdateGroupRequest:
+      type: object
+      description: Body yêu cầu cập nhật nhóm. Mọi trường đều tùy chọn.
+      properties:
+        groupName:
+          type: string
+          description: Tên hiển thị của nhóm
+          pattern: ^[A-Za-z0-9 -_]+$
+          example: Updated Group Name
+        description:
+          type: string
+          description: Mô tả nhóm
+          example: Updated description
+    NodeResponse:
+      type: object
+      required:
+      - nodeId
+      - templateId
+      - inUse
+      - parameters
+      - createdAt
+      - input
+      - output
+      properties:
+        nodeId:
+          type: string
+          description: Định danh node duy nhất
+          example: node_a1b2c3d4
+        templateId:
+          type: string
+          description: ID template dùng để tạo node này
+          example: rtsp_src_template
+        displayName:
+          type: string
+          description: Tên hiển thị dễ đọc từ template
+          example: RTSP Source
+        nodeType:
+          type: string
+          description: Loại node từ template
+          example: rtsp_src
+        category:
+          type: string
+          description: Danh mục node từ template
+          enum:
+          - source
+          - detector
+          - processor
+          - destination
+          - broker
+          example: source
+        description:
+          type: string
+          description: Mô tả node từ template
+          example: Receive video stream from RTSP URL
+        inUse:
+          type: boolean
+          description: Node hiện có đang được dùng hay không
+          example: false
+        parameters:
+          type: object
+          description: Tham số cấu hình node
+          additionalProperties:
+            type: string
+          example:
+            rtsp_url: rtsp://localhost:8554/stream1
+            channel: '0'
+            resize_ratio: '1.0'
+        requiredParameters:
+          type: array
+          description: Danh sách tên tham số bắt buộc (từ template)
+          items:
+            type: string
+          example:
+          - rtsp_url
+        optionalParameters:
+          type: array
+          description: Danh sách tên tham số tùy chọn (từ template)
+          items:
+            type: string
+          example:
+          - channel
+          - resize_ratio
+        templateDetailUrl:
+          type: string
+          description: URL lấy thông tin chi tiết template
+          example: /v1/core/node/template/rtsp_src_template
+        parameterSchema:
+          type: object
+          description: 'Schema chi tiết cho mọi tham số, cung cấp metadata thân thiện UI gồm:
+
+            - Thông tin kiểu (string, number, integer, boolean)
+
+            - Quy tắc kiểm tra (min, max, pattern, enum)
+
+            - Gợi ý UI (kiểu input, kiểu widget, placeholder)
+
+            - Mô tả và ví dụ
+
+            - Danh mục để nhóm
+
+            '
+          additionalProperties:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Tên tham số
+              type:
+                type: string
+                description: Kiểu dữ liệu tham số
+                enum:
+                - string
+                - number
+                - integer
+                - boolean
+              required:
+                type: boolean
+                description: Tham số này có bắt buộc hay không
+              currentValue:
+                type: string
+                description: Giá trị hiện tại của tham số
+              default:
+                type: string
+                description: Giá trị mặc định
+              description:
+                type: string
+                description: Mô tả chi tiết tham số
+              category:
+                type: string
+                description: Danh mục tham số để nhóm trên UI
+                enum:
+                - connection
+                - performance
+                - model
+                - output
+                - display
+                - general
+              uiHints:
+                type: object
+                properties:
+                  inputType:
+                    type: string
+                    description: Kiểu input HTML
+                    enum:
+                    - text
+                    - number
+                    - url
+                    - file
+                    - checkbox
+                  widget:
+                    type: string
+                    description: Kiểu widget UI khuyến nghị
+                    enum:
+                    - input
+                    - slider
+                    - switch
+                    - url-input
+                    - file-picker
+                  placeholder:
+                    type: string
+                    description: Chữ placeholder cho ô nhập
+              validation:
+                type: object
+                properties:
+                  min:
+                    type: number
+                    description: Giá trị tối thiểu (cho số)
+                  max:
+                    type: number
+                    description: Giá trị tối đa (cho số)
+                  step:
+                    type: number
+                    description: Giá trị bước (cho slider)
+                  pattern:
+                    type: string
+                    description: Pattern regex (cho chuỗi)
+                  patternDescription:
+                    type: string
+                    description: Mô tả pattern dễ đọc
+                  enum:
+                    type: array
+                    description: Các giá trị cho phép (cho enum)
+                    items:
+                      type: string
+              examples:
+                type: array
+                description: Các giá trị ví dụ
+                items:
+                  type: string
+          example:
+            rtsp_url:
+              name: rtsp_url
+              type: string
+              required: true
+              description: URL stream RTSP (vd. rtsp://camera-ip:8554/stream)
+              category: connection
+              uiHints:
+                inputType: url
+                widget: url-input
+                placeholder: rtsp://camera-ip:8554/stream
+              validation:
+                pattern: ^(rtsp|rtmp|http|https|file|udp)://.+
+                patternDescription: Phải là URL hợp lệ (rtsp://, rtmp://, http://, https://, file:// hoặc udp://)
+              examples:
+              - rtsp://192.168.1.100:8554/stream1
+              - rtsp://admin:password@camera-ip:554/stream
+            channel:
+              name: channel
+              type: integer
+              required: false
+              default: '0'
+              currentValue: '0'
+              description: Số kênh cho xử lý đa kênh (0-15)
+              category: connection
+              uiHints:
+                inputType: number
+                widget: input
+                placeholder: '0'
+              validation:
+                min: 0
+                max: 15
+        input:
+          type: array
+          description: 'Đầu vào mà node này cần từ pipeline. Mỗi mục mô tả loại đầu vào.
+
+            - source: external_source - nhận từ nguồn ngoài (RTSP, file, v.v.)
+
+            - detector: video_frames - cần khung hình từ node trước
+
+            - processor: video_frames, metadata - cần khung hình và metadata
+
+            - destination: video_frames, metadata - cần khung hình và metadata
+
+            - broker: metadata, detection_results - cần metadata và kết quả phát hiện
+
+            '
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Định danh loại đầu vào
+                example: video_frames
+              description:
+                type: string
+                description: Mô tả chi tiết đầu vào
+                example: Video frames from previous node
+              format:
+                type: string
+                description: Định dạng dữ liệu (nếu có)
+                example: BGR/RGB image frames
+              multiple:
+                type: boolean
+                description: Đầu vào/ra này có hỗ trợ nhiều kết nối hay không
+                example: false
+              optional:
+                type: boolean
+                description: Đầu vào này có tùy chọn hay không
+                example: false
+              minInputs:
+                type: integer
+                description: Số đầu vào tối thiểu (khi có nhiều đầu vào)
+                example: 2
+              maxInputs:
+                type: integer
+                description: Số đầu vào tối đa (-1 = không giới hạn)
+                example: -1
+              maxOutputs:
+                type: integer
+                description: Số đầu ra tối đa (-1 = không giới hạn, chỉ cho output)
+                example: -1
+          example:
+          - type: external_source
+            description: Nhận đầu vào từ nguồn ngoài (file, RTSP, RTMP, v.v.)
+          - type: video_frames
+            description: Khung hình từ nhiều kênh/node (hỗ trợ nhiều đầu vào)
+            format: BGR/RGB image frames
+            multiple: true
+            minInputs: 2
+            maxInputs: -1
+        output:
+          type: array
+          description: 'Đầu ra mà node này tạo cho pipeline. Mỗi mục mô tả loại đầu ra và cách truy cập.
+
+            - source: video_frames - xuất khung hình
+
+            - detector: video_frames, detection_results - xuất khung hình và kết quả phát hiện
+
+            - processor: video_frames, metadata - xuất khung đã xử lý và metadata
+
+            - destination: loại cụ thể (rtsp_stream, rtmp_stream, video_file, v.v.) - xuất ra đích ngoài
+
+            - broker: loại cụ thể (mqtt_messages, kafka_messages, v.v.) - xuất ra broker ngoài
+
+            '
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Định danh loại đầu ra
+                example: rtsp_stream
+              description:
+                type: string
+                description: Mô tả chi tiết đầu ra
+                example: RTSP video stream
+              protocol:
+                type: string
+                description: Giao thức sử dụng (nếu có)
+                example: RTSP
+              format:
+                type: string
+                description: Định dạng dữ liệu (nếu có)
+                example: MP4 video file
+              accessInfo:
+                type: string
+                description: Cách truy cập/sử dụng đầu ra
+                example: 'Access via RTSP URL: rtsp://<host>:8000/stream (default: rtsp://localhost:8000/stream)'
+              example:
+                type: string
+                description: Ví dụ cách truy cập đầu ra
+                example: rtsp://localhost:8000/stream
+              configurableParameters:
+                type: array
+                description: Tham số có thể cấu hình để ảnh hưởng đầu ra
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Tên tham số
+                      example: port
+                    description:
+                      type: string
+                      description: Mô tả tham số
+                      example: RTSP server port
+                    default:
+                      type: string
+                      description: Giá trị mặc định
+                      example: '8000'
+                    affects:
+                      type: string
+                      description: Phần đầu ra mà tham số này ảnh hưởng
+                      example: RTSP URL port
+              multiple:
+                type: boolean
+                description: Đầu ra này có hỗ trợ nhiều kết nối hay không
+                example: false
+              maxOutputs:
+                type: integer
+                description: Số đầu ra tối đa (-1 = không giới hạn)
+                example: -1
+          example:
+          - type: rtsp_stream
+            description: RTSP video stream
+            protocol: RTSP
+            accessInfo: 'Access via RTSP URL: rtsp://<host>:8000/stream (default: rtsp://localhost:8000/stream)'
+            example: rtsp://localhost:8000/stream
+            configurableParameters:
+            - name: port
+              description: Cổng máy chủ RTSP
+              default: '8000'
+              affects: Cổng URL RTSP
+            - name: stream_name
+              description: Tên/đường dẫn stream RTSP
+              default: stream
+              affects: Đường dẫn URL RTSP
+        createdAt:
+          type: string
+          format: date-time
+          description: Thời điểm tạo node (định dạng ISO 8601)
+          example: '2025-01-15T10:30:00Z'
+        message:
+          type: string
+          description: Thông báo thành công (cho thao tác tạo/cập nhật)
+          example: Node created successfully
+        oldNodeId:
+          type: string
+          description: ID node trước (cho thao tác cập nhật)
+          example: node_old123
+        newNodeId:
+          type: string
+          description: ID node mới (cho thao tác cập nhật)
+          example: node_new456
+    NodeListResponse:
+      type: object
+      required:
+      - nodes
+      - total
+      - available
+      - inUse
+      properties:
+        nodes:
+          type: array
+          description: Danh sách node cấu hình sẵn
+          items:
+            $ref: '#/components/schemas/NodeResponse'
+        total:
+          type: integer
+          description: Tổng số node trong danh sách
+          example: 20
+        available:
+          type: integer
+          description: Tổng số node khả dụng (chưa dùng)
+          example: 15
+        inUse:
+          type: integer
+          description: Tổng số node đang được sử dụng
+          example: 5
+    CreateNodeRequest:
+      type: object
+      required:
+      - templateId
+      properties:
+        templateId:
+          type: string
+          description: ID template dùng để tạo node
+          example: rtsp_src_template
+        parameters:
+          type: object
+          description: Tham số node (phải gồm mọi tham số bắt buộc từ template)
+          additionalProperties:
+            type: string
+          example:
+            rtsp_url: rtsp://localhost:8554/stream1
+            channel: '0'
+            resize_ratio: '1.0'
+    UpdateNodeRequest:
+      type: object
+      required:
+      - parameters
+      properties:
+        parameters:
+          type: object
+          description: Tham số node đã cập nhật
+          additionalProperties:
+            type: string
+          example:
+            rtsp_url: rtsp://localhost:8554/stream2
+            channel: '0'
+            resize_ratio: '0.5'
+    Coordinate:
+      type: object
+      required:
+      - x
+      - y
+      properties:
+        x:
+          type: number
+          format: double
+          description: Tọa độ x
+          example: 100.0
+        y:
+          type: number
+          format: double
+          description: Tọa độ y
+          example: 300.0
+    FaceDatabaseConnectionConfig:
+      type: object
+      required:
+      - type
+      - host
+      - database
+      - username
+      - password
+      properties:
+        type:
+          type: string
+          enum:
+          - mysql
+          - postgresql
+          description: Loại cơ sở dữ liệu
+          example: mysql
+        host:
+          type: string
+          description: Địa chỉ host cơ sở dữ liệu
+          example: localhost
+        port:
+          type: integer
+          description: Cổng cơ sở dữ liệu
+          default: 3306
+          example: 3306
+        database:
+          type: string
+          description: Tên cơ sở dữ liệu
+          example: face_db
+        username:
+          type: string
+          description: Tên đăng nhập cơ sở dữ liệu
+          example: face_user
+        password:
+          type: string
+          description: Mật khẩu cơ sở dữ liệu
+          example: secure_password
+        charset:
+          type: string
+          description: 'Bảng mã kết nối cơ sở dữ liệu (mặc định: utf8mb4)'
+          default: utf8mb4
+          example: utf8mb4
+    CrossingLine:
+      type: object
+      required:
+      - id
+      - coordinates
+      properties:
+        id:
+          type: string
+          description: Định danh duy nhất của đường
+          example: b1234567-89ab-cdef-0123-456789abcdef
+        name:
+          type: string
+          description: Tên dễ đọc cho đường
+          example: Counting Line 1
+        coordinates:
+          type: array
+          description: Danh sách tọa độ xác định đường (tối thiểu 2 điểm)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 2
+          example:
+          - x: 100.0
+            y: 300.0
+          - x: 600.0
+            y: 300.0
+        direction:
+          type: string
+          description: Hướng đếm (Up, Down hoặc Both)
+          enum:
+          - Up
+          - Down
+          - Both
+          default: Both
+          example: Both
+        classes:
+          type: array
+          description: Các lớp đối tượng cần đếm
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        color:
+          type: array
+          description: Màu đường dạng RGBA
+          items:
+            type: integer
+            minimum: 0
+            maximum: 255
+          minItems: 4
+          maxItems: 4
+          example:
+          - 255
+          - 0
+          - 0
+          - 255
+    CreateLineRequest:
+      type: object
+      required:
+      - coordinates
+      properties:
+        name:
+          type: string
+          description: Tên dễ đọc cho đường
+          example: Counting Line 1
+        coordinates:
+          type: array
+          description: Danh sách tọa độ xác định đường (tối thiểu 2 điểm)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 2
+          example:
+          - x: 100.0
+            y: 300.0
+          - x: 600.0
+            y: 300.0
+        direction:
+          type: string
+          description: Hướng đếm (Up, Down hoặc Both)
+          enum:
+          - Up
+          - Down
+          - Both
+          default: Both
+          example: Both
+        classes:
+          type: array
+          description: Các lớp đối tượng cần đếm
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        color:
+          type: array
+          description: Màu đường dạng RGBA (mặc định đỏ)
+          items:
+            type: integer
+            minimum: 0
+            maximum: 255
+          minItems: 4
+          maxItems: 4
+          default:
+          - 255
+          - 0
+          - 0
+          - 255
+          example:
+          - 255
+          - 0
+          - 0
+          - 255
+    LinesResponse:
+      type: object
+      required:
+      - crossingLines
+      properties:
+        crossingLines:
+          type: array
+          description: Danh sách các đường cắt
+          items:
+            $ref: '#/components/schemas/CrossingLine'
+    StopZone:
+      type: object
+      required:
+      - id
+      - roi
+      properties:
+        id:
+          type: string
+          description: Định danh duy nhất vùng dừng
+          example: b1234567-89ab-cdef-0123-456789abcdef
+        name:
+          type: string
+          description: Tên dễ đọc cho vùng dừng
+          example: Stop Zone 1
+        roi:
+          type: array
+          description: Danh sách tọa độ xác định ROI (tối thiểu 3 điểm)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+          example:
+          - x: 100.0
+            y: 100.0
+          - x: 200.0
+            y: 100.0
+          - x: 200.0
+            y: 200.0
+        min_stop_seconds:
+          type: number
+          description: Số giây tối thiểu đối tượng phải đứng yên để coi là dừng
+          example: 3
+        check_interval_frames:
+          type: integer
+          description: 'Số khung giữa các lần kiểm tra dừng (mặc định: 20)'
+          default: 20
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: 'Số khung liên tiếp đối tượng phải đứng yên để kích hoạt dừng (mặc định: 50)'
+          default: 50
+          example: 50
+        check_max_distance:
+          type: number
+          description: 'Di chuyển pixel tối đa giữa các khung để vẫn coi là đứng yên (mặc định: 5)'
+          default: 5
+          example: 5
+    CreateStopRequest:
+      type: object
+      required:
+      - roi
+      properties:
+        name:
+          type: string
+          description: Tên dễ đọc cho vùng dừng
+          example: Stop Zone 1
+        roi:
+          type: array
+          description: Danh sách tọa độ xác định ROI (tối thiểu 3 điểm)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+          example:
+          - x: 100.0
+            y: 100.0
+          - x: 200.0
+            y: 100.0
+          - x: 200.0
+            y: 200.0
+        min_stop_seconds:
+          type: number
+          description: Số giây tối thiểu đối tượng phải đứng yên để coi là dừng
+          default: 3
+          example: 3
+        check_interval_frames:
+          type: integer
+          description: 'Số khung giữa các lần kiểm tra dừng (mặc định: 20)'
+          default: 20
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: 'Số khung liên tiếp đối tượng phải đứng yên để kích hoạt dừng (mặc định: 50)'
+          default: 50
+          example: 50
+        check_max_distance:
+          type: number
+          description: 'Di chuyển pixel tối đa giữa các khung để vẫn coi là đứng yên (mặc định: 5)'
+          default: 5
+          example: 5
+    StopsResponse:
+      type: object
+      required:
+      - stopZones
+      properties:
+        stopZones:
+          type: array
+          description: Danh sách các vùng dừng
+          items:
+            $ref: '#/components/schemas/StopZone'
+    JamZone:
+      type: object
+      required:
+      - id
+      - roi
+      properties:
+        id:
+          type: string
+          description: Định danh duy nhất vùng ùn tắc
+          example: b1234567-89ab-cdef-0123-456789abcdef
+        name:
+          type: string
+          description: Tên dễ đọc cho vùng
+          example: Downtown Jam Zone
+        roi:
+          type: array
+          description: ROI đa giác áp dụng phát hiện ùn tắc (tối thiểu 3 điểm)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+          example:
+          - x: 0
+            y: 100
+          - x: 1920
+            y: 100
+          - x: 1920
+            y: 400
+          - x: 0
+            y: 400
+        check_interval_frames:
+          type: integer
+          description: Số khung giữa các lần kiểm tra
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: Số khung đối tượng phải dừng
+          example: 50
+        check_max_distance:
+          type: integer
+          description: Di chuyển pixel tối đa để coi là 'dừng'
+          example: 8
+        check_min_stops:
+          type: integer
+          description: Số đối tượng dừng tối thiểu để coi là ùn tắc
+          example: 8
+        check_notify_interval:
+          type: integer
+          description: Số giây giữa các thông báo
+          example: 10
+    CreateJamRequest:
+      type: object
+      required:
+      - roi
+      properties:
+        name:
+          type: string
+          description: Tên dễ đọc cho vùng
+          example: Downtown Jam Zone
+        roi:
+          type: array
+          description: ROI đa giác áp dụng phát hiện ùn tắc (tối thiểu 3 điểm)
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          minItems: 3
+        check_interval_frames:
+          type: integer
+          description: Số khung giữa các lần kiểm tra
+          example: 20
+        check_min_hit_frames:
+          type: integer
+          description: Số khung đối tượng phải dừng
+          example: 50
+        check_max_distance:
+          type: integer
+          description: Di chuyển pixel tối đa để coi là 'dừng'
+          example: 8
+        check_min_stops:
+          type: integer
+          description: Số đối tượng dừng tối thiểu để coi là ùn tắc
+          example: 8
+        check_notify_interval:
+          type: integer
+          description: Số giây giữa các thông báo
+          example: 10
+    JamsResponse:
+      type: object
+      required:
+      - jamZones
+      properties:
+        jamZones:
+          type: array
+          description: Danh sách các vùng ùn tắc
+          items:
+            $ref: '#/components/schemas/JamZone'
+    CreateJamsResponse:
+      type: object
+      required:
+      - message
+      - count
+      - zones
+      properties:
+        message:
+          type: string
+          description: Thông báo về thao tác
+          example: Zones created successfully
+        count:
+          type: integer
+          description: Số vùng đã tạo
+          example: 2
+        zones:
+          type: array
+          description: Các đối tượng vùng đã tạo
+          items:
+            $ref: '#/components/schemas/JamZone'
+    CreateStopsResponse:
+      type: object
+      required:
+      - message
+      - count
+      - stops
+      properties:
+        message:
+          type: string
+          description: Thông báo về thao tác
+          example: Stops created successfully
+        count:
+          type: integer
+          description: Số vùng dừng đã tạo
+          example: 2
+        stops:
+          type: array
+          description: Các đối tượng vùng dừng đã tạo
+          items:
+            $ref: '#/components/schemas/StopZone'
+    TemplateResponse:
+      type: object
+      required:
+      - templateId
+      - nodeType
+      - displayName
+      - category
+      - isPreConfigured
+      - defaultParameters
+      - requiredParameters
+      - optionalParameters
+      properties:
+        templateId:
+          type: string
+          description: Định danh template duy nhất
+          example: rtsp_src_template
+        nodeType:
+          type: string
+          description: Định danh loại node
+          example: rtsp_src
+        displayName:
+          type: string
+          description: Tên hiển thị dễ đọc
+          example: RTSP Source
+        description:
+          type: string
+          description: Mô tả template
+          example: Receive video stream from RTSP URL
+        category:
+          type: string
+          description: Danh mục node
+          enum:
+          - source
+          - detector
+          - processor
+          - destination
+          - broker
+          example: source
+        isPreConfigured:
+          type: boolean
+          description: Template này có tạo node cấu hình sẵn hay không
+          example: false
+        defaultParameters:
+          type: object
+          description: Giá trị tham số mặc định
+          additionalProperties:
+            type: string
+          example:
+            channel: '0'
+            resize_ratio: '1.0'
+        requiredParameters:
+          type: array
+          description: Danh sách tên tham số bắt buộc
+          items:
+            type: string
+          example:
+          - rtsp_url
+        optionalParameters:
+          type: array
+          description: Danh sách tên tham số tùy chọn
+          items:
+            type: string
+          example:
+          - channel
+          - resize_ratio
+    TemplateListResponse:
+      type: object
+      required:
+      - templates
+      - total
+      properties:
+        templates:
+          type: array
+          description: Danh sách template node
+          items:
+            $ref: '#/components/schemas/TemplateResponse'
+        total:
+          type: integer
+          description: Tổng số template
+          example: 10
+    NodeStatsResponse:
+      type: object
+      required:
+      - totalTemplates
+      - totalPreConfiguredNodes
+      - availableNodes
+      - inUseNodes
+      - nodesByCategory
+      properties:
+        totalTemplates:
+          type: integer
+          description: Tổng số template node
+          example: 10
+        totalPreConfiguredNodes:
+          type: integer
+          description: Tổng số node cấu hình sẵn
+          example: 20
+        availableNodes:
+          type: integer
+          description: Số node khả dụng (chưa dùng)
+          example: 15
+        inUseNodes:
+          type: integer
+          description: Số node đang được sử dụng
+          example: 5
+        nodesByCategory:
+          type: object
+          description: Số lượng node theo danh mục
+          additionalProperties:
+            type: integer
+          example:
+            source: 5
+            detector: 8
+            processor: 4
+            destination: 3
+            broker: 0
+    SecuRTInstanceWrite:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          description: Tên instance
+          example: My SecuRT Instance
+        detectorMode:
+          type: string
+          enum:
+          - SmartDetection
+          - Detection
+          description: Chế độ detector
+          default: SmartDetection
+          example: SmartDetection
+        detectionSensitivity:
+          type: string
+          enum:
+          - Low
+          - Medium
+          - High
+          description: Mức độ nhạy phát hiện
+          default: Low
+          example: Low
+        movementSensitivity:
+          type: string
+          enum:
+          - Low
+          - Medium
+          - High
+          description: Mức độ nhạy chuyển động
+          default: Low
+          example: Low
+        sensorModality:
+          type: string
+          enum:
+          - RGB
+          - Thermal
+          description: Loại cảm biến
+          default: RGB
+          example: RGB
+        frameRateLimit:
+          type: number
+          format: double
+          description: Giới hạn frame rate (FPS, 0 = unlimited)
+          default: 0
+          example: 0
+        metadataMode:
+          type: boolean
+          description: Bật chế độ metadata (output detection results as JSON)
+          default: false
+          example: false
+        statisticsMode:
+          type: boolean
+          description: Bật chế độ thống kê
+          default: false
+          example: false
+        diagnosticsMode:
+          type: boolean
+          description: Bật chế độ chẩn đoán
+          default: false
+          example: false
+        debugMode:
+          type: boolean
+          description: Bật chế độ debug
+          default: false
+          example: false
+    SecuRTInstanceStats:
+      type: object
+      properties:
+        startTime:
+          type: integer
+          format: int64
+          description: Thời điểm bắt đầu dạng Unix timestamp (miligiây)
+          example: 1704067200000
+        frameRate:
+          type: number
+          format: double
+          description: Frame rate hiện tại (FPS)
+          example: 30.5
+        latency:
+          type: number
+          format: double
+          description: Độ trễ trung bình (miligiây)
+          example: 33.2
+        framesProcessed:
+          type: integer
+          description: Tổng số khung đã xử lý
+          example: 91500
+        trackCount:
+          type: integer
+          description: Số track hiện tại
+          example: 5
+        isRunning:
+          type: boolean
+          description: Whether instance is running
+          example: true
+    SecuRTInputRequest:
+      type: object
+      required:
+      - type
+      - uri
+      properties:
+        type:
+          type: string
+          description: Loại nguồn đầu vào
+          enum:
+          - File
+          - RTSP
+          - RTMP
+          - HLS
+          example: RTSP
+        uri:
+          type: string
+          description: URI nguồn đầu vào
+          example: rtsp://192.168.1.100:554/stream1
+        additionalParams:
+          type: object
+          description: Tham số bổ sung cho cấu hình đầu vào
+          properties:
+            RTSP_TRANSPORT:
+              type: string
+              enum:
+              - tcp
+              - udp
+              description: Giao thức vận chuyển RTSP (chỉ cho đầu vào RTSP)
+              example: tcp
+            GST_DECODER_NAME:
+              type: string
+              description: Tên bộ giải mã GStreamer (vd. "avdec_h264", "decodebin")
+              example: avdec_h264
+            USE_URISOURCEBIN:
+              type: string
+              enum:
+              - 'true'
+              - 'false'
+              - '1'
+              - '0'
+              description: Dùng định dạng urisourcebin để tự nhận diện (chỉ cho đầu vào RTSP)
+              example: 'false'
+          additionalProperties: true
+    SecuRTOutputRequest:
+      type: object
+      required:
+      - type
+      properties:
+        type:
+          type: string
+          description: Loại đích đầu ra
+          enum:
+          - MQTT
+          - RTMP
+          - RTSP
+          - HLS
+          example: MQTT
+        broker:
+          type: string
+          description: Địa chỉ broker MQTT (bắt buộc cho đầu ra MQTT)
+          example: localhost
+        port:
+          type: string
+          description: 'Cổng broker MQTT (tùy chọn, mặc định: 1883)'
+          example: '1883'
+        topic:
+          type: string
+          description: 'Topic MQTT (tùy chọn, mặc định: securt/{instanceId})'
+          example: securt/detections
+        username:
+          type: string
+          description: Tên đăng nhập MQTT (tùy chọn)
+          example: ''
+        password:
+          type: string
+          description: Mật khẩu MQTT (tùy chọn)
+          example: ''
+        uri:
+          type: string
+          format: uri
+          description: URI đầu ra (bắt buộc cho đầu ra RTMP/RTSP/HLS)
+          example: rtmp://live.example.com/live/stream
+    ColorRGBA:
+      type: array
+      items:
+        type: number
+        format: double
+        minimum: 0.0
+        maximum: 1.0
+      minItems: 4
+      maxItems: 4
+      description: Màu dạng RGBA [r, g, b, a] với giá trị 0.0-1.0
+      example:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+    AreaBaseWrite:
+      type: object
+      required:
+      - name
+      - coordinates
+      - classes
+      properties:
+        name:
+          type: string
+          description: Tên vùng
+          example: Main Entry Area
+        coordinates:
+          type: array
+          minItems: 3
+          description: Mảng tọa độ xác định đa giác vùng
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          example:
+          - x: 0.0
+            y: 0.0
+          - x: 1.0
+            y: 0.0
+          - x: 1.0
+            y: 1.0
+          - x: 0.0
+            y: 1.0
+        classes:
+          type: array
+          minItems: 1
+          description: Các lớp đối tượng cần phát hiện trong vùng này
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    AreaBaseRead:
+      type: object
+      required:
+      - id
+      - name
+      - coordinates
+      - classes
+      properties:
+        id:
+          type: string
+          description: Area ID (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: Tên vùng
+          example: Main Entry Area
+        coordinates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coordinate'
+        classes:
+          type: array
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    CrossingAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        properties:
+          ignoreStationaryObjects:
+            type: boolean
+            description: Bỏ qua đối tượng đứng yên
+            default: false
+            example: false
+          areaEvent:
+            type: string
+            enum:
+            - Enter
+            - Exit
+            - Both
+            description: Loại sự kiện vùng
+            default: Both
+            example: Both
+    CrossingAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          ignoreStationaryObjects:
+            type: boolean
+            example: false
+          areaEvent:
+            type: string
+            enum:
+            - Enter
+            - Exit
+            - Both
+            example: Both
+    IntrusionAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    IntrusionAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    LoiteringAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Ngưỡng thời lượng (giây)
+            example: 5
+    LoiteringAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 5
+    CrowdingAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - objectCount
+        - seconds
+        properties:
+          objectCount:
+            type: integer
+            minimum: 1
+            description: Ngưỡng tập trung (số đối tượng)
+            example: 5
+          seconds:
+            type: integer
+            minimum: 1
+            description: Thời lượng trước khi kích hoạt (giây)
+            example: 3
+    CrowdingAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          objectCount:
+            type: integer
+            example: 5
+          seconds:
+            type: integer
+            example: 3
+    OccupancyAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    OccupancyAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    CrowdEstimationAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    CrowdEstimationAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    DwellingAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Ngưỡng thời lượng (giây)
+            example: 10
+    DwellingAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 10
+    ArmedPersonAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    ArmedPersonAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    ObjectLeftAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Ngưỡng thời lượng (giây)
+            example: 5
+    ObjectLeftAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 5
+    ObjectRemovedAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Ngưỡng thời lượng (giây)
+            example: 5
+    ObjectRemovedAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 5
+    FallenPersonAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+    FallenPersonAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+    VehicleGuardAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+      x-internal: true
+    VehicleGuardAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+      x-internal: true
+    FaceCoveredAreaWrite:
+      $ref: '#/components/schemas/AreaBaseWrite'
+      x-internal: true
+    FaceCoveredAreaRead:
+      $ref: '#/components/schemas/AreaBaseRead'
+      x-internal: true
+    ObjectEnterExitAreaWrite:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseWrite'
+      - type: object
+        properties:
+          alertOnEnter:
+            type: boolean
+            default: true
+            description: Cảnh báo khi đối tượng vào vùng
+            example: true
+          alertOnExit:
+            type: boolean
+            default: true
+            description: Cảnh báo khi đối tượng ra khỏi vùng
+            example: true
+    ObjectEnterExitAreaRead:
+      allOf:
+      - $ref: '#/components/schemas/AreaBaseRead'
+      - type: object
+        properties:
+          alertOnEnter:
+            type: boolean
+            description: Cảnh báo khi đối tượng vào vùng
+            example: true
+          alertOnExit:
+            type: boolean
+            description: Cảnh báo khi đối tượng ra khỏi vùng
+            example: true
+    LineBaseWrite:
+      type: object
+      required:
+      - name
+      - coordinates
+      properties:
+        name:
+          type: string
+          description: Tên đường
+          example: Main Counting Line
+        coordinates:
+          type: array
+          minItems: 2
+          maxItems: 2
+          description: Mảng đúng 2 tọa độ xác định đường
+          items:
+            $ref: '#/components/schemas/Coordinate'
+          example:
+          - x: 0.0
+            y: 250.0
+          - x: 700.0
+            y: 220.0
+        classes:
+          type: array
+          minItems: 1
+          description: Các lớp đối tượng cần phát hiện trên đường này
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+          example:
+          - Person
+          - Vehicle
+        direction:
+          type: string
+          enum:
+          - Up
+          - Down
+          - Both
+          description: Hướng cắt đường
+          default: Both
+          example: Both
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    LineBaseRead:
+      type: object
+      required:
+      - id
+      - name
+      - coordinates
+      - classes
+      properties:
+        id:
+          type: string
+          description: Line ID (UUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: Tên đường
+          example: Main Counting Line
+        coordinates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coordinate'
+        classes:
+          type: array
+          items:
+            type: string
+            enum:
+            - Person
+            - Animal
+            - Vehicle
+            - Face
+            - Unknown
+        direction:
+          type: string
+          enum:
+          - Up
+          - Down
+          - Both
+          example: Both
+        color:
+          $ref: '#/components/schemas/ColorRGBA'
+    CountingLineWrite:
+      $ref: '#/components/schemas/LineBaseWrite'
+    CountingLineRead:
+      $ref: '#/components/schemas/LineBaseRead'
+    CrossingLineWrite:
+      $ref: '#/components/schemas/LineBaseWrite'
+    CrossingLineRead:
+      $ref: '#/components/schemas/LineBaseRead'
+    TailgatingLineWrite:
+      allOf:
+      - $ref: '#/components/schemas/LineBaseWrite'
+      - type: object
+        required:
+        - seconds
+        properties:
+          seconds:
+            type: integer
+            minimum: 1
+            description: Cửa sổ thời gian (giây) cho phát hiện bám đuôi
+            example: 1
+    TailgatingLineRead:
+      allOf:
+      - $ref: '#/components/schemas/LineBaseRead'
+      - type: object
+        properties:
+          seconds:
+            type: integer
+            example: 1
     ONVIFCamera:
       type: object
       description: Thông tin camera ONVIF
@@ -168,10 +3335,10 @@ components:
         uuid:
           type: string
           description: UUID camera (định danh duy nhất)
-          example: '{Hỗ}'
+          example: 00000000-0000-0000-0000-000000000000
         manufacturer:
           type: string
-          description: Tên nhà sản xuất camera
+          description: Tên hãng sản xuất camera
           example: Hikvision
         model:
           type: string
@@ -183,7 +3350,7 @@ components:
           example: ABC123456
     ONVIFStream:
       type: object
-      description: Thông tin video stream ONVIF
+      description: Thông tin stream video ONVIF
       properties:
         token:
           type: string
@@ -191,34 +3358,34 @@ components:
           example: Profile_1
         width:
           type: integer
-          description: Độ rộng stream tính bằng pixel
+          description: Chiều rộng stream (pixel)
           example: 1920
         height:
           type: integer
-          description: Độ cao stream tính bằng pixel
+          description: Chiều cao stream (pixel)
           example: 1080
         fps:
           type: integer
-          description: Frame rate (số khung hình mỗi giây)
+          description: Frame rate (khung hình/giây)
           example: 30
-        uri:
-          type: string
-          format: uri
-          description: RTSP stream URI
-          example: rtsp://{ip_address}:554/Streaming/Channels/101
+          uri:
+            type: string
+            format: uri
+            description: URI stream RTSP
+            example: rtsp://{ip_address}:554/Streaming/Channels/101
     ONVIFCredentialsRequest:
       type: object
       required:
       - username
       - password
-      description: Credentials camera ONVIF
+      description: Thông tin đăng nhập camera ONVIF
       properties:
         username:
           type: string
-          description: Username camera
+          description: Tên đăng nhập camera
           example: admin
         password:
           type: string
           format: password
-          description: Password camera
+          description: Mật khẩu camera
           example: password123

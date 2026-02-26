@@ -1,0 +1,103 @@
+# API endpoint: /v1/core/instance/quick
+# Tag: Instances
+
+/v1/core/instance/quick:
+  post:
+    summary: Tạo instance nhanh
+    description: 'Tạo instance AI mới với tham số đơn giản. Tự động ánh xạ loại solution sang solution ID và cung cấp giá trị mặc định. Endpoint dùng để tạo instance nhanh với cấu hình tối thiểu:
+      - Ánh xạ solution types (ví dụ "face_detection", "ba_crossline") sang solution IDs
+      - Điền giá trị mặc định cho tham số thiếu
+      - Chuyển đường dẫn dev sang production
+      '
+    operationId: createQuickInstance
+    tags:
+    - Instances
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - name
+            - solutionType
+            properties:
+              name:
+                type: string
+                description: Instance display name
+                example: My Quick Instance
+              solutionType:
+                type: string
+                description: Solution type (e.g., "face_detection", "ba_crossline", "ba_jam", "ba_stop")
+                example: face_detection
+              group:
+                type: string
+                description: Instance group name
+                example: default
+              persistent:
+                type: boolean
+                description: Whether to persist instance configuration
+                default: true
+              autoStart:
+                type: boolean
+                description: Whether to automatically start the instance
+                default: false
+              input:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum:
+                    - file
+                    - rtsp
+                    - http
+                    description: Input type
+                  source:
+                    type: string
+                    description: Input source (file path, RTSP URL, etc.)
+              inputType:
+                type: string
+                description: Input type (alternative to input.type)
+              output:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum:
+                    - file
+                    - rtmp
+                    - http
+                    description: Output type
+                  destination:
+                    type: string
+                    description: Output destination
+              outputType:
+                type: string
+                description: Output type (alternative to output.type)
+    responses:
+      '201':
+        description: Instance created successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceInfo'
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho tạo instance nhanh
+    operationId: createQuickInstanceOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

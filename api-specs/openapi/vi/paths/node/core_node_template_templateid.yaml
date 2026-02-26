@@ -1,0 +1,45 @@
+# API endpoint: /v1/core/node/template/{templateId}
+# Tag: Node
+
+/v1/core/node/template/{templateId}:
+  get:
+    summary: Lấy chi tiết template
+    description: Trả về thông tin chi tiết của một node template
+    operationId: getTemplate
+    tags:
+    - Node
+    parameters:
+    - name: templateId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique template identifier
+      example: rtsp_src_template
+    responses:
+      '200':
+        description: Template details retrieved successfully
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateResponse'
+      '404':
+        description: Template not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho template
+    operationId: getTemplateOptions
+    tags:
+    - Node
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

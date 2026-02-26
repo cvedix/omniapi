@@ -1,0 +1,136 @@
+# API endpoint: /v1/core/instance/batch/stop
+# Tag: Instances
+
+/v1/core/instance/batch/stop:
+  post:
+    summary: Dừng nhiều instance đồng thời
+    description: 'Dừng nhiều instance đồng thời. Các thao tác chạy song song để tối ưu
+      performance.
+
+
+      **Behavior:**
+
+      - All instances are stopped in parallel, not sequentially
+
+      - Each instance is stopped independently
+
+      - Results are returned for each instance (success or failure)
+
+      - Instances that are already stopped will be marked as successful
+
+
+      **Request Format:**
+
+      - Provide an array of instance IDs in the `instanceIds` field
+
+      - All instance IDs must exist in the system
+
+
+      **Response:**
+
+      - Returns detailed results for each instance
+
+      - Includes total count, success count, and failed count
+
+      - Each result includes the instance ID, success status, running status, and any error messages
+
+
+      **Use Cases:**
+
+      - Stop multiple instances for maintenance
+
+      - Batch operations for managing multiple cameras or streams
+
+      - Efficiently stop a group of related instances
+
+
+      **Note:** Stopping multiple instances simultaneously will release system resources. This is useful for managing system
+      load.
+
+      '
+    operationId: batchStopInstances
+    tags:
+    - Instances
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - instanceIds
+            properties:
+              instanceIds:
+                type: array
+                items:
+                  type: string
+                description: Array of instance IDs to stop
+                example:
+                - instance-1
+                - instance-2
+                - instance-3
+    responses:
+      '200':
+        description: Batch stop operation completed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                results:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      instanceId:
+                        type: string
+                      success:
+                        type: boolean
+                      status:
+                        type: string
+                      running:
+                        type: boolean
+                      error:
+                        type: string
+                total:
+                  type: integer
+                success:
+                  type: integer
+                failed:
+                  type: integer
+                message:
+                  type: string
+            example:
+              results:
+              - instanceId: instance-1
+                success: true
+                status: stopped
+                running: false
+              - instanceId: instance-2
+                success: false
+                status: failed
+                error: Could not stop instance. Check if instance exists.
+              total: 2
+              success: 1
+              failed: 1
+              message: Batch stop operation completed
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho batch stop
+    operationId: batchStopInstancesOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

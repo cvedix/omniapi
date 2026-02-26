@@ -1,0 +1,96 @@
+# API endpoint: /v1/securt/instance/{instanceId}/pip
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/pip:
+  post:
+    summary: Thiết lập picture-in-picture (PIP)
+    description: Bật hoặc tắt tính năng picture-in-picture (PIP) cho instance SecuRT
+    operationId: setPIP
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - enable
+            properties:
+              enable:
+                type: boolean
+                description: Enable picture-in-picture
+                example: true
+    responses:
+      '204':
+        description: PIP configured successfully
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Lấy cấu hình picture-in-picture (PIP)
+    description: Lấy cấu hình PIP của instance SecuRT
+    operationId: getPIP
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    responses:
+      '200':
+        description: PIP configuration
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: PIP enabled status
+                  example: true
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho PIP
+    operationId: pipOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

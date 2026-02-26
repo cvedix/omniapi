@@ -1,0 +1,113 @@
+# API endpoint: /v1/securt/instance/{instanceId}/area/vehicleGuard
+# Tag: Area SecuRT
+
+/v1/securt/instance/{instanceId}/area/vehicleGuard:
+  post:
+    summary: Tạo vùng bảo vệ xe (vehicle guard - thử nghiệm)
+    description: Creates a new vehicle guard area for a SecuRT instance. This is an experimental feature.
+    operationId: createVehicleGuardArea
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/VehicleGuardAreaWrite'
+    responses:
+      '201':
+        description: Vehicle guard area created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                areaId:
+                  type: string
+                  description: Created area ID
+                  example: '{instanceId}'
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Tạo vùng bảo vệ xe với ID (vehicle guard - thử nghiệm)
+    description: Creates a new vehicle guard area with a specific ID for a SecuRT instance. This is an experimental feature.
+    operationId: createVehicleGuardAreaWithId
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    - name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh vùng (area ID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/VehicleGuardAreaWrite'
+    responses:
+      '201':
+        description: Vehicle guard area created successfully
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Area already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for vehicle guard area
+    operationId: createVehicleGuardAreaOptions
+    tags:
+    - Area SecuRT
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

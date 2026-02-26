@@ -1,0 +1,203 @@
+# API endpoint: /v1/core/instance/{instanceId}/stops
+# Tag: Area Core
+
+/v1/core/instance/{instanceId}/stops:
+  get:
+    summary: Lấy tất cả vùng dừng (stop zones)
+    description: 'Trả về tất cả vùng dừng (stop zones) đã cấu hình cho instance ba_stop. Vùng dừng dùng để phát hiện đối tượng dừng trong ROI xác định trên luồng video.
+
+      '
+    operationId: getAllStops
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    responses:
+      '200':
+        description: Danh sách vùng dừng (stop zones)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StopsResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo một hoặc nhiều vùng dừng (stop zones)
+    description: 'Tạo một hoặc nhiều vùng dừng (stop zones) cho instance ba_stop.
+
+
+      **Định dạng yêu cầu:**
+
+      - Một vùng: Gửi một object (CreateStopRequest)
+
+      - Nhiều vùng: Gửi mảng các object [CreateStopRequest, ...]
+
+
+      **Cập nhật thời gian thực:** Thay đổi vùng dừng yêu cầu khởi động lại instance.
+
+      '
+    operationId: createStop
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/CreateStopRequest'
+            - type: array
+              items:
+                $ref: '#/components/schemas/CreateStopRequest'
+          examples:
+            singleZone:
+              summary: Một vùng dừng (object)
+              value:
+                name: Stop Zone 1
+                roi:
+                - x: 100.0
+                  y: 100.0
+                - x: 200.0
+                  y: 100.0
+                - x: 200.0
+                  y: 200.0
+                min_stop_seconds: 3
+                check_interval_frames: 20
+                check_min_hit_frames: 50
+                check_max_distance: 5
+            multipleZones:
+              summary: Nhiều vùng dừng (mảng)
+              value:
+              - name: Stop Zone A
+                roi:
+                - x: 0
+                  y: 0
+                - x: 100
+                  y: 0
+                - x: 100
+                  y: 100
+                min_stop_seconds: 3
+                check_interval_frames: 20
+                check_min_hit_frames: 50
+                check_max_distance: 5
+              - name: Stop Zone B
+                roi:
+                - x: 50
+                  y: 50
+                - x: 150
+                  y: 50
+                - x: 150
+                  y: 150
+                min_stop_seconds: 3
+                check_interval_frames: 20
+                check_min_hit_frames: 50
+                check_max_distance: 5
+    responses:
+      '201':
+        description: Tạo vùng thành công. Trả về một object vùng với yêu cầu đơn, hoặc object kèm metadata với yêu cầu mảng.
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/StopZone'
+              - type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đã tạo vùng dừng thành công
+                  count:
+                    type: integer
+                    example: 2
+                  stops:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StopZone'
+      '400':
+        description: Yêu cầu không hợp lệ (tọa độ hoặc tham số sai)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa tất cả vùng dừng (stop zones)
+    description: 'Xóa tất cả vùng dừng (stop zones) của instance ba_stop. Thay đổi yêu cầu khởi động lại instance.
+
+      '
+    operationId: deleteAllStops
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{Stop}'
+    responses:
+      '200':
+        description: Đã xóa tất cả vùng dừng thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Đã xóa tất cả vùng dừng (stop zones) thành công
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho các endpoint stops
+    operationId: stopsOptions
+    tags:
+    - Area Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

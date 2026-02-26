@@ -1,0 +1,115 @@
+# API endpoint: /v1/core/groups
+# Tag: Groups
+
+/v1/core/groups:
+  get:
+    summary: Liệt kê tất cả nhóm
+    description: 'Trả về danh sách tất cả nhóm kèm thông tin tóm tắt (tên, mô tả, số instance, metadata). Phản hồi gồm: tổng số nhóm, số nhóm mặc định, số nhóm tùy chỉnh, thông tin tóm tắt từng nhóm (ID, tên, mô tả, số instance). Dùng để xem tổng quan mà không cần lấy chi tiết từng nhóm.
+
+      '
+    operationId: listGroups
+    tags:
+    - Groups
+    responses:
+      '200':
+        description: Danh sách nhóm
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groups:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/GroupInfo'
+                total:
+                  type: integer
+                  description: Tổng số nhóm
+                default:
+                  type: integer
+                  description: Số nhóm mặc định
+                custom:
+                  type: integer
+                  description: Số nhóm tùy chỉnh
+            example:
+              total: 2
+              default: 0
+              custom: 2
+              groups:
+              - groupId: cameras
+                groupName: Security Cameras
+                description: Group for security camera instances
+                instanceCount: 3
+                isDefault: false
+                readOnly: false
+              - groupId: test
+                groupName: Test Group
+                description: Group for testing
+                instanceCount: 1
+                isDefault: false
+                readOnly: false
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo nhóm mới
+    description: 'Tạo nhóm mới để tổ chức instance. Thuộc tính: **groupId** (bắt buộc) định danh duy nhất; **groupName** (tùy chọn) tên hiển thị; **description** (tùy chọn) mô tả. Group ID phải duy nhất
+
+      - Group ID must match pattern: `^[A-Za-z0-9_-]+$`
+
+      - Group name must match pattern: `^[A-Za-z0-9 -_]+$`
+
+
+      **Persistence:**
+
+      - Groups are automatically saved to storage
+
+      - Group files are stored in `/var/lib/edge_ai_api/groups` (configurable via `GROUPS_DIR` environment variable)
+
+
+      **Returns:** The created group information including timestamps.
+
+      '
+    operationId: createGroup
+    tags:
+    - Groups
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateGroupRequest'
+          example:
+            groupId: cameras
+            groupName: Security Cameras
+            description: Group for security camera instances
+    responses:
+      '201':
+        description: Đã tạo nhóm thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupInfo'
+      '400':
+        description: Yêu cầu không hợp lệ (validation thất bại hoặc nhóm đã tồn tại)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho groups
+    operationId: listGroupsOptions
+    tags:
+    - Groups
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -1,0 +1,60 @@
+# API endpoint: /v1/core/video/list
+# Tag: Video
+
+/v1/core/video/list:
+  get:
+    summary: Liệt kê file video đã tải lên
+    description: "Returns a list of video files that have been uploaded to the server.\n- If `directory` parameter is not\
+      \ specified: Recursively searches and lists all video files\n  in the entire videos directory tree (including all subdirectories).\n\
+      - If `directory` parameter is specified: Lists only files in that specific directory\n  (non-recursive, does not search\
+      \ subdirectories).\n"
+    operationId: listVideos
+    tags:
+    - Video
+    parameters:
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Subdirectory path to list files from (e.g., "projects/myproject/videos", "users/user123").
+
+        If specified, only lists files in that directory (non-recursive).
+
+        If not specified, recursively searches all subdirectories.
+
+        '
+      example: projects/myproject/videos
+    responses:
+      '200':
+        description: Danh sách file video
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                videos:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                      path:
+                        type: string
+                      size:
+                        type: integer
+                      modified:
+                        type: string
+                count:
+                  type: integer
+                directory:
+                  type: string
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

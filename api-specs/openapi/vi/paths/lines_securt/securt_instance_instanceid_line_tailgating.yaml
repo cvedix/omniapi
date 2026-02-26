@@ -1,0 +1,61 @@
+# API endpoint: /v1/securt/instance/{instanceId}/line/tailgating
+# Tag: Lines SecuRT
+
+/v1/securt/instance/{instanceId}/line/tailgating:
+  post:
+    summary: Tạo đường bám đuôi (tailgating line)
+    description: Tạo đường bám đuôi (tailgating line) mới cho instance SecuRT
+    operationId: createTailgatingLine
+    tags:
+    - Lines SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TailgatingLineWrite'
+    responses:
+      '201':
+        description: Tailgating line created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lineId:
+                  type: string
+                  description: Created line ID
+                  example: '{lineId}'
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho tailgating line
+    operationId: createTailgatingLineOptions
+    tags:
+    - Lines SecuRT
+    responses:
+      '200':
+        description: Phản hồi CORS preflight
