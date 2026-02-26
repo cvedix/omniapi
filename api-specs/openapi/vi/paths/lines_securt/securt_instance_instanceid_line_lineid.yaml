@@ -1,0 +1,52 @@
+# API endpoint: /v1/securt/instance/{instanceId}/line/{lineId}
+# Tag: Lines SecuRT
+
+/v1/securt/instance/{instanceId}/line/{lineId}:
+  delete:
+    summary: Xóa line theo ID
+    description: Xóa một đường (line) theo ID
+    operationId: deleteLine
+    tags:
+    - Lines SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    - name: lineId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh đường (line ID)
+    responses:
+      '204':
+        description: Đã xóa đường thành công
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance hoặc đường
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho line theo ID
+    operationId: deleteLineOptions
+    tags:
+    - Lines SecuRT
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

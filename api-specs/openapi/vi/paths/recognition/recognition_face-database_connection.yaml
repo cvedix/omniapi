@@ -1,0 +1,221 @@
+# API endpoint: /v1/recognition/face-database/connection
+# Tag: Recognition
+
+/v1/recognition/face-database/connection:
+  post:
+    summary: Cấu hình kết nối face database
+    description: "Cấu hình kết nối face database cho MySQL hoặc PostgreSQL. Endpoint này cho phép cấu hình kết nối database để lưu dữ liệu nhận diện khuôn mặt thay cho file mặc định `face_database.txt`.\n\n**Hỗ trợ database:**\n- MySQL (cổng mặc định: 3306)\n- PostgreSQL (cổng mặc định: 5432)\n\n**Schema database:** Hệ thống yêu cầu hai bảng:\n\n1. Bảng **face_libraries:** id (khóa chính, tự tăng), image_id (varchar 36) - định danh mỗi ảnh khuôn mặt, subject (varchar 255) - tên người, base64_image (longtext) - ảnh khuôn mặt Base64, embedding (text) - vector embedding (số thực cách nhau dấu phẩy), created_at (timestamp), machine_id (varchar 255), mac_address (varchar 255).\n\n2. Bảng **face_log:** id (khóa chính, tự tăng), request_type (varchar 50) - loại yêu cầu (recognize, register, ...), timestamp (datetime), client_ip (varchar 45), request_body (longtext), response_body (longtext), response_code (int), notes (text), mac_address, machine_id.\n\n**Hành vi:** Khi kết nối database được cấu hình và bật, hệ thống dùng database thay cho `face_database.txt`. Nếu gửi `enabled: false`, kết nối bị tắt và hệ thống dùng lại `face_database.txt`. Cấu hình lưu trong `config.json` mục `face_database`. Cấu hình có hiệu lực ngay sau khi lưu.\n\n**Lưu ý:** Các bảng database phải được tạo thủ công trước khi dùng endpoint này. Endpoint chỉ cấu hình tham số kết nối, không tạo schema database."
+    operationId: configureFaceDatabaseConnection
+    tags:
+    - Recognition
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/FaceDatabaseConnectionConfig'
+            - type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: Đặt false để tắt kết nối database và dùng file face_database.txt mặc định
+                  example: false
+          examples:
+            mysql:
+              summary: Ví dụ cấu hình MySQL
+              value:
+                type: mysql
+                host: localhost
+                port: 3306
+                database: face_db
+                username: face_user
+                password: secure_password
+                charset: utf8mb4
+            postgresql:
+              summary: Ví dụ cấu hình PostgreSQL
+              value:
+                type: postgresql
+                host: localhost
+                port: 5432
+                database: face_db
+                username: face_user
+                password: secure_password
+            disable:
+              summary: Tắt kết nối database
+              value:
+                enabled: false
+    responses:
+      '200':
+        description: Đã cấu hình kết nối database thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Thông báo thành công
+                  example: Đã cấu hình kết nối face database thành công
+                config:
+                  $ref: '#/components/schemas/FaceDatabaseConnectionConfig'
+                note:
+                  type: string
+                  description: Thông tin bổ sung
+                  example: Kết nối database sẽ được dùng thay cho file face_database.txt
+            examples:
+              success:
+                summary: Cấu hình thành công
+                value:
+                  message: Face database connection configured successfully
+                  config:
+                    type: mysql
+                    host: localhost
+                    port: 3306
+                    database: face_db
+                    username: face_user
+                    charset: utf8mb4
+                  note: Database connection will be used instead of face_database.txt file
+              disabled:
+                summary: Đã tắt database
+                value:
+                  message: Đã tắt kết nối database. Đang dùng file face_database.txt mặc định
+                  enabled: false
+                  default_file: /opt/edge_ai_api/data/face_database.txt
+      '400':
+        description: Yêu cầu không hợp lệ (thiếu trường bắt buộc, loại database không hợp lệ, v.v.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+            examples:
+              missingType:
+                summary: Thiếu trường type
+                value:
+                  error: Yêu cầu không hợp lệ
+                  message: Trường 'type' (mysql/postgresql) là bắt buộc
+              invalidType:
+                summary: Loại database không hợp lệ
+                value:
+                  error: Yêu cầu không hợp lệ
+                  message: Trường 'type' phải là 'mysql' hoặc 'postgresql'
+              missingHost:
+                summary: Thiếu trường host
+                value:
+                  error: Yêu cầu không hợp lệ
+                  message: Trường 'host' là bắt buộc
+      '500':
+        description: Lỗi máy chủ (không lưu được cấu hình, v.v.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Lấy cấu hình kết nối face database
+    description: 'Lấy cấu hình kết nối face database hiện tại. Nếu chưa cấu hình hoặc đã tắt, trả về thông tin file mặc định face_database.txt. Khi đã cấu hình trả về chi tiết kết nối; khi chưa cấu hình trả về enabled=false và đường dẫn file mặc định.'
+    operationId: getFaceDatabaseConnection
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Đã lấy cấu hình thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: Kết nối database có được bật hay không
+                  example: true
+                config:
+                  $ref: '#/components/schemas/FaceDatabaseConnectionConfig'
+                  description: Cấu hình kết nối database (chỉ có khi enabled là true)
+                message:
+                  type: string
+                  description: Thông báo trạng thái
+                  example: Kết nối database đã được cấu hình và bật
+                default_file:
+                  type: string
+                  description: Đường dẫn file face_database.txt mặc định (chỉ có khi enabled là false)
+                  example: /opt/edge_ai_api/data/face_database.txt
+            examples:
+              enabled:
+                summary: Đã bật database
+                value:
+                  enabled: true
+                  config:
+                    type: mysql
+                    host: localhost
+                    port: 3306
+                    database: face_db
+                    username: face_user
+                    charset: utf8mb4
+                  message: Database connection is configured and enabled
+              disabled:
+                summary: Đã tắt database
+                value:
+                  enabled: false
+                  message: Chưa cấu hình kết nối database. Đang dùng file face_database.txt mặc định
+                  default_file: /opt/edge_ai_api/data/face_database.txt
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa cấu hình kết nối face database
+    description: 'Xóa cấu hình kết nối face database. Sau khi xóa, hệ thống dùng lại file mặc định face_database.txt. Hành vi: gỡ cấu hình khỏi config.json; đặt enabled=false; hệ thống chuyển sang dùng face_database.txt; nếu chưa có cấu hình thì trả về success báo không có cấu hình. Lưu ý: Thao tác này không xóa dữ liệu trong database, chỉ gỡ cấu hình kết nối. Để xóa dữ liệu trong database, dùng các endpoint xóa face.'
+    operationId: deleteFaceDatabaseConnection
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Đã xóa cấu hình kết nối database thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Thông báo thành công
+                  example: Đã xóa cấu hình kết nối database. Hệ thống sẽ dùng file face_database.txt mặc định
+                enabled:
+                  type: boolean
+                  description: Kết nối database có được bật hay không (luôn false sau khi xóa)
+                  example: false
+                default_file:
+                  type: string
+                  description: Đường dẫn file face_database.txt mặc định
+                  example: /opt/edge_ai_api/data/face_database.txt
+            examples:
+              deleted:
+                summary: Đã xóa cấu hình thành công
+                value:
+                  message: Đã xóa cấu hình kết nối database. Hệ thống sẽ dùng file face_database.txt mặc định
+                  enabled: false
+                  default_file: /opt/edge_ai_api/data/face_database.txt
+              notFound:
+                summary: Không có cấu hình để xóa
+                value:
+                  message: Không có cấu hình kết nối database để xóa
+                  enabled: false
+                  default_file: /opt/edge_ai_api/data/face_database.txt
+      '500':
+        description: Lỗi máy chủ (không cập nhật được cấu hình, v.v.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho face database connection
+    operationId: faceDatabaseConnectionOptions
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -1,0 +1,136 @@
+# API endpoint: /v1/recognition/search
+# Tag: Recognition
+
+/v1/recognition/search:
+  post:
+    summary: Tìm kiếm appearance subject
+    description: 'Tìm khuôn mặt tương tự trong database từ ảnh khuôn mặt đầu vào.
+
+      Trả về danh sách khuôn mặt khớp, sắp xếp theo độ tương đồng (cao nhất trước) trên ngưỡng chỉ định.
+
+
+      **Cách hoạt động:** 1. Phát hiện khuôn mặt trong ảnh tải lên. 2. Trích embedding từ khuôn mặt đầu tiên. 3. So sánh với mọi khuôn mặt trong database. 4. Trả về các kết quả có similarity >= ngưỡng, sắp xếp từ cao đến thấp.
+
+
+      **Trường phản hồi:** `image_id` - định danh khuôn mặt khớp; `subject` - tên subject; `similarity` - điểm tương đồng cosine (0.0 - 1.0); `face_image` - ảnh khuôn mặt Base64 (dự phòng).'
+
+    operationId: searchAppearanceSubject
+    tags:
+    - Recognition
+    parameters:
+    - name: threshold
+      in: query
+      required: false
+      schema:
+        type: number
+        format: float
+        default: 0.5
+        minimum: 0.0
+        maximum: 1.0
+      description: Ngưỡng độ tương đồng tối thiểu cho kết quả khớp (0.0 - 1.0)
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Số kết quả tối đa trả về (0 = không giới hạn)
+    - name: det_prob_threshold
+      in: query
+      required: false
+      schema:
+        type: number
+        format: float
+        default: 0.5
+        minimum: 0.0
+        maximum: 1.0
+      description: Ngưỡng xác suất phát hiện khuôn mặt
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file:
+                type: string
+                format: binary
+                description: File ảnh chứa khuôn mặt cần tìm
+            required:
+            - file
+        application/json:
+          schema:
+            type: object
+            properties:
+              file:
+                type: string
+                format: base64
+                description: Dữ liệu ảnh mã hóa Base64
+            required:
+            - file
+    responses:
+      '200':
+        description: Kết quả tìm kiếm
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                result:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      image_id:
+                        type: string
+                        description: Định danh duy nhất của khuôn mặt khớp
+                      subject:
+                        type: string
+                        description: Tên subject khớp
+                      similarity:
+                        type: number
+                        format: float
+                        description: Điểm độ tương đồng cosine (0.0 - 1.0)
+                      face_image:
+                        type: string
+                        description: Ảnh khuôn mặt mã hóa Base64 (dự phòng cho tương lai)
+                faces_found:
+                  type: integer
+                  description: Số khuôn mặt khớp tìm được
+                threshold:
+                  type: number
+                  format: float
+                  description: Ngưỡng dùng cho tìm kiếm
+            example:
+              result:
+              - image_id: abc123-def456-ghi789
+                subject: John Doe
+                similarity: 0.95
+                face_image: ''
+              - image_id: xyz789-uvw456-rst123
+                subject: Jane Smith
+                similarity: 0.82
+                face_image: ''
+              faces_found: 2
+              threshold: 0.5
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho tìm kiếm appearance subject
+    operationId: searchAppearanceSubjectOptions
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

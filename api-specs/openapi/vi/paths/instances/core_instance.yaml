@@ -1,0 +1,2184 @@
+# API endpoint: /v1/core/instance
+# Tag: Instances
+
+/v1/core/instance:
+  get:
+    summary: Liệt kê tất cả instance
+    description: 'Trả về danh sách tất cả instance AI kèm thông tin tóm tắt: trạng thái chạy, solution, cấu hình cơ bản. Phản hồi gồm tổng số instance, số đang chạy, số đã dừng, và thông tin tóm tắt từng instance (ID, tên hiển thị, trạng thái, solution). Dùng để xem tổng quan mà không cần lấy chi tiết từng instance.
+
+      '
+    operationId: listInstances
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Danh sách instance
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instances:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/InstanceSummary'
+                total:
+                  type: integer
+                  description: Tổng số instance
+                running:
+                  type: integer
+                  description: Số instance đang chạy
+                stopped:
+                  type: integer
+                  description: Số instance đã dừng
+            example:
+              total: 3
+              running: 1
+              stopped: 2
+              instances:
+              - instanceId: 550e8400-e29b-41d4-a716-446655440000
+                displayName: Face Detection Camera 1
+                running: true
+                solutionId: face_detection
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa tất cả instance
+    description: 'Xóa tất cả instance trong hệ thống (vĩnh viễn), dừng pipeline nếu đang chạy. Các instance được xóa đồng thời; instance đang chạy sẽ bị dừng trước; cấu hình và file cấu hình bị xóa; tài nguyên được giải phóng. Phản hồi gồm tóm tắt và kết quả từng instance (thành công/thất bại). Thao tác không thể hoàn tác.
+
+      '
+    operationId: deleteAllInstances
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Đã hoàn thành thao tác xóa tất cả instance
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  description: True nếu tất cả instance đã được xóa thành công
+                message:
+                  type: string
+                  description: Thông báo trạng thái thao tác
+                total:
+                  type: integer
+                  description: Tổng số instance đã thử xóa
+                deleted:
+                  type: integer
+                  description: Số instance đã xóa thành công
+                failed:
+                  type: integer
+                  description: Số instance xóa thất bại
+                results:
+                  type: array
+                  description: Kết quả chi tiết cho từng instance
+                  items:
+                    type: object
+                    properties:
+                      instanceId:
+                        type: string
+                        description: Định danh instance
+                      success:
+                        type: boolean
+                        description: Xóa có thành công hay không
+                      status:
+                        type: string
+                        description: Trạng thái xóa (deleted hoặc failed)
+                      error:
+                        type: string
+                        description: Thông báo lỗi nếu xóa thất bại
+            example:
+              success: true
+              message: Delete all instances operation completed
+              total: 3
+              deleted: 3
+              failed: 0
+              results:
+              - instanceId: 550e8400-e29b-41d4-a716-446655440000
+                success: true
+                status: deleted
+              - instanceId: 550e8400-e29b-41d4-a716-446655440001
+                success: true
+                status: deleted
+              - instanceId: 550e8400-e29b-41d4-a716-446655440002
+                success: true
+                status: deleted
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '503':
+        description: Dịch vụ không khả dụng (registry bận)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo instance AI mới
+    description: 'Tạo và đăng ký instance AI mới với cấu hình chỉ định. Trả về instance ID (UUID) dùng để điều khiển instance. **Build pipeline bất đồng bộ (khi có solution):** API trả 201 ngay khi instance được đăng ký; pipeline được build nền (có thể 30+ giây). Response có **building**, **status**, **message**: building=true, status="building" — đang build, chưa gọi Start; building=false, status="ready" — đã sẵn sàng, có thể Start.
+      - To know when the instance is ready, poll **GET /v1/core/instance/{instanceId}** until **status** is **"ready"** (or **building** is false), or wait for the build to complete before calling Start. If Start is called while **building** is true, the API returns an error: "Pipeline is still being built in background".
+
+
+      **Configuration Options:**
+
+      - **Basic Settings:** name, group, solution, persistent mode
+
+      - **Performance:** frame rate limits, input pixel limits, input orientation
+
+      - **Detection:** detector mode, sensitivity levels, sensor modality
+
+      - **Processing Modes:** metadata mode, statistics mode, diagnostics mode, debug mode
+
+      - **Auto Management:** auto-start, auto-restart, blocking readahead queue
+
+      - **Solution Parameters:** RTSP_URL, MODEL_PATH, FILE_PATH, RTMP_URL, etc. (via additionalParams)
+
+
+      **Solution Types:**
+
+      - `face_detection`: Face detection with RTSP input
+
+      - `face_detection_file`: Face detection with file input
+
+      - `object_detection`: Object detection (YOLO)
+
+      - `face_detection_rtmp`: Face detection with RTMP streaming
+
+      - Custom solutions registered via solution management endpoints
+
+
+      **Persistence:**
+
+      - If `persistent: true`, the instance will be saved to a JSON file in the instances directory
+
+      - Persistent instances are automatically loaded when the server restarts
+
+      - Instance configuration files are stored in `/var/lib/edge_ai_api/instances` (configurable via `INSTANCES_DIR` environment
+      variable)
+
+
+      **Auto Start:** Nếu autoStart=true, instance sẽ tự khởi động sau khi build pipeline xong (chạy nền). **Returns:** Thông tin instance đã tạo (UUID); khi có solution, response có building, status, message để client biết instance đã sẵn sàng Start chưa.
+
+      '
+    operationId: createInstance
+    tags:
+    - Instances
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateInstanceRequest'
+          examples:
+            ba_crossline___yolo___ba_crossline_file_mqtt:
+              summary: Ba Crossline - Yolo - Ba Crossline File Mqtt
+              value:
+                name: ba_crossline_file_mqtt_only
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /opt/edge_ai_api/videos/vehicle_count.mp4
+                    WEIGHTS_PATH: /opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '0.5'
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: mqtt.goads.com.vn
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                  CrossingLines: '[{"id":"line1","name":"Main Road","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"id":"line2","name":"Secondary
+                    Road","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Both","classes":["Vehicle"],"color":[0,255,0,255]}]'
+            ba_crossline___yolo___ba_crossline_file_mqtt_with_crossing_l:
+              summary: Ba Crossline - Yolo - Ba Crossline File Mqtt With Crossing Lines
+              value:
+                name: ba_crossline_mqtt_with_lines_demo
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+                    PROCESSING_DELAY_MS: '0'
+                  CrossingLines: '[{"id":"line1","name":"Entry Line","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Up","classes":["Vehicle","Person"],"color":[255,0,0,255]},{"id":"line2","name":"Exit
+                    Line","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Down","classes":["Vehicle"],"color":[0,255,0,255]},{"id":"line3","name":"Center
+                    Line","coordinates":[{"x":200,"y":300},{"x":900,"y":280}],"direction":"Both","classes":["Vehicle","Person"],"color":[0,0,255,255]}]'
+            ba_crossline___yolo___ba_crossline_file_rtmp:
+              summary: Ba Crossline - Yolo - Ba Crossline File Rtmp
+              value:
+                name: ba_crossline_demo_1
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/camera_demo_1
+                    RTMP_DES_URL: rtmp://localhost:1935/live/camera_demo_1
+                    ENABLE_SCREEN_DES: 'false'
+            ba_crossline___yolo___ba_crossline_file_rtmp_mqtt:
+              summary: Ba Crossline - Yolo - Ba Crossline File Rtmp Mqtt
+              value:
+                name: ba_crossline_demo_1_mqtt
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/sang_camera_demo_1
+                    RTMP_DES_URL: rtmp://localhost:1935/live/sang_camera_demo_1
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: mqtt.goads.com.vn
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+            ba_crossline___yolo___ba_crossline_file_rtmp_with_crossing_l:
+              summary: Ba Crossline - Yolo - Ba Crossline File Rtmp With Crossing Lines
+              value:
+                name: ba_crossline_with_lines_demo
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/camera_demo_1
+                    RTMP_DES_URL: rtmp://localhost:1935/live/camera_demo_1
+                    ENABLE_SCREEN_DES: 'false'
+                  CrossingLines: '[{"id":"line1","name":"Main Counting Line","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"id":"line2","name":"Secondary
+                    Counting Line","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Both","classes":["Vehicle","Person"],"color":[0,255,0,255]},{"id":"line3","name":"Pedestrian
+                    Line","coordinates":[{"x":200,"y":500},{"x":900,"y":480}],"direction":"Up","classes":["Person"],"color":[0,0,255,255]}]'
+            ba_crossline___yolo___ba_crossline_file_screen_without_line_:
+              summary: Ba Crossline - Yolo - Ba Crossline File Screen Without Line Ids
+              value:
+                name: ba_crossline_auto_id_demo
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /opt/edge_ai_api/videos/vehicle_count.mp4
+                    WEIGHTS_PATH: /opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '0.5'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+                  CrossingLines: '[{"name":"Line without ID - will auto-generate","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"name":"Another
+                    line without ID","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Both","classes":["Vehicle"],"color":[0,255,0,255]}]'
+            ba_crossline___yolo___ba_crossline_mqtt_event_with_counts:
+              summary: Ba Crossline - Yolo - Ba Crossline Mqtt Event With Counts
+              value:
+              - events:
+                - best_thumbnail:
+                    confidence: 0.9553563594818115
+                    image: /9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAIBAQEBAQIBAQECAgICAgQDAgICAgUEBAMEBgUGBgYFBgYGBwkIBgcJBwYGCAsICQoKCgoKBggLDAsKDAkKCg
+                    instance_id: ba_crossline_file_mqtt
+                    label: cross line
+                    system_date: '2025-12-28T03:49:10Z'
+                    tracks:
+                    - bbox:
+                        x: 0.3502604166666667
+                        y: 0.4236111111111111
+                        width: 0.09635416666666667
+                        height: 0.2847222222222222
+                      class_label: truck
+                      external_id: crossline-event
+                      id: Tracker_24618
+                      last_seen: 0
+                      source_tracker_track_id: 24618
+                  type: crossline
+                  zone_id: default_zone
+                  zone_name: CrosslineZone
+                  line_id: default_zone
+                frame_id: 34585
+                frame_time: 1383400.0
+                system_date: Sun Dec 28 10:49:10 2025
+                system_timestamp: '1766893750712'
+                instance_id: 8c6a1534-9dab-4a5a-b968-1d612d4c41a9
+                instance_name: ba_crossline_file_mqtt
+                line_counts:
+                - line_id: default_zone
+                  line_name: CrosslineZone
+                  count: 15
+            ba_crossline___yolo___ba_crossline_report_body:
+              summary: Ba Crossline - Yolo - Ba Crossline Report Body
+              value:
+                events:
+                - id: 550e8400-e29b-41d4-a716-446655440001
+                  instance_id: ba_crossline
+                  frame_id: 5678
+                  frame_time: 189.27
+                  type: crossline_enter
+                  label: Vehicle crossed line
+                  date: Mon Jan 15 14:35:42 2025
+                  system_date: '2025-01-15T07:35:42Z'
+                  system_timestamp: '1736940942000'
+                  best_thumbnail:
+                    confidence: 0.88
+                    image: base64_encoded_image_string
+                    position:
+                      x: 0.35
+                      y: 0.4
+                      width: 0.2
+                      height: 0.25
+                    timestamp: 189.27
+                  extra:
+                    bbox:
+                      x: 0.35
+                      y: 0.4
+                      width: 0.2
+                      height: 0.25
+                    class: Car
+                    current_entries: 5
+                    external_id: 550e8400-e29b-41d4-a716-446655440001
+                    total_hits: 5678
+                    track_id: VehicleTracker_123
+                  image: base64_encoded_full_frame_string
+                  tracks:
+                  - track_id: VehicleTracker_123
+                    bbox:
+                      x: 0.35
+                      y: 0.4
+                      width: 0.2
+                      height: 0.25
+                    confidence: 0.88
+                    class: Car
+                  zone_id: crossline_zone_1
+                  zone_name: Main Road Crossline
+                frame_id: 5678
+                frame_time: 189.27
+                system_date: Mon Jan 15 14:35:42 2025
+                system_timestamp: '1736940942000'
+            ba_crossline___yolo___ba_crossline_rtsp_mqtt:
+              summary: Ba Crossline - Yolo - Ba Crossline Rtsp Mqtt
+              value:
+                name: ba_crossline_in_rtsp_out_mqtt_only
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '0.05'
+                    RTSP_TRANSPORT: tcp
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '9'
+                    CODEC_TYPE: h264
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: mqtt.goads.com.vn
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+                    PROCESSING_DELAY_MS: '0'
+            ba_crossline___yolo___ba_crossline_rtsp_rtmp:
+              summary: Ba Crossline - Yolo - Ba Crossline Rtsp Rtmp
+              value:
+                name: ba_crossline_in_rtsp_out_rtmp
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '1.0'
+                    RTSP_TRANSPORT: udp
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    RTMP_DES_URL: rtmp://anhoidong.datacenter.cvedix.com:1935/live/tri_test
+                    ENABLE_SCREEN_DES: 'false'
+            ba_crossline___yolo___ba_crossline_rtsp_rtmp_mqtt:
+              summary: Ba Crossline - Yolo - Ba Crossline Rtsp Rtmp Mqtt
+              value:
+                name: ba_crossline_in_rtsp_out_rtmp_mqtt
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '1.0'
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/sang_camera_demo_1
+                    RTMP_DES_URL: rtmp://localhost:1935/live/sang_camera_demo_1
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: mqtt.goads.com.vn
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+            ba_crossline___yolo___ba_crossline_rtsp_rtmp_with_crossing_l:
+              summary: Ba Crossline - Yolo - Ba Crossline Rtsp Rtmp With Crossing Lines
+              value:
+                name: ba_crossline_rtsp_with_lines_demo
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '1.0'
+                    RTSP_TRANSPORT: udp
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    RTMP_DES_URL: rtmp://localhost:1935/live/camera_demo_1
+                    ENABLE_SCREEN_DES: 'false'
+                  CrossingLines: '[{"id":"line1","name":"Main Road Line","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"id":"line2","name":"Secondary
+                    Road Line","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Both","classes":["Vehicle"],"color":[0,255,0,255]}]'
+            ba_crossline___yolo___flexible_ba_crossline_file_screen:
+              summary: Ba Crossline - Yolo - Flexible Ba Crossline File Screen
+              value:
+                name: ba_crossline_file_only
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '0.4'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+                  CrossingLines: '[{"id":"line1","name":"File Only Crossline","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"id":"line2","name":"File
+                    Only Crossline 2","coordinates":[{"x":50,"y":350},{"x":750,"y":330}],"direction":"Up","classes":["Person"],"color":[0,0,255,255]}]'
+            ba_crossline___yolo___flexible_ba_crossline_file_screen_mqtt:
+              summary: Ba Crossline - Yolo - Flexible Ba Crossline File Screen Mqtt
+              value:
+                name: ba_crossline_file_mqtt
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '0.4'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                  CrossingLines: '[{"id":"line1","name":"Main Road Crossline","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"id":"line2","name":"Secondary
+                    Road Crossline","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Both","classes":["Vehicle","Person"],"color":[0,255,0,255]}]'
+            ba_crossline___yolo___flexible_ba_crossline_rtmp_rtmp_mqtt:
+              summary: Ba Crossline - Yolo - Flexible Ba Crossline Rtmp Rtmp Mqtt
+              value:
+                name: ba_crossline_rtmp_mqtt_rtmp
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTMP_SRC_URL: rtmp://localhost:1935/live/input_stream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/output_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/output_stream
+                    ENABLE_SCREEN_DES: 'false'
+                    MQTT_BROKER_URL: mqtt.goads.com.vn
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                  CrossingLines: '[{"id":"line1","name":"RTMP Stream Crossline","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"id":"line2","name":"RTMP
+                    Stream Crossline 2","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Both","classes":["Vehicle"],"color":[0,255,0,255]}]'
+            ba_crossline___yolo___flexible_ba_crossline_rtsp_rtmp:
+              summary: Ba Crossline - Yolo - Flexible Ba Crossline Rtsp Rtmp
+              value:
+                name: ba_crossline_rtsp_rtmp
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '1.0'
+                    GST_DECODER_NAME: avdec_h264
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    ENABLE_SCREEN_DES: 'false'
+                  CrossingLines: '[{"id":"line1","name":"RTSP Camera Crossline","coordinates":[{"x":0,"y":250},{"x":700,"y":220}],"direction":"Both","classes":["Vehicle"],"color":[255,0,0,255]},{"id":"line2","name":"RTSP
+                    Camera Crossline 2","coordinates":[{"x":100,"y":400},{"x":800,"y":380}],"direction":"Both","classes":["Vehicle","Person"],"color":[0,255,0,255]}]'
+            ba_crossline___yolo___test_ba_crossline_file_mqtt:
+              summary: 'Ba Crossline - Yolo - Test: Ba Crossline File Mqtt'
+              value:
+                name: ba_crossline_file_mqtt_test
+                group: demo
+                solution: ba_crossline
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '0.1'
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: mqtt.goads.com.vn
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+                    PROCESSING_DELAY_MS: '2000'
+            ba_crossline___yolo___test_ba_crossline_file_rtmp:
+              summary: 'Ba Crossline - Yolo - Test: Ba Crossline File Rtmp'
+              value:
+                name: ba_crossline_rtmp_only_test
+                group: test
+                solution: ba_crossline
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    CROSSLINE_START_X: '0'
+                    CROSSLINE_START_Y: '250'
+                    CROSSLINE_END_X: '700'
+                    CROSSLINE_END_Y: '220'
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    ENABLE_SCREEN_DES: 'false'
+            ba_crossline___yolo___test_ba_crossline_file_screen_mqtt:
+              summary: 'Ba Crossline - Yolo - Test: Ba Crossline File Screen Mqtt'
+              value:
+                name: ba_crossline_file_mqtt_test
+                group: test
+                solution: ba_crossline
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    CROSSLINE_START_X: '0'
+                    CROSSLINE_START_Y: '250'
+                    CROSSLINE_END_X: '700'
+                    CROSSLINE_END_Y: '220'
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+                    PROCESSING_DELAY_MS: '0'
+            ba_crossline___yolo___test_ba_crossline_rtsp_rtmp:
+              summary: 'Ba Crossline - Yolo - Test: Ba Crossline Rtsp Rtmp'
+              value:
+                name: ba_crossline_rtsp_rtmp_test
+                group: test
+                solution: ba_crossline
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    CROSSLINE_START_X: '0'
+                    CROSSLINE_START_Y: '250'
+                    CROSSLINE_END_X: '700'
+                    CROSSLINE_END_Y: '220'
+                    RESIZE_RATIO: '1.0'
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    ENABLE_SCREEN_DES: 'false'
+            ba_crossline___yolo___test_ba_crossline_rtsp_rtmp_mqtt:
+              summary: 'Ba Crossline - Yolo - Test: Ba Crossline Rtsp Rtmp Mqtt'
+              value:
+                name: ba_crossline_rtsp_rtmp_mqtt_test
+                group: test
+                solution: ba_crossline
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    CROSSLINE_START_X: '0'
+                    CROSSLINE_START_Y: '250'
+                    CROSSLINE_END_X: '700'
+                    CROSSLINE_END_Y: '220'
+                    RESIZE_RATIO: '1.0'
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_crossline_stream
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+            ba_crossline___yolo___test_ba_crossline_rtsp_screen_mqtt:
+              summary: 'Ba Crossline - Yolo - Test: Ba Crossline Rtsp Screen Mqtt'
+              value:
+                name: ba_crossline_rtsp_mqtt_test
+                group: test
+                solution: ba_crossline
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    CROSSLINE_START_X: '0'
+                    CROSSLINE_START_Y: '250'
+                    CROSSLINE_END_X: '700'
+                    CROSSLINE_END_Y: '220'
+                    RESIZE_RATIO: '1.0'
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_crossline/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+            ba_jam___ba_jam_file_mqtt:
+              summary: Ba Jam - Ba Jam File Mqtt
+              value:
+                name: ba_jam_file_mqtt_demo
+                group: demo
+                solution: ba_jam
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_jam/events
+                  JamZones: '[{"id":"zone1","name":"Front Lane","coordinates":[{"x":100,"y":300},{"x":700,"y":300},{"x":700,"y":400},{"x":100,"y":400}],"min_frames_stopped":30}]'
+            ba_jam___ba_jam_multiple_rtsp:
+              summary: Ba Jam - Ba Jam Multiple Rtsp
+              value:
+                name: ba_jam_multiple_rtsp_demo
+                group: demo
+                solution: ba_jam
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_URLS: '["rtsp://camera1.example.com:8554/stream1", "rtsp://camera2.example.com:8554/stream2"]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                  JamZones: '[{"id":"zone1","name":"Camera 1 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Camera
+                    2 Jam Zone","roi":[{"x":12,"y":353},{"x":472,"y":108},{"x":581,"y":100},{"x":732,"y":399}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10}]'
+            ba_jam___ba_jam_multiple_rtsp_advanced:
+              summary: Ba Jam - Ba Jam Multiple Rtsp Advanced
+              value:
+                name: ba_jam_multiple_rtsp_advanced_demo
+                group: demo
+                solution: ba_jam
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_URLS: '[{"rtsp_url":"rtsp://camera1.example.com:8554/stream1","channel":0,"resize_ratio":0.6,"gst_decoder_name":"avdec_h264","codec_type":"h264"},{"rtsp_url":"rtsp://camera2.example.com:8554/stream2","channel":1,"resize_ratio":0.5,"gst_decoder_name":"avdec_h265","codec_type":"h265"}]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                  JamZones: '[{"id":"zone1","name":"Camera 1 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Camera
+                    2 Jam Zone","roi":[{"x":12,"y":353},{"x":472,"y":108},{"x":581,"y":100},{"x":732,"y":399}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10}]'
+            ba_jam___ba_jam_multiple_sources:
+              summary: Ba Jam - Ba Jam Multiple Sources
+              value:
+                name: ba_jam_multiple_sources_demo
+                group: demo
+                solution: ba_jam
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATHS: '["/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam.mp4", "/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam2.mp4"]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                  JamZones: '[{"id":"zone1","name":"Channel 0 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Channel
+                    1 Jam Zone","roi":[{"x":12,"y":353},{"x":472,"y":108},{"x":581,"y":100},{"x":732,"y":399}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10}]'
+            ba_jam___ba_jam_multiple_sources_advanced:
+              summary: Ba Jam - Ba Jam Multiple Sources Advanced
+              value:
+                name: ba_jam_multiple_sources_advanced_demo
+                group: demo
+                solution: ba_jam
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATHS: '[{"file_path":"/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam.mp4","channel":0,"resize_ratio":0.5},{"file_path":"/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam2.mp4","channel":1,"resize_ratio":0.6}]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                  JamZones: '[{"id":"zone1","name":"Channel 0 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Channel
+                    1 Jam Zone","roi":[{"x":12,"y":353},{"x":472,"y":108},{"x":581,"y":100},{"x":732,"y":399}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10}]'
+            ba_jam___ba_jam_multiple_sources_rtmp:
+              summary: Ba Jam - Ba Jam Multiple Sources Rtmp
+              value:
+                name: ba_jam_multiple_sources_rtmp_demo
+                group: demo
+                solution: ba_jam
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATHS: '["/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam.mp4", "/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam2.mp4"]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_jam_multiple
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_jam_multiple
+                    ENABLE_SCREEN_DES: 'false'
+                  JamZones: '[{"id":"zone1","name":"Channel 0 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Channel
+                    1 Jam Zone","roi":[{"x":12,"y":353},{"x":472,"y":108},{"x":581,"y":100},{"x":732,"y":399}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10}]'
+            ba_jam___ba_jam_rtmp:
+              summary: Ba Jam - Ba Jam Rtmp
+              value:
+                name: ba_jam_demo_rtmp
+                group: demo
+                solution: ba_jam
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_jam_demo
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_jam_demo
+                    ENABLE_SCREEN_DES: 'false'
+                  JamZones: '[{"id":"zone1","name":"Front Lane","coordinates":[{"x":100,"y":300},{"x":700,"y":300},{"x":700,"y":400},{"x":100,"y":400}],"min_frames_stopped":30}]'
+            ba_jam___report_body_example:
+              summary: Ba Jam - Report Body Example
+              value:
+                events:
+                - type: jam_detected
+                  label: Jam Detected
+                  zone_id: zone1
+                  zone_name: Front Lane
+                  extra:
+                    track_id: 123
+                    class: Vehicle
+                    duration_frames: 45
+                frame_id: 34585
+                frame_time: 1383400.0
+                system_date: Sun Dec 28 10:49:10 2025
+                system_timestamp: '1766893750712'
+                instance_id: example_ba_jam_instance
+                instance_name: ba_jam_demo_rtmp
+            ba_jam___test_rtsp_source_rtmp_mqtt:
+              summary: 'Ba Jam - Test: Rtsp Source Rtmp Mqtt'
+              value:
+                name: ba_jam_rtsp_rtmp_mqtt_test
+                group: test
+                solution: ba_jam
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    TRT_PATH: ../../cvedix_data/models/vehicle/vehicle_v8.5.trt
+                    JAM_REGION_X_1: '20'
+                    JAM_REGION_Y_1: '360'
+                    JAM_REGION_X_2: '400'
+                    JAM_REGION_Y_2: '250'
+                    JAM_REGION_X_3: '535'
+                    JAM_REGION_Y_3: '250'
+                    JAM_REGION_X_4: '555'
+                    JAM_REGION_Y_4: '560'
+                    JAM_REGION_X_5: '30'
+                    JAM_REGION_Y_5: '550'
+                    RESIZE_RATIO: '1.0'
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_jam_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_jam_stream
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_jam/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+                  JamZones: '[{"id":"zone1","name":"Front Lane","coordinates":[{"x":100,"y":300},{"x":700,"y":300},{"x":700,"y":400},{"x":100,"y":400}],"min_frames_stopped":30}]'
+            ba_stop___ba_stop_file_mqtt:
+              summary: Ba Stop - Ba Stop File Mqtt
+              value:
+                name: ba_stop_file_mqtt_demo
+                group: demo
+                solution: ba_stop
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_stop/events
+                  StopLines: '[{"id":"stop1","name":"Entrance Stop","coordinates":[{"x":200,"y":350},{"x":900,"y":350}],"min_frames_stopped":20}]'
+            ba_stop___ba_stop_multiple_rtsp:
+              summary: Ba Stop - Ba Stop Multiple Rtsp
+              value:
+                name: ba_stop_multiple_rtsp_demo
+                group: demo
+                solution: ba_stop
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_URLS: '["rtsp://camera1.example.com:8554/stream1", "rtsp://camera2.example.com:8554/stream2"]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                  StopZones: '[{"id":"zone1","name":"Camera 1 Stop Zone","roi":[{"x":20,"y":30},{"x":600,"y":40},{"x":600,"y":300},{"x":10,"y":300}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5},{"id":"zone2","name":"Camera
+                    2 Stop Zone","roi":[{"x":20,"y":30},{"x":1000,"y":40},{"x":1000,"y":600},{"x":10,"y":600}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5}]'
+            ba_stop___ba_stop_multiple_sources:
+              summary: Ba Stop - Ba Stop Multiple Sources
+              value:
+                name: ba_stop_multiple_sources_demo
+                group: demo
+                solution: ba_stop
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATHS: '["/home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_stop.mp4", "/home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_stop.mp4"]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                  StopZones: '[{"id":"zone1","name":"Channel 0 Stop Zone","roi":[{"x":20,"y":30},{"x":600,"y":40},{"x":600,"y":300},{"x":10,"y":300}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5},{"id":"zone2","name":"Channel
+                    1 Stop Zone","roi":[{"x":20,"y":30},{"x":1000,"y":40},{"x":1000,"y":600},{"x":10,"y":600}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5}]'
+            ba_stop___ba_stop_multiple_sources_advanced:
+              summary: Ba Stop - Ba Stop Multiple Sources Advanced
+              value:
+                name: ba_stop_multiple_sources_advanced_demo
+                group: demo
+                solution: ba_stop
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATHS: '[{"file_path":"/home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_stop.mp4","channel":0,"resize_ratio":0.6},{"file_path":"/home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle_stop.mp4","channel":1,"resize_ratio":0.6}]'
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    ENABLE_SCREEN_DES: 'false'
+                  StopZones: '[{"id":"zone1","name":"Channel 0 Stop Zone","roi":[{"x":20,"y":30},{"x":600,"y":40},{"x":600,"y":300},{"x":10,"y":300}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5},{"id":"zone2","name":"Channel
+                    1 Stop Zone","roi":[{"x":20,"y":30},{"x":1000,"y":40},{"x":1000,"y":600},{"x":10,"y":600}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5}]'
+            ba_stop___ba_stop_rtmp:
+              summary: Ba Stop - Ba Stop Rtmp
+              value:
+                name: ba_stop_demo_rtmp
+                group: demo
+                solution: ba_stop
+                autoStart: false
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_stop_demo
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_stop_demo
+                    ENABLE_SCREEN_DES: 'false'
+                  StopLines: '[{"id":"stop1","name":"Entrance Stop","coordinates":[{"x":200,"y":350},{"x":900,"y":350}],"min_frames_stopped":20}]'
+            ba_stop___report_body_example:
+              summary: Ba Stop - Report Body Example
+              value:
+                events:
+                - type: stop_detected
+                  label: Stop Detected
+                  line_id: stop1
+                  line_name: Entrance Stop
+                  extra:
+                    track_id: 99
+                    class: Vehicle
+                    duration_frames: 25
+                frame_id: 12345
+                frame_time: 998800.0
+                system_date: Sun Dec 28 10:49:10 2025
+                system_timestamp: '1766893750712'
+                instance_id: example_ba_stop_instance
+                instance_name: ba_stop_demo_rtmp
+            ba_stop___test_rtsp_source_rtmp_mqtt:
+              summary: 'Ba Stop - Test: Rtsp Source Rtmp Mqtt'
+              value:
+                name: ba_stop_rtsp_rtmp_mqtt_test
+                group: test
+                solution: ba_stop
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    WEIGHTS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    RESIZE_RATIO: '1.0'
+                    GST_DECODER_NAME: avdec_h264
+                    SKIP_INTERVAL: '0'
+                    CODEC_TYPE: h264
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/ba_stop_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/ba_stop_stream
+                    ENABLE_SCREEN_DES: 'false'
+                    BROKE_FOR: NORMAL
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: ba_stop/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '2000'
+                  StopLines: '[{"id":"stop1","name":"Entrance Stop","coordinates":[{"x":200,"y":350},{"x":900,"y":350}],"min_frames_stopped":20}]'
+            face_detection___onnx___face_detection_rtmp:
+              summary: Face Detection - Onnx - Face Detection Rtmp
+              value:
+                name: face_detection_demo_1
+                group: demo
+                solution: face_detection
+                persistent: true
+                autoStart: false
+                detectionSensitivity: Low
+                additionalParams:
+                  input:
+                    FILE_PATH: /opt/edge_ai_api/videos/face.mp4
+                    MODEL_PATH: /opt/edge_ai_api/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: /opt/edge_ai_api/models/face/face_recognition_sface_2021dec.onnx
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/camera_demo_1
+                    RTMP_DES_URL: rtmp://localhost:1935/live/camera_demo_1
+            face_detection___onnx___report_body_example:
+              summary: Face Detection - Onnx - Report Body Example
+              value:
+                events:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  instance_id: face_detection_mqtt_test
+                  frame_id: 1234
+                  frame_time: 41.23
+                  type: face_detected
+                  label: Face detected
+                  date: Mon Jan 15 14:30:25 2025
+                  system_date: '2025-01-15T07:30:25Z'
+                  system_timestamp: '1736940625000'
+                  best_thumbnail:
+                    confidence: 0.95
+                    image: base64_encoded_image_string
+                    position:
+                      x: 0.25
+                      y: 0.3
+                      width: 0.15
+                      height: 0.2
+                    timestamp: 41.23
+                  extra:
+                    bbox:
+                      x: 0.25
+                      y: 0.3
+                      width: 0.15
+                      height: 0.2
+                    class: Face
+                    track_id: FaceTracker_1234
+                    confidence: 0.95
+                    landmarks:
+                    - x: 0.28
+                      y: 0.35
+                    - x: 0.32
+                      y: 0.35
+                    - x: 0.3
+                      y: 0.38
+                    - x: 0.27
+                      y: 0.42
+                    - x: 0.33
+                      y: 0.42
+                  image: base64_encoded_full_frame_string
+                  tracks:
+                  - track_id: FaceTracker_1234
+                    bbox:
+                      x: 0.25
+                      y: 0.3
+                      width: 0.15
+                      height: 0.2
+                    confidence: 0.95
+                    class: Face
+                frame_id: 1234
+                frame_time: 41.23
+                system_date: Mon Jan 15 14:30:25 2025
+                system_timestamp: '1736940625000'
+            face_detection___onnx___test_file_source:
+              summary: 'Face Detection - Onnx - Test: File Source'
+              value:
+                name: face_detection_file_test
+                group: test
+                solution: face_detection
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/face.mp4
+                    MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+            face_detection___onnx___test_mqtt_events:
+              summary: 'Face Detection - Onnx - Test: Mqtt Events'
+              value:
+                name: face_detection_mqtt_test
+                group: test
+                solution: face_detection
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/face.mp4
+                    MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+                    BROKE_FOR: FACE
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: face_detection/events
+                    MQTT_USERNAME: ''
+                    MQTT_PASSWORD: ''
+                    MQTT_RATE_LIMIT_MS: '1000'
+            face_detection___onnx___test_rtmp_output:
+              summary: 'Face Detection - Onnx - Test: Rtmp Output'
+              value:
+                name: face_detection_rtmp_test
+                group: test
+                solution: face_detection
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/face.mp4
+                    MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/face_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/face_stream
+                    ENABLE_SCREEN_DES: 'false'
+            face_detection___onnx___test_rtsp_source:
+              summary: 'Face Detection - Onnx - Test: Rtsp Source'
+              value:
+                name: face_detection_rtsp_test
+                group: test
+                solution: face_detection
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_SRC_URL: rtsp://localhost:8554/mystream
+                    MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+            infer_nodes___caffe___openpose:
+              summary: Infer Nodes - Caffe - Openpose
+              value:
+                name: openpose_demo
+                group: pose
+                solution: openpose_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Low
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/pose.mp4
+                    MODEL_PATH: ./cvedix_data/models/openpose/pose_iter_440000.caffemodel
+                    MODEL_CONFIG_PATH: ./cvedix_data/models/openpose/pose_deploy.prototxt
+                    INPUT_WIDTH: '368'
+                    INPUT_HEIGHT: '368'
+                    SCORE_THRESHOLD: '0.1'
+            infer_nodes___other___app_src:
+              summary: Infer Nodes - Other - App Src
+              value:
+                name: app_src_demo
+                group: source
+                solution: app_source_detection
+                persistent: true
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    CHANNEL: '0'
+            infer_nodes___other___ba_socket_broker:
+              summary: Infer Nodes - Other - Ba Socket Broker
+              value:
+                name: ba_socket_broker_demo
+                group: broker
+                solution: detection_with_ba_socket_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/vehicle.mp4
+                    MODEL_PATH: ./cvedix_data/models/trt/vehicle/vehicle_v8.5.trt
+                    BA_SOCKET_IP: 127.0.0.1
+                    BA_SOCKET_PORT: '8080'
+                  output:
+                    BROKE_FOR: NORMAL
+            infer_nodes___other___classifier:
+              summary: Infer Nodes - Other - Classifier
+              value:
+                name: classifier_demo
+                group: classification
+                solution: classifier
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/classification.mp4
+                    MODEL_PATH: ./cvedix_data/models/classification/resnet50.onnx
+                    LABELS_PATH: ./cvedix_data/models/imagenet_classes.txt
+                    INPUT_WIDTH: '224'
+                    INPUT_HEIGHT: '224'
+                    BATCH_SIZE: '1'
+                    NEED_SOFTMAX: 'true'
+            infer_nodes___other___embeddings_socket_broker:
+              summary: Infer Nodes - Other - Embeddings Socket Broker
+              value:
+                name: embeddings_socket_broker_demo
+                group: broker
+                solution: face_detection_with_embeddings_socket_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    EMBEDDINGS_SOCKET_IP: 127.0.0.1
+                    EMBEDDINGS_SOCKET_PORT: '8080'
+                    CROPPED_DIR: cropped_images
+                    MIN_CROP_WIDTH: '50'
+                    MIN_CROP_HEIGHT: '50'
+                    ONLY_FOR_TRACKED: 'false'
+                  output:
+                    BROKE_FOR: FACE
+            infer_nodes___other___enet_segmentation:
+              summary: Infer Nodes - Other - Enet Segmentation
+              value:
+                name: enet_segmentation_demo
+                group: segmentation
+                solution: enet_segmentation
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Low
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/enet_seg.mp4
+                    MODEL_PATH: ./cvedix_data/models/enet-cityscapes/enet-model.net
+                    MODEL_CONFIG_PATH: ''
+                    LABELS_PATH: ./cvedix_data/models/enet-cityscapes/enet-classes.txt
+                    INPUT_WIDTH: '1024'
+                    INPUT_HEIGHT: '512'
+            infer_nodes___other___image_src:
+              summary: Infer Nodes - Other - Image Src
+              value:
+                name: image_src_demo
+                group: source
+                solution: image_source_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    IMAGE_SRC_PORT_OR_LOCATION: ./cvedix_data/test_images/vehicle/%d.jpg
+                    RESIZE_RATIO: '0.4'
+                    MODEL_PATH: ./cvedix_data/models/trt/vehicle/vehicle_v8.5.trt
+                    INTERVAL: '1'
+                    CYCLE: 'true'
+            infer_nodes___other___json_console_broker:
+              summary: Infer Nodes - Other - Json Console Broker
+              value:
+                name: json_console_broker_demo
+                group: broker
+                solution: face_detection_with_json_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                  output:
+                    BROKE_FOR: FACE
+            infer_nodes___other___json_kafka_broker:
+              summary: Infer Nodes - Other - Json Kafka Broker
+              value:
+                name: json_kafka_broker_demo
+                group: broker
+                solution: face_detection_with_kafka_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    KAFKA_SERVERS: 192.168.77.87:9092
+                    KAFKA_TOPIC: videopipe_topic
+                  output:
+                    BROKE_FOR: FACE
+            infer_nodes___other___json_mqtt_broker:
+              summary: Infer Nodes - Other - Json Mqtt Broker
+              value:
+                name: json_mqtt_broker_demo
+                group: broker
+                solution: face_detection_with_mqtt_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                  output:
+                    BROKE_FOR: FACE
+                    MQTT_BROKER_URL: localhost
+                    MQTT_PORT: '1883'
+                    MQTT_TOPIC: events
+            infer_nodes___other___lane_detector:
+              summary: Infer Nodes - Other - Lane Detector
+              value:
+                name: lane_detector_demo
+                group: lane
+                solution: lane_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/lane.mp4
+                    MODEL_PATH: ./cvedix_data/models/lane/lane_detection.onnx
+                    INPUT_WIDTH: '736'
+                    INPUT_HEIGHT: '416'
+            infer_nodes___other___msg_broker:
+              summary: Infer Nodes - Other - Msg Broker
+              value:
+                name: msg_broker_demo
+                group: broker
+                solution: detection_with_msg_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                  output:
+                    BROKE_FOR: FACE
+            infer_nodes___other___plate_socket_broker:
+              summary: Infer Nodes - Other - Plate Socket Broker
+              value:
+                name: plate_socket_broker_demo
+                group: broker
+                solution: plate_detection_with_socket_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/plate.mp4
+                    DET_MODEL_PATH: ./cvedix_data/models/trt/plate/det_v8.5.trt
+                    REC_MODEL_PATH: ./cvedix_data/models/trt/plate/rec_v8.5.trt
+                    PLATE_SOCKET_IP: 127.0.0.1
+                    PLATE_SOCKET_PORT: '8080'
+                    PLATES_DIR: plate_images
+                    MIN_CROP_WIDTH: '100'
+                    ONLY_FOR_TRACKED: 'true'
+                  output:
+                    BROKE_FOR: NORMAL
+            infer_nodes___other___restoration:
+              summary: Infer Nodes - Other - Restoration
+              value:
+                name: restoration_demo
+                group: restoration
+                solution: restoration
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Low
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/low_quality.mp4
+                    BG_RESTORATION_MODEL: ./cvedix_data/models/restoration/RealESRGAN_x4plus.onnx
+                    FACE_RESTORATION_MODEL: ./cvedix_data/models/restoration/GFPGANv1.4.onnx
+                    RESTORATION_TO_OSD: 'true'
+            infer_nodes___other___rtmp_src:
+              summary: Infer Nodes - Other - Rtmp Src
+              value:
+                name: rtmp_src_demo
+                group: source
+                solution: rtmp_source_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTMP_SRC_URL: rtmp://localhost:1935/live/stream
+                    RESIZE_RATIO: '1.0'
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SKIP_INTERVAL: '0'
+            infer_nodes___other___udp_src:
+              summary: Infer Nodes - Other - Udp Src
+              value:
+                name: udp_src_demo
+                group: source
+                solution: udp_source_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RESIZE_RATIO: '1.0'
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    UDP_PORT: '6000'
+                    SKIP_INTERVAL: '0'
+            infer_nodes___other___xml_file_broker:
+              summary: Infer Nodes - Other - Xml File Broker
+              value:
+                name: xml_file_broker_demo
+                group: broker
+                solution: face_detection_with_xml_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    XML_FILE_PATH: ./output/broker_output.xml
+                  output:
+                    BROKE_FOR: FACE
+            infer_nodes___other___xml_socket_broker:
+              summary: Infer Nodes - Other - Xml Socket Broker
+              value:
+                name: xml_socket_broker_demo
+                group: broker
+                solution: face_detection_with_xml_socket_broker
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+                    XML_SOCKET_IP: 127.0.0.1
+                    XML_SOCKET_PORT: '8080'
+                  output:
+                    BROKE_FOR: FACE
+            infer_nodes___rknn___rknn_face_detector:
+              summary: Infer Nodes - Rknn - Rknn Face Detector
+              value:
+                name: rknn_face_detector_demo
+                group: face
+                solution: rknn_face_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face_multis.mp4
+                    MODEL_PATH: ./cvedix_data/models/face/yolov8n_face_detection.rknn
+                    SCORE_THRESHOLD: '0.5'
+                    INPUT_WIDTH: '640'
+                    INPUT_HEIGHT: '640'
+                    NMS_THRESHOLD: '0.5'
+                    NUM_CLASSES: '1'
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/rknn_face
+                    RTMP_DES_URL: rtmp://localhost:1935/live/rknn_face
+            infer_nodes___tensorflow___mask_rcnn:
+              summary: Infer Nodes - Tensorflow - Mask Rcnn
+              value:
+                name: mask_rcnn_demo
+                group: segmentation
+                solution: mask_rcnn_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/object.mp4
+                    MODEL_PATH: ./cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco.pb
+                    MODEL_CONFIG_PATH: ./cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco.pbtxt
+                    LABELS_PATH: ./cvedix_data/models/coco_80classes.txt
+                    INPUT_WIDTH: '416'
+                    INPUT_HEIGHT: '416'
+                    SCORE_THRESHOLD: '0.5'
+            infer_nodes___tensorrt___trt_vehicle_detector:
+              summary: Infer Nodes - Tensorrt - Trt Vehicle Detector
+              value:
+                name: vehicle_detector_demo
+                group: vehicle
+                solution: trt_vehicle_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/plate.mp4
+                    MODEL_PATH: ./cvedix_data/models/trt/vehicle/vehicle_v8.5.trt
+            infer_nodes___tensorrt___trt_vehicle_plate_detector:
+              summary: Infer Nodes - Tensorrt - Trt Vehicle Plate Detector
+              value:
+                name: vehicle_plate_detector_demo
+                group: vehicle
+                solution: trt_vehicle_plate_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/plate.mp4
+                    DET_MODEL_PATH: ./cvedix_data/models/trt/plate/det_v8.5.trt
+                    REC_MODEL_PATH: ./cvedix_data/models/trt/plate/rec_v8.5.trt
+            infer_nodes___tensorrt___trt_yolov8_detector:
+              summary: Infer Nodes - Tensorrt - Trt Yolov8 Detector
+              value:
+                name: yolov8_detector_demo
+                group: detection
+                solution: trt_yolov8_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    MODEL_PATH: ./cvedix_data/models/trt/others/yolov8s_v8.5.engine
+                    LABELS_PATH: ./cvedix_data/models/coco_80classes.txt
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/yolov8_detector
+                    RTMP_DES_URL: rtmp://localhost:1935/live/yolov8_detector
+            infer_nodes___tensorrt___trt_yolov8_pose:
+              summary: Infer Nodes - Tensorrt - Trt Yolov8 Pose
+              value:
+                name: yolov8_pose_demo
+                group: pose
+                solution: trt_yolov8_pose
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face2.mp4
+                    MODEL_PATH: ./cvedix_data/models/trt/others/yolov8s-pose_v8.5.engine
+            infer_nodes___tensorrt___trt_yolov8_segmentation:
+              summary: Infer Nodes - Tensorrt - Trt Yolov8 Segmentation
+              value:
+                name: yolov8_segmentation_demo
+                group: segmentation
+                solution: trt_yolov8_segmentation
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/face2.mp4
+                    MODEL_PATH: ./cvedix_data/models/trt/others/yolov8s-seg_v8.5.engine
+                    LABELS_PATH: ./cvedix_data/models/coco_80classes.txt
+            infer_nodes___yolo___yolo_detector:
+              summary: Infer Nodes - Yolo - Yolo Detector
+              value:
+                name: yolo_detector_demo
+                group: detection
+                solution: yolo_detection
+                persistent: true
+                autoStart: true
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    MODEL_PATH: ./cvedix_data/models/yolo/yolov3.weights
+                    MODEL_CONFIG_PATH: ./cvedix_data/models/yolo/yolov3.cfg
+                    LABELS_PATH: ./cvedix_data/models/coco_80classes.txt
+                    INPUT_WIDTH: '416'
+                    INPUT_HEIGHT: '416'
+                    SCORE_THRESHOLD: '0.5'
+                    CONFIDENCE_THRESHOLD: '0.5'
+                    NMS_THRESHOLD: '0.5'
+            mask_rcnn___tensorflow___mask_rcnn_rtmp:
+              summary: Mask Rcnn - Tensorflow - Mask Rcnn Rtmp
+              value:
+                name: mask_rcnn_rtmp_demo
+                group: segmentation
+                solution: mask_rcnn_rtmp
+                persistent: true
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: ./cvedix_data/test_video/mask_rcnn.mp4
+                    MODEL_PATH: ./cvedix_data/models/mask_rcnn/frozen_inference_graph.pb
+                    MODEL_CONFIG_PATH: ./cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt
+                    LABELS_PATH: ./cvedix_data/models/coco_80classes.txt
+                    INPUT_WIDTH: '416'
+                    INPUT_HEIGHT: '416'
+                    SCORE_THRESHOLD: '0.5'
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/mask_rcnn_demo
+                    RTMP_DES_URL: rtmp://localhost:1935/live/mask_rcnn_demo
+            mask_rcnn___tensorflow___report_body_example:
+              summary: Mask Rcnn - Tensorflow - Report Body Example
+              value:
+                events:
+                - id: 550e8400-e29b-41d4-a716-446655440002
+                  instance_id: mask_rcnn_file_test
+                  frame_id: 3456
+                  frame_time: 115.2
+                  type: object_detected
+                  label: Person detected
+                  date: Mon Jan 15 14:32:15 2025
+                  system_date: '2025-01-15T07:32:15Z'
+                  system_timestamp: '1736940735000'
+                  best_thumbnail:
+                    confidence: 0.92
+                    image: base64_encoded_image_string
+                    position:
+                      x: 0.2
+                      y: 0.15
+                      width: 0.25
+                      height: 0.5
+                    timestamp: 115.2
+                  extra:
+                    bbox:
+                      x: 0.2
+                      y: 0.15
+                      width: 0.25
+                      height: 0.5
+                    class: person
+                    class_id: 1
+                    confidence: 0.92
+                    track_id: ObjectTracker_456
+                    mask: base64_encoded_mask_string
+                  image: base64_encoded_full_frame_string
+                  tracks:
+                  - track_id: ObjectTracker_456
+                    bbox:
+                      x: 0.2
+                      y: 0.15
+                      width: 0.25
+                      height: 0.5
+                    confidence: 0.92
+                    class: person
+                    class_id: 1
+                    mask: base64_encoded_mask_string
+                - id: 550e8400-e29b-41d4-a716-446655440003
+                  instance_id: mask_rcnn_file_test
+                  frame_id: 3456
+                  frame_time: 115.2
+                  type: object_detected
+                  label: Car detected
+                  date: Mon Jan 15 14:32:15 2025
+                  system_date: '2025-01-15T07:32:15Z'
+                  system_timestamp: '1736940735000'
+                  best_thumbnail:
+                    confidence: 0.88
+                    image: base64_encoded_image_string
+                    position:
+                      x: 0.6
+                      y: 0.5
+                      width: 0.3
+                      height: 0.25
+                    timestamp: 115.2
+                  extra:
+                    bbox:
+                      x: 0.6
+                      y: 0.5
+                      width: 0.3
+                      height: 0.25
+                    class: car
+                    class_id: 3
+                    confidence: 0.88
+                    track_id: ObjectTracker_457
+                    mask: base64_encoded_mask_string
+                  image: base64_encoded_full_frame_string
+                  tracks:
+                  - track_id: ObjectTracker_457
+                    bbox:
+                      x: 0.6
+                      y: 0.5
+                      width: 0.3
+                      height: 0.25
+                    confidence: 0.88
+                    class: car
+                    class_id: 3
+                    mask: base64_encoded_mask_string
+                frame_id: 3456
+                frame_time: 115.2
+                system_date: Mon Jan 15 14:32:15 2025
+                system_timestamp: '1736940735000'
+            mask_rcnn___tensorflow___test_file_source:
+              summary: 'Mask Rcnn - Tensorflow - Test: File Source'
+              value:
+                name: mask_rcnn_file_test
+                group: test
+                solution: mask_rcnn_detection
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/mask_rcnn.mp4
+                    MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/mask_rcnn/frozen_inference_graph.pb
+                    MODEL_CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/coco_80classes.txt
+                    INPUT_WIDTH: '416'
+                    INPUT_HEIGHT: '416'
+                    SCORE_THRESHOLD: '0.5'
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    ENABLE_SCREEN_DES: 'true'
+            mask_rcnn___tensorflow___test_rtmp_output:
+              summary: 'Mask Rcnn - Tensorflow - Test: Rtmp Output'
+              value:
+                name: mask_rcnn_rtmp_test
+                group: test
+                solution: mask_rcnn_rtmp
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    FILE_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/test_video/mask_rcnn.mp4
+                    MODEL_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/mask_rcnn/frozen_inference_graph.pb
+                    MODEL_CONFIG_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt
+                    LABELS_PATH: /home/cvedix/project/edge_ai_api/cvedix_data/models/coco_80classes.txt
+                    INPUT_WIDTH: '416'
+                    INPUT_HEIGHT: '416'
+                    SCORE_THRESHOLD: '0.5'
+                    RESIZE_RATIO: '1.0'
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/mask_rcnn_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/mask_rcnn_stream
+                    ENABLE_SCREEN_DES: 'false'
+            other_solutions___onnx___face_swap:
+              summary: Other Solutions - Onnx - Face Swap
+              value:
+                name: face_swap_demo_1
+                group: demo
+                solution: face_swap
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    FACE_DETECTION_MODEL_PATH: /opt/cvedix/models/face/yunet.onnx
+                    BUFFALO_L_FACE_ENCODING_MODEL: /opt/cvedix/models/face/buffalo_l.onnx
+                    EMAP_FILE_FOR_EMBEDDINGS: /opt/cvedix/models/face/emap.onnx
+                    FACE_SWAP_MODEL_PATH: /opt/cvedix/models/face/face_swap.onnx
+                    SWAP_SOURCE_IMAGE: /opt/cvedix/models/face/source_face.jpg
+                  output:
+                    RTMP_URL: rtmp://localhost:1935/live/face_swap_stream
+                    RTMP_DES_URL: rtmp://localhost:1935/live/face_swap_stream
+            other_solutions___onnx___insightface_recognition:
+              summary: Other Solutions - Onnx - Insightface Recognition
+              value:
+                name: insightface_recognition_demo_1
+                group: demo
+                solution: insightface_recognition
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    FACE_DETECTION_MODEL_PATH: /opt/cvedix/models/face/yunet.onnx
+                    FACE_RECOGNITION_MODEL_PATH: /opt/cvedix/models/face/insightface.onnx
+                    SAVE_DIR: /tmp/output/insightface_recognition
+            other_solutions___onnx___yolov11_detection:
+              summary: Other Solutions - Onnx - Yolov11 Detection
+              value:
+                name: yolov11_detection_demo_1
+                group: demo
+                solution: yolov11_detection
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    MODEL_PATH: /opt/cvedix/models/yolov11/yolov11n.onnx
+                    SAVE_DIR: /tmp/output/yolov11_detection
+            other_solutions___other___mllm_analysis:
+              summary: Other Solutions - Other - Mllm Analysis
+              value:
+                name: mllm_analysis_demo_1
+                group: demo
+                solution: mllm_analysis
+                persistent: false
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    MODEL_NAME: llava
+                    API_BASE_URL: http://localhost:11434
+                    PROMPT: Describe what you see in this image. Focus on objects, people, and activities.
+                    API_KEY: ''
+                    BACKEND_TYPE: ollama
+            other_solutions___rknn___rknn_yolov11_detection:
+              summary: Other Solutions - Rknn - Rknn Yolov11 Detection
+              value:
+                name: rknn_yolov11_detection_demo_1
+                group: demo
+                solution: rknn_yolov11_detection
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    MODEL_PATH: /opt/cvedix/models/yolov11/yolov11n.rknn
+                    SAVE_DIR: /tmp/output/rknn_yolov11_detection
+            other_solutions___tensorrt___full_config:
+              summary: Other Solutions - Tensorrt - Full Config
+              value:
+                name: CAMERA FACE
+                group: security
+                solution: securt
+                persistent: true
+                autoStart: false
+                detectionSensitivity: High
+                detectorMode: FullRegionInference
+                performanceMode: Balanced
+                frameRateLimit: 15
+                recommendedFrameRate: 5
+                inputPixelLimit: 2000000
+                metadataMode: true
+                statisticsMode: true
+                diagnosticsMode: false
+                debugMode: false
+                detectorModelFile: pva_det_full_frame_512
+                animalConfidenceThreshold: 0.3
+                personConfidenceThreshold: 0.3
+                vehicleConfidenceThreshold: 0.3
+                faceConfidenceThreshold: 0.1
+                licensePlateConfidenceThreshold: 0.1
+                confThreshold: 0.2
+                detectorThermalModelFile: pva_det_mosaic_320
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/live/vanphong
+                    MODEL_PATH: ./cvedix_data/models/detection/pva_det_full_frame_512.trt
+            other_solutions___tensorrt___trt_insightface_recognition:
+              summary: Other Solutions - Tensorrt - Trt Insightface Recognition
+              value:
+                name: trt_insightface_recognition_demo_1
+                group: demo
+                solution: trt_insightface_recognition
+                persistent: false
+                autoStart: false
+                detectionSensitivity: Medium
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    FACE_DETECTION_MODEL_PATH: /opt/cvedix/models/face/yunet.onnx
+                    FACE_RECOGNITION_MODEL_PATH: /opt/cvedix/models/face/insightface.trt
+                    SAVE_DIR: /tmp/output/trt_insightface_recognition
+            tests___test_set_config_examples:
+              summary: 'Tests - Test: Set Config Examples'
+              value:
+                examples:
+                - description: Đặt DisplayName (chuỗi)
+                  path: DisplayName
+                  jsonValue: '"face_detection_demo_1_updated"'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"DisplayName","jsonValue":"\"face_detection_demo_1_updated\""}'''
+                - description: Đặt ngưỡng tin cậy Detector (số)
+                  path: Detector/conf_threshold
+                  jsonValue: '0.5'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/conf_threshold","jsonValue":"0.5"}'''
+                - description: Đặt ngưỡng tin cậy face (số)
+                  path: Detector/face_confidence_threshold
+                  jsonValue: '0.2'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/face_confidence_threshold","jsonValue":"0.2"}'''
+                - description: Đặt ngưỡng tin cậy person (số)
+                  path: Detector/person_confidence_threshold
+                  jsonValue: '0.4'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/person_confidence_threshold","jsonValue":"0.4"}'''
+                - description: Đặt ngưỡng tin cậy vehicle (số)
+                  path: Detector/vehicle_confidence_threshold
+                  jsonValue: '0.4'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/vehicle_confidence_threshold","jsonValue":"0.4"}'''
+                - description: Đặt ngưỡng tin cậy animal (số)
+                  path: Detector/animal_confidence_threshold
+                  jsonValue: '0.4'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/animal_confidence_threshold","jsonValue":"0.4"}'''
+                - description: Đặt ngưỡng tin cậy biển số (số)
+                  path: Detector/license_plate_confidence_threshold
+                  jsonValue: '0.2'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/license_plate_confidence_threshold","jsonValue":"0.2"}'''
+                - description: Đặt sensitivity preset (chuỗi)
+                  path: Detector/current_sensitivity_preset
+                  jsonValue: '"High"'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/current_sensitivity_preset","jsonValue":"\"High\""}'''
+                - description: Đặt detector preset (chuỗi)
+                  path: Detector/current_preset
+                  jsonValue: '"FullRegionInference"'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/current_preset","jsonValue":"\"FullRegionInference\""}'''
+                - description: Đặt file model (chuỗi)
+                  path: Detector/model_file
+                  jsonValue: '"pva_det_mosaic_320"'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/model_file","jsonValue":"\"pva_det_mosaic_320\""}'''
+                - description: Đặt AutoStart (boolean)
+                  path: AutoStart
+                  jsonValue: 'false'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"AutoStart","jsonValue":"false"}'''
+                - description: Đặt RTSP handler enabled (boolean lồng nhau)
+                  path: Output/handlers/rtsp:--0.0.0.0:8554-stream1/enabled
+                  jsonValue: 'true'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Output/handlers/rtsp:--0.0.0.0:8554-stream1/enabled","jsonValue":"true"}'''
+                - description: Đặt RTSP handler FPS (số lồng nhau)
+                  path: Output/handlers/rtsp:--0.0.0.0:8554-stream1/config/fps
+                  jsonValue: '15'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Output/handlers/rtsp:--0.0.0.0:8554-stream1/config/fps","jsonValue":"15"}'''
+                - description: Đặt giới hạn frame rate (số)
+                  path: SolutionManager/frame_rate_limit
+                  jsonValue: '20'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/frame_rate_limit","jsonValue":"20"}'''
+                - description: Đặt frame rate khuyến nghị (số)
+                  path: SolutionManager/recommended_frame_rate
+                  jsonValue: '10'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/recommended_frame_rate","jsonValue":"10"}'''
+                - description: Đặt giới hạn pixel input (số)
+                  path: SolutionManager/input_pixel_limit
+                  jsonValue: '3000000'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/input_pixel_limit","jsonValue":"3000000"}'''
+                - description: Đặt send metadata (boolean)
+                  path: SolutionManager/send_metadata
+                  jsonValue: 'true'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/send_metadata","jsonValue":"true"}'''
+                - description: Đặt enable debug (boolean)
+                  path: SolutionManager/enable_debug
+                  jsonValue: 'true'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/enable_debug","jsonValue":"true"}'''
+                - description: Đặt performance mode preset (chuỗi)
+                  path: PerformanceMode/current_preset
+                  jsonValue: '"Performance"'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"PerformanceMode/current_preset","jsonValue":"\"Performance\""}'''
+                - description: Đặt object lồng nhau - giá trị preset (JSON object)
+                  path: Detector/preset_values/MosaicInference
+                  jsonValue: '{"Detector/model_file":"pva_det_mosaic_320","Detector/conf_threshold":0.4}'
+                  curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
+                    -H ''Content-Type: application/json'' -d ''{"path":"Detector/preset_values/MosaicInference","jsonValue":"{\"Detector/model_file\":\"pva_det_mosaic_320\",\"Detector/conf_threshold\":0.4}"}'''
+                instance_id: 1a484dc9-81f2-4f4d-a361-00056a6c24b8
+                api_base: http://localhost:8848/v1/core
+            tests___test_wrong_node_order:
+              summary: 'Tests - Test: Wrong Node Order'
+              value:
+                name: test_wrong_order
+                group: test
+                solution: test_wrong_order_solution
+                autoStart: false
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/stream
+                    MODEL_PATH: /opt/cvedix/models/face/yunet.onnx
+                    SAVE_DIR: /tmp/output
+            update___update_change_model_path:
+              summary: Cập nhật - Đổi đường dẫn model
+              value:
+                additionalParams:
+                  input:
+                    MODEL_PATH: /usr/share/cvedix/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    SFACE_MODEL_PATH: /usr/share/cvedix/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
+            update___update_change_name_group:
+              summary: Cập nhật - Đổi tên và nhóm
+              value:
+                name: updated_instance_name
+                group: updated_group_name
+            update___update_change_persistent_autostart:
+              summary: Cập nhật - Đổi Persistent và Autostart
+              value:
+                persistent: true
+                autoStart: true
+                autoRestart: true
+            update___update_change_rtsp_url:
+              summary: Cập nhật - Đổi URL RTSP
+              value:
+                additionalParams:
+                  input:
+                    RTSP_URL: rtsp://localhost:8554/live/new_stream
+            update___update_change_settings:
+              summary: Cập nhật - Đổi cài đặt
+              value:
+                frameRateLimit: 20
+                metadataMode: false
+                statisticsMode: true
+                debugMode: true
+                detectionSensitivity: High
+                movementSensitivity: Medium
+    responses:
+      '201':
+        description: |
+          Instance registered successfully. When a solution is provided, the pipeline is built asynchronously;
+          the response may include **building: true** and **status: "building"**. Poll GET /v1/core/instance/{instanceId}
+          until **status** is **"ready"** before calling Start, or wait for the build to complete.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceInfo'
+            examples:
+              building:
+                summary: Đã tạo instance, đang build pipeline (bất đồng bộ)
+                value:
+                  instanceId: 550e8400-e29b-41d4-a716-446655440000
+                  displayName: Face Detection Camera 1
+                  group: cameras
+                  solutionId: face_detection
+                  solutionName: Face Detection
+                  persistent: true
+                  loaded: false
+                  running: false
+                  building: true
+                  status: building
+                  message: Pipeline is being built in background
+                  fps: 0.0
+                  version: 2025.0.1.2
+                  frameRateLimit: 30
+                  metadataMode: true
+                  statisticsMode: true
+                  diagnosticsMode: false
+                  debugMode: false
+                  readOnly: false
+                  autoStart: true
+                  autoRestart: false
+                  systemInstance: false
+                  inputPixelLimit: 1920
+                  inputOrientation: 0
+                  detectorMode: SmartDetection
+                  detectionSensitivity: Medium
+                  movementSensitivity: Low
+                  sensorModality: RGB
+                  originator:
+                    address: ''
+              ready:
+                summary: Đã tạo instance và pipeline sẵn sàng (hoặc không có solution)
+                value:
+                  instanceId: 550e8400-e29b-41d4-a716-446655440000
+                  displayName: Face Detection Camera 1
+                  group: cameras
+                  solutionId: face_detection
+                  solutionName: Face Detection
+                  persistent: true
+                  loaded: true
+                  running: true
+                  building: false
+                  status: ready
+                  fps: 0.0
+                  version: 2025.0.1.2
+                  frameRateLimit: 30
+                  metadataMode: true
+                  statisticsMode: true
+                  diagnosticsMode: false
+                  debugMode: false
+                  readOnly: false
+                  autoStart: true
+                  autoRestart: false
+                  systemInstance: false
+                  inputPixelLimit: 1920
+                  inputOrientation: 0
+                  detectorMode: SmartDetection
+                  detectionSensitivity: Medium
+                  movementSensitivity: Low
+                  sensorModality: RGB
+                  originator:
+                    address: ''
+      '400':
+        description: Yêu cầu không hợp lệ (validation thất bại)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho liệt kê instance
+    operationId: listInstancesOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

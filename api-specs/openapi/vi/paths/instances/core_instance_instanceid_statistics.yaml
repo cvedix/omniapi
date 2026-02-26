@@ -1,0 +1,98 @@
+# API endpoint: /v1/core/instance/{instanceId}/statistics
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/statistics:
+  get:
+    summary: Lấy thống kê instance
+    description: 'Trả về thống kê thời gian thực của instance: frame đã xử lý, framerate, độ trễ,
+      resolution, and queue information.
+
+
+      **Statistics Include:**
+
+      - Frames processed count
+
+      - Source framerate (FPS from source)
+
+      - Current framerate (processing FPS)
+
+      - Average latency (milliseconds)
+
+      - Input queue size
+
+      - Dropped frames count
+
+      - Resolution and format information
+
+      - Source resolution
+
+
+      **Important Notes:**
+
+      - Statistics are calculated in real-time
+
+      - Statistics reset to 0 when instance is restarted
+
+      - Statistics are not persisted (only calculated when requested)
+
+      - Instance must be running to get statistics
+
+      '
+    operationId: getStatistics
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+      example: '{instanceId}'
+    responses:
+      '200':
+        description: Đã lấy thống kê thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceStatisticsResponse'
+            example:
+              frames_processed: 1250
+              source_framerate: 30.0
+              current_framerate: 25.5
+              latency: 200.0
+              start_time: 1764900520
+              input_queue_size: 2
+              dropped_frames_count: 5
+              resolution: 1280x720
+              format: BGR
+              source_resolution: 1920x1080
+      '404':
+        description: Không tìm thấy instance hoặc instance không đang chạy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+            example:
+              error: Không tìm thấy
+              message: 'Không tìm thấy instance hoặc instance không chạy: a5204fc9-9a59-f80f-fb9f-bf3b42214943'
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho lấy thống kê
+    operationId: getStatisticsOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

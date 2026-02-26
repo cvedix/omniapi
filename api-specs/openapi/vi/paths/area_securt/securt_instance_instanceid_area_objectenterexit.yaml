@@ -1,0 +1,163 @@
+# API endpoint: /v1/securt/instance/{instanceId}/area/objectEnterExit
+# Tag: Area SecuRT
+
+/v1/securt/instance/{instanceId}/area/objectEnterExit:
+  post:
+    summary: Tạo vùng vật vào/ra (object enter/exit area)
+    description: Tạo vùng vật vào/ra (object enter/exit area) mới cho solution BA Area Enter/Exit. Phát hiện vật vào/ra
+      area.
+    operationId: createObjectEnterExitArea
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectEnterExitAreaWrite'
+          example:
+            name: Entrance Area
+            coordinates:
+            - x: 50
+              y: 150
+            - x: 250
+              y: 150
+            - x: 250
+              y: 350
+            - x: 50
+              y: 350
+            classes:
+            - Person
+            - Vehicle
+            color:
+            - 0
+            - 220
+            - 0
+            - 255
+            alertOnEnter: true
+            alertOnExit: true
+    responses:
+      '201':
+        description: Đã tạo vùng vật vào/ra (object enter/exit area) thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                areaId:
+                  type: string
+                  description: Định danh vùng đã tạo (created area ID)
+                  example: 550e8400-e29b-41d4-a716-446655440000
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Tạo vùng vật vào/ra với ID (object enter/exit area with ID)
+    description: Tạo vùng vật vào/ra với ID vùng cụ thể cho solution BA Area Enter/Exit.
+    operationId: createObjectEnterExitAreaWithId
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    - name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh vùng (area ID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectEnterExitAreaWrite'
+          example:
+            name: Restricted Zone
+            coordinates:
+            - x: 350
+              y: 160
+            - x: 550
+              y: 160
+            - x: 550
+              y: 360
+            - x: 350
+              y: 360
+            classes:
+            - Person
+            color:
+            - 0
+            - 0
+            - 220
+            - 255
+            alertOnEnter: true
+            alertOnExit: false
+    responses:
+      '201':
+        description: Đã tạo vùng vật vào/ra (object enter/exit area) thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                areaId:
+                  type: string
+                  description: Định danh vùng đã tạo (created area ID)
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Vùng đã tồn tại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho vùng object enter/exit
+    operationId: createObjectEnterExitAreaOptions
+    tags:
+    - Area SecuRT
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

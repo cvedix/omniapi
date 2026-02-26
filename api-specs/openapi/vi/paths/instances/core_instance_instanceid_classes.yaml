@@ -1,0 +1,42 @@
+# API endpoint: /v1/core/instance/{instanceId}/classes
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/classes:
+  get:
+    summary: Lấy các class của instance
+    description: Lấy danh sách class nhận diện mà instance hỗ trợ
+    operationId: getInstanceClasses
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+    responses:
+      '200':
+        description: Danh sách class được hỗ trợ
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+              example:
+              - person
+              - car
+              - bicycle
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

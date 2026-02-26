@@ -1,0 +1,65 @@
+# API endpoint: /v1/securt/instance
+# Tag: SecuRT Instance
+
+/v1/securt/instance:
+  post:
+    summary: Tạo instance SecuRT mới
+    description: Tạo instance SecuRT mới với cấu hình cung cấp. ID instance sẽ được tự sinh nếu không cung cấp.
+    operationId: createSecuRTInstance
+    tags:
+    - SecuRT Instance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SecuRTInstanceWrite'
+          example:
+            name: My SecuRT Instance
+            detectorMode: SmartDetection
+            detectionSensitivity: Low
+            movementSensitivity: Low
+            sensorModality: RGB
+            frameRateLimit: 0
+            metadataMode: false
+            statisticsMode: false
+            diagnosticsMode: false
+            debugMode: false
+    responses:
+      '201':
+        description: Đã tạo instance thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instanceId:
+                  type: string
+                  description: ID của instance đã tạo
+                  example: securt-instance-123
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Instance đã tồn tại hoặc tạo thất bại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho tạo instance
+    operationId: createSecuRTInstanceOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -1,0 +1,171 @@
+# API endpoint: /api/v1/instances/{instance_id}/fps
+# Tag: Instances
+
+/api/v1/instances/{instance_id}/fps:
+  get:
+    summary: Lấy cấu hình FPS hiện tại
+    description: Lấy cấu hình FPS hiện tại của một instance.
+    operationId: getInstanceFps
+    tags:
+    - Instances
+    parameters:
+    - name: instance_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+    responses:
+      '200':
+        description: Cấu hình FPS hiện tại
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instance_id:
+                  type: string
+                  description: Định danh instance
+                fps:
+                  type: integer
+                  description: FPS đã cấu hình (tốc độ xử lý frame đích)
+                  example: 5
+            example:
+              instance_id: 550e8400-e29b-41d4-a716-446655440000
+              fps: 5
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Thiết lập cấu hình FPS
+    description: Thiết lập hoặc cập nhật cấu hình FPS cho một instance. Giá trị FPS phải là số nguyên dương (lớn hơn 0).
+    operationId: setInstanceFps
+    tags:
+    - Instances
+    parameters:
+    - name: instance_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - fps
+            properties:
+              fps:
+                type: integer
+                description: Tốc độ xử lý frame mong muốn (phải lớn hơn 0)
+                minimum: 1
+                example: 10
+          example:
+            fps: 10
+    responses:
+      '200':
+        description: Đã cập nhật cấu hình FPS thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: FPS configuration updated successfully.
+                instance_id:
+                  type: string
+                  description: Định danh instance
+                fps:
+                  type: integer
+                  description: Giá trị FPS đã cập nhật
+                  example: 10
+            example:
+              message: FPS configuration updated successfully.
+              instance_id: 550e8400-e29b-41d4-a716-446655440000
+              fps: 10
+      '400':
+        description: Yêu cầu không hợp lệ - Giá trị FPS không hợp lệ (âm hoặc bằng 0)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Đặt lại FPS về mặc định
+    description: Đặt lại cấu hình FPS của instance về giá trị mặc định (5 FPS).
+    operationId: resetInstanceFps
+    tags:
+    - Instances
+    parameters:
+    - name: instance_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+    responses:
+      '200':
+        description: Đã đặt lại cấu hình FPS về mặc định
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: FPS configuration reset to default.
+                instance_id:
+                  type: string
+                  description: Định danh instance
+                fps:
+                  type: integer
+                  description: Giá trị FPS mặc định (5)
+                  example: 5
+            example:
+              message: FPS configuration reset to default.
+              instance_id: 550e8400-e29b-41d4-a716-446655440000
+              fps: 5
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho các endpoint FPS
+    operationId: instanceFpsOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -1,0 +1,52 @@
+# API endpoint: /v1/core/instance/status/summary
+# Tag: Instances
+
+/v1/core/instance/status/summary:
+  get:
+    summary: Lấy tóm tắt trạng thái instance
+    description: 'Trả về tóm tắt trạng thái instance: tổng số instance đã cấu hình, số đang chạy, số đã dừng.
+
+      '
+    operationId: getStatusSummary
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Tóm tắt trạng thái instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusResponse'
+            example:
+              total: 5
+              configured: 5
+              running: 3
+              stopped: 2
+              timestamp: '2024-01-01T00:00:00.000Z'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho endpoint tóm tắt trạng thái
+    operationId: statusSummaryOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight
+        headers:
+          Access-Control-Allow-Origin:
+            schema:
+              type: string
+              example: '*'
+          Access-Control-Allow-Methods:
+            schema:
+              type: string
+              example: GET, OPTIONS
+          Access-Control-Allow-Headers:
+            schema:
+              type: string
+              example: Content-Type, Authorization

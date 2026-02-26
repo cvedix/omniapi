@@ -1,0 +1,31 @@
+# API endpoint: /v1/core/node/stats
+# Tag: Node
+
+/v1/core/node/stats:
+  get:
+    summary: Lấy thống kê node pool
+    description: 'Trả về thống kê node pool (tổng template, tổng node, node available, theo category).'
+    operationId: getNodeStats
+    tags:
+    - Node
+    responses:
+      '200':
+        description: Đã lấy thống kê thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeStatsResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho stats
+    operationId: getNodeStatsOptions
+    tags:
+    - Node
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

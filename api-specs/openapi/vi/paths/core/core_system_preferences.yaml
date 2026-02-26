@@ -16,7 +16,7 @@
             schema:
               $ref: '#/components/schemas/SystemPreferencesResponse'
       '500':
-        description: Lỗi server
+        description: Lỗi máy chủ
         content:
           application/json:
             schema:

@@ -1,0 +1,139 @@
+# API endpoint: /v1/core/video/{videoName}
+# Tag: Video
+
+/v1/core/video/{videoName}:
+  put:
+    summary: Đổi tên file video
+    description: 'Đổi tên file video trên máy chủ. Có thể chỉ định thư mục con qua tham số query `directory` nếu file nằm trong thư mục con.
+
+      '
+    operationId: renameVideo
+    tags:
+    - Video
+    parameters:
+    - name: videoName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Tên hiện tại của file video cần đổi tên
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con chứa file video (ví dụ: "projects/myproject/videos"). Nếu không chỉ định, file được coi là ở thư mục videos gốc.
+
+        '
+      example: projects/myproject/videos
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - newName
+            properties:
+              newName:
+                type: string
+                description: Tên mới cho file video (phải có phần mở rộng hợp lệ)
+                example: my_video_v2.mp4
+    responses:
+      '200':
+        description: Đã đổi tên file video thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                oldName:
+                  type: string
+                newName:
+                  type: string
+                path:
+                  type: string
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy file video
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Tên mới đã tồn tại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa file video
+    description: 'Xóa file video khỏi máy chủ. Có thể chỉ định thư mục con qua tham số query `directory` nếu file nằm trong thư mục con.
+
+      '
+    operationId: deleteVideo
+    tags:
+    - Video
+    parameters:
+    - name: videoName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Tên file video cần xóa
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con chứa file video (ví dụ: "projects/myproject/videos"). Nếu không chỉ định, file được coi là ở thư mục videos gốc.
+
+        '
+      example: projects/myproject/videos
+    responses:
+      '200':
+        description: Đã xóa file video thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                filename:
+                  type: string
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy file video
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

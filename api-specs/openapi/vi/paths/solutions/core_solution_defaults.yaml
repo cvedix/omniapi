@@ -1,0 +1,49 @@
+# API endpoint: /v1/core/solution/defaults
+# Tag: Solutions
+
+/v1/core/solution/defaults:
+  get:
+    summary: Liệt kê solution mặc định
+    description: Lấy danh sách tất cả solution mặc định có sẵn từ examples/default_solutions/
+    operationId: listDefaultSolutions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: Danh sách solution mặc định
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                solutions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: Solution ID
+                      name:
+                        type: string
+                        description: Tên solution
+                      description:
+                        type: string
+                        description: Mô tả solution
+                total:
+                  type: integer
+                  description: Tổng số solution mặc định
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho default solutions
+    operationId: listDefaultSolutionsOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

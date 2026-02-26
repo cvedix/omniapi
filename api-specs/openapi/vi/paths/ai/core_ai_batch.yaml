@@ -40,13 +40,13 @@
                   items:
                     type: string
       '400':
-        description: Bad request
+        description: Yêu cầu không hợp lệ
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '501':
-        description: Not implemented
+        description: Chưa triển khai
         content:
           application/json:
             schema:
