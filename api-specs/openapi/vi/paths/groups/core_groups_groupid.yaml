@@ -67,7 +67,7 @@
             $ref: '#/components/schemas/UpdateGroupRequest'
           example:
             groupName: Updated Group Name
-            description: Updated description
+            description: Mô tả đã cập nhật
     responses:
       '200':
         description: Đã cập nhật nhóm thành công
@@ -98,16 +98,16 @@
     description: 'Xóa nhóm khỏi hệ thống (vĩnh viễn). Điều kiện: nhóm tồn tại, không phải nhóm mặc định, không read-only, không còn instance nào (cần chuyển hoặc xóa instance trước)
 
 
-      **Behavior:**
+      **Hành vi:**
 
-      - Group configuration will be removed from memory
+      - Cấu hình nhóm sẽ bị xóa khỏi bộ nhớ
 
-      - Group file will be deleted from storage
+      - File nhóm sẽ bị xóa khỏi kho lưu trữ
 
-      - All resources associated with the group will be released
+      - Mọi tài nguyên liên quan đến nhóm sẽ được giải phóng
 
 
-      **Note:** This operation cannot be undone. Once deleted, the group must be recreated using the create group endpoint.
+      **Lưu ý:** Thao tác này không thể hoàn tác. Sau khi xóa, cần tạo lại nhóm bằng endpoint tạo nhóm.
 
       '
     operationId: deleteGroup
@@ -122,7 +122,7 @@
       description: Định danh nhóm (groupId)
     responses:
       '200':
-        description: Group deleted successfully
+        description: Đã xóa nhóm thành công
         content:
           application/json:
             schema:

@@ -115,7 +115,7 @@
                 - 255
     responses:
       '201':
-        description: Line(s) created successfully. Returns single line object for single request, or object with metadata
+        description: Đã tạo đường thành công. Trả về một object đường với yêu cầu đơn, hoặc object kèm metadata với yêu cầu mảng
           for array request.
         content:
           application/json:
@@ -126,7 +126,7 @@
                 properties:
                   message:
                     type: string
-                    example: Lines created successfully
+                    example: Đã tạo đường vượt thành công
                   count:
                     type: integer
                     example: 2
@@ -135,7 +135,7 @@
                     items:
                       $ref: '#/components/schemas/CrossingLine'
       '400':
-        description: Bad request (invalid coordinates or parameters)
+        description: Yêu cầu không hợp lệ (tọa độ hoặc tham số sai)
         content:
           application/json:
             schema:
@@ -178,7 +178,7 @@
               properties:
                 message:
                   type: string
-                  example: All lines deleted successfully
+                  example: Đã xóa tất cả đường vượt thành công
       '404':
         description: Không tìm thấy instance
         content:

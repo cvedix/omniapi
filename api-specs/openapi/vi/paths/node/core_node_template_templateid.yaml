@@ -14,17 +14,17 @@
       required: true
       schema:
         type: string
-      description: Unique template identifier
+      description: Định danh template duy nhất
       example: rtsp_src_template
     responses:
       '200':
-        description: Template details retrieved successfully
+        description: Đã lấy chi tiết template thành công
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/TemplateResponse'
       '404':
-        description: Template not found
+        description: Không tìm thấy template
         content:
           application/json:
             schema:

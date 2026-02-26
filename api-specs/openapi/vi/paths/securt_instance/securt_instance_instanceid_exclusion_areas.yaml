@@ -33,7 +33,7 @@
                       type: number
                     y:
                       type: number
-                description: Array of coordinates defining the exclusion area polygon
+                description: Mảng tọa độ định nghĩa đa giác vùng loại trừ (exclusion area)
                 example:
                 - x: 0
                   y: 0

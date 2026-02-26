@@ -18,7 +18,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: Analytics lines retrieved successfully
+        description: Đã lấy đường analytics thành công
         content:
           application/json:
             schema:
@@ -26,17 +26,17 @@
               properties:
                 crossing:
                   type: array
-                  description: Crossing lines
+                  description: Đường vượt (crossing lines)
                   items:
                     type: object
                 counting:
                   type: array
-                  description: Counting lines
+                  description: Đường đếm (counting lines)
                   items:
                     type: object
                 tailgating:
                   type: array
-                  description: Tailgating lines
+                  description: Đường bám đuôi (tailgating lines)
                   items:
                     type: object
             example:

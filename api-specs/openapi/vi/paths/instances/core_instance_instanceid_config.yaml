@@ -4,15 +4,8 @@
 /v1/core/instance/{instanceId}/config:
   get:
     summary: Lấy cấu hình instance
-    description: 'Trả về cấu hình của instance. Endpoint cung cấp các thiết lập cấu hình instance,
-      which are different from runtime state. Configuration includes settings like AutoRestart, AutoStart, Detector settings,
-      Input configuration, etc.
+    description: 'Trả về cấu hình của instance. Các thiết lập cấu hình khác với trạng thái runtime (AutoRestart, AutoStart, Detector, Input, v.v.). **Lưu ý:** Đây là định dạng cấu hình, không phải trạng thái runtime. Để xem trạng thái runtime, dùng endpoint chi tiết instance.'
 
-
-      **Note:** This returns the configuration format, not the runtime state. For runtime state information, use the instance
-      details endpoint.
-
-      '
     operationId: getConfig
     tags:
     - Instances
@@ -22,11 +15,11 @@
       required: true
       schema:
         type: string
-      description: Unique identifier of the instance (UUID)
+      description: Định danh duy nhất của instance (UUID)
       example: '{Updated}'
     responses:
       '200':
-        description: Instance configuration
+        description: Cấu hình instance
         content:
           application/json:
             schema:
@@ -47,7 +40,7 @@
                   default_format: true
                   height: 0
                   is_software: false
-                  name: Same as Source
+                  name: Giống nguồn
                 media_type: Images
                 output_fps: 8
                 uri: https://some_uri
@@ -67,22 +60,7 @@
   post:
     summary: Đặt giá trị config tại đường dẫn cụ thể
     description: 'Đặt giá trị cấu hình tại đường dẫn chỉ định. Đường dẫn là key trong cấu hình; với cấu hình lồng nhau
-      structures, it will be nested keys separated by forward slashes "/".
-
-
-      **Note:** This operation will overwrite the value at the given path.
-
-
-      **Path Examples:**
-
-      - Simple path: `"DisplayName"` - Sets top-level DisplayName
-
-      - Nested path: `"Output/handlers/Mqtt"` - Sets Mqtt handler in Output.handlers
-
-
-      **jsonValue Format:**
-
-      - For string values: `"\"my string\""` (escaped JSON string)
+      dùng key lồng nhau phân tách bằng dấu gạch chéo "/". **Lưu ý:** Thao tác này sẽ ghi đè giá trị tại đường dẫn đã cho. **Ví dụ đường dẫn:** Đường dẫn đơn `"DisplayName"` - đặt DisplayName cấp cao; đường dẫn lồng `"Output/handlers/Mqtt"` - đặt handler Mqtt trong Output.handlers. **Định dạng jsonValue:** Chuỗi: `"\"my string\""` (chuỗi JSON escaped)
 
       - For object values: `"{\"key\":\"value\"}"` (escaped JSON object)
 
@@ -100,7 +78,7 @@
       required: true
       schema:
         type: string
-      description: Unique identifier of the instance (UUID)
+      description: Định danh duy nhất của instance (UUID)
       example: '{Test}'
     requestBody:
       required: true
@@ -110,20 +88,20 @@
             $ref: '#/components/schemas/SetConfigRequest'
           examples:
             stringValue:
-              summary: Set string value
+              summary: Đặt giá trị chuỗi
               value:
                 path: my/nested/path
                 jsonValue: '"my string"'
             objectValue:
-              summary: Set object value
+              summary: Đặt giá trị object
               value:
                 path: Output/handlers/Mqtt
                 jsonValue: '{"uri":"mqtt://localhost:1883/events"}'
     responses:
       '204':
-        description: Config value set successfully
+        description: Đã thiết lập giá trị cấu hình thành công
       '400':
-        description: Bad request (invalid input or missing required fields)
+        description: Yêu cầu không hợp lệ (đầu vào sai hoặc thiếu trường bắt buộc)
         content:
           application/json:
             schema:

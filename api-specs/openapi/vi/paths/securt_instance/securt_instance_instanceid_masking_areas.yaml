@@ -35,7 +35,7 @@
                         type: number
                       y:
                         type: number
-                description: Array of masking area polygons, each polygon is an array of coordinates
+                description: Mảng đa giác vùng che (masking area), mỗi đa giác là mảng tọa độ
                 example:
                 - - x: 0
                     y: 0
@@ -47,7 +47,7 @@
                     y: 100
     responses:
       '204':
-        description: Masking areas configured successfully
+        description: Đã cấu hình vùng che (masking areas) thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:

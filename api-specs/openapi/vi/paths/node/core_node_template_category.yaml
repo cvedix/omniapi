@@ -14,11 +14,11 @@
       required: true
       schema:
         type: string
-      description: Template category
+      description: Danh mục template
       example: detection
     responses:
       '200':
-        description: List of templates in the category
+        description: Danh sách template trong danh mục
         content:
           application/json:
             schema:

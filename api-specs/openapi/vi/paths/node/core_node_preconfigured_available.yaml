@@ -10,7 +10,7 @@
     - Node
     responses:
       '200':
-        description: List of available pre-configured nodes
+        description: Danh sách node cấu hình sẵn có sẵn
         content:
           application/json:
             schema:

@@ -4,7 +4,7 @@
 /v1/securt/instance/{instanceId}/area/intrusion:
   post:
     summary: Tạo vùng xâm nhập (intrusion area)
-    description: Creates a new intrusion area for a SecuRT instance
+    description: Tạo vùng xâm nhập (intrusion area) mới cho instance SecuRT
     operationId: createIntrusionArea
     tags:
     - Area SecuRT
@@ -23,7 +23,7 @@
             $ref: '#/components/schemas/IntrusionAreaWrite'
     responses:
       '201':
-        description: Intrusion area created successfully
+        description: Đã tạo vùng xâm nhập (intrusion area) thành công
         content:
           application/json:
             schema:
@@ -52,7 +52,7 @@
               $ref: '#/components/schemas/ErrorResponse'
   put:
     summary: Tạo vùng xâm nhập với ID (intrusion area with ID)
-    description: Creates an intrusion area with a specific ID
+    description: Tạo vùng xâm nhập với ID cụ thể cho instance SecuRT
     operationId: createIntrusionAreaWithId
     tags:
     - Area SecuRT
@@ -75,7 +75,7 @@
             $ref: '#/components/schemas/IntrusionAreaWrite'
     responses:
       '201':
-        description: Intrusion area created successfully
+        description: Đã tạo vùng xâm nhập (intrusion area) thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -83,7 +83,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Area already exists
+        description: Vùng đã tồn tại
         content:
           application/json:
             schema:
@@ -101,7 +101,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for intrusion area
+    summary: CORS preflight cho vùng intrusion
     operationId: createIntrusionAreaOptions
     tags:
     - Area SecuRT

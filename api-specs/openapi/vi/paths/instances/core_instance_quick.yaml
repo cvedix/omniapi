@@ -24,23 +24,23 @@
             properties:
               name:
                 type: string
-                description: Instance display name
+                description: Tên hiển thị instance
                 example: My Quick Instance
               solutionType:
                 type: string
-                description: Solution type (e.g., "face_detection", "ba_crossline", "ba_jam", "ba_stop")
+                description: Loại solution (vd. \"face_detection\", \"ba_crossline\", \"ba_jam\", \"ba_stop\")
                 example: face_detection
               group:
                 type: string
-                description: Instance group name
+                description: Tên nhóm instance
                 example: default
               persistent:
                 type: boolean
-                description: Whether to persist instance configuration
+                description: Có lưu cấu hình instance hay không
                 default: true
               autoStart:
                 type: boolean
-                description: Whether to automatically start the instance
+                description: Có tự động khởi động instance hay không
                 default: false
               input:
                 type: object
@@ -51,13 +51,13 @@
                     - file
                     - rtsp
                     - http
-                    description: Input type
+                    description: Loại input
                   source:
                     type: string
-                    description: Input source (file path, RTSP URL, etc.)
+                    description: Nguồn input (đường dẫn file, URL RTSP, v.v.)
               inputType:
                 type: string
-                description: Input type (alternative to input.type)
+                description: Loại input (thay thế cho input.type)
               output:
                 type: object
                 properties:
@@ -67,16 +67,16 @@
                     - file
                     - rtmp
                     - http
-                    description: Output type
+                    description: Loại output
                   destination:
                     type: string
-                    description: Output destination
+                    description: Đích đầu ra (output)
               outputType:
                 type: string
-                description: Output type (alternative to output.type)
+                description: Loại output (thay thế cho output.type)
     responses:
       '201':
-        description: Instance created successfully
+        description: Đã tạo instance thành công
         content:
           application/json:
             schema:

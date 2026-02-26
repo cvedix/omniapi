@@ -6,17 +6,16 @@
     summary: Lấy schema tham số solution
     description: 'Trả về schema tham số cần thiết để tạo instance với solution này.
 
-      This includes:
+      Bao gồm:
 
-      - **Additional Parameters**: Solution-specific parameters extracted from pipeline nodes (e.g., RTSP_URL, MODEL_PATH,
-      FILE_PATH)
+      - **Tham số bổ sung**: Tham số theo solution trích từ pipeline nodes (vd. RTSP_URL, MODEL_PATH, FILE_PATH)
 
-      - **Standard Fields**: Common instance creation fields (name, group, persistent, autoStart, etc.)
+      - **Trường chuẩn**: Các trường tạo instance chung (name, group, persistent, autoStart, ...)
 
 
-      Parameters marked as required must be provided in the `additionalParams` object when creating an instance.
+      Tham số đánh dấu bắt buộc phải có trong object `additionalParams` khi tạo instance.
 
-      Parameters with default values are optional.
+      Tham số có giá trị mặc định là tùy chọn.
 
       '
     operationId: getSolutionParameters
@@ -28,10 +27,10 @@
       required: true
       schema:
         type: string
-      description: Solution ID
+      description: Định danh solution
     responses:
       '200':
-        description: Solution parameter schema
+        description: Schema tham số solution
         content:
           application/json:
             schema:
@@ -39,41 +38,41 @@
               properties:
                 solutionId:
                   type: string
-                  description: Solution ID
+                  description: Định danh solution
                   example: face_detection
                 solutionName:
                   type: string
-                  description: Solution display name
+                  description: Tên hiển thị solution
                   example: Face Detection
                 solutionType:
                   type: string
-                  description: Solution type
+                  description: Loại solution
                   example: face_detection
                 pipeline:
                   type: array
-                  description: Pipeline nodes with detailed parameter information
+                  description: Các node pipeline kèm thông tin tham số chi tiết
                   items:
                     type: object
                     properties:
                       nodeType:
                         type: string
-                        description: Node type identifier
+                        description: Định danh loại node
                         example: rtsp_src
                       nodeName:
                         type: string
-                        description: Node name template
+                        description: Template tên node
                         example: source_{instanceId}
                       displayName:
                         type: string
-                        description: Node display name
+                        description: Tên hiển thị node
                         example: RTSP Source
                       description:
                         type: string
-                        description: Node description
+                        description: Mô tả node
                         example: Receive video stream from RTSP URL
                       category:
                         type: string
-                        description: Node category
+                        description: Danh mục node
                         enum:
                         - source
                         - detector
@@ -83,14 +82,14 @@
                         example: source
                       requiredParameters:
                         type: array
-                        description: Required parameters for this node type
+                        description: Tham số bắt buộc cho loại node này
                         items:
                           type: string
                         example:
                         - rtsp_url
                       optionalParameters:
                         type: array
-                        description: Optional parameters for this node type
+                        description: Tham số tùy chọn cho loại node này
                         items:
                           type: string
                         example:
@@ -98,7 +97,7 @@
                         - resize_ratio
                       defaultParameters:
                         type: object
-                        description: Default parameter values
+                        description: Giá trị tham số mặc định
                         additionalProperties:
                           type: string
                         example:
@@ -106,7 +105,7 @@
                           resize_ratio: '1.0'
                       parameters:
                         type: object
-                        description: Current parameter values in solution
+                        description: Giá trị tham số hiện tại trong solution
                         additionalProperties:
                           type: string
                         example:
@@ -115,7 +114,7 @@
                   - nodeType: rtsp_src
                     nodeName: source_{instanceId}
                     displayName: RTSP Source
-                    description: Receive video stream from RTSP URL
+                    description: Nhận stream video từ URL RTSP
                     category: source
                     requiredParameters:
                     - rtsp_url
@@ -129,29 +128,29 @@
                       rtsp_url: ${RTSP_URL}
                 additionalParams:
                   type: object
-                  description: Solution-specific parameters extracted from pipeline nodes
+                  description: Tham số theo solution trích từ pipeline nodes
                   additionalProperties:
                     type: object
                     properties:
                       name:
                         type: string
-                        description: Parameter name
+                        description: Tên tham số
                       type:
                         type: string
-                        description: Parameter type
+                        description: Kiểu tham số
                         example: string
                       required:
                         type: boolean
-                        description: Whether this parameter is required
+                        description: Tham số này có bắt buộc hay không
                       default:
                         type: string
-                        description: Default value if available
+                        description: Giá trị mặc định (nếu có)
                       description:
                         type: string
-                        description: Parameter description
+                        description: Mô tả tham số
                       usedInNodes:
                         type: array
-                        description: List of node types that use this parameter
+                        description: Danh sách loại node dùng tham số này
                         items:
                           type: string
                         example:
@@ -162,72 +161,72 @@
                       name: RTSP_URL
                       type: string
                       required: true
-                      description: URL for rtsp_src node
+                      description: URL cho node rtsp_src
                     MODEL_PATH:
                       name: MODEL_PATH
                       type: string
                       required: false
                       default: ./models/default.onnx
-                      description: File path for yunet_face_detector node
+                      description: Đường dẫn file cho node yunet_face_detector
                 requiredAdditionalParams:
                   type: array
-                  description: List of required additional parameter names
+                  description: Danh sách tên tham số bổ sung bắt buộc
                   items:
                     type: string
                   example:
                   - RTSP_URL
                 standardFields:
                   type: object
-                  description: Standard instance creation fields
+                  description: Các trường tạo instance chuẩn
                   additionalProperties:
                     type: object
                     properties:
                       type:
                         type: string
-                        description: Field type
+                        description: Kiểu trường
                       required:
                         type: boolean
-                        description: Whether this field is required
+                        description: Trường này có bắt buộc hay không
                       default:
-                        description: Default value
+                        description: Giá trị mặc định
                       description:
                         type: string
-                        description: Field description
+                        description: Mô tả trường
                       pattern:
                         type: string
-                        description: Validation pattern (for strings)
+                        description: Pattern validation (cho chuỗi)
                       enum:
                         type: array
-                        description: Allowed values (for enums)
+                        description: Các giá trị cho phép (cho enum)
                         items:
                           type: string
                       minimum:
                         type: number
-                        description: Minimum value (for numbers)
+                        description: Giá trị tối thiểu (cho số)
                   example:
                     name:
                       type: string
                       required: true
-                      description: 'Instance name (pattern: ^[A-Za-z0-9 -_]+$)'
+                      description: 'Tên instance (pattern: ^[A-Za-z0-9 -_]+$)'
                       pattern: ^[A-Za-z0-9 -_]+$
                     group:
                       type: string
                       required: false
-                      description: 'Group name (pattern: ^[A-Za-z0-9 -_]+$)'
+                      description: 'Tên nhóm (pattern: ^[A-Za-z0-9 -_]+$)'
                       pattern: ^[A-Za-z0-9 -_]+$
                     persistent:
                       type: boolean
                       required: false
                       default: false
-                      description: Save instance to JSON file
+                      description: Lưu instance ra file JSON
                     autoStart:
                       type: boolean
                       required: false
                       default: false
-                      description: Automatically start instance when created
+                      description: Tự động khởi động instance khi tạo
                 requiredStandardFields:
                   type: array
-                  description: List of required standard field names
+                  description: Danh sách tên trường chuẩn bắt buộc
                   items:
                     type: string
                   example:
@@ -240,7 +239,7 @@
               - nodeType: rtsp_src
                 nodeName: source_{instanceId}
                 displayName: RTSP Source
-                description: Receive video stream from RTSP URL
+                description: Nhận stream video từ URL RTSP
                 category: source
                 requiredParameters:
                 - rtsp_url
@@ -255,7 +254,7 @@
               - nodeType: yunet_face_detector
                 nodeName: detector_{instanceId}
                 displayName: YuNet Face Detector
-                description: Detect faces using YuNet model
+                description: Nhận diện khuôn mặt bằng mô hình YuNet
                 category: detector
                 requiredParameters:
                 - model_path
@@ -274,14 +273,14 @@
                   name: RTSP_URL
                   type: string
                   required: true
-                  description: Required parameter for rtsp_src (rtsp_url)
+                  description: Tham số bắt buộc cho rtsp_src (rtsp_url)
                   usedInNodes:
                   - rtsp_src
                 MODEL_PATH:
                   name: MODEL_PATH
                   type: string
                   required: true
-                  description: Required parameter for yunet_face_detector (model_path)
+                  description: Tham số bắt buộc cho yunet_face_detector (model_path)
                   usedInNodes:
                   - yunet_face_detector
               requiredAdditionalParams:
@@ -290,27 +289,27 @@
                 name:
                   type: string
                   required: true
-                  description: 'Instance name (pattern: ^[A-Za-z0-9 -_]+$)'
+                  description: 'Tên instance (pattern: ^[A-Za-z0-9 -_]+$)'
                   pattern: ^[A-Za-z0-9 -_]+$
                 group:
                   type: string
                   required: false
-                  description: 'Group name (pattern: ^[A-Za-z0-9 -_]+$)'
+                  description: 'Tên nhóm (pattern: ^[A-Za-z0-9 -_]+$)'
                   pattern: ^[A-Za-z0-9 -_]+$
                 persistent:
                   type: boolean
                   required: false
                   default: false
-                  description: Save instance to JSON file
+                  description: Lưu instance ra file JSON
                 autoStart:
                   type: boolean
                   required: false
                   default: false
-                  description: Automatically start instance when created
+                  description: Tự động khởi động instance khi tạo
               requiredStandardFields:
               - name
       '404':
-        description: Solution not found
+        description: Không tìm thấy solution
         content:
           application/json:
             schema:

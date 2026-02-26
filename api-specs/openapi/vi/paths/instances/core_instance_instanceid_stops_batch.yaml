@@ -6,9 +6,7 @@
     summary: Cập nhật hàng loạt vùng dừng (stop zones)
     description: 'Cập nhật nhiều vùng dừng (stop zones) cho instance ba_stop trong một yêu cầu.
 
-      This endpoint allows updating multiple stop zones at once, which is more efficient than updating them individually.
-      The instance will be restarted automatically to apply the changes if it is currently running.
-      '
+      Endpoint cho phép cập nhật nhiều vùng dừng cùng lúc, hiệu quả hơn cập nhật từng cái. Instance sẽ được khởi động lại tự động để áp dụng thay đổi nếu đang chạy.'
     operationId: batchUpdateStops
     tags:
     - Instances
@@ -18,7 +16,7 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     requestBody:
       required: true
       content:
@@ -33,10 +31,10 @@
               properties:
                 id:
                   type: string
-                  description: Stop zone ID
+                  description: Định danh vùng dừng (stop zone ID)
                 name:
                   type: string
-                  description: Stop zone name
+                  description: Tên vùng dừng (stop zone)
                 roi:
                   type: array
                   items:
@@ -46,13 +44,13 @@
                         type: number
                       y:
                         type: number
-                  description: Region of interest (polygon with at least 3 points)
+                  description: Vùng quan tâm ROI (đa giác ít nhất 3 điểm)
                 threshold:
                   type: number
-                  description: Detection threshold
+                  description: Ngưỡng phát hiện
                 duration:
                   type: integer
-                  description: Minimum stop duration in seconds
+                  description: Thời gian dừng tối thiểu (giây)
             example:
             - id: stop1
               name: Zone 1
@@ -67,7 +65,7 @@
                 y: 100
     responses:
       '200':
-        description: Stop zones updated successfully
+        description: Đã cập nhật vùng dừng thành công
         content:
           application/json:
             schema:
@@ -75,7 +73,7 @@
               properties:
                 updated:
                   type: integer
-                  description: Number of stop zones updated
+                  description: Số vùng dừng đã cập nhật
                   example: 2
       '400':
         description: Yêu cầu không hợp lệ

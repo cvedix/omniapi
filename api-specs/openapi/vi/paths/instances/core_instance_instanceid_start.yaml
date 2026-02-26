@@ -7,31 +7,8 @@
     description: 'Khởi động pipeline của instance. Instance phải có pipeline đã cấu hình và solution hợp lệ.
 
 
-      **Prerequisites:**
+      **Điều kiện:** Instance phải tồn tại, có cấu hình solution hợp lệ, không read-only; nguồn đầu vào phải được cấu hình đúng (nếu solution yêu cầu). **Hành vi:** Nếu instance đã chạy thì yêu cầu vẫn thành công; pipeline được build và start theo cấu hình solution; xử lý bắt đầu theo nguồn đầu vào và thiết lập detector; trả về thông tin instance với `running: true`. **Lưu ý:** Khởi động instance có thể mất vài giây khi pipeline được khởi tạo.'
 
-      - Instance must exist
-
-      - Instance must have a valid solution configuration
-
-      - Instance must not be read-only
-
-      - Input source must be properly configured (if required by solution)
-
-
-      **Behavior:**
-
-      - If the instance is already running, the request will succeed without error
-
-      - The pipeline will be built and started based on the instance''s solution configuration
-
-      - Processing will begin according to the configured input source and detector settings
-
-      - Returns the updated instance information with `running: true`
-
-
-      **Note:** Starting an instance may take a few seconds as the pipeline is initialized.
-
-      '
     operationId: startInstance
     tags:
     - Instances
@@ -41,10 +18,10 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
-        description: Instance started successfully
+        description: Đã khởi động instance thành công
         content:
           application/json:
             schema:

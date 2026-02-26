@@ -16,15 +16,8 @@
       required: false
       schema:
         type: string
-      description: 'Subdirectory path where the font file should be saved.
+      description: 'Đường dẫn thư mục con để lưu file font. Dùng dấu gạch chéo để phân tách cấp thư mục (ví dụ: "projects/myproject/fonts", "themes/custom", "languages/vietnamese"). Thư mục sẽ được tạo tự động nếu chưa tồn tại. Nếu không chỉ định, file sẽ được lưu tại thư mục fonts gốc.'
 
-        Use forward slashes to separate directory levels (e.g., "projects/myproject/fonts", "themes/custom", "languages/vietnamese").
-
-        The directory will be created automatically if it doesn''t exist.
-
-        If not specified, files will be saved in the base fonts directory.
-
-        '
       example: projects/myproject/fonts
     requestBody:
       required: true
@@ -40,20 +33,20 @@
                 items:
                   type: string
                   format: binary
-                description: Font file(s) to upload. Select multiple files to upload at once (.ttf, .otf, .woff, .woff2, .eot,
+                description: File font cần tải lên. Có thể chọn nhiều file (.ttf, .otf, .woff, .woff2, .eot,
                   .ttc)
               file:
                 type: string
                 format: binary
-                description: Single font file to upload (alternative to files array)
+                description: Một file font tải lên (thay thế cho mảng files)
         application/octet-stream:
           schema:
             type: string
             format: binary
-            description: Font file as binary data
+            description: File font dạng dữ liệu nhị phân
     responses:
       '201':
-        description: Font file(s) uploaded successfully
+        description: Đã tải font lên thành công
         content:
           application/json:
             schema:
@@ -65,7 +58,7 @@
                   type: string
                 count:
                   type: integer
-                  description: Number of files uploaded successfully
+                  description: Số file đã tải lên thành công
                 files:
                   type: array
                   items:
@@ -82,15 +75,15 @@
                       url:
                         type: string
       '400':
-        description: Invalid request (missing file, invalid format, etc.)
+        description: Yêu cầu không hợp lệ (thiếu file, định dạng không hợp lệ, v.v.)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '401':
-        description: Unauthorized (missing or invalid API key)
+        description: Chưa xác thực (thiếu hoặc API key không hợp lệ)
       '409':
-        description: File already exists
+        description: File đã tồn tại
         content:
           application/json:
             schema:
@@ -102,7 +95,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for font upload
+    summary: CORS preflight cho tải font
     operationId: uploadFontOptions
     tags:
     - Fonts

@@ -14,11 +14,11 @@
       required: true
       schema:
         type: string
-      description: Unique node identifier
+      description: Định danh node duy nhất
       example: node_a1b2c3d4
     responses:
       '200':
-        description: Node details retrieved successfully
+        description: Đã lấy chi tiết node thành công
         content:
           application/json:
             schema:
@@ -29,7 +29,7 @@
               displayName: RTSP Destination
               nodeType: rtsp_des
               category: destination
-              description: Output video stream via RTSP
+              description: Xuất stream video qua RTSP
               inUse: false
               parameters:
                 channel: '0'
@@ -42,29 +42,29 @@
               templateDetailUrl: /v1/core/node/template/rtsp_des_template
               input:
               - type: video_frames
-                description: Video frames from previous node
+                description: Frame video từ node trước
                 format: BGR/RGB image frames
               - type: metadata
-                description: Metadata from previous nodes
+                description: Metadata từ các node trước
                 format: JSON metadata
               output:
               - type: rtsp_stream
-                description: RTSP video stream
+                description: Stream video RTSP
                 protocol: RTSP
                 accessInfo: 'Access via RTSP URL: rtsp://<host>:8000/stream (default: rtsp://localhost:8000/stream)'
                 example: rtsp://localhost:8000/stream
                 configurableParameters:
                 - name: port
-                  description: RTSP server port
+                  description: Cổng server RTSP
                   default: '8000'
-                  affects: RTSP URL port
+                  affects: Cổng URL RTSP
                 - name: stream_name
-                  description: RTSP stream name/path
+                  description: Tên/đường dẫn stream RTSP
                   default: stream
-                  affects: RTSP URL path
+                  affects: Đường dẫn URL RTSP
               createdAt: '2025-12-16T11:33:52Z'
       '404':
-        description: Node not found
+        description: Không tìm thấy node
         content:
           application/json:
             schema:
@@ -79,7 +79,7 @@
     summary: Cập nhật node
     description: 'Cập nhật tham số node. Chỉ node không đang được sử dụng mới có thể cập nhật.
 
-      Note: Update operation deletes the old node and creates a new one with updated parameters.
+      Lưu ý: Thao tác cập nhật xóa node cũ và tạo node mới với tham số đã cập nhật.
 
       '
     operationId: updateNode
@@ -91,7 +91,7 @@
       required: true
       schema:
         type: string
-      description: Unique node identifier
+      description: Định danh node duy nhất
       example: node_a1b2c3d4
     requestBody:
       required: true
@@ -101,25 +101,25 @@
             $ref: '#/components/schemas/UpdateNodeRequest'
     responses:
       '200':
-        description: Node updated successfully
+        description: Đã cập nhật node thành công
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/NodeResponse'
       '400':
-        description: Bad request (missing parameters field)
+        description: Yêu cầu không hợp lệ (thiếu trường parameters)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Node not found
+        description: Không tìm thấy node
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Conflict (node is currently in use)
+        description: Xung đột (node đang được sử dụng)
         content:
           application/json:
             schema:
@@ -142,11 +142,11 @@
       required: true
       schema:
         type: string
-      description: Unique node identifier
+      description: Định danh node duy nhất
       example: node_a1b2c3d4
     responses:
       '200':
-        description: Node deleted successfully
+        description: Đã xóa node thành công
         content:
           application/json:
             schema:
@@ -154,18 +154,18 @@
               properties:
                 message:
                   type: string
-                  example: Node deleted successfully
+                  example: Đã xóa node thành công
                 nodeId:
                   type: string
                   example: node_a1b2c3d4
       '404':
-        description: Node not found
+        description: Không tìm thấy node
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Conflict (node is currently in use)
+        description: Xung đột (node đang được sử dụng)
         content:
           application/json:
             schema:

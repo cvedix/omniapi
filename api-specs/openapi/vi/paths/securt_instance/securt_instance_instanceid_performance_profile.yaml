@@ -30,11 +30,11 @@
                 - Performance
                 - Balanced
                 - Quality
-                description: Performance profile name
+                description: Tên hồ sơ hiệu năng
                 example: Balanced
     responses:
       '204':
-        description: Performance profile configured successfully
+        description: Đã cấu hình hồ sơ hiệu năng thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -68,7 +68,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: Performance profile configuration
+        description: Cấu hình hồ sơ hiệu năng
         content:
           application/json:
             schema:
@@ -80,7 +80,7 @@
                   - Performance
                   - Balanced
                   - Quality
-                  description: Current performance profile
+                  description: Performance profile hiện tại
                   example: Balanced
       '404':
         description: Không tìm thấy instance

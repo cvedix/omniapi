@@ -22,11 +22,8 @@
       required: false
       schema:
         type: string
-      description: 'Subdirectory path where the font file is located (e.g., "projects/myproject/fonts", "themes/custom").
+      description: 'Đường dẫn thư mục con chứa file font (ví dụ: "projects/myproject/fonts", "themes/custom"). Nếu không chỉ định, coi như file nằm ở thư mục fonts gốc.'
 
-        If not specified, the file is assumed to be in the base fonts directory.
-
-        '
       example: projects/myproject/fonts
     requestBody:
       required: true
@@ -39,7 +36,7 @@
             properties:
               newName:
                 type: string
-                description: New name for the font file (must have valid font file extension)
+                description: Tên mới cho file font (phải có phần mở rộng font hợp lệ)
                 example: string.otf
     responses:
       '200':
@@ -95,21 +92,18 @@
       required: true
       schema:
         type: string
-      description: Name of the font file to delete
+      description: Tên file font cần xóa
     - name: directory
       in: query
       required: false
       schema:
         type: string
-      description: 'Subdirectory path where the font file is located (e.g., "projects/myproject/fonts", "themes/custom").
+      description: 'Đường dẫn thư mục con chứa file font (ví dụ: "projects/myproject/fonts", "themes/custom"). Nếu không chỉ định, coi như file nằm ở thư mục fonts gốc.'
 
-        If not specified, the file is assumed to be in the base fonts directory.
-
-        '
       example: projects/myproject/fonts
     responses:
       '200':
-        description: Font file deleted successfully
+        description: Đã xóa file font thành công
         content:
           application/json:
             schema:
@@ -140,7 +134,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for font operations
+    summary: CORS preflight cho thao tác font
     operationId: fontOptionsHandler
     tags:
     - Fonts

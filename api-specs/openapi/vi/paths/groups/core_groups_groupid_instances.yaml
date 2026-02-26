@@ -16,7 +16,7 @@
       required: true
       schema:
         type: string
-      description: Group ID
+      description: Định danh nhóm (Group ID)
     responses:
       '200':
         description: Danh sách instance trong nhóm
@@ -27,7 +27,7 @@
               properties:
                 groupId:
                   type: string
-                  description: Group ID
+                  description: Định danh nhóm (Group ID)
                 instances:
                   type: array
                   items:
@@ -45,7 +45,7 @@
                         type: boolean
                 count:
                   type: integer
-                  description: Number of instances in the group
+                  description: Số instance trong nhóm
             example:
               groupId: cameras
               count: 2
@@ -61,7 +61,7 @@
                 running: false
                 loaded: true
       '404':
-        description: Group not found
+        description: Không tìm thấy nhóm
         content:
           application/json:
             schema:
@@ -73,7 +73,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for group instances
+    summary: CORS preflight cho instance nhóm
     operationId: getGroupInstancesOptions
     tags:
     - Groups

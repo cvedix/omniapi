@@ -6,22 +6,7 @@
     summary: Lấy đầu ra và kết quả xử lý của instance
     description: 'Trả về output và kết quả xử lý thời gian thực của instance tại thời điểm yêu cầu.
 
-      This endpoint provides comprehensive information about:
-
-      - Current processing metrics (FPS, frame rate limit)
-
-      - Input source (FILE or RTSP)
-
-      - Output type and details (FILE output files or RTMP stream)
-
-      - Detection settings and processing modes
-
-      - Current status and processing state
-
-
-      For instances with FILE output, it includes file count, total size, latest file information, and activity status.
-
-      For instances with RTMP output, it includes RTMP and RTSP URLs.
+      Endpoint cung cấp thông tin tổng hợp: số liệu xử lý hiện tại (FPS, giới hạn frame rate), nguồn đầu vào (FILE hoặc RTSP), loại đầu ra và chi tiết (file FILE hoặc stream RTMP), thiết lập phát hiện và chế độ xử lý, trạng thái hiện tại. Với instance đầu ra FILE: số file, tổng dung lượng, thông tin file mới nhất, trạng thái hoạt động. Với instance đầu ra RTMP: URL RTMP và RTSP.
 
       '
     operationId: getInstanceOutput
@@ -33,17 +18,17 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
-        description: Instance output and processing results
+        description: Đầu ra instance và kết quả xử lý
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/InstanceOutputResponse'
             examples:
               fileOutput:
-                summary: Instance with FILE output
+                summary: Instance với đầu ra FILE
                 value:
                   timestamp: '2025-01-15 14:30:25.123'
                   instanceId: abc-123-def
@@ -85,7 +70,7 @@
                     processing: true
                     message: Instance is running and processing frames
               rtmpOutput:
-                summary: Instance with RTMP output
+                summary: Instance với đầu ra RTMP
                 value:
                   timestamp: '2025-01-15 14:30:25.123'
                   instanceId: xyz-789

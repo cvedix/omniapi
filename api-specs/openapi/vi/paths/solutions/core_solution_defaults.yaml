@@ -10,7 +10,7 @@
     - Solutions
     responses:
       '200':
-        description: List of default solutions
+        description: Danh sách solution mặc định
         content:
           application/json:
             schema:
@@ -26,13 +26,13 @@
                         description: Solution ID
                       name:
                         type: string
-                        description: Solution name
+                        description: Tên solution
                       description:
                         type: string
-                        description: Solution description
+                        description: Mô tả solution
                 total:
                   type: integer
-                  description: Total number of default solutions
+                  description: Tổng số solution mặc định
       '500':
         description: Lỗi máy chủ
         content:

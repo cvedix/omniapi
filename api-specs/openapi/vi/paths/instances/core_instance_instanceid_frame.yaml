@@ -37,10 +37,10 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
-        description: Last frame retrieved successfully
+        description: Đã lấy frame cuối thành công
         content:
           application/json:
             schema:

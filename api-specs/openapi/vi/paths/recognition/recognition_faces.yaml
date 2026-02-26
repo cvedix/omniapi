@@ -6,12 +6,8 @@
     summary: Liệt kê face subject
     description: 'Lấy danh sách tất cả face subject đã lưu, có hỗ trợ phân trang.
 
-      You can filter by subject name or retrieve all subjects.
+      Có thể lọc theo tên subject hoặc lấy tất cả subject. Endpoint này trả về kết quả phân trang gồm image_id và tên subject.'
 
-
-      This endpoint returns paginated results with face information including image_id and subject name.
-
-      '
     operationId: listFaceSubjects
     tags:
     - Recognition
@@ -23,7 +19,7 @@
         type: integer
         default: 0
         minimum: 0
-      description: Page number of examples to return. Used for pagination. Default value is 0.
+      description: Số trang mẫu cần trả về. Dùng cho phân trang. Giá trị mặc định 0.
       example: 0
     - name: size
       in: query
@@ -33,14 +29,14 @@
         default: 20
         minimum: 1
         maximum: 100
-      description: Number of faces per page (page size). Used for pagination. Default value is 20.
+      description: Số khuôn mặt mỗi trang (kích thước trang). Dùng cho phân trang. Giá trị mặc định 20.
       example: 20
     - name: subject
       in: query
       required: false
       schema:
         type: string
-      description: Specifies the subject examples to return. If empty, returns examples for all subjects.
+      description: Chỉ định subject mẫu cần trả về. Để trống thì trả về mẫu của mọi subject.
       example: subject1
     responses:
       '200':
@@ -68,27 +64,27 @@
                       image_id:
                         type: string
                         format: uuid
-                        description: Unique identifier of the face
+                        description: Định danh duy nhất của khuôn mặt
                         example: '{Edge}'
                       subject:
                         type: string
-                        description: Subject (person) associated with the saved image
+                        description: Subject (người) gắn với ảnh đã lưu
                         example: subject1
                 page_number:
                   type: integer
-                  description: Current page number
+                  description: Số trang hiện tại
                   example: 0
                 page_size:
                   type: integer
-                  description: Requested page size
+                  description: Kích thước trang yêu cầu
                   example: 20
                 total_pages:
                   type: integer
-                  description: Total number of pages available
+                  description: Tổng số trang có sẵn
                   example: 2
                 total_elements:
                   type: integer
-                  description: Total number of faces available
+                  description: Tổng số khuôn mặt có sẵn
                   example: 12
             example:
               faces:
@@ -101,7 +97,7 @@
               total_pages: 2
               total_elements: 12
       '401':
-        description: Unauthorized (missing or invalid API key)
+        description: Chưa xác thực (thiếu hoặc API key không hợp lệ)
         content:
           application/json:
             schema:
@@ -116,31 +112,8 @@
     summary: Đăng ký face subject
     description: 'Đăng ký face subject bằng cách lưu ảnh. Có thể thêm nhiều ảnh để huấn luyện hệ thống.
 
-      Images should contain only a single face.
+      Ảnh nên chỉ chứa một khuôn mặt. **Xác thực phát hiện khuôn mặt:** Trước khi đăng ký, hệ thống thực hiện phát hiện khuôn mặt bắt buộc. Nếu không phát hiện khuôn mặt trong ảnh tải lên, đăng ký sẽ bị từ chối với lỗi 400. Người dùng cần tải lên ảnh khác có khuôn mặt rõ, có thể phát hiện. Endpoint này chấp nhận dữ liệu ảnh theo hai định dạng: 1) **Multipart/form-data**: Tải file trực tiếp (khuyến nghị); 2) **Application/json**: Gửi chuỗi ảnh mã hóa Base64. Định dạng ảnh hỗ trợ: JPEG, JPG, PNG, BMP, GIF, ICO, TIFF, WebP. Kích thước file tối đa: 5MB. Hệ thống sẽ phát hiện khuôn mặt trong ảnh và lưu đặc trưng khuôn mặt để nhận diện.'
 
-
-      **Face Detection Validation**: Before registration, the system performs mandatory face detection.
-
-      If no face is detected in the uploaded image, the registration will be rejected with a 400 error.
-
-      The user must upload a different image that contains a clear, detectable face.
-
-
-      This endpoint accepts image data in two formats:
-
-      1. **Multipart/form-data**: Upload file directly (recommended for file uploads)
-
-      2. **Application/json**: Send base64-encoded image string
-
-
-      Supported image formats: JPEG, JPG, PNG, BMP, GIF, ICO, TIFF, WebP
-
-      Maximum file size: 5MB
-
-
-      The system will detect the face in the image and store the face features for recognition.
-
-      '
     operationId: registerFaceSubject
     tags:
     - Recognition
@@ -150,7 +123,7 @@
       required: true
       schema:
         type: string
-      description: Subject name to register (e.g., "subject1")
+      description: Tên subject cần đăng ký (vd. \"subject1\")
       example: subject1
     - name: det_prob_threshold
       in: query
@@ -159,7 +132,7 @@
         type: number
         format: float
         default: 0.5
-      description: Detection probability threshold (0.0 to 1.0)
+      description: Ngưỡng xác suất nhận diện (0.0 đến 1.0)
       example: 0.5
     requestBody:
       required: true
@@ -202,7 +175,7 @@
             file: iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
     responses:
       '200':
-        description: Face subject registered successfully
+        description: Đã đăng ký face subject thành công
         content:
           application/json:
             schema:
@@ -214,19 +187,19 @@
                 image_id:
                   type: string
                   format: uuid
-                  description: Unique identifier for the registered image
+                  description: Định danh duy nhất của ảnh đã đăng ký
                   example: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
                 subject:
                   type: string
-                  description: Subject name that was registered
+                  description: Tên subject đã đăng ký
                   example: subject1
             example:
               image_id: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
               subject: subject1
       '400':
-        description: 'Invalid request. Possible reasons:
+        description: 'Yêu cầu không hợp lệ. Có thể do:
 
-          - Missing required query parameter: subject
+          - Thiếu tham số truy vấn bắt buộc: subject
 
           - Invalid image format or corrupted image data
 
@@ -240,7 +213,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '401':
-        description: Unauthorized (missing or invalid API key)
+        description: Chưa xác thực (thiếu hoặc API key không hợp lệ)
         content:
           application/json:
             schema:

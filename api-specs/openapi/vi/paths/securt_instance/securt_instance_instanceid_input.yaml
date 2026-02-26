@@ -25,7 +25,7 @@
             $ref: '#/components/schemas/SecuRTInputRequest'
           examples:
             rtspInput:
-              summary: RTSP input from camera
+              summary: Input RTSP từ camera
               value:
                 type: RTSP
                 uri: rtsp://192.168.1.100:554/stream1
@@ -33,17 +33,17 @@
                   RTSP_TRANSPORT: tcp
                   GST_DECODER_NAME: avdec_h264
             fileInput:
-              summary: Video file input
+              summary: Input file video
               value:
                 type: File
                 uri: ./test_video.mp4
             rtmpInput:
-              summary: RTMP stream input
+              summary: Input stream RTMP
               value:
                 type: RTMP
                 uri: rtmp://live.example.com/live/stream
             hlsInput:
-              summary: HLS stream input
+              summary: Input stream HLS
               value:
                 type: HLS
                 uri: http://example.com/stream.m3u8

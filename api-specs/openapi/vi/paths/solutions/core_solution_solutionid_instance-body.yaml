@@ -4,47 +4,45 @@
 /v1/core/solution/{solutionId}/instance-body:
   get:
     summary: Lấy body mẫu tạo instance
-    description: 'Trả về body yêu cầu mẫu để tạo instance với solution này, kèm schema chi tiết
-      metadata for UI flexibility.
+    description: 'Trả về body yêu cầu mẫu để tạo instance với solution này, kèm metadata schema chi tiết
+      cho UI linh hoạt.
 
-      This includes:
+      Bao gồm:
 
-      - **Standard Fields**: Common instance creation fields with default values
+      - **Trường chuẩn**: Các trường tạo instance chung với giá trị mặc định
 
-      - **Additional Parameters**: Solution-specific parameters with example values based on parameter names
+      - **Tham số bổ sung**: Tham số theo solution với giá trị mẫu theo tên tham số
 
-      - **Schema**: Detailed metadata for all fields including types, validation rules, UI hints, descriptions, examples,
-      and categories
-
-
-      The response body can be used directly to create an instance via POST /v1/core/instance.
-
-      The schema field provides rich metadata for UI to dynamically render forms, validate inputs, and provide better user
-      experience.
+      - **Schema**: Metadata chi tiết cho mọi trường (kiểu, quy tắc validation, gợi ý UI, mô tả, ví dụ, danh mục)
 
 
-      **Minimal Mode** (`?minimal=true`):
+      Body phản hồi có thể dùng trực tiếp để tạo instance qua POST /v1/core/instance.
 
-      - Returns only essential fields: `name`, `solution`, `group`, `autoStart`
-
-      - Only includes required additionalParams (parameters without default values)
-
-      - Excludes optional output parameters (MQTT, RTMP, Screen if not set)
-
-      - Simplified schema without flexibleInputOutput
-
-      - Use this mode for simple, user-friendly forms with minimal fields
+      Trường schema cung cấp metadata phong phú để UI render form động, kiểm tra đầu vào và trải nghiệm người dùng tốt hơn.
 
 
-      **Full Mode** (default):
+      **Chế độ tối thiểu** (`?minimal=true`):
 
-      - Returns all available fields including advanced options
+      - Chỉ trả về các trường cần thiết: `name`, `solution`, `group`, `autoStart`
 
-      - Includes all additionalParams (input and output)
+      - Chỉ gồm additionalParams bắt buộc (tham số không có giá trị mặc định)
 
-      - Complete schema with flexibleInputOutput options
+      - Loại trừ tham số đầu ra tùy chọn (MQTT, RTMP, Screen nếu chưa đặt)
 
-      - Use this mode for advanced configuration or when user clicks "Advanced Options"
+      - Schema đơn giản, không có flexibleInputOutput
+
+      - Dùng cho form đơn giản, thân thiện với ít trường
+
+
+      **Chế độ đầy đủ** (mặc định):
+
+      - Trả về tất cả trường có sẵn kèm tùy chọn nâng cao
+
+      - Gồm mọi additionalParams (input và output)
+
+      - Schema đầy đủ với tùy chọn flexibleInputOutput
+
+      - Dùng khi cấu hình nâng cao hoặc người dùng chọn "Tùy chọn nâng cao"
 
       '
     operationId: getSolutionInstanceBody
@@ -56,52 +54,52 @@
       required: true
       schema:
         type: string
-      description: Solution ID
+      description: Định danh solution
     - name: minimal
       in: query
       required: false
       schema:
         type: boolean
         default: false
-      description: 'If true, returns only essential fields for minimal UI form.
+      description: 'Nếu true, chỉ trả về các trường cần thiết cho form UI tối thiểu.
 
-        Returns only required parameters and common optional fields (name, solution, group, autoStart).
+        Chỉ gồm tham số bắt buộc và các trường tùy chọn chung (name, solution, group, autoStart).
 
-        Recommended for initial form rendering to avoid overwhelming users with too many fields.
+        Nên dùng khi render form lần đầu để tránh quá nhiều trường.
 
         '
     responses:
       '200':
-        description: Example instance creation body
+        description: Body mẫu tạo instance
         content:
           application/json:
             schema:
               type: object
-              description: Example request body that can be used directly to create an instance, plus detailed schema metadata
+              description: Body yêu cầu mẫu dùng trực tiếp để tạo instance, kèm metadata schema chi tiết
               properties:
                 name:
                   type: string
-                  description: Instance name
+                  description: Tên instance
                   example: example_instance
                 group:
                   type: string
-                  description: Group name
+                  description: Tên nhóm
                   example: default
                 solution:
                   type: string
-                  description: Solution ID
+                  description: Định danh solution
                   example: face_detection
                 persistent:
                   type: boolean
-                  description: Save instance to JSON file
+                  description: Lưu instance ra file JSON
                   example: false
                 autoStart:
                   type: boolean
-                  description: Automatically start instance when created
+                  description: Tự động khởi động instance khi tạo
                   example: false
                 frameRateLimit:
                   type: integer
-                  description: Frame rate limit (FPS, 0 = unlimited)
+                  description: Giới hạn frame rate (FPS, 0 = không giới hạn)
                   example: 0
                 detectionSensitivity:
                   type: string
@@ -111,7 +109,7 @@
                   - High
                   - Normal
                   - Slow
-                  description: Detection sensitivity level
+                  description: Mức độ nhạy phát hiện
                   example: Low
                 detectorMode:
                   type: string
@@ -119,31 +117,31 @@
                   - SmartDetection
                   - FullRegionInference
                   - MosaicInference
-                  description: Detector mode
+                  description: Chế độ detector
                   example: SmartDetection
                 metadataMode:
                   type: boolean
-                  description: Enable metadata mode (output detection results as JSON)
+                  description: Bật chế độ metadata (xuất kết quả phát hiện dạng JSON)
                   example: false
                 statisticsMode:
                   type: boolean
-                  description: Enable statistics mode
+                  description: Bật chế độ thống kê
                   example: false
                 diagnosticsMode:
                   type: boolean
-                  description: Enable diagnostics mode
+                  description: Bật chế độ chẩn đoán
                   example: false
                 debugMode:
                   type: boolean
-                  description: Enable debug mode
+                  description: Bật chế độ debug
                   example: false
                 additionalParams:
                   type: object
-                  description: Solution-specific parameters organized by input/output
+                  description: Tham số theo solution, nhóm theo input/output
                   properties:
                     input:
                       type: object
-                      description: Input parameters (e.g., RTSP_URL, FILE_PATH, MODEL_PATH)
+                      description: Tham số đầu vào (vd. RTSP_URL, FILE_PATH, MODEL_PATH)
                       additionalProperties:
                         type: string
                       example:
@@ -151,7 +149,7 @@
                         MODEL_PATH: ./models/face/yunet.onnx
                     output:
                       type: object
-                      description: Output parameters (e.g., MQTT_BROKER_URL, RTMP_URL, ENABLE_SCREEN_DES)
+                      description: Tham số đầu ra (vd. MQTT_BROKER_URL, RTMP_URL, ENABLE_SCREEN_DES)
                       additionalProperties:
                         type: string
                       example:
@@ -161,11 +159,11 @@
                         ENABLE_SCREEN_DES: 'false'
                 schema:
                   type: object
-                  description: Detailed schema metadata for UI flexibility
+                  description: Metadata schema chi tiết cho UI linh hoạt
                   properties:
                     standardFields:
                       type: object
-                      description: Schema metadata for standard instance creation fields
+                      description: Metadata schema cho các trường tạo instance chuẩn
                       additionalProperties:
                         type: object
                         properties:
@@ -178,7 +176,7 @@
                           description:
                             type: string
                           default:
-                            description: Default value (type varies)
+                            description: Giá trị mặc định (kiểu thay đổi)
                           pattern:
                             type: string
                           patternDescription:
@@ -204,11 +202,11 @@
                               type: string
                     additionalParams:
                       type: object
-                      description: Schema metadata for additional parameters
+                      description: Metadata schema cho tham số bổ sung
                       properties:
                         input:
                           type: object
-                          description: Schema for input parameters
+                          description: Schema cho tham số đầu vào
                           additionalProperties:
                             type: object
                             properties:
@@ -223,7 +221,7 @@
                               example:
                                 type: string
                               default:
-                                description: Default value (type varies)
+                                description: Giá trị mặc định (kiểu thay đổi)
                               uiHints:
                                 type: object
                               validation:
@@ -240,7 +238,7 @@
                                   type: string
                         output:
                           type: object
-                          description: Schema for output parameters
+                          description: Schema cho tham số đầu ra
                           additionalProperties:
                             type: object
                             properties:
@@ -255,7 +253,7 @@
                               example:
                                 type: string
                               default:
-                                description: Default value (type varies)
+                                description: Giá trị mặc định (kiểu thay đổi)
                               uiHints:
                                 type: object
                               validation:
@@ -272,7 +270,7 @@
                                   type: string
                     flexibleInputOutput:
                       type: object
-                      description: Schema for flexible input/output options that can be added to any instance
+                      description: Schema cho tùy chọn input/output linh hoạt có thể thêm vào bất kỳ instance nào
                       properties:
                         description:
                           type: string
@@ -326,7 +324,7 @@
                     name: name
                     type: string
                     required: true
-                    description: 'Instance name (pattern: ^[A-Za-z0-9 -_]+$)'
+                    description: 'Tên instance (pattern: ^[A-Za-z0-9 -_]+$)'
                     pattern: ^[A-Za-z0-9 -_]+$
                     uiHints:
                       inputType: text
@@ -338,7 +336,7 @@
                     name: frameRateLimit
                     type: integer
                     required: false
-                    description: Frame rate limit (FPS, 0 = unlimited)
+                    description: Giới hạn frame rate (FPS, 0 = không giới hạn)
                     default: 0
                     minimum: 0
                     uiHints:
@@ -354,7 +352,7 @@
                       name: RTSP_URL
                       type: string
                       required: true
-                      description: RTSP stream URL (e.g., rtsp://camera-ip:8554/stream)
+                      description: URL stream RTSP (vd. rtsp://camera-ip:8554/stream)
                       example: rtsp://example.com/stream
                       uiHints:
                         inputType: url
@@ -374,7 +372,7 @@
                       name: MQTT_BROKER_URL
                       type: string
                       required: false
-                      description: MQTT broker address (hostname or IP). Leave empty to disable MQTT output.
+                      description: Địa chỉ broker MQTT (hostname hoặc IP). Để trống để tắt đầu ra MQTT.
                       example: localhost
                       uiHints:
                         inputType: text
@@ -386,17 +384,16 @@
                       - mqtt.example.com
                       category: output
                 flexibleInputOutput:
-                  description: Flexible input/output options that can be added to any instance
+                  description: Tùy chọn input/output linh hoạt có thể thêm vào bất kỳ instance nào
                   input:
-                    description: Choose ONE input source. Pipeline builder auto-detects input type.
+                    description: Chọn MỘT nguồn đầu vào. Pipeline builder tự nhận loại input.
                     mutuallyExclusive: true
                     parameters:
                       FILE_PATH:
                         name: FILE_PATH
                         type: string
                         required: false
-                        description: Local video file path or URL (supports file://, rtsp://, rtmp://, http://, https://).
-                          Pipeline builder auto-detects input type.
+                        description: Đường dẫn file video hoặc URL (hỗ trợ file://, rtsp://, rtmp://, http://, https://). Pipeline builder tự nhận loại input.
                         example: ./cvedix_data/test_video/example.mp4
                         uiHints:
                           inputType: file
@@ -404,14 +401,14 @@
                           placeholder: /path/to/video.mp4
                         category: connection
                   output:
-                    description: Add any combination of outputs. Pipeline builder auto-adds nodes.
+                    description: Thêm bất kỳ tổ hợp đầu ra nào. Pipeline builder tự thêm node.
                     mutuallyExclusive: false
                     parameters:
                       MQTT_BROKER_URL:
                         name: MQTT_BROKER_URL
                         type: string
                         required: false
-                        description: MQTT broker address (enables MQTT output). Leave empty to disable.
+                        description: Địa chỉ broker MQTT (bật đầu ra MQTT). Để trống để tắt.
                         example: localhost
                         uiHints:
                           inputType: text
@@ -419,7 +416,7 @@
                           placeholder: localhost
                         category: output
       '404':
-        description: Solution not found
+        description: Không tìm thấy solution
         content:
           application/json:
             schema:

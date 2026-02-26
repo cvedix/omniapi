@@ -10,7 +10,7 @@
     - Node
     responses:
       '200':
-        description: List of pre-configured nodes
+        description: Danh sách node cấu hình sẵn
         content:
           application/json:
             schema:
@@ -45,15 +45,15 @@
             properties:
               templateId:
                 type: string
-                description: Template ID to use for creating the node
+                description: Định danh template dùng để tạo node
               parameters:
                 type: object
                 additionalProperties:
                   type: string
-                description: Node parameters
+                description: Tham số node
     responses:
       '201':
-        description: Node created successfully
+        description: Đã tạo node thành công
         content:
           application/json:
             schema:

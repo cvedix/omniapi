@@ -3,27 +3,27 @@
 
 /v1/core/system/config:
   get:
-    summary: Lấy system configuration entities
-    description: Trả về system configuration entities với fieldId, displayName, type, value, group, và availableValues
+    summary: Lấy các thực thể cấu hình hệ thống
+    description: Trả về các thực thể cấu hình hệ thống với fieldId, displayName, type, value, group và availableValues
     operationId: coreGetSystemConfigV1
     tags:
     - Core
     responses:
       '200':
-        description: System configuration entities
+        description: Các thực thể cấu hình hệ thống
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SystemConfigResponse'
       '500':
-        description: Lỗi server
+        description: Lỗi máy chủ
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   put:
-    summary: Cập nhật system configuration
-    description: Cập nhật system configuration entities
+    summary: Cập nhật cấu hình hệ thống
+    description: Cập nhật các thực thể cấu hình hệ thống
     operationId: corePutSystemConfigV1
     tags:
     - Core
@@ -46,7 +46,7 @@
                   example: success
                 message:
                   type: string
-                  example: System config updated successfully
+                  example: Cấu hình hệ thống đã được cập nhật thành công
       '406':
         description: Not Acceptable - Cấu hình không hợp lệ
         content:

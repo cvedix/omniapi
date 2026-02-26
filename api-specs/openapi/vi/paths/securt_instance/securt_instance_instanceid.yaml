@@ -121,7 +121,7 @@
       description: Định danh instance
     responses:
       '204':
-        description: Instance deleted successfully
+        description: Đã xóa instance thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:

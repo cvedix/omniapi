@@ -6,31 +6,14 @@
     summary: Tìm kiếm appearance subject
     description: 'Tìm khuôn mặt tương tự trong database từ ảnh khuôn mặt đầu vào.
 
-      Returns a list of matching faces sorted by similarity (highest first) above the specified threshold.
+      Trả về danh sách khuôn mặt khớp, sắp xếp theo độ tương đồng (cao nhất trước) trên ngưỡng chỉ định.
 
 
-      **How it works:**
-
-      1. Detects faces in the uploaded image
-
-      2. Extracts face embeddings from the first detected face
-
-      3. Compares with all faces in the database
-
-      4. Returns matches with similarity >= threshold, sorted from highest to lowest
+      **Cách hoạt động:** 1. Phát hiện khuôn mặt trong ảnh tải lên. 2. Trích embedding từ khuôn mặt đầu tiên. 3. So sánh với mọi khuôn mặt trong database. 4. Trả về các kết quả có similarity >= ngưỡng, sắp xếp từ cao đến thấp.
 
 
-      **Response fields:**
+      **Trường phản hồi:** `image_id` - định danh khuôn mặt khớp; `subject` - tên subject; `similarity` - điểm tương đồng cosine (0.0 - 1.0); `face_image` - ảnh khuôn mặt Base64 (dự phòng).'
 
-      - `image_id`: Unique identifier of the matched face
-
-      - `subject`: Name of the matched subject
-
-      - `similarity`: Cosine similarity score (0.0 - 1.0)
-
-      - `face_image`: Base64 encoded face image (reserved for future use)
-
-      '
     operationId: searchAppearanceSubject
     tags:
     - Recognition
@@ -44,7 +27,7 @@
         default: 0.5
         minimum: 0.0
         maximum: 1.0
-      description: Minimum similarity threshold for matches (0.0 - 1.0)
+      description: Ngưỡng độ tương đồng tối thiểu cho kết quả khớp (0.0 - 1.0)
     - name: limit
       in: query
       required: false
@@ -52,7 +35,7 @@
         type: integer
         default: 0
         minimum: 0
-      description: Maximum number of results to return (0 = no limit)
+      description: Số kết quả tối đa trả về (0 = không giới hạn)
     - name: det_prob_threshold
       in: query
       required: false
@@ -62,7 +45,7 @@
         default: 0.5
         minimum: 0.0
         maximum: 1.0
-      description: Face detection probability threshold
+      description: Ngưỡng xác suất phát hiện khuôn mặt
     requestBody:
       required: true
       content:
@@ -73,7 +56,7 @@
               file:
                 type: string
                 format: binary
-                description: Image file containing a face to search
+                description: File ảnh chứa khuôn mặt cần tìm
             required:
             - file
         application/json:
@@ -83,12 +66,12 @@
               file:
                 type: string
                 format: base64
-                description: Base64 encoded image data
+                description: Dữ liệu ảnh mã hóa Base64
             required:
             - file
     responses:
       '200':
-        description: Search results
+        description: Kết quả tìm kiếm
         content:
           application/json:
             schema:
@@ -101,24 +84,24 @@
                     properties:
                       image_id:
                         type: string
-                        description: Unique identifier of the matched face
+                        description: Định danh duy nhất của khuôn mặt khớp
                       subject:
                         type: string
-                        description: Name of the matched subject
+                        description: Tên subject khớp
                       similarity:
                         type: number
                         format: float
-                        description: Cosine similarity score (0.0 - 1.0)
+                        description: Điểm độ tương đồng cosine (0.0 - 1.0)
                       face_image:
                         type: string
-                        description: Base64 encoded face image (reserved for future use)
+                        description: Ảnh khuôn mặt mã hóa Base64 (dự phòng cho tương lai)
                 faces_found:
                   type: integer
-                  description: Number of matching faces found
+                  description: Số khuôn mặt khớp tìm được
                 threshold:
                   type: number
                   format: float
-                  description: Threshold used for search
+                  description: Ngưỡng dùng cho tìm kiếm
             example:
               result:
               - image_id: abc123-def456-ghi789

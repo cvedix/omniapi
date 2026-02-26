@@ -5,34 +5,8 @@
   post:
     summary: Gỡ instance khỏi bộ nhớ
     description: 'Gỡ instance khỏi bộ nhớ, xóa state storage và giải phóng tài nguyên. Khác với stop
-      an instance - unloading removes the instance from memory and clears runtime state, while stopping only halts the processing
-      pipeline.
+      Gỡ nạp xóa instance khỏi bộ nhớ và xóa state runtime, còn stop chỉ dừng pipeline. **Hành vi:** Instance phải tồn tại và đã nạp. Nếu đang chạy sẽ bị dừng trước. State storage bị xóa (mọi state runtime mất). Tài nguyên được giải phóng. **Lưu ý:** State bị xóa khi gỡ nạp. State không tồn tại sau unload. Config (cấu hình lưu trữ) không bị ảnh hưởng.'
 
-
-      **Behavior:**
-
-      - Instance must exist and be loaded
-
-      - If instance is running, it will be stopped first
-
-      - State storage is cleared (all runtime state is lost)
-
-      - Resources are released
-
-
-      **Use Cases:**
-
-      - Free memory when instance is not needed
-
-      - Clear runtime state
-
-      - Release resources
-
-
-      **Note:** State is cleared when instance is unloaded. State does not persist after unload. Config (persistent configuration)
-      is not affected.
-
-      '
     operationId: coreUnloadInstanceV1
     tags:
     - Instances
@@ -42,11 +16,11 @@
       required: true
       schema:
         type: string
-      description: Unique identifier of the instance (UUID)
+      description: Định danh duy nhất của instance (UUID)
       example: '{instanceId}'
     responses:
       '204':
-        description: Instance unloaded successfully
+        description: Đã gỡ instance khỏi bộ nhớ thành công
       '404':
         description: Không tìm thấy instance
         content:
@@ -57,7 +31,7 @@
               error: Not found
               message: 'Instance not found: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '406':
-        description: Instance not loaded
+        description: Instance chưa được nạp
         content:
           application/json:
             schema:

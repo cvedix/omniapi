@@ -14,16 +14,16 @@
       required: true
       schema:
         type: string
-      description: Solution ID
+      description: Định danh solution
     responses:
       '200':
-        description: Solution details
+        description: Chi tiết solution
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SolutionConfig'
       '404':
-        description: Solution not found
+        description: Không tìm thấy solution
         content:
           application/json:
             schema:
@@ -46,7 +46,7 @@
       required: true
       schema:
         type: string
-      description: Solution ID
+      description: Định danh solution
     requestBody:
       required: true
       content:
@@ -55,25 +55,25 @@
             $ref: '#/components/schemas/UpdateSolutionRequest'
     responses:
       '200':
-        description: Solution updated successfully
+        description: Đã cập nhật solution thành công
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SolutionConfig'
       '400':
-        description: Bad request (validation failed)
+        description: Yêu cầu không hợp lệ (validation thất bại)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '403':
-        description: Cannot update default solution
+        description: Không thể cập nhật solution mặc định
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Solution not found
+        description: Không tìm thấy solution
         content:
           application/json:
             schema:
@@ -96,10 +96,10 @@
       required: true
       schema:
         type: string
-      description: Solution ID
+      description: Định danh solution
     responses:
       '200':
-        description: Solution deleted successfully
+        description: Đã xóa solution thành công
         content:
           application/json:
             schema:
@@ -110,13 +110,13 @@
                 solutionId:
                   type: string
       '403':
-        description: Cannot delete default solution
+        description: Không thể xóa solution mặc định
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Solution not found
+        description: Không tìm thấy solution
         content:
           application/json:
             schema:

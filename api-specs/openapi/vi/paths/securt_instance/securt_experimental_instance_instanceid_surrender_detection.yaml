@@ -68,7 +68,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: Surrender detection configuration
+        description: Cấu hình surrender detection
         content:
           application/json:
             schema:
@@ -76,7 +76,7 @@
               properties:
                 enabled:
                   type: boolean
-                  description: Surrender detection enabled status
+                  description: Trạng thái bật surrender detection
                   example: true
       '404':
         description: Không tìm thấy instance

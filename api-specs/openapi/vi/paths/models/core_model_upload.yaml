@@ -24,15 +24,8 @@
       required: false
       schema:
         type: string
-      description: 'Đường dẫn thư mục con nơi file mô hình sẽ được lưu.
+      description: 'Đường dẫn thư mục con để lưu file mô hình. Dùng dấu gạch chéo để phân tách cấp thư mục (ví dụ: "projects/myproject/models", "detection/yolov8", "classification/resnet50"). Thư mục sẽ được tạo tự động nếu chưa tồn tại. Nếu không chỉ định, file sẽ được lưu tại thư mục models gốc.'
 
-        Use forward slashes to separate directory levels (e.g., "projects/myproject/models", "detection/yolov8", "classification/resnet50").
-
-        The directory will be created automatically if it doesn''t exist.
-
-        If not specified, files will be saved in the base models directory.
-
-        '
       example: projects/myproject/models
     requestBody:
       required: true

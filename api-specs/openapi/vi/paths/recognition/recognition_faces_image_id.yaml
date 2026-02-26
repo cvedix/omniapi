@@ -7,16 +7,10 @@
     description: 'Xóa face subject theo image ID hoặc tên subject.
 
 
-      - If the identifier is an **image_id**, only that specific face will be deleted.
+      - Nếu định danh là **image_id**, chỉ khuôn mặt tương ứng bị xóa.
 
-      - If the identifier is a **subject name**, all faces associated with that subject will be deleted.
+      - Nếu định danh là **tên subject**, mọi khuôn mặt gắn với subject đó sẽ bị xóa. Endpoint tự nhận định danh là image_id hay tên subject. Nếu không tìm thấy khuôn mặt với định danh đã cho, trả về lỗi 404.'
 
-
-      The endpoint automatically detects whether the identifier is an image_id or subject name.
-
-      If no face is found with the given identifier, a 404 error is returned.
-
-      '
     operationId: deleteFaceSubject
     tags:
     - Recognition
@@ -26,15 +20,12 @@
       required: true
       schema:
         type: string
-      description: 'Either the UUID of the face subject to be deleted, or the subject name.
+      description: 'UUID của face subject cần xóa, hoặc tên subject. Endpoint sẽ tự nhận loại định danh.'
 
-        The endpoint will automatically detect the type of identifier.
-
-        '
       example: '{subject}'
     responses:
       '200':
-        description: Face subject(s) deleted successfully
+        description: Đã xóa face subject thành công
         content:
           application/json:
             schema:
@@ -46,11 +37,11 @@
                 properties:
                   image_id:
                     type: string
-                    description: UUID of the deleted face subject
+                    description: UUID của face subject đã xóa
                     example: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
                   subject:
                     type: string
-                    description: Name of the person associated with the deleted face
+                    description: Tên người gắn với khuôn mặt đã xóa
                     example: subject1
               - type: object
                 required:
@@ -60,28 +51,28 @@
                 properties:
                   subject:
                     type: string
-                    description: Name of the subject that was deleted
+                    description: Tên subject đã bị xóa
                     example: subject1
                   deleted_count:
                     type: integer
-                    description: Number of faces deleted for this subject
+                    description: Số khuôn mặt đã xóa cho subject này
                     example: 3
                   image_ids:
                     type: array
                     items:
                       type: string
-                    description: List of image IDs that were deleted
+                    description: Danh sách image ID đã xóa
                     example:
                     - 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
                     - 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
             examples:
               single_face:
-                summary: Single face deleted
+                summary: Đã xóa một khuôn mặt
                 value:
                   image_id: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
                   subject: subject1
               multiple_faces:
-                summary: All faces for a subject deleted
+                summary: Đã xóa tất cả khuôn mặt của subject
                 value:
                   subject: subject1
                   deleted_count: 3
@@ -90,19 +81,19 @@
                   - 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
                   - 8d357h7d-c587-6744-d3h3-6e1ce4ff2950
       '400':
-        description: Bad request (missing image_id, etc.)
+        description: Yêu cầu không hợp lệ (thiếu image_id, v.v.)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '401':
-        description: Unauthorized (missing or invalid API key)
+        description: Chưa xác thực (thiếu hoặc API key không hợp lệ)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Face subject not found
+        description: Không tìm thấy face subject
         content:
           application/json:
             schema:

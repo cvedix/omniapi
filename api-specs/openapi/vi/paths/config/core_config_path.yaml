@@ -108,11 +108,8 @@
         type: string
       description: 'Đường dẫn cấu hình sử dụng dấu chấm làm dấu phân cách.
 
-        Examples: `system.max_running_instances`, `system.web_server`
+        Ví dụ: `system.max_running_instances`, `system.web_server`. Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số đường dẫn (dùng tham số truy vấn thay thế).'
 
-        Note: Forward slashes are NOT supported in path parameter (use query parameter instead)
-
-        '
       example: system.max_running_instances
     - name: auto_restart
       in: query
@@ -223,11 +220,8 @@
         type: string
       description: 'Đường dẫn cấu hình sử dụng dấu chấm làm dấu phân cách.
 
-        Examples: `system.max_running_instances`, `system.web_server`
+        Ví dụ: `system.max_running_instances`, `system.web_server`. Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số đường dẫn (dùng tham số truy vấn thay thế).'
 
-        Note: Forward slashes are NOT supported in path parameter (use query parameter instead)
-
-        '
       example: system.max_running_instances
     - name: auto_restart
       in: query

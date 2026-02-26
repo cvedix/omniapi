@@ -21,14 +21,14 @@
       schema:
         type: integer
         default: 0
-      description: Maximum number of faces to recognize (0 = no limit). Recognizes the largest faces first.
+      description: Số khuôn mặt tối đa cần nhận diện (0 = không giới hạn). Ưu tiên nhận diện khuôn mặt lớn nhất trước.
     - name: prediction_count
       in: query
       required: false
       schema:
         type: integer
         default: 1
-      description: Number of predictions to return per face
+      description: Số dự đoán trả về cho mỗi khuôn mặt
     - name: det_prob_threshold
       in: query
       required: false
@@ -36,34 +36,33 @@
         type: number
         format: float
         default: 0.5
-      description: Detection probability threshold (0.0 to 1.0)
+      description: Ngưỡng xác suất nhận diện (0.0 đến 1.0)
     - name: threshold
       in: query
       required: false
       schema:
         type: number
         format: float
-      description: Optional similarity threshold (0.0 to 1.0). If provided, subjects with similarity below this threshold
-        will be filtered out. If omitted, returns top-N similarities without filtering.
+      description: Ngưỡng độ tương đồng tùy chọn (0.0 đến 1.0). Nếu có, subject có độ tương đồng dưới ngưỡng sẽ bị lọc bỏ. Nếu bỏ qua, trả về top-N độ tương đồng không lọc.
     - name: face_plugins
       in: query
       required: false
       schema:
         type: string
-      description: Face plugins to enable (comma-separated)
+      description: Các face plugin cần bật (phân tách bằng dấu phẩy)
     - name: status
       in: query
       required: false
       schema:
         type: string
-      description: Status filter
+      description: Bộ lọc trạng thái
     - name: detect_faces
       in: query
       required: false
       schema:
         type: boolean
         default: true
-      description: Whether to detect faces (true) or only recognize existing faces (false)
+      description: Có phát hiện khuôn mặt (true) hay chỉ nhận diện khuôn mặt đã có (false)
     requestBody:
       required: true
       content:
@@ -76,10 +75,10 @@
               file:
                 type: string
                 format: binary
-                description: Image file as base64-encoded data or binary data
+                description: File ảnh dạng base64 hoặc dữ liệu nhị phân
     responses:
       '200':
-        description: Face recognition results
+        description: Kết quả nhận diện khuôn mặt
         content:
           application/json:
             schema:
@@ -124,7 +123,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '401':
-        description: Unauthorized (missing or invalid API key)
+        description: Chưa xác thực (thiếu hoặc API key không hợp lệ)
         content:
           application/json:
             schema:

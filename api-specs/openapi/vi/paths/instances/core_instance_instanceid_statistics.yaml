@@ -47,11 +47,11 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
       example: '{instanceId}'
     responses:
       '200':
-        description: Statistics retrieved successfully
+        description: Đã lấy thống kê thành công
         content:
           application/json:
             schema:
@@ -68,14 +68,14 @@
               format: BGR
               source_resolution: 1920x1080
       '404':
-        description: Instance not found or not running
+        description: Không tìm thấy instance hoặc instance không đang chạy
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not found
-              message: 'Instance not found or not running: a5204fc9-9a59-f80f-fb9f-bf3b42214943'
+              error: Không tìm thấy
+              message: 'Không tìm thấy instance hoặc instance không chạy: a5204fc9-9a59-f80f-fb9f-bf3b42214943'
       '400':
         description: Yêu cầu không hợp lệ
         content:

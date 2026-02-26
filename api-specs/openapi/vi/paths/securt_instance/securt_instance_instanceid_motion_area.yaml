@@ -33,7 +33,7 @@
                       type: number
                     y:
                       type: number
-                description: Array of coordinates defining the motion area polygon
+                description: Mảng tọa độ định nghĩa đa giác vùng chuyển động (motion area)
                 example:
                 - x: 0
                   y: 0
@@ -45,7 +45,7 @@
                   y: 100
     responses:
       '204':
-        description: Motion area configured successfully
+        description: Đã cấu hình vùng chuyển động (motion area) thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:

@@ -323,7 +323,7 @@ components:
               default_format: true
               height: 0
               is_software: false
-              name: Same as Source
+              name: Giống nguồn
             media_type: Images
             output_fps: 8
             uri: https://some_uri
@@ -1344,7 +1344,7 @@ components:
                   - ./build/output/abc-123-def
                 error:
                   type: string
-                  description: Thông báo lỗi if directory reading failed
+                  description: Thông báo lỗi khi đọc thư mục thất bại
                   example: 'Error reading directory: Permission denied'
         detection:
           type: object
@@ -2127,7 +2127,7 @@ components:
         message:
           type: string
           description: Thông báo thành công (cho thao tác tạo/cập nhật)
-          example: Node created successfully
+          example: Đã tạo node thành công
         oldNodeId:
           type: string
           description: ID node trước (cho thao tác cập nhật)
@@ -2587,7 +2587,7 @@ components:
         message:
           type: string
           description: Thông báo về thao tác
-          example: Zones created successfully
+          example: Đã tạo vùng thành công
         count:
           type: integer
           description: Số vùng đã tạo
@@ -2607,7 +2607,7 @@ components:
         message:
           type: string
           description: Thông báo về thao tác
-          example: Stops created successfully
+          example: Đã tạo vùng dừng thành công
         count:
           type: integer
           description: Số vùng dừng đã tạo

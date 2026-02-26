@@ -6,9 +6,7 @@
     summary: Build solution từ các node
     description: 'Build cấu hình solution từ các node cấu hình sẵn đã chọn.
 
-      This endpoint allows creating a solution by combining multiple pre-configured nodes.
-      The solution will be created with the specified nodes and their configurations.
-      '
+      Endpoint cho phép tạo solution bằng cách kết hợp nhiều node cấu hình sẵn. Solution được tạo với các node và cấu hình đã chỉ định.'
     operationId: buildSolutionFromNodes
     tags:
     - Node
@@ -25,20 +23,20 @@
                 type: array
                 items:
                   type: string
-                description: Array of node IDs to include in the solution
+                description: Mảng định danh node đưa vào solution
                 example:
                 - node1
                 - node2
               name:
                 type: string
-                description: Solution name
+                description: Tên solution
                 example: My Custom Solution
               description:
                 type: string
-                description: Solution description
+                description: Mô tả solution
     responses:
       '201':
-        description: Solution built successfully
+        description: Đã build solution thành công
         content:
           application/json:
             schema:
@@ -46,10 +44,10 @@
               properties:
                 solutionId:
                   type: string
-                  description: Created solution ID
+                  description: Định danh solution đã tạo (created solution ID)
                 message:
                   type: string
-                  example: Solution built successfully
+                  example: Đã build solution thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:

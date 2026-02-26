@@ -24,13 +24,13 @@
                     $ref: '#/components/schemas/InstanceSummary'
                 total:
                   type: integer
-                  description: Total number of instances
+                  description: Tổng số instance
                 running:
                   type: integer
-                  description: Number of running instances
+                  description: Số instance đang chạy
                 stopped:
                   type: integer
-                  description: Number of stopped instances
+                  description: Số instance đã dừng
             example:
               total: 3
               running: 1
@@ -64,22 +64,22 @@
               properties:
                 success:
                   type: boolean
-                  description: True if all instances were deleted successfully
+                  description: True nếu tất cả instance đã được xóa thành công
                 message:
                   type: string
-                  description: Operation status message
+                  description: Thông báo trạng thái thao tác
                 total:
                   type: integer
-                  description: Total number of instances that were attempted to delete
+                  description: Tổng số instance đã thử xóa
                 deleted:
                   type: integer
-                  description: Number of instances successfully deleted
+                  description: Số instance đã xóa thành công
                 failed:
                   type: integer
-                  description: Number of instances that failed to delete
+                  description: Số instance xóa thất bại
                 results:
                   type: array
-                  description: Detailed results for each instance
+                  description: Kết quả chi tiết cho từng instance
                   items:
                     type: object
                     properties:
@@ -88,13 +88,13 @@
                         description: Định danh instance
                       success:
                         type: boolean
-                        description: Whether deletion was successful
+                        description: Xóa có thành công hay không
                       status:
                         type: string
-                        description: Status of deletion (deleted or failed)
+                        description: Trạng thái xóa (deleted hoặc failed)
                       error:
                         type: string
-                        description: Error message if deletion failed
+                        description: Thông báo lỗi nếu xóa thất bại
             example:
               success: true
               message: Delete all instances operation completed
@@ -118,7 +118,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '503':
-        description: Service unavailable (registry busy)
+        description: Dịch vụ không khả dụng (registry bận)
         content:
           application/json:
             schema:
@@ -1939,102 +1939,102 @@
               summary: 'Tests - Test: Set Config Examples'
               value:
                 examples:
-                - description: Set DisplayName (string)
+                - description: Đặt DisplayName (chuỗi)
                   path: DisplayName
                   jsonValue: '"face_detection_demo_1_updated"'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"DisplayName","jsonValue":"\"face_detection_demo_1_updated\""}'''
-                - description: Set Detector confidence threshold (number)
+                - description: Đặt ngưỡng tin cậy Detector (số)
                   path: Detector/conf_threshold
                   jsonValue: '0.5'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/conf_threshold","jsonValue":"0.5"}'''
-                - description: Set face confidence threshold (number)
+                - description: Đặt ngưỡng tin cậy face (số)
                   path: Detector/face_confidence_threshold
                   jsonValue: '0.2'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/face_confidence_threshold","jsonValue":"0.2"}'''
-                - description: Set person confidence threshold (number)
+                - description: Đặt ngưỡng tin cậy person (số)
                   path: Detector/person_confidence_threshold
                   jsonValue: '0.4'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/person_confidence_threshold","jsonValue":"0.4"}'''
-                - description: Set vehicle confidence threshold (number)
+                - description: Đặt ngưỡng tin cậy vehicle (số)
                   path: Detector/vehicle_confidence_threshold
                   jsonValue: '0.4'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/vehicle_confidence_threshold","jsonValue":"0.4"}'''
-                - description: Set animal confidence threshold (number)
+                - description: Đặt ngưỡng tin cậy animal (số)
                   path: Detector/animal_confidence_threshold
                   jsonValue: '0.4'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/animal_confidence_threshold","jsonValue":"0.4"}'''
-                - description: Set license plate confidence threshold (number)
+                - description: Đặt ngưỡng tin cậy biển số (số)
                   path: Detector/license_plate_confidence_threshold
                   jsonValue: '0.2'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/license_plate_confidence_threshold","jsonValue":"0.2"}'''
-                - description: Set sensitivity preset (string)
+                - description: Đặt sensitivity preset (chuỗi)
                   path: Detector/current_sensitivity_preset
                   jsonValue: '"High"'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/current_sensitivity_preset","jsonValue":"\"High\""}'''
-                - description: Set detector preset (string)
+                - description: Đặt detector preset (chuỗi)
                   path: Detector/current_preset
                   jsonValue: '"FullRegionInference"'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/current_preset","jsonValue":"\"FullRegionInference\""}'''
-                - description: Set model file (string)
+                - description: Đặt file model (chuỗi)
                   path: Detector/model_file
                   jsonValue: '"pva_det_mosaic_320"'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Detector/model_file","jsonValue":"\"pva_det_mosaic_320\""}'''
-                - description: Set AutoStart (boolean)
+                - description: Đặt AutoStart (boolean)
                   path: AutoStart
                   jsonValue: 'false'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"AutoStart","jsonValue":"false"}'''
-                - description: Set RTSP handler enabled (nested boolean)
+                - description: Đặt RTSP handler enabled (boolean lồng nhau)
                   path: Output/handlers/rtsp:--0.0.0.0:8554-stream1/enabled
                   jsonValue: 'true'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Output/handlers/rtsp:--0.0.0.0:8554-stream1/enabled","jsonValue":"true"}'''
-                - description: Set RTSP handler FPS (nested number)
+                - description: Đặt RTSP handler FPS (số lồng nhau)
                   path: Output/handlers/rtsp:--0.0.0.0:8554-stream1/config/fps
                   jsonValue: '15'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"Output/handlers/rtsp:--0.0.0.0:8554-stream1/config/fps","jsonValue":"15"}'''
-                - description: Set frame rate limit (number)
+                - description: Đặt giới hạn frame rate (số)
                   path: SolutionManager/frame_rate_limit
                   jsonValue: '20'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/frame_rate_limit","jsonValue":"20"}'''
-                - description: Set recommended frame rate (number)
+                - description: Đặt frame rate khuyến nghị (số)
                   path: SolutionManager/recommended_frame_rate
                   jsonValue: '10'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/recommended_frame_rate","jsonValue":"10"}'''
-                - description: Set input pixel limit (number)
+                - description: Đặt giới hạn pixel input (số)
                   path: SolutionManager/input_pixel_limit
                   jsonValue: '3000000'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/input_pixel_limit","jsonValue":"3000000"}'''
-                - description: Set send metadata (boolean)
+                - description: Đặt send metadata (boolean)
                   path: SolutionManager/send_metadata
                   jsonValue: 'true'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/send_metadata","jsonValue":"true"}'''
-                - description: Set enable debug (boolean)
+                - description: Đặt enable debug (boolean)
                   path: SolutionManager/enable_debug
                   jsonValue: 'true'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"SolutionManager/enable_debug","jsonValue":"true"}'''
-                - description: Set performance mode preset (string)
+                - description: Đặt performance mode preset (chuỗi)
                   path: PerformanceMode/current_preset
                   jsonValue: '"Performance"'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
                     -H ''Content-Type: application/json'' -d ''{"path":"PerformanceMode/current_preset","jsonValue":"\"Performance\""}'''
-                - description: Set nested object - preset values (JSON object)
+                - description: Đặt object lồng nhau - giá trị preset (JSON object)
                   path: Detector/preset_values/MosaicInference
                   jsonValue: '{"Detector/model_file":"pva_det_mosaic_320","Detector/conf_threshold":0.4}'
                   curl_command: 'curl -X POST http://localhost:8848/v1/core/instance/1a484dc9-81f2-4f4d-a361-00056a6c24b8/config
@@ -2054,31 +2054,31 @@
                     MODEL_PATH: /opt/cvedix/models/face/yunet.onnx
                     SAVE_DIR: /tmp/output
             update___update_change_model_path:
-              summary: Update - Update Change Model Path
+              summary: Cập nhật - Đổi đường dẫn model
               value:
                 additionalParams:
                   input:
                     MODEL_PATH: /usr/share/cvedix/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
                     SFACE_MODEL_PATH: /usr/share/cvedix/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
             update___update_change_name_group:
-              summary: Update - Update Change Name Group
+              summary: Cập nhật - Đổi tên và nhóm
               value:
                 name: updated_instance_name
                 group: updated_group_name
             update___update_change_persistent_autostart:
-              summary: Update - Update Change Persistent Autostart
+              summary: Cập nhật - Đổi Persistent và Autostart
               value:
                 persistent: true
                 autoStart: true
                 autoRestart: true
             update___update_change_rtsp_url:
-              summary: Update - Update Change Rtsp Url
+              summary: Cập nhật - Đổi URL RTSP
               value:
                 additionalParams:
                   input:
                     RTSP_URL: rtsp://localhost:8554/live/new_stream
             update___update_change_settings:
-              summary: Update - Update Change Settings
+              summary: Cập nhật - Đổi cài đặt
               value:
                 frameRateLimit: 20
                 metadataMode: false
@@ -2098,7 +2098,7 @@
               $ref: '#/components/schemas/InstanceInfo'
             examples:
               building:
-                summary: Instance created, pipeline building (async)
+                summary: Đã tạo instance, đang build pipeline (bất đồng bộ)
                 value:
                   instanceId: 550e8400-e29b-41d4-a716-446655440000
                   displayName: Face Detection Camera 1
@@ -2131,7 +2131,7 @@
                   originator:
                     address: ''
               ready:
-                summary: Instance created and pipeline ready (or no solution)
+                summary: Đã tạo instance và pipeline sẵn sàng (hoặc không có solution)
                 value:
                   instanceId: 550e8400-e29b-41d4-a716-446655440000
                   displayName: Face Detection Camera 1
@@ -2163,7 +2163,7 @@
                   originator:
                     address: ''
       '400':
-        description: Bad request (validation failed)
+        description: Yêu cầu không hợp lệ (validation thất bại)
         content:
           application/json:
             schema:

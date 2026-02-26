@@ -38,13 +38,13 @@
               groups:
               - groupId: cameras
                 groupName: Security Cameras
-                description: Group for security camera instances
+                description: Nhóm cho instance camera an ninh
                 instanceCount: 3
                 isDefault: false
                 readOnly: false
               - groupId: test
                 groupName: Test Group
-                description: Group for testing
+                description: Nhóm cho mục đích thử nghiệm
                 instanceCount: 1
                 isDefault: false
                 readOnly: false
@@ -58,19 +58,19 @@
     summary: Tạo nhóm mới
     description: 'Tạo nhóm mới để tổ chức instance. Thuộc tính: **groupId** (bắt buộc) định danh duy nhất; **groupName** (tùy chọn) tên hiển thị; **description** (tùy chọn) mô tả. Group ID phải duy nhất
 
-      - Group ID must match pattern: `^[A-Za-z0-9_-]+$`
+      - Group ID phải khớp pattern: `^[A-Za-z0-9_-]+$`
 
-      - Group name must match pattern: `^[A-Za-z0-9 -_]+$`
-
-
-      **Persistence:**
-
-      - Groups are automatically saved to storage
-
-      - Group files are stored in `/var/lib/edge_ai_api/groups` (configurable via `GROUPS_DIR` environment variable)
+      - Tên nhóm phải khớp pattern: `^[A-Za-z0-9 -_]+$`
 
 
-      **Returns:** The created group information including timestamps.
+      **Lưu trữ:**
+
+      - Nhóm được tự động lưu vào kho
+
+      - File nhóm lưu tại `/var/lib/edge_ai_api/groups` (cấu hình qua biến môi trường `GROUPS_DIR`)
+
+
+      **Trả về:** Thông tin nhóm đã tạo kèm timestamp.
 
       '
     operationId: createGroup
@@ -85,7 +85,7 @@
           example:
             groupId: cameras
             groupName: Security Cameras
-            description: Group for security camera instances
+            description: Nhóm cho instance camera an ninh
     responses:
       '201':
         description: Đã tạo nhóm thành công

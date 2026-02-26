@@ -37,7 +37,7 @@
                 type: RTMP
                 uri: rtmp://live.example.com/live/stream_key
             rtspOutput:
-              summary: RTSP output
+              summary: Đầu ra RTSP
               value:
                 type: RTSP
                 uri: rtsp://localhost:8554/stream

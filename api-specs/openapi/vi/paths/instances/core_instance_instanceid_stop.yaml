@@ -7,23 +7,8 @@
     description: 'Dừng pipeline của instance, dừng mọi xử lý và giải phóng tài nguyên.
 
 
-      **Behavior:**
+      **Hành vi:** Nếu instance đã dừng thì yêu cầu vẫn thành công. Pipeline được dừng đúng cách và mọi tài nguyên được giải phóng. Xử lý dừng ngay. Trả về thông tin instance với `running: false`. **Lưu ý:** Dừng instance có thể mất vài giây khi pipeline được dọn dẹp. Cấu hình instance được giữ và có thể start lại bằng endpoint start.'
 
-      - If the instance is already stopped, the request will succeed without error
-
-      - The pipeline will be gracefully stopped and all resources will be released
-
-      - Processing will stop immediately
-
-      - Returns the updated instance information with `running: false`
-
-
-      **Note:** Stopping an instance may take a few seconds as the pipeline is cleaned up.
-
-
-      The instance configuration is preserved and can be started again using the start endpoint.
-
-      '
     operationId: stopInstance
     tags:
     - Instances
@@ -33,10 +18,10 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
-        description: Instance stopped successfully
+        description: Đã dừng instance thành công
         content:
           application/json:
             schema:

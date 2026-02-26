@@ -4,7 +4,7 @@
 /v1/securt/instance/{instanceId}/area/crossing:
   post:
     summary: Tạo vùng vượt (crossing area)
-    description: Creates a new crossing area for a SecuRT instance
+    description: Tạo vùng vượt (crossing area) mới cho instance SecuRT
     operationId: createCrossingArea
     tags:
     - Area SecuRT
@@ -23,7 +23,7 @@
             $ref: '#/components/schemas/CrossingAreaWrite'
     responses:
       '201':
-        description: Crossing area created successfully
+        description: Đã tạo vùng vượt (crossing area) thành công
         content:
           application/json:
             schema:
@@ -31,7 +31,7 @@
               properties:
                 areaId:
                   type: string
-                  description: Created area ID
+                  description: Định danh vùng đã tạo (created area ID)
                   example: '{Face}'
       '400':
         description: Yêu cầu không hợp lệ
@@ -53,7 +53,7 @@
               $ref: '#/components/schemas/ErrorResponse'
   put:
     summary: Tạo vùng vượt với ID (crossing area with ID)
-    description: Creates a crossing area with a specific ID for a SecuRT instance
+    description: Tạo vùng vượt với ID cụ thể cho instance SecuRT
     operationId: createCrossingAreaWithId
     tags:
     - Area SecuRT
@@ -78,7 +78,7 @@
             $ref: '#/components/schemas/CrossingAreaWrite'
     responses:
       '201':
-        description: Crossing area created successfully
+        description: Đã tạo vùng vượt (crossing area) thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -86,7 +86,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Area already exists
+        description: Vùng đã tồn tại
         content:
           application/json:
             schema:
@@ -104,7 +104,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for crossing area
+    summary: CORS preflight cho vùng crossing
     operationId: createCrossingAreaOptions
     tags:
     - Area SecuRT

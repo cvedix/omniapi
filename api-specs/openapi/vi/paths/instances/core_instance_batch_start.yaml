@@ -8,46 +8,8 @@
       performance.
 
 
-      **Behavior:**
+      **Hành vi:** Mọi instance được start song song; mỗi instance start độc lập; kết quả trả về cho từng instance (thành công/thất bại); instance đã chạy được đánh dấu thành công. **Định dạng yêu cầu:** Gửi mảng instance ID trong trường `instanceIds`; mọi ID phải tồn tại trong hệ thống. **Phản hồi:** Trả về kết quả chi tiết từng instance; gồm tổng số, số thành công, số thất bại; mỗi kết quả có instance ID, trạng thái success, trạng thái running, thông báo lỗi (nếu có). **Lưu ý:** Khởi động nhiều instance cùng lúc có thể tốn tài nguyên; nên theo dõi hiệu năng khi start nhiều instance.'
 
-      - All instances are started in parallel, not sequentially
-
-      - Each instance is started independently
-
-      - Results are returned for each instance (success or failure)
-
-      - Instances that are already running will be marked as successful
-
-
-      **Request Format:**
-
-      - Provide an array of instance IDs in the `instanceIds` field
-
-      - All instance IDs must exist in the system
-
-
-      **Response:**
-
-      - Returns detailed results for each instance
-
-      - Includes total count, success count, and failed count
-
-      - Each result includes the instance ID, success status, running status, and any error messages
-
-
-      **Use Cases:**
-
-      - Start multiple instances after server restart
-
-      - Batch operations for managing multiple cameras or streams
-
-      - Efficiently start a group of related instances
-
-
-      **Note:** Starting multiple instances simultaneously may consume significant system resources. Monitor system performance
-      when starting many instances at once.
-
-      '
     operationId: batchStartInstances
     tags:
     - Instances
@@ -64,14 +26,14 @@
                 type: array
                 items:
                   type: string
-                description: Array of instance IDs to start
+                description: Mảng định danh instance cần khởi động
                 example:
                 - instance-1
                 - instance-2
                 - instance-3
     responses:
       '200':
-        description: Batch start operation completed
+        description: Đã hoàn thành thao tác khởi động hàng loạt
         content:
           application/json:
             schema:

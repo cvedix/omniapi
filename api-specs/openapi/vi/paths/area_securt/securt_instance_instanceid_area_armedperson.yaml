@@ -21,7 +21,7 @@
             $ref: '#/components/schemas/ArmedPersonAreaWrite'
     responses:
       '201':
-        description: Armed person area created successfully
+        description: Đã tạo vùng người mang vũ khí (armed person area) thành công
         content:
           application/json:
             schema:
@@ -71,7 +71,7 @@
             $ref: '#/components/schemas/ArmedPersonAreaWrite'
     responses:
       '201':
-        description: Armed person area created successfully
+        description: Đã tạo vùng người mang vũ khí (armed person area) thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -79,7 +79,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Area already exists
+        description: Vùng đã tồn tại
         content:
           application/json:
             schema:
@@ -97,7 +97,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for armed person area
+    summary: CORS preflight cho vùng armed person
     operationId: createArmedPersonAreaOptions
     tags:
     - Area SecuRT

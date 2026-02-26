@@ -8,29 +8,8 @@
       - loading prepares the instance and enables state management, while starting begins the processing pipeline.
 
 
-      **Behavior:**
+      **Hành vi:** Instance phải tồn tại. Nếu instance đã nạp thì trả về 406 Not Acceptable. Khởi tạo state storage cho instance. Instance có thể nạp mà chưa start (chạy). **Use case:** Chuẩn bị instance cho quản lý state; nạp instance vào bộ nhớ trước khi đặt state runtime; quản lý bộ nhớ và tài nguyên. **Lưu ý:** State chỉ có thể set/get khi instance đã nạp. State bị xóa khi instance bị gỡ nạp.'
 
-      - Instance must exist
-
-      - If instance is already loaded, returns 406 Not Acceptable
-
-      - Initializes state storage for the instance
-
-      - Instance can be loaded without being started (running)
-
-
-      **Use Cases:**
-
-      - Prepare instance for state management
-
-      - Load instance into memory before setting runtime state
-
-      - Manage memory and resources
-
-
-      **Note:** State can only be set/get when instance is loaded. State is cleared when instance is unloaded.
-
-      '
     operationId: coreLoadInstanceV1
     tags:
     - Instances
@@ -40,11 +19,11 @@
       required: true
       schema:
         type: string
-      description: Unique identifier of the instance (UUID)
+      description: Định danh duy nhất của instance (UUID)
       example: '{instanceId}'
     responses:
       '204':
-        description: Instance loaded successfully
+        description: Đã nạp instance thành công
       '404':
         description: Không tìm thấy instance
         content:
@@ -52,17 +31,17 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not found
-              message: 'Instance not found: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+              error: Không tìm thấy
+              message: 'Không tìm thấy instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '406':
-        description: Cannot load instance (already loaded or invalid state)
+        description: Không thể nạp instance (đã nạp hoặc trạng thái không hợp lệ)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not Acceptable
-              message: 'Cannot load instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+              error: Không chấp nhận
+              message: 'Không thể nạp instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '500':
         description: Lỗi máy chủ
         content:

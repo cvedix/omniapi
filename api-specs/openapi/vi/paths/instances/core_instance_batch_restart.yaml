@@ -4,8 +4,7 @@
 /v1/core/instance/batch/restart:
   post:
     summary: Khởi động lại nhiều instance đồng thời
-    description: Restarts multiple instances concurrently by stopping and then starting them. All operations run in parallel
-      for optimal performance.
+    description: Khởi động lại nhiều instance đồng thời bằng cách dừng rồi khởi động. Mọi thao tác chạy song song để tối ưu hiệu năng.
     operationId: batchRestartInstances
     tags:
     - Instances
@@ -22,14 +21,14 @@
                 type: array
                 items:
                   type: string
-                description: Array of instance IDs to restart
+                description: Mảng định danh instance cần khởi động lại
                 example:
                 - instance-1
                 - instance-2
                 - instance-3
     responses:
       '200':
-        description: Batch restart operation completed
+        description: Đã hoàn thành thao tác khởi động lại hàng loạt
         content:
           application/json:
             schema:

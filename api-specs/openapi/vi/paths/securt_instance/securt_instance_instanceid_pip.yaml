@@ -26,11 +26,11 @@
             properties:
               enable:
                 type: boolean
-                description: Enable picture-in-picture
+                description: Bật picture-in-picture
                 example: true
     responses:
       '204':
-        description: PIP configured successfully
+        description: Đã cấu hình PIP thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -64,7 +64,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: PIP configuration
+        description: Cấu hình PIP
         content:
           application/json:
             schema:
@@ -72,7 +72,7 @@
               properties:
                 enabled:
                   type: boolean
-                  description: PIP enabled status
+                  description: Trạng thái bật PIP
                   example: true
       '404':
         description: Không tìm thấy instance

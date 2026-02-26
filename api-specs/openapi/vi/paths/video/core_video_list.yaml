@@ -4,10 +4,7 @@
 /v1/core/video/list:
   get:
     summary: Liệt kê file video đã tải lên
-    description: "Returns a list of video files that have been uploaded to the server.\n- If `directory` parameter is not\
-      \ specified: Recursively searches and lists all video files\n  in the entire videos directory tree (including all subdirectories).\n\
-      - If `directory` parameter is specified: Lists only files in that specific directory\n  (non-recursive, does not search\
-      \ subdirectories).\n"
+    description: "Trả về danh sách các file video đã được tải lên máy chủ.\n- Nếu không chỉ định tham số `directory`: Tìm kiếm đệ quy và liệt kê tất cả file video trong toàn bộ cây thư mục videos (bao gồm mọi thư mục con).\n- Nếu chỉ định tham số `directory`: Chỉ liệt kê file trong thư mục đó (không đệ quy, không tìm trong thư mục con).\n"
     operationId: listVideos
     tags:
     - Video
@@ -17,13 +14,8 @@
       required: false
       schema:
         type: string
-      description: 'Subdirectory path to list files from (e.g., "projects/myproject/videos", "users/user123").
+      description: 'Đường dẫn thư mục con để liệt kê file (ví dụ: "projects/myproject/videos", "users/user123"). Nếu chỉ định, chỉ liệt kê file trong thư mục đó (không đệ quy). Nếu không chỉ định, tìm kiếm đệ quy tất cả thư mục con.'
 
-        If specified, only lists files in that directory (non-recursive).
-
-        If not specified, recursively searches all subdirectories.
-
-        '
       example: projects/myproject/videos
     responses:
       '200':

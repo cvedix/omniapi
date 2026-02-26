@@ -5,37 +5,8 @@
   get:
     summary: Lấy trạng thái runtime của instance
     description: 'Trả về trạng thái runtime của instance. State khác config — state chứa thiết lập runtime
-      that only exist when the instance is loaded, while config contains persistent settings that are stored in files.
+      chỉ tồn tại khi instance đã nạp; config chứa thiết lập lưu trữ trong file. **State vs Config:** State - thiết lập runtime, chỉ trong bộ nhớ, xóa khi gỡ nạp; Config - thiết lập lưu trữ, tồn tại sau restart. **Hành vi:** Instance phải tồn tại và đã nạp (hoặc đang chạy). Trả về object rỗng `{}` nếu chưa đặt state. State bị xóa khi gỡ nạp. **Lưu ý:** State không tồn tại sau unload hoặc restart. Để cấu hình lưu trữ, dùng endpoint config.'
 
-
-      **State vs Config:**
-
-      - **State**: Runtime settings, in-memory only, cleared when instance is unloaded
-
-      - **Config**: Persistent settings, stored in files, persists after restart
-
-
-      **Behavior:**
-
-      - Instance must exist and be loaded (or running)
-
-      - Returns empty object `{}` if no state has been set
-
-      - State is cleared when instance is unloaded
-
-
-      **Use Cases:**
-
-      - Get runtime settings and flags
-
-      - Check runtime state values
-
-      - Monitor runtime configuration
-
-
-      **Note:** State does not persist after unload or restart. For persistent configuration, use the config endpoint.
-
-      '
     operationId: coreGetInstanceStateV1
     tags:
     - Instances
@@ -45,21 +16,21 @@
       required: true
       schema:
         type: string
-      description: Unique identifier of the instance (UUID)
+      description: Định danh duy nhất của instance (UUID)
       example: '{instanceId}'
     responses:
       '200':
-        description: Instance state retrieved successfully
+        description: Đã lấy trạng thái instance thành công
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/InstanceState'
             examples:
               emptyState:
-                summary: Empty state (no state set)
+                summary: Trạng thái rỗng (chưa đặt state)
                 value: {}
               withState:
-                summary: State with values
+                summary: State có giá trị
                 value:
                   runtime:
                     mode: production
@@ -79,17 +50,17 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not found
-              message: 'Instance not found: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+              error: Không tìm thấy
+              message: 'Không tìm thấy instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '406':
-        description: Instance not loaded
+        description: Instance chưa được nạp
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not Acceptable
-              message: 'Instance not loaded: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+              error: Không chấp nhận
+              message: 'Instance chưa được nạp: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '500':
         description: Lỗi máy chủ
         content:
@@ -124,34 +95,8 @@
 
       - Simple path: `"testValue"` - Sets top-level testValue
 
-      - Nested path: `"Output/handlers/Mqtt"` - Sets Mqtt handler in Output.handlers
+      Đường dẫn lồng: `"Output/handlers/Mqtt"` - đặt handler Mqtt trong Output.handlers. Đường dẫn sâu: `"runtime/debug/enabled"` - đặt cờ enabled trong runtime.debug. **Định dạng jsonValue:** Chuỗi `"\"my string\""`; object `"{\"key\":\"value\"}"`; số `"123"` hoặc `"45.67"`; boolean `"true"` hoặc `"false"`. **Lưu ý:** State không tồn tại sau unload hoặc restart. Để cấu hình lưu trữ, dùng endpoint config.'
 
-      - Deep nested: `"runtime/debug/enabled"` - Sets enabled flag in runtime.debug
-
-
-      **jsonValue Format:**
-
-      - For string values: `"\"my string\""` (escaped JSON string)
-
-      - For object values: `"{\"key\":\"value\"}"` (escaped JSON object)
-
-      - For number values: `"123"` or `"45.67"`
-
-      - For boolean values: `"true"` or `"false"`
-
-
-      **Use Cases:**
-
-      - Set runtime flags and settings
-
-      - Configure runtime behavior
-
-      - Update temporary runtime values
-
-
-      **Note:** State does not persist after unload or restart. For persistent configuration, use the config endpoint.
-
-      '
     operationId: corePostInstanceStateV1
     tags:
     - Instances
@@ -161,7 +106,7 @@
       required: true
       schema:
         type: string
-      description: Unique identifier of the instance (UUID)
+      description: Định danh duy nhất của instance (UUID)
       example: '{instanceId}'
     requestBody:
       required: true
@@ -171,32 +116,32 @@
             $ref: '#/components/schemas/SetStateRequest'
           examples:
             stringValue:
-              summary: Set string value
+              summary: Đặt giá trị chuỗi
               value:
                 path: runtime/mode
                 jsonValue: '"production"'
             objectValue:
-              summary: Set object value
+              summary: Đặt giá trị object
               value:
                 path: Output/handlers/Mqtt
                 jsonValue: '{"enabled":true,"broker":"localhost","port":1883}'
             nestedPath:
-              summary: Set nested path value
+              summary: Đặt giá trị đường dẫn lồng nhau
               value:
                 path: runtime/debug/enabled
                 jsonValue: 'true'
     responses:
       '204':
-        description: State value set successfully
+        description: Đã thiết lập giá trị state thành công
       '400':
-        description: Bad request (invalid input, missing required fields, or invalid JSON)
+        description: Yêu cầu không hợp lệ (đầu vào sai, thiếu trường bắt buộc hoặc JSON không hợp lệ)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Bad request
-              message: Field 'jsonValue' must contain valid JSON
+              error: Yêu cầu không hợp lệ
+              message: Trường 'jsonValue' phải chứa JSON hợp lệ
       '404':
         description: Không tìm thấy instance
         content:
@@ -204,17 +149,17 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not found
-              message: 'Instance not found: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+              error: Không tìm thấy
+              message: 'Không tìm thấy instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '406':
-        description: Instance not loaded
+        description: Instance chưa được nạp
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not Acceptable
-              message: 'Instance not loaded: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+              error: Không chấp nhận
+              message: 'Instance chưa được nạp: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '500':
         description: Lỗi máy chủ
         content:

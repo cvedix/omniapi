@@ -5,25 +5,8 @@
   get:
     summary: Lấy thông tin chi tiết instance
     description: 'Trả về thông tin chi tiết của một instance: cấu hình đầy đủ, trạng thái, runtime
-      information.
+      Phản hồi gồm: cấu hình instance (tên hiển thị, nhóm, solution, ...), trạng thái runtime (đang chạy, đã nạp, FPS, ...), thiết lập (chế độ detector, độ nhạy, giới hạn frame rate, ...), cấu hình Input/Output, thông tin originator. Instance phải tồn tại; nếu không tìm thấy sẽ trả về lỗi 404.'
 
-
-      The response includes:
-
-      - Instance configuration (display name, group, solution, etc.)
-
-      - Runtime status (running, loaded, FPS, etc.)
-
-      - Configuration settings (detector mode, sensitivity, frame rate limits, etc.)
-
-      - Input/Output configuration
-
-      - Originator information
-
-
-      The instance must exist. If the instance is not found, a 404 error will be returned.
-
-      '
     operationId: getInstance
     tags:
     - Instances
@@ -33,10 +16,10 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
-        description: Instance details
+        description: Chi tiết instance
         content:
           application/json:
             schema:
@@ -56,34 +39,8 @@
   put:
     summary: Cập nhật thông tin instance
     description: 'Cập nhật cấu hình instance. Chỉ các trường gửi lên được cập nhật. Hỗ trợ hai kiểu update
-      formats:
+      **Định dạng cập nhật 1 - Từng trường (camelCase):** Cập nhật từng trường như `name`, `group`, `autoStart`, `frameRateLimit`, ...; dùng `additionalParams` cho tham số riêng solution (RTSP_URL, MODEL_PATH, ...). **Định dạng 2 - Config trực tiếp (PascalCase):** Cập nhật theo PascalCase giống file cấu hình instance; có thể cập nhật `Input`, `Output`, `Detector`, `Zone`, ... **Hành vi:** Nếu instance đang chạy sẽ được khởi động lại tự động để áp dụng thay đổi; nếu không chạy thì thay đổi có hiệu lực khi start; instance phải tồn tại và không read-only; chỉ các trường gửi lên được cập nhật.'
 
-
-      **Update Format 1: Field-by-field (camelCase)**
-
-      - Update individual fields like `name`, `group`, `autoStart`, `frameRateLimit`, etc.
-
-      - Use `additionalParams` to update solution-specific parameters (RTSP_URL, MODEL_PATH, etc.)
-
-
-      **Update Format 2: Direct Config (PascalCase)**
-
-      - Update using PascalCase format matching instance config file
-
-      - Can update `Input`, `Output`, `Detector`, `Zone`, etc. directly
-
-
-      **Behavior:**
-
-      - If the instance is currently running, it will be automatically restarted to apply the changes
-
-      - If the instance is not running, changes will take effect when the instance is started
-
-      - The instance must exist and not be read-only
-
-      - Only provided fields will be updated; other fields remain unchanged
-
-      '
     operationId: updateInstance
     tags:
     - Instances
@@ -93,7 +50,7 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     requestBody:
       required: true
       content:
@@ -102,7 +59,7 @@
             $ref: '#/components/schemas/UpdateInstanceRequest'
     responses:
       '200':
-        description: Instance updated successfully
+        description: Đã cập nhật instance thành công
         content:
           application/json:
             schema:
@@ -112,7 +69,7 @@
                 properties:
                   message:
                     type: string
-                    example: Instance updated successfully
+                    example: Đã cập nhật instance thành công
       '400':
         description: Yêu cầu không hợp lệ hoặc validation thất bại
         content:
@@ -203,7 +160,7 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
       example: '{threshold}'
     requestBody:
       required: true
@@ -224,16 +181,16 @@
                 autoStart: true
     responses:
       '204':
-        description: Instance updated successfully
+        description: Đã cập nhật instance thành công
       '400':
-        description: Bad request (parsing error or invalid arguments)
+        description: Yêu cầu không hợp lệ (lỗi phân tích hoặc tham số không hợp lệ)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Bad request
-              message: Invalid request body or validation failed
+              error: Yêu cầu không hợp lệ
+              message: Body yêu cầu không hợp lệ hoặc validation thất bại
       '404':
         description: Không tìm thấy instance
         content:
@@ -241,8 +198,8 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
             example:
-              error: Not found
-              message: 'Instance not found: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+              error: Không tìm thấy
+              message: 'Không tìm thấy instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
       '500':
         description: Lỗi máy chủ
         content:
@@ -251,7 +208,7 @@
               $ref: '#/components/schemas/ErrorResponse'
             example:
               error: Internal Server Error
-              message: Failed to update instance
+              message: Cập nhật instance thất bại
   options:
     summary: CORS preflight cho cập nhật instance
     operationId: updateInstanceOptions
@@ -263,7 +220,7 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
         description: Phản hồi CORS preflight
@@ -304,9 +261,8 @@
       - Instance must not be read-only (system instances cannot be deleted)
 
 
-      **Note:** This operation cannot be undone. Once deleted, the instance must be recreated using the create instance endpoint.
+      **Lưu ý:** Thao tác này không thể hoàn tác. Sau khi xóa, cần tạo lại instance bằng endpoint tạo instance.'
 
-      '
     operationId: deleteInstance
     tags:
     - Instances
@@ -316,10 +272,10 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
-        description: Instance deleted successfully
+        description: Đã xóa instance thành công
         content:
           application/json:
             schema:

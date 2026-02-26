@@ -26,11 +26,11 @@
             properties:
               enable:
                 type: boolean
-                description: Enable face detection
+                description: Bật nhận diện khuôn mặt
                 example: true
     responses:
       '204':
-        description: Face detection configured successfully
+        description: Đã cấu hình nhận diện khuôn mặt thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:

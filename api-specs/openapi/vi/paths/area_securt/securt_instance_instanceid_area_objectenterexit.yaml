@@ -4,7 +4,7 @@
 /v1/securt/instance/{instanceId}/area/objectEnterExit:
   post:
     summary: Tạo vùng vật vào/ra (object enter/exit area)
-    description: Creates a new object enter/exit area for BA Area Enter/Exit solution. Detects objects entering/exiting the
+    description: Tạo vùng vật vào/ra (object enter/exit area) mới cho solution BA Area Enter/Exit. Phát hiện vật vào/ra
       area.
     operationId: createObjectEnterExitArea
     tags:
@@ -45,7 +45,7 @@
             alertOnExit: true
     responses:
       '201':
-        description: Object enter/exit area created successfully
+        description: Đã tạo vùng vật vào/ra (object enter/exit area) thành công
         content:
           application/json:
             schema:
@@ -53,7 +53,7 @@
               properties:
                 areaId:
                   type: string
-                  description: Created area ID
+                  description: Định danh vùng đã tạo (created area ID)
                   example: 550e8400-e29b-41d4-a716-446655440000
       '400':
         description: Yêu cầu không hợp lệ
@@ -75,7 +75,7 @@
               $ref: '#/components/schemas/ErrorResponse'
   put:
     summary: Tạo vùng vật vào/ra với ID (object enter/exit area with ID)
-    description: Creates a new object enter/exit area with a specific area ID for BA Area Enter/Exit solution.
+    description: Tạo vùng vật vào/ra với ID vùng cụ thể cho solution BA Area Enter/Exit.
     operationId: createObjectEnterExitAreaWithId
     tags:
     - Area SecuRT
@@ -120,7 +120,7 @@
             alertOnExit: false
     responses:
       '201':
-        description: Object enter/exit area created successfully
+        description: Đã tạo vùng vật vào/ra (object enter/exit area) thành công
         content:
           application/json:
             schema:
@@ -128,7 +128,7 @@
               properties:
                 areaId:
                   type: string
-                  description: Created area ID
+                  description: Định danh vùng đã tạo (created area ID)
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -136,7 +136,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Area already exists
+        description: Vùng đã tồn tại
         content:
           application/json:
             schema:
@@ -154,7 +154,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for object enter/exit area
+    summary: CORS preflight cho vùng object enter/exit
     operationId: createObjectEnterExitAreaOptions
     tags:
     - Area SecuRT

@@ -6,8 +6,7 @@
     summary: Nạp solution mặc định
     description: 'Nạp solution mặc định từ examples/default_solutions/ vào solution registry.
 
-      This endpoint allows loading a default solution template into the system for use in creating instances.
-      '
+      Endpoint cho phép nạp mẫu solution mặc định vào hệ thống để dùng khi tạo instance.'
     operationId: loadDefaultSolution
     tags:
     - Solutions
@@ -17,10 +16,10 @@
       required: true
       schema:
         type: string
-      description: Default solution ID to load
+      description: Định danh solution mặc định cần nạp
     responses:
       '200':
-        description: Default solution loaded successfully
+        description: Đã nạp solution mặc định thành công
         content:
           application/json:
             schema:
@@ -28,12 +27,12 @@
               properties:
                 solutionId:
                   type: string
-                  description: Loaded solution ID
+                  description: Định danh solution đã nạp
                 message:
                   type: string
-                  example: Default solution loaded successfully
+                  example: Đã nạp solution mặc định thành công
       '404':
-        description: Default solution not found
+        description: Không tìm thấy solution mặc định
         content:
           application/json:
             schema:

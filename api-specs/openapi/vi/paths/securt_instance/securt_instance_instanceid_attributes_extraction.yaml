@@ -24,20 +24,20 @@
             properties:
               enabled:
                 type: boolean
-                description: Enable attributes extraction
+                description: Bật trích xuất thuộc tính (attributes extraction)
                 example: true
               attributes:
                 type: array
                 items:
                   type: string
-                description: Array of attributes to extract
+                description: Mảng thuộc tính cần trích xuất (attributes to extract)
                 example:
                 - age
                 - gender
                 - clothing
     responses:
       '204':
-        description: Attributes extraction configured successfully
+        description: Đã cấu hình attributes extraction thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -71,7 +71,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: Attributes extraction configuration
+        description: Cấu hình attributes extraction
         content:
           application/json:
             schema:

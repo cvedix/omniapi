@@ -6,9 +6,7 @@
     summary: Cập nhật hàng loạt đường vượt (crossing lines)
     description: 'Cập nhật nhiều đường vượt (crossing lines) cho instance ba_crossline trong một yêu cầu.
 
-      This endpoint allows updating multiple crossing lines at once, which is more efficient than updating them individually.
-      The instance will be restarted automatically to apply the changes if it is currently running.
-      '
+      Endpoint cho phép cập nhật nhiều đường vượt cùng lúc, hiệu quả hơn cập nhật từng cái. Instance sẽ được khởi động lại tự động để áp dụng thay đổi nếu đang chạy.'
     operationId: batchUpdateLines
     tags:
     - Instances
@@ -18,7 +16,7 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     requestBody:
       required: true
       content:
@@ -33,10 +31,10 @@
               properties:
                 id:
                   type: string
-                  description: Line ID
+                  description: Định danh đường (line ID)
                 name:
                   type: string
-                  description: Line name
+                  description: Tên đường (line)
                 coordinates:
                   type: array
                   items:
@@ -47,14 +45,14 @@
                       y:
                         type: number
                   minItems: 2
-                  description: Line coordinates (at least 2 points)
+                  description: Tọa độ đường (ít nhất 2 điểm)
                 direction:
                   type: string
                   enum:
                   - bidirectional
                   - forward
                   - backward
-                  description: Crossing direction
+                  description: Hướng vượt
             example:
             - id: line1
               name: Main Line
@@ -66,7 +64,7 @@
               direction: bidirectional
     responses:
       '200':
-        description: Lines updated successfully
+        description: Đã cập nhật đường thành công
         content:
           application/json:
             schema:
@@ -74,7 +72,7 @@
               properties:
                 updated:
                   type: integer
-                  description: Number of lines updated
+                  description: Số đường đã cập nhật
                   example: 2
       '400':
         description: Yêu cầu không hợp lệ

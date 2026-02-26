@@ -4,11 +4,8 @@
 /v1/recognition/faces/delete:
   post:
     summary: Xóa nhiều face subject
-    description: 'Xóa nhiều face subject theo image ID. Nếu một số ID không tồn tại
+    description: 'Xóa nhiều face subject theo image ID. Các ID không tồn tại sẽ bị bỏ qua. Endpoint có từ phiên bản 1.0.'
 
-      they will be ignored. This endpoint is available since version 1.0.
-
-      '
     operationId: deleteMultipleFaceSubjects
     tags:
     - Recognition
@@ -21,13 +18,13 @@
             items:
               type: string
               format: uuid
-            description: Array of image IDs to delete
+            description: Mảng image ID cần xóa
           example:
           - 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
           - 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
     responses:
       '200':
-        description: Face subjects deleted successfully
+        description: Đã xóa face subject thành công
         content:
           application/json:
             schema:
@@ -37,7 +34,7 @@
               properties:
                 deleted:
                   type: array
-                  description: Array of deleted face subjects
+                  description: Mảng face subject đã xóa
                   items:
                     type: object
                     required:
@@ -47,11 +44,11 @@
                       image_id:
                         type: string
                         format: uuid
-                        description: UUID of the deleted face subject
+                        description: UUID của face subject đã xóa
                         example: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
                       subject:
                         type: string
-                        description: Name of the person associated with the deleted face
+                        description: Tên người gắn với khuôn mặt đã xóa
                         example: subject1
             example:
               deleted:
@@ -60,13 +57,13 @@
               - image_id: 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
                 subject: subject2
       '400':
-        description: Bad request (invalid JSON, not an array, etc.)
+        description: Yêu cầu không hợp lệ (JSON không hợp lệ, không phải mảng, v.v.)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '401':
-        description: Unauthorized (missing or invalid API key)
+        description: Chưa xác thực (thiếu hoặc API key không hợp lệ)
         content:
           application/json:
             schema:

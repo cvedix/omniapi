@@ -6,12 +6,8 @@
     summary: Xóa tất cả face subject
     description: 'Xóa tất cả face subject khỏi database. Thao tác không thể hoàn tác.
 
-      All image IDs and subject mappings will be removed.
+      Mọi image ID và ánh xạ subject sẽ bị xóa. **Cảnh báo:** Endpoint này sẽ xóa tất cả khuôn mặt đã đăng ký. Dùng với thận trọng.'
 
-
-      **Warning:** This endpoint will delete all registered faces. Use with caution.
-
-      '
     operationId: deleteAllFaceSubjects
     tags:
     - Recognition
@@ -28,12 +24,12 @@
               properties:
                 deleted_count:
                   type: integer
-                  description: Total number of face subjects deleted
+                  description: Tổng số face subject đã xóa
                   example: 15
                 message:
                   type: string
-                  description: Success message
-                  example: All face subjects deleted successfully
+                  description: Thông báo thành công
+                  example: Đã xóa tất cả face subject thành công
             example:
               deleted_count: 15
               message: All face subjects deleted successfully

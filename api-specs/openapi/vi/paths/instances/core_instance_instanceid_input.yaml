@@ -4,23 +4,8 @@
 /v1/core/instance/{instanceId}/input:
   post:
     summary: Thiết lập nguồn đầu vào cho instance
-    description: 'Thiết lập cấu hình nguồn đầu vào cho instance. Thay thế trường Input trong Instance File theo
-      to the request.
+    description: 'Thiết lập cấu hình nguồn đầu vào cho instance. Thay thế trường Input trong Instance File theo yêu cầu. **Loại đầu vào:** **RTSP** - dùng node `rtsp_src`; **HLS** - dùng node `hls_src`; **Manual** - dùng node `v4l2_src` cho thiết bị V4L2. Instance phải tồn tại và không read-only. Nếu instance đang chạy sẽ được khởi động lại tự động để áp dụng thay đổi.'
 
-
-      **Input Types:**
-
-      - **RTSP**: Uses `rtsp_src` node for RTSP streams
-
-      - **HLS**: Uses `hls_src` node for HLS streams
-
-      - **Manual**: Uses `v4l2_src` node for V4L2 devices
-
-
-      The instance must exist and not be read-only. If the instance is currently running, it will be automatically restarted
-      to apply the changes.
-
-      '
     operationId: setInstanceInput
     tags:
     - Instances
@@ -30,7 +15,7 @@
       required: true
       schema:
         type: string
-      description: Unique identifier of the instance (UUID)
+      description: Định danh duy nhất của instance (UUID)
     requestBody:
       required: true
       content:
@@ -42,9 +27,9 @@
             uri: http://localhost
     responses:
       '204':
-        description: Input settings updated successfully
+        description: Đã cập nhật cài đặt đầu vào thành công
       '400':
-        description: Bad request (invalid input or missing required fields)
+        description: Yêu cầu không hợp lệ (đầu vào sai hoặc thiếu trường bắt buộc)
         content:
           application/json:
             schema:

@@ -4,7 +4,7 @@
 /v1/securt/instance/{instanceId}/area/loitering:
   post:
     summary: Tạo vùng lượn (loitering area)
-    description: Creates a new loitering area for a SecuRT instance
+    description: Tạo vùng lượn vòng (loitering area) mới cho instance SecuRT
     operationId: createLoiteringArea
     tags:
     - Area SecuRT
@@ -22,7 +22,7 @@
             $ref: '#/components/schemas/LoiteringAreaWrite'
     responses:
       '201':
-        description: Loitering area created successfully
+        description: Đã tạo vùng lượn vòng (loitering area) thành công
         content:
           application/json:
             schema:
@@ -73,7 +73,7 @@
             $ref: '#/components/schemas/LoiteringAreaWrite'
     responses:
       '201':
-        description: Loitering area created successfully
+        description: Đã tạo vùng lượn vòng (loitering area) thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -81,7 +81,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Area already exists
+        description: Vùng đã tồn tại
         content:
           application/json:
             schema:
@@ -99,7 +99,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for loitering area
+    summary: CORS preflight cho vùng loitering
     operationId: createLoiteringAreaOptions
     tags:
     - Area SecuRT

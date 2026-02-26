@@ -28,13 +28,13 @@
                 type: array
                 items:
                   type: string
-                description: Array of feature extraction types
+                description: Mảng loại trích xuất đặc trưng
                 example:
                 - face
                 - body
     responses:
       '204':
-        description: Feature extraction configured successfully
+        description: Đã cấu hình trích xuất đặc trưng thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -68,7 +68,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: Feature extraction configuration
+        description: Cấu hình trích xuất đặc trưng
         content:
           application/json:
             schema:
@@ -78,7 +78,7 @@
                   type: array
                   items:
                     type: string
-                  description: Array of configured feature extraction types
+                  description: Mảng loại trích xuất đặc trưng đã cấu hình
                   example:
                   - face
                   - body

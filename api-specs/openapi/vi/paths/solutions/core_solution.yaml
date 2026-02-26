@@ -22,13 +22,13 @@
                     $ref: '#/components/schemas/SolutionSummary'
                 total:
                   type: integer
-                  description: Total number of solutions
+                  description: Tổng số solution
                 default:
                   type: integer
-                  description: Number of default solutions
+                  description: Số solution mặc định
                 custom:
                   type: integer
-                  description: Number of custom solutions
+                  description: Số solution tùy chỉnh
             example:
               total: 2
               default: 1
@@ -78,19 +78,19 @@
               RTSP_URL: rtsp://localhost/stream
     responses:
       '201':
-        description: Solution created successfully
+        description: Đã tạo solution thành công
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SolutionConfig'
       '400':
-        description: Bad request (validation failed)
+        description: Yêu cầu không hợp lệ (validation thất bại)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: Solution already exists
+        description: Solution đã tồn tại
         content:
           application/json:
             schema:

@@ -10,7 +10,7 @@
     - Node
     responses:
       '200':
-        description: Statistics retrieved successfully
+        description: Đã lấy thống kê thành công
         content:
           application/json:
             schema:

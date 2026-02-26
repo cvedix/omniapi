@@ -36,7 +36,7 @@
                 - medium
                 - high
                 default: medium
-                description: Request priority
+                description: Độ ưu tiên yêu cầu
     responses:
       '200':
         description: Công việc xử lý đã được gửi thành công
@@ -53,13 +53,13 @@
                   type: string
                   example: queued
       '400':
-        description: Bad request (invalid JSON or missing required fields)
+        description: Yêu cầu không hợp lệ (JSON không hợp lệ hoặc thiếu trường bắt buộc)
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '429':
-        description: Rate limit exceeded
+        description: Vượt giới hạn tốc độ (rate limit)
         content:
           application/json:
             schema:
@@ -71,7 +71,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '501':
-        description: Not implemented
+        description: Chưa triển khai
         content:
           application/json:
             schema:

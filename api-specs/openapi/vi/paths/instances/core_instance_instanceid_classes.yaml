@@ -14,7 +14,7 @@
       required: true
       schema:
         type: string
-      description: Instance ID (UUID)
+      description: Định danh instance (UUID)
     responses:
       '200':
         description: Danh sách class được hỗ trợ

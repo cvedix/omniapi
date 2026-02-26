@@ -21,7 +21,7 @@
         - 'false'
         - '1'
         - '0'
-      description: Filter to show only available (not in use) nodes
+      description: Lọc chỉ hiển thị node khả dụng (không đang dùng)
       example: 'true'
     - name: category
       in: query
@@ -34,7 +34,7 @@
         - processor
         - destination
         - broker
-      description: Filter nodes by category
+      description: Lọc node theo danh mục
       example: source
     responses:
       '200':
@@ -63,13 +63,13 @@
             $ref: '#/components/schemas/CreateNodeRequest'
     responses:
       '201':
-        description: Node created successfully
+        description: Đã tạo node thành công
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/NodeResponse'
       '400':
-        description: Bad request (missing required fields or invalid parameters)
+        description: Yêu cầu không hợp lệ (thiếu trường bắt buộc hoặc tham số không hợp lệ)
         content:
           application/json:
             schema:

@@ -19,7 +19,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: Analytics entities retrieved successfully
+        description: Đã lấy thực thể analytics thành công
         content:
           application/json:
             schema:
@@ -27,72 +27,72 @@
               properties:
                 crossingAreas:
                   type: array
-                  description: Crossing areas
+                  description: Vùng vượt (crossing areas)
                   items:
                     type: object
                 intrusionAreas:
                   type: array
-                  description: Intrusion areas
+                  description: Vùng xâm nhập (intrusion areas)
                   items:
                     type: object
                 loiteringAreas:
                   type: array
-                  description: Loitering areas
+                  description: Vùng lượn vòng (loitering areas)
                   items:
                     type: object
                 crowdingAreas:
                   type: array
-                  description: Crowding areas
+                  description: Vùng tụ tập (crowding areas)
                   items:
                     type: object
                 occupancyAreas:
                   type: array
-                  description: Occupancy areas
+                  description: Vùng chiếm dụng (occupancy areas)
                   items:
                     type: object
                 crowdEstimationAreas:
                   type: array
-                  description: Crowd estimation areas
+                  description: Vùng ước lượng đám đông (crowd estimation areas)
                   items:
                     type: object
                 dwellingAreas:
                   type: array
-                  description: Dwelling areas
+                  description: Vùng trú ngụ (dwelling areas)
                   items:
                     type: object
                 armedPersonAreas:
                   type: array
-                  description: Armed person areas
+                  description: Vùng người mang vũ khí (armed person areas)
                   items:
                     type: object
                 objectLeftAreas:
                   type: array
-                  description: Object left areas
+                  description: Vùng vật bỏ quên (object left areas)
                   items:
                     type: object
                 objectRemovedAreas:
                   type: array
-                  description: Object removed areas
+                  description: Vùng vật bị dời (object removed areas)
                   items:
                     type: object
                 fallenPersonAreas:
                   type: array
-                  description: Fallen person areas
+                  description: Vùng người ngã (fallen person areas)
                   items:
                     type: object
                 crossingLines:
                   type: array
-                  description: Crossing lines
+                  description: Đường vượt (crossing lines)
                   items:
                     type: object
                 countingLines:
                   type: array
-                  description: Counting lines
+                  description: Đường đếm (counting lines)
                   items:
                     type: object
                 tailgatingLines:
                   type: array
-                  description: Tailgating lines
+                  description: Đường bám đuôi (tailgating lines)
                   items:
                     type: object
             example:

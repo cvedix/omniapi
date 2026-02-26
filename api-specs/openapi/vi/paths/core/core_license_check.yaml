@@ -3,14 +3,14 @@
 
 /v1/core/license/check:
   get:
-    summary: Check license validity
-    description: Check if the license is valid and active
+    summary: Kiểm tra tính hợp lệ license
+    description: Kiểm tra license có hợp lệ và đang hoạt động hay không
     operationId: checkLicense
     tags:
     - Core
     responses:
       '200':
-        description: License check result
+        description: Kết quả kiểm tra license
         content:
           application/json:
             schema:
@@ -18,12 +18,12 @@
               properties:
                 valid:
                   type: boolean
-                  description: License validity status
+                  description: Trạng thái tính hợp lệ license
                   example: true
                 message:
                   type: string
-                  description: License status message
-                  example: License is valid
+                  description: Thông báo trạng thái license
+                  example: License hợp lệ
       '500':
         description: Lỗi máy chủ
         content:
@@ -31,7 +31,7 @@
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   options:
-    summary: CORS preflight for license check
+    summary: CORS preflight cho kiểm tra license
     operationId: checkLicenseOptions
     tags:
     - Core

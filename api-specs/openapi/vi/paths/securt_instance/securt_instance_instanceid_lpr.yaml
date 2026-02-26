@@ -26,11 +26,11 @@
             properties:
               enable:
                 type: boolean
-                description: Enable license plate recognition
+                description: Bật nhận diện biển số
                 example: true
     responses:
       '204':
-        description: LPR configured successfully
+        description: Đã cấu hình LPR thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
@@ -64,7 +64,7 @@
       description: Định danh instance
     responses:
       '200':
-        description: LPR configuration
+        description: Cấu hình LPR
         content:
           application/json:
             schema:
@@ -72,7 +72,7 @@
               properties:
                 enable:
                   type: boolean
-                  description: LPR enabled status
+                  description: Trạng thái bật LPR
                   example: true
       '404':
         description: Không tìm thấy instance

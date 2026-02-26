@@ -23,7 +23,7 @@
             $ref: '#/components/schemas/CrossingLineWrite'
     responses:
       '201':
-        description: Crossing line created successfully
+        description: Đã tạo đường vượt (crossing line) thành công
         content:
           application/json:
             schema:
@@ -31,7 +31,7 @@
               properties:
                 lineId:
                   type: string
-                  description: Created line ID
+                  description: Định danh đường đã tạo
                   example: '{lineId}'
       '400':
         description: Yêu cầu không hợp lệ

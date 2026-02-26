@@ -20,10 +20,10 @@
       required: true
       schema:
         type: string
-      description: Line ID
+      description: Định danh đường (line ID)
     responses:
       '204':
-        description: Line deleted successfully
+        description: Đã xóa đường thành công
       '400':
         description: Yêu cầu không hợp lệ
         content:
