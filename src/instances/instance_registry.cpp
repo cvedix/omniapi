@@ -28,8 +28,8 @@
 #include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_crossline_osd_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_jam_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
@@ -2974,7 +2974,7 @@ bool InstanceRegistry::startPipeline(
       std::cerr << "[InstanceRegistry]   2. Check CVEDIX SDK logs for "
                    "'rtspsrc' connection messages:"
                 << std::endl;
-      std::cerr << "[InstanceRegistry]      - Direct run: ./bin/edge_ai_api "
+      std::cerr << "[InstanceRegistry]      - Direct run: ./bin/edgeos-api "
                    "2>&1 | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Service: sudo journalctl -u "
@@ -5978,9 +5978,9 @@ void InstanceRegistry::setupFrameCaptureHook(
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) !=
               nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(
               node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_jam_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(
               node) != nullptr;

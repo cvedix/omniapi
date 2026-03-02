@@ -1,6 +1,6 @@
-# Edge AI API
+# edgeos-api
 
-REST API server cho CVEDIX Edge AI SDK, cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên.
+REST API server cho CVEDIX Edge AI SDK (EdgeOS SDK), cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên.
 
 ![Edge AI Workflow](docs/image.png)
 
@@ -121,7 +121,7 @@ cmake ..
 make -j$(nproc)
 
 # 3. Chạy server
-./bin/edge_ai_api
+./bin/edgeos-api
 ```
 
 ### Build và Cài Đặt Debian Package
@@ -176,7 +176,7 @@ nano .env  # Chỉnh sửa nếu cần
 ### Với Logging
 
 ```bash
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 ```
 
 ### Environment Variables
@@ -248,10 +248,10 @@ Xem đầy đủ: [docs/API.md](docs/API.md)
 
 ```bash
 # Development - full logging
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 
 # Production - minimal logging
-./build/bin/edge_ai_api --log-api
+./build/bin/edgeos-api --log-api
 ```
 
 **Logs API:**

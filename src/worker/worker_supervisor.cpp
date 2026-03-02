@@ -85,7 +85,7 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] SOLUTION:" << std::endl;
     std::cerr << "[Supervisor]   1. Build worker executable:" << std::endl;
-    std::cerr << "[Supervisor]      cd build && make edge_ai_worker" << std::endl;
+    std::cerr << "[Supervisor]      cd build && make edgeos_worker" << std::endl;
     std::cerr << "[Supervisor]   2. Or check if executable exists in PATH" << std::endl;
     std::cerr << "[Supervisor]   3. Run diagnostic script:" << std::endl;
     std::cerr << "[Supervisor]      ./scripts/diagnose_spawn_worker.sh" << std::endl;

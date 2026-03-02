@@ -17,7 +17,7 @@
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_face_swap_node.h>
-#include <cvedix/nodes/infers/fr/cvedix_face_recognition_node.h>
+#include <cvedix/nodes/infers/cvedix_facenet_node.h>
 #include <cvedix/nodes/infers/cvedix_lane_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_restoration_node.h>
 // YOLOv11 ONNX nodes
@@ -2192,17 +2192,29 @@ PipelineBuilderDetectorNodes::createInsightFaceRecognitionNode(
       throw std::invalid_argument("Node name and model path are required");
     }
 
-    std::cerr << "[PipelineBuilderDetectorNodes] Creating InsightFace recognition node:"
+    // SDK may provide cvedix_face_recognition_node (InsightFace, multi-backend) in newer
+    // versions. Current libcvedix_core.so only exports cvedix_facenet_node (FaceNet).
+    // Use facenet node: (node_name, model_path, input_width, input_height,
+    // enable_alignment, pretrained_dataset). Use 112x112 for InsightFace-style models.
+    int inputW = 112;
+    int inputH = 112;
+    if (params.count("input_width")) inputW = std::stoi(params.at("input_width"));
+    if (params.count("input_height")) inputH = std::stoi(params.at("input_height"));
+    bool enableAlign = true;
+    if (params.count("enable_alignment")) {
+      std::string v = params.at("enable_alignment");
+      enableAlign = (v != "0" && v != "false");
+    }
+
+    std::cerr << "[PipelineBuilderDetectorNodes] Creating face recognition node (facenet):"
               << std::endl;
     std::cerr << "  Name: '" << nodeName << "'" << std::endl;
     std::cerr << "  Model path: '" << modelPath << "'" << std::endl;
 
-    auto node =
-        std::make_shared<cvedix_nodes::cvedix_face_recognition_node>(
-            nodeName, modelPath);
+    auto node = std::make_shared<cvedix_nodes::cvedix_facenet_node>(
+        nodeName, modelPath, inputW, inputH, enableAlign, "vggface2");
 
-    std::cerr << "[PipelineBuilderDetectorNodes] ✓ InsightFace recognition node created "
-                 "successfully"
+    std::cerr << "[PipelineBuilderDetectorNodes] ✓ Face recognition node created successfully"
               << std::endl;
     return node;
   } catch (const std::exception &e) {

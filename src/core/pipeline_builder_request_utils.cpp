@@ -17,7 +17,7 @@ std::string PipelineBuilderRequestUtils::getFilePath(
   }
 
   // Default fallback: Try production path first, then development path
-  std::string productionPath = "/opt/edge_ai_api/videos/face.mp4";
+  std::string productionPath = "/opt/edgeos-api/videos/face.mp4";
   try {
     if (fs::exists(productionPath)) {
       std::cerr << "[PipelineBuilder] Using default production file path: "
@@ -33,7 +33,7 @@ std::string PipelineBuilderRequestUtils::getFilePath(
                "path (./cvedix_data/test_video/face.mp4)"
             << std::endl;
   std::cerr << "[PipelineBuilder] ℹ NOTE: In production, provide 'FILE_PATH' "
-               "in request body or upload videos to /opt/edge_ai_api/videos/"
+               "in request body or upload videos to /opt/edgeos-api/videos/"
             << std::endl;
   return "./cvedix_data/test_video/face.mp4";
 }

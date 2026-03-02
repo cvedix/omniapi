@@ -6,7 +6,7 @@
 #include "core/securt_line_manager.h"
 #include "core/securt_pipeline_integration.h"
 #include "instances/inprocess_instance_manager.h"
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/objects/shapes/cvedix_line.h>
 #include <cvedix/objects/shapes/cvedix_point.h>
 #include <chrono>
@@ -1141,12 +1141,12 @@ bool SecuRTLineHandler::updateLinesRuntime(const std::string &instanceId) const 
     }
 
     // Search for ba_crossline_node in pipeline
-    std::shared_ptr<cvedix_nodes::cvedix_ba_crossline_node> baCrosslineNode;
+    std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> baCrosslineNode;
     for (const auto &node : nodes) {
       if (!node) continue;
 
       auto crosslineNode =
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_node>(node);
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(node);
       if (crosslineNode) {
         baCrosslineNode = crosslineNode;
         break;

@@ -116,7 +116,7 @@ TEST_F(VersionHandlerTest, VersionServiceName) {
   auto json = response->getJsonObject();
   ASSERT_NE(json, nullptr);
 
-  EXPECT_EQ((*json)["service"].asString(), "edge_ai_api");
+  EXPECT_EQ((*json)["service"].asString(), "edgeos-api");
   EXPECT_EQ((*json)["api_version"].asString(), "v1");
 }
 

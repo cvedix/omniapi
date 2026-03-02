@@ -1,4 +1,4 @@
-Source: edge-ai-api
+Source: edgeos-api
 Section: net
 Priority: optional
 Maintainer: CVEDIX <support@cvedix.com>

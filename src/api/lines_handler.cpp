@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/objects/shapes/cvedix_line.h>
 #include <cvedix/objects/shapes/cvedix_point.h>
 #include <drogon/HttpResponse.h>
@@ -1744,7 +1744,7 @@ bool LinesHandler::restartInstanceForLineUpdate(
   return true;
 }
 
-std::shared_ptr<cvedix_nodes::cvedix_ba_crossline_node>
+std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node>
 LinesHandler::findBACrosslineNode(const std::string &instanceId) const {
   // Note: In subprocess mode, we cannot access nodes directly
   // as they run in separate worker processes.
@@ -1796,7 +1796,7 @@ LinesHandler::findBACrosslineNode(const std::string &instanceId) const {
         continue;
 
       auto crosslineNode =
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(
               node);
       if (crosslineNode) {
         if (isApiLoggingEnabled()) {

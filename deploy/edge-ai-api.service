@@ -1,14 +1,14 @@
 [Unit]
-Description=Edge AI API Server
-Documentation=https://github.com/cvedix/edge_ai_api
+Description=edgeos-api Server
+Documentation=https://github.com/cvedix/edgeos-api
 After=network.target
 
 [Service]
 Type=simple
 User=edgeai
 Group=edgeai
-WorkingDirectory=/opt/edge_ai_api
-ExecStart=/usr/local/bin/edge_ai_api
+WorkingDirectory=/opt/edgeos-api
+ExecStart=/usr/local/bin/edgeos-api
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -28,7 +28,7 @@ ProtectSystem=true
 ProtectHome=true
 # Allow network access (required for binding ports)
 PrivateNetwork=false
-ReadWritePaths=/opt/edge_ai_api/logs /opt/edge_ai_api/data /opt/edge_ai_api/uploads /opt/edge_ai_api/instances /opt/edge_ai_api/record /opt/edge_ai_api/models /opt/edge_ai_api/videos /opt/edge_ai_api/fonts /opt/edge_ai_api/run
+ReadWritePaths=/opt/edgeos-api/logs /opt/edgeos-api/data /opt/edgeos-api/uploads /opt/edgeos-api/instances /opt/edgeos-api/record /opt/edgeos-api/models /opt/edgeos-api/videos /opt/edgeos-api/fonts /opt/edgeos-api/run
 
 # Watchdog settings (systemd built-in watchdog)
 # NOTE: Disabled because application has its own watchdog implementation
@@ -38,31 +38,31 @@ ReadWritePaths=/opt/edge_ai_api/logs /opt/edge_ai_api/data /opt/edge_ai_api/uplo
 
 # Environment variables
 # Load from .env file if exists, otherwise use defaults
-EnvironmentFile=-/opt/edge_ai_api/config/.env
-# Config file path - Auto-detection will use /opt/edge_ai_api/config/config.json
-# Priority: CONFIG_FILE env var > auto-detection (./config.json > /opt/edge_ai_api/config/config.json)
+EnvironmentFile=-/opt/edgeos-api/config/.env
+# Config file path - Auto-detection will use /opt/edgeos-api/config/config.json
+# Priority: CONFIG_FILE env var > auto-detection (./config.json > /opt/edgeos-api/config/config.json)
 Environment="API_HOST=0.0.0.0"
 Environment="API_PORT=8080"
 # Worker executable path (required for subprocess mode)
-# Default: edge_ai_worker (will search in PATH)
-# Production: /usr/local/bin/edge_ai_worker
-Environment="EDGE_AI_WORKER_PATH=/usr/local/bin/edge_ai_worker"
+# Default: edgeos-worker (will search in PATH)
+# Production: /usr/local/bin/edgeos-worker
+Environment="EDGE_AI_WORKER_PATH=/usr/local/bin/edgeos-worker"
 # Socket directory for IPC between main process and workers
-# Default: /opt/edge_ai_api/run
-Environment="EDGE_AI_SOCKET_DIR=/opt/edge_ai_api/run"
+# Default: /opt/edgeos-api/run
+Environment="EDGE_AI_SOCKET_DIR=/opt/edgeos-api/run"
 # Execution mode: subprocess (isolated workers) or in-process (legacy)
 # Changed to in-process for production stability (same as develop mode)
 # Default: in-process (no worker spawning - more stable)
 Environment="EDGE_AI_EXECUTION_MODE=in-process"
 # Instances directory for storing instance configurations
-# Default: /opt/edge_ai_api/instances
-Environment="INSTANCES_DIR=/opt/edge_ai_api/instances"
+# Default: /opt/edgeos-api/instances
+Environment="INSTANCES_DIR=/opt/edgeos-api/instances"
 # Installation directory (required for finding api-specs/scalar files)
-# Default: /opt/edge_ai_api
-Environment="EDGE_AI_API_INSTALL_DIR=/opt/edge_ai_api"
+# Default: /opt/edgeos-api
+Environment="EDGE_AI_API_INSTALL_DIR=/opt/edgeos-api"
 # GStreamer plugin path (required for filesrc and other plugins)
-# Priority: 1) Bundled plugins in /opt/edge_ai_api/lib/gstreamer-1.0 (all-in-one)
-#          2) Value from /opt/edge_ai_api/config/.env (set by postinst)
+# Priority: 1) Bundled plugins in /opt/edgeos-api/lib/gstreamer-1.0 (all-in-one)
+#          2) Value from /opt/edgeos-api/config/.env (set by postinst)
 #          3) System default path (fallback)
 # NOTE: Do NOT hardcode here - let .env file or auto-detection handle it
 # The postinst script will set GST_PLUGIN_PATH in .env file automatically

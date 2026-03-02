@@ -9,20 +9,20 @@
 #   ./scripts/create_directories.sh [INSTALL_DIR] [--full-permissions]
 #
 # Options:
-#   INSTALL_DIR          - Thư mục cài đặt (default: /opt/edge_ai_api)
+#   INSTALL_DIR          - Thư mục cài đặt (default: /opt/edgeos-api)
 #   --full-permissions   - Set quyền 755 cho tất cả thư mục (thay vì permissions trong config)
 #
 # Examples:
 #   ./scripts/create_directories.sh
-#   ./scripts/create_directories.sh /opt/edge_ai_api
-#   ./scripts/create_directories.sh /opt/edge_ai_api --full-permissions
+#   ./scripts/create_directories.sh /opt/edgeos-api
+#   ./scripts/create_directories.sh /opt/edgeos-api --full-permissions
 #
 # ============================================
 
 set -euo pipefail
 
 # Default values
-INSTALL_DIR="/opt/edge_ai_api"
+INSTALL_DIR="/opt/edgeos-api"
 FULL_PERMISSIONS=false
 
 # Parse arguments
@@ -36,13 +36,13 @@ while [ $# -gt 0 ]; do
             echo "Usage: $0 [INSTALL_DIR] [--full-permissions]"
             echo
             echo "Options:"
-            echo "  INSTALL_DIR          - Thư mục cài đặt (default: /opt/edge_ai_api)"
+            echo "  INSTALL_DIR          - Thư mục cài đặt (default: /opt/edgeos-api)"
             echo "  --full-permissions   - Set quyền 755 cho tất cả thư mục"
             echo
             echo "Examples:"
             echo "  $0"
-            echo "  $0 /opt/edge_ai_api"
-            echo "  $0 /opt/edge_ai_api --full-permissions"
+            echo "  $0 /opt/edgeos-api"
+            echo "  $0 /opt/edgeos-api --full-permissions"
             exit 0
             ;;
         -*)
@@ -52,7 +52,7 @@ while [ $# -gt 0 ]; do
             ;;
         *)
             # First non-option argument is INSTALL_DIR
-            if [ "$INSTALL_DIR" = "/opt/edge_ai_api" ]; then
+            if [ "$INSTALL_DIR" = "/opt/edgeos-api" ]; then
                 INSTALL_DIR="$1"
             else
                 echo "Warning: Multiple INSTALL_DIR arguments, using first: $INSTALL_DIR" >&2

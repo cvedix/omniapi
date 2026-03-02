@@ -5,7 +5,7 @@
 #include "core/uuid_generator.h"
 #include "instances/instance_manager.h"
 #include "instances/inprocess_instance_manager.h"
-#include <cvedix/nodes/ba/cvedix_ba_jam_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_jam_node.h>
 #include "solutions/solution_registry.h"
 #include <algorithm>
 #include <drogon/HttpResponse.h>
@@ -1216,7 +1216,7 @@ bool JamsHandler::restartInstanceForJamUpdate(const std::string &instanceId) con
   return true;
 }
 
-std::shared_ptr<cvedix_nodes::cvedix_ba_jam_node>
+std::shared_ptr<cvedix_nodes::cvedix_ba_area_jam_node>
 JamsHandler::findBAJamNode(const std::string &instanceId) const {
   // Note: In subprocess mode, nodes are not directly accessible. This will
   // return nullptr and let updateJamsRuntime() fallback to restart.
@@ -1257,7 +1257,7 @@ JamsHandler::findBAJamNode(const std::string &instanceId) const {
     for (const auto &node : nodes) {
       if (!node) continue;
       
-      auto jamNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_jam_node>(node);
+      auto jamNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_node>(node);
       if (jamNode) {
         if (isApiLoggingEnabled()) {
           PLOG_DEBUG << "[API] findBAJamNode: Found ba_jam_node for instance " << instanceId;

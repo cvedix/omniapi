@@ -850,7 +850,7 @@ std::string ScalarHandler::getExamplesInstancesDir() const {
       "./examples/instances",
       "../examples/instances",
       "../../examples/instances",
-      "/opt/edge_ai_api/examples/instances",
+      "/opt/edgeos-api/examples/instances",
   };
 
   // Also try relative to executable path

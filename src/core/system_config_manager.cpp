@@ -22,8 +22,8 @@ bool SystemConfigManager::loadConfig(const std::string &configPath) {
     // Try to find system config file in common locations
     std::vector<std::string> possiblePaths = {
         "./config/system_config.json",
-        "/opt/edge_ai_api/config/system_config.json",
-        "/etc/edge_ai_api/system_config.json"
+        "/opt/edgeos-api/config/system_config.json",
+        "/etc/edgeos-api/system_config.json"
     };
 
     for (const auto &path : possiblePaths) {

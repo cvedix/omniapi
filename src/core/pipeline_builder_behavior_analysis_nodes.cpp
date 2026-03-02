@@ -8,18 +8,18 @@
 #include <opencv2/core.hpp>
 #include <json/reader.h>
 #include <json/value.h>
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_jam_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_jam_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_stop_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_loitering_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_loitering_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_area_enter_exit_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_line_counting.h>
-#include <cvedix/nodes/osd/cvedix_ba_crossline_osd_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_jam_osd_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_counting_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_enter_exit_osd_node.h>
 #include <cvedix/objects/shapes/cvedix_rect.h>
-
+#include <cvedix/objects/shapes/cvedix_point.h>
 
 
 std::shared_ptr<cvedix_nodes::cvedix_node>
@@ -256,14 +256,14 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineNode(
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Creating BA crossline node:" << std::endl;
     std::cerr << "  Name: '" << nodeName << "'" << std::endl;
 
-    std::shared_ptr<cvedix_nodes::cvedix_ba_crossline_node> node;
+    std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> node;
 
     // Use new config API if we have configs with names/colors
     if (useConfigs && !lineConfigs.empty() && !linesMultiChannel.empty()) {
       // Create node with empty lines first, then add lines with full configs (names, colors, directions)
       // This ensures names are stored in ba_crossline_node (for events) and OSD node
       std::map<int, std::vector<cvedix_objects::cvedix_line>> emptyLines;
-      node = std::make_shared<cvedix_nodes::cvedix_ba_crossline_node>(
+      node = std::make_shared<cvedix_nodes::cvedix_ba_line_crossline_node>(
           nodeName, emptyLines, true, false);
       
       std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   Created node, adding lines with configs" << std::endl;
@@ -294,7 +294,7 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineNode(
       // Fallback to backward compatible API
       std::cerr << "  Lines configured for " << lines.size() << " channel(s)"
                 << std::endl;
-      node = std::make_shared<cvedix_nodes::cvedix_ba_crossline_node>(
+      node = std::make_shared<cvedix_nodes::cvedix_ba_line_crossline_node>(
           nodeName, lines);
       std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   Using backward compatible API"
                 << std::endl;
@@ -482,7 +482,7 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
               << std::endl;
 
     auto node =
-        std::make_shared<cvedix_nodes::cvedix_ba_jam_node>(nodeName, jams);
+        std::make_shared<cvedix_nodes::cvedix_ba_area_jam_node>(nodeName, jams);
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA jam node created successfully"
               << std::endl;
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   Jams will be passed to OSD node via "
@@ -683,7 +683,7 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineOSDNode(
               << std::endl;
 
     auto node =
-        std::make_shared<cvedix_nodes::cvedix_ba_crossline_osd_node>(nodeName);
+        std::make_shared<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(nodeName);
 
     // Parse CrossingLines config to set line names, colors, and directions for OSD
     auto crossingLinesIt = req.additionalParams.find("CrossingLines");
@@ -834,7 +834,7 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
               << std::endl;
 
     auto node =
-        std::make_shared<cvedix_nodes::cvedix_ba_jam_osd_node>(nodeName);
+        std::make_shared<cvedix_nodes::cvedix_ba_area_jam_osd_node>(nodeName);
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA jam OSD node created successfully"
               << std::endl;
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   OSD node will draw lines on video frames "
@@ -1072,9 +1072,20 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
     std::cerr << "  Regions configured for " << regions.size() << " channel(s)"
               << std::endl;
 
-    // Create loitering node with regions, alarm_seconds, and frame rate (30 fps default)
-    auto node = std::make_shared<cvedix_nodes::cvedix_ba_loitering_node>(
-        nodeName, regions, alarm_seconds, 30);
+    // SDK expects map<int, vector<cvedix_point>> (polygon per channel). Convert rects to polygons.
+    std::map<int, std::vector<cvedix_objects::cvedix_point>> rois;
+    for (const auto& kv : regions) {
+      const cvedix_objects::cvedix_rect& r = kv.second;
+      rois[kv.first] = {
+        cvedix_objects::cvedix_point(r.x, r.y),
+        cvedix_objects::cvedix_point(r.x + r.width, r.y),
+        cvedix_objects::cvedix_point(r.x + r.width, r.y + r.height),
+        cvedix_objects::cvedix_point(r.x, r.y + r.height)
+      };
+    }
+    // Create loitering node: (nodeName, rois, fps, draw_roi, draw_alarm_region)
+    auto node = std::make_shared<cvedix_nodes::cvedix_ba_area_loitering_node>(
+        nodeName, rois, 30, false, false);
     
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA loitering node created successfully"
               << std::endl;
@@ -1233,9 +1244,21 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
     std::cerr << "  Areas configured for " << areas.size() << " channel(s)"
               << std::endl;
 
-    // Create node with areas and configs (image_recording=false, video_recording=false)
+    // SDK expects map<int, vector<vector<cvedix_point>>> (polygons per channel). Convert rects to polygons.
+    std::map<int, std::vector<std::vector<cvedix_objects::cvedix_point>>> areas_poly;
+    for (const auto& kv : areas) {
+      for (const auto& r : kv.second) {
+        areas_poly[kv.first].push_back({
+          cvedix_objects::cvedix_point(r.x, r.y),
+          cvedix_objects::cvedix_point(r.x + r.width, r.y),
+          cvedix_objects::cvedix_point(r.x + r.width, r.y + r.height),
+          cvedix_objects::cvedix_point(r.x, r.y + r.height)
+        });
+      }
+    }
+    // Create node with areas (polygons) and configs (image_recording=false, video_recording=false)
     auto node = std::make_shared<cvedix_nodes::cvedix_ba_area_enter_exit_node>(
-        nodeName, areas, configs, false, false);
+        nodeName, areas_poly, configs, false, false);
     
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA area enter/exit node created successfully"
               << std::endl;
@@ -1333,7 +1356,7 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
               << std::endl;
 
     // Create node with line settings
-    auto node = std::make_shared<cvedix_nodes::cvedix_ba_line_counting>(
+    auto node = std::make_shared<cvedix_nodes::cvedix_ba_line_counting_node>(
         nodeName, lineSettings);
     
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA line counting node created successfully"

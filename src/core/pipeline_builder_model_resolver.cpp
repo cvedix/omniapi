@@ -15,7 +15,7 @@ std::string PipelineBuilderModelResolver::resolveModelPath(
   // Priority:
   // 1. CVEDIX_DATA_ROOT environment variable
   // 2. CVEDIX_SDK_ROOT environment variable + /cvedix_data
-  // 3. Production path: /opt/edge_ai_api/models (where user-uploaded models are
+  // 3. Production path: /opt/edgeos-api/models (where user-uploaded models are
   // stored)
   // 4. System-wide installation paths (/usr/share/cvedix/cvedix_data/)
   // 5. SDK source locations (relative paths)
@@ -49,29 +49,29 @@ std::string PipelineBuilderModelResolver::resolveModelPath(
     }
   }
 
-  // 3. Try production installation path (/opt/edge_ai_api/models)
+  // 3. Try production installation path (/opt/edgeos-api/models)
   // This is where user-uploaded models are stored
   // Check if relativePath starts with "models/" or is a direct model file
   if (relativePath.find("models/") == 0 || relativePath.find("models\\") == 0) {
     // Extract the model path after "models/"
     std::string modelPath =
         relativePath.substr(relativePath.find_first_of("/\\") + 1);
-    std::string optPath = "/opt/edge_ai_api/models/" + modelPath;
+    std::string optPath = "/opt/edgeos-api/models/" + modelPath;
     if (fs::exists(optPath)) {
       std::cerr << "[PipelineBuilder] Using production path: " << optPath
                 << std::endl;
       return optPath;
     }
     // Also try direct path if relativePath is just a filename
-    std::string optPathDirect = "/opt/edge_ai_api/models/" + relativePath;
+    std::string optPathDirect = "/opt/edgeos-api/models/" + relativePath;
     if (fs::exists(optPathDirect)) {
       std::cerr << "[PipelineBuilder] Using production path: " << optPathDirect
                 << std::endl;
       return optPathDirect;
     }
   } else {
-    // Try direct model file in /opt/edge_ai_api/models
-    std::string optPath = "/opt/edge_ai_api/models/" + relativePath;
+    // Try direct model file in /opt/edgeos-api/models
+    std::string optPath = "/opt/edgeos-api/models/" + relativePath;
     if (fs::exists(optPath)) {
       std::cerr << "[PipelineBuilder] Using production path: " << optPath
                 << std::endl;
@@ -143,7 +143,7 @@ std::string PipelineBuilderModelResolver::resolveModelPath(
 
   // 6. Development fallback: relative to current working directory
   // (./cvedix_data/) NOTE: This path will NOT exist in production - all data
-  // should be in /opt/edge_ai_api
+  // should be in /opt/edgeos-api
   std::string relativePathFull = "./cvedix_data/" + relativePath;
   if (fs::exists(relativePathFull)) {
     std::cerr << "[PipelineBuilder] Using development relative path: "
@@ -156,7 +156,7 @@ std::string PipelineBuilderModelResolver::resolveModelPath(
                "./cvedix_data/"
             << relativePath << std::endl;
   std::cerr << "[PipelineBuilder] ℹ NOTE: In production, use "
-               "/opt/edge_ai_api/models/ or set CVEDIX_DATA_ROOT"
+               "/opt/edgeos-api/models/ or set CVEDIX_DATA_ROOT"
             << std::endl;
   return relativePathFull;
 }
@@ -209,11 +209,11 @@ std::string PipelineBuilderModelResolver::resolveModelByName(
     searchDirs.push_back(dir);
   }
 
-  // 3. Production installation path (/opt/edge_ai_api/models)
+  // 3. Production installation path (/opt/edgeos-api/models)
   // This is where user-uploaded models are stored
-  searchDirs.push_back("/opt/edge_ai_api/models/" + category);
+  searchDirs.push_back("/opt/edgeos-api/models/" + category);
   searchDirs.push_back(
-      "/opt/edge_ai_api/models"); // Also check root models directory
+      "/opt/edgeos-api/models"); // Also check root models directory
 
   // 4. System-wide locations
   searchDirs.push_back("/usr/share/cvedix/cvedix_data/models/" + category);
@@ -230,7 +230,7 @@ std::string PipelineBuilderModelResolver::resolveModelByName(
 
   // 6. Development fallback: relative to current working directory
   // (./cvedix_data/) NOTE: This path will NOT exist in production - all data
-  // should be in /opt/edge_ai_api
+  // should be in /opt/edgeos-api
   searchDirs.push_back("./cvedix_data/models/" + category);
   searchDirs.push_back("./models"); // Also check API models directory
 
@@ -319,14 +319,14 @@ PipelineBuilderModelResolver::listAvailableModels(const std::string &category) {
     }
   }
 
-  // Production installation path (/opt/edge_ai_api/models)
+  // Production installation path (/opt/edgeos-api/models)
   // This is where user-uploaded models are stored
   if (category.empty()) {
-    searchDirs.push_back("/opt/edge_ai_api/models");
+    searchDirs.push_back("/opt/edgeos-api/models");
   } else {
-    searchDirs.push_back("/opt/edge_ai_api/models/" + category);
+    searchDirs.push_back("/opt/edgeos-api/models/" + category);
     searchDirs.push_back(
-        "/opt/edge_ai_api/models"); // Also check root models directory
+        "/opt/edgeos-api/models"); // Also check root models directory
   }
 
   if (category.empty()) {
@@ -340,7 +340,7 @@ PipelineBuilderModelResolver::listAvailableModels(const std::string &category) {
 
   // Development fallback: relative to current working directory
   // (./cvedix_data/) NOTE: This path will NOT exist in production - all data
-  // should be in /opt/edge_ai_api
+  // should be in /opt/edgeos-api
   searchDirs.push_back("./cvedix_data/models/" +
                        (category.empty() ? "" : category));
   searchDirs.push_back("./models");

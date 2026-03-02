@@ -118,7 +118,7 @@ std::string CVEDIXValidator::getDependencyErrorMessage() {
   oss << "CVEDIX SDK dependencies not available\n";
   oss << "\nSOLUTION:\n";
   oss << "  1. Fix symlinks:\n";
-  oss << "     sudo /opt/edge_ai_api/scripts/dev_setup.sh --skip-deps --skip-build\n";
+  oss << "     sudo /opt/edgeos-api/scripts/dev_setup.sh --skip-deps --skip-build\n";
   oss << "  2. Update library cache:\n";
   oss << "     sudo ldconfig\n";
   oss << "  3. Restart service:\n";

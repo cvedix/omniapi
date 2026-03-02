@@ -7,11 +7,11 @@
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
-#include <cvedix/nodes/osd/cvedix_ba_crossline_osd_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_jam_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_loitering_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_loitering_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <chrono>
 #include <thread>
 #include <future>
@@ -1297,8 +1297,8 @@ bool InstanceRegistry::reconnectRTMPDestinationStream(
       bool isOSDNode =
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_face_osd_node_v2>(node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_osd_node>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_jam_osd_node>(node) != nullptr ||
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) != nullptr ||
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(node) != nullptr;
       
       if (isOSDNode) {
@@ -1321,8 +1321,8 @@ bool InstanceRegistry::reconnectRTMPDestinationStream(
           continue;
         }
         // Check if this is a BA node using dynamic_pointer_cast
-        auto baLoiteringNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_loitering_node>(node);
-        auto baCrosslineNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_node>(node);
+        auto baLoiteringNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_loitering_node>(node);
+        auto baCrosslineNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(node);
         
         if (baLoiteringNode || baCrosslineNode) {
           parentNode = node;
