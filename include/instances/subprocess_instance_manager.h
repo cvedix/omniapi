@@ -52,6 +52,32 @@ public:
    */
   bool updateLines(const std::string &instanceId, const Json::Value &linesArray);
 
+  /**
+   * @brief Update jam zones runtime (without restart) – subprocess only
+   * @param instanceId Instance ID
+   * @param jamsJson JSON array of jam zone objects
+   * @return true if successful
+   */
+  bool updateJams(const std::string &instanceId, const Json::Value &jamsJson);
+
+  /**
+   * @brief Update stop zones runtime (without restart) – subprocess only
+   * @param instanceId Instance ID
+   * @param stopsJson JSON array of stop zone objects
+   * @return true if successful
+   */
+  bool updateStops(const std::string &instanceId, const Json::Value &stopsJson);
+
+  /**
+   * @brief Push a frame into instance pipeline (app_src) – subprocess only
+   * @param instanceId Instance ID
+   * @param frameBase64 Base64-encoded frame (JPEG/PNG bytes)
+   * @param codec Codec id: "jpeg", "png", etc.
+   * @return true if successful
+   */
+  bool pushFrame(const std::string &instanceId, const std::string &frameBase64,
+                 const std::string &codec);
+
   // ========== Instance Query ==========
 
   std::optional<InstanceInfo>

@@ -18,6 +18,7 @@
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
+#include <cvedix/nodes/src/cvedix_app_src_node.h>
 #include <cvedix/nodes/src/cvedix_file_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtsp_src_node.h>
 #include <cvedix/objects/cvedix_frame_meta.h>
@@ -34,6 +35,43 @@
 // Base64 encoding table
 static const char base64_chars[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+// Base64 decode (returns empty vector on error)
+static std::vector<uint8_t> base64_decode(const std::string &encoded) {
+  std::vector<uint8_t> out;
+  if (encoded.empty()) return out;
+  std::string safe;
+  for (char c : encoded) {
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=')
+      safe += c;
+  }
+  size_t len = safe.size();
+  if (len == 0 || (len % 4) != 0) return out;
+  out.reserve((len / 4) * 3);
+  for (size_t i = 0; i < len; i += 4) {
+    auto idx = [&safe](size_t j) -> int {
+      char c = safe[j];
+      if (c >= 'A' && c <= 'Z') return c - 'A';
+      if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+      if (c >= '0' && c <= '9') return c - '0' + 52;
+      if (c == '+') return 62;
+      if (c == '/') return 63;
+      return -1;
+    };
+    if (safe[i] == '=' || safe[i + 1] == '=') break;
+    int n0 = idx(i), n1 = idx(i + 1), n2 = (safe[i + 2] == '=') ? -1 : idx(i + 2),
+        n3 = (safe[i + 3] == '=') ? -1 : idx(i + 3);
+    if (n0 < 0 || n1 < 0) break;
+    out.push_back(static_cast<uint8_t>((n0 << 2) | (n1 >> 4)));
+    if (n2 >= 0) {
+      out.push_back(static_cast<uint8_t>(((n1 & 15) << 4) | (n2 >> 2)));
+      if (n3 >= 0)
+        out.push_back(static_cast<uint8_t>(((n2 & 3) << 6) | n3));
+    }
+  }
+  return out;
+}
 
 namespace worker {
 
@@ -264,6 +302,12 @@ IPCMessage WorkerHandler::handleMessage(const IPCMessage &msg) {
     return handleUpdateInstance(msg);
   case MessageType::UPDATE_LINES:
     return handleUpdateLines(msg);
+  case MessageType::UPDATE_JAMS:
+    return handleUpdateJams(msg);
+  case MessageType::UPDATE_STOPS:
+    return handleUpdateStops(msg);
+  case MessageType::PUSH_FRAME:
+    return handlePushFrame(msg);
   case MessageType::GET_INSTANCE_STATUS:
     return handleGetStatus(msg);
   case MessageType::GET_STATISTICS:
@@ -733,6 +777,176 @@ IPCMessage WorkerHandler::handleUpdateLines(const IPCMessage &msg) {
                                            ResponseStatus::INTERNAL_ERROR);
   }
 
+  return response;
+}
+
+IPCMessage WorkerHandler::handleUpdateJams(const IPCMessage &msg) {
+  IPCMessage response;
+  response.type = MessageType::UPDATE_JAMS_RESPONSE;
+
+  if (!msg.payload.isMember("jams")) {
+    response.payload = createErrorResponse("No jams provided",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    std::cout << "[Worker:" << instance_id_
+              << "] Cannot update jams: pipeline not running" << std::endl;
+    response.payload = createErrorResponse("Pipeline not running",
+                                           ResponseStatus::ERROR);
+    return response;
+  }
+
+  Json::Value oldConfig = config_;
+  if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+    config_["AdditionalParams"] = Json::Value(Json::objectValue);
+  }
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  config_["AdditionalParams"]["JamZones"] =
+      Json::writeString(wb, msg.payload["jams"]);
+
+  std::cout << "[Worker:" << instance_id_
+            << "] Updating jam zones via hot swap (config merge)" << std::endl;
+  if (hotSwapPipeline(config_)) {
+    std::cout << "[Worker:" << instance_id_
+              << "] ✓ Jam zones updated successfully (hot swap)" << std::endl;
+    response.payload = createResponse(ResponseStatus::OK,
+                                      "Jam zones updated successfully (runtime)");
+    Json::Value data;
+    data["jams_count"] = msg.payload["jams"].isArray() ?
+        static_cast<int>(msg.payload["jams"].size()) : 0;
+    response.payload["data"] = data;
+  } else {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to hot swap pipeline for jam zones update" << std::endl;
+    config_ = oldConfig;
+    response.payload = createErrorResponse("Failed to apply jam zones (hot swap failed)",
+                                           ResponseStatus::INTERNAL_ERROR);
+  }
+  return response;
+}
+
+IPCMessage WorkerHandler::handleUpdateStops(const IPCMessage &msg) {
+  IPCMessage response;
+  response.type = MessageType::UPDATE_STOPS_RESPONSE;
+
+  if (!msg.payload.isMember("stops")) {
+    response.payload = createErrorResponse("No stops provided",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    std::cout << "[Worker:" << instance_id_
+              << "] Cannot update stops: pipeline not running" << std::endl;
+    response.payload = createErrorResponse("Pipeline not running",
+                                           ResponseStatus::ERROR);
+    return response;
+  }
+
+  Json::Value oldConfig = config_;
+  if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+    config_["AdditionalParams"] = Json::Value(Json::objectValue);
+  }
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  config_["AdditionalParams"]["StopZones"] =
+      Json::writeString(wb, msg.payload["stops"]);
+
+  std::cout << "[Worker:" << instance_id_
+            << "] Updating stop zones via hot swap (config merge)" << std::endl;
+  if (hotSwapPipeline(config_)) {
+    std::cout << "[Worker:" << instance_id_
+              << "] ✓ Stop zones updated successfully (hot swap)" << std::endl;
+    response.payload = createResponse(ResponseStatus::OK,
+                                      "Stop zones updated successfully (runtime)");
+    Json::Value data;
+    data["stops_count"] = msg.payload["stops"].isArray() ?
+        static_cast<int>(msg.payload["stops"].size()) : 0;
+    response.payload["data"] = data;
+  } else {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to hot swap pipeline for stop zones update" << std::endl;
+    config_ = oldConfig;
+    response.payload = createErrorResponse("Failed to apply stop zones (hot swap failed)",
+                                           ResponseStatus::INTERNAL_ERROR);
+  }
+  return response;
+}
+
+IPCMessage WorkerHandler::handlePushFrame(const IPCMessage &msg) {
+  IPCMessage response;
+  response.type = MessageType::PUSH_FRAME_RESPONSE;
+
+  if (!msg.payload.isMember("frame_base64") || !msg.payload["frame_base64"].isString()) {
+    response.payload = createErrorResponse("No frame_base64 string in payload",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  std::string codec = "jpeg";
+  if (msg.payload.isMember("codec") && msg.payload["codec"].isString()) {
+    codec = msg.payload["codec"].asString();
+  }
+  std::transform(codec.begin(), codec.end(), codec.begin(), ::tolower);
+
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    response.payload = createErrorResponse("Pipeline not running",
+                                           ResponseStatus::ERROR);
+    return response;
+  }
+
+  std::string b64 = msg.payload["frame_base64"].asString();
+  std::vector<uint8_t> data = base64_decode(b64);
+  if (data.empty()) {
+    response.payload = createErrorResponse("Invalid base64 frame data",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  cv::Mat frame;
+  if (codec == "jpeg" || codec == "jpg" || codec == "png" || codec == "webp") {
+    frame = cv::imdecode(data, cv::IMREAD_COLOR);
+  } else {
+    std::cerr << "[Worker:" << instance_id_
+              << "] PUSH_FRAME: Only jpeg/png supported, got codec=" << codec
+              << std::endl;
+    response.payload = createErrorResponse(
+        "Only jpeg/png/webp codec supported for push frame in worker",
+        ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  if (frame.empty()) {
+    response.payload = createErrorResponse("Failed to decode image",
+                                           ResponseStatus::INTERNAL_ERROR);
+    return response;
+  }
+
+  std::shared_ptr<cvedix_nodes::cvedix_app_src_node> appSrcNode;
+  for (const auto &node : pipeline_nodes_) {
+    if (!node) continue;
+    appSrcNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(node);
+    if (appSrcNode) break;
+  }
+
+  if (!appSrcNode) {
+    response.payload = createErrorResponse("No app_src node in pipeline",
+                                           ResponseStatus::NOT_FOUND);
+    return response;
+  }
+
+  try {
+    appSrcNode->push_frames(frame);
+    response.payload = createResponse(ResponseStatus::OK, "Frame pushed");
+  } catch (const std::exception &e) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] PUSH_FRAME push_frames exception: " << e.what() << std::endl;
+    response.payload = createErrorResponse(std::string("push_frames failed: ") + e.what(),
+                                           ResponseStatus::INTERNAL_ERROR);
+  }
   return response;
 }
 

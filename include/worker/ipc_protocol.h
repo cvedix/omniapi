@@ -39,12 +39,20 @@ enum class MessageType : uint8_t {
   // Runtime updates (without restart)
   UPDATE_LINES = 26,
   UPDATE_LINES_RESPONSE = 27,
+  UPDATE_JAMS = 28,
+  UPDATE_JAMS_RESPONSE = 29,
+  UPDATE_STOPS = 30,
+  UPDATE_STOPS_RESPONSE = 31,
+
+  // Push frame (API -> worker: inject frame into app_src)
+  PUSH_FRAME = 36,
+  PUSH_FRAME_RESPONSE = 37,
 
   // Events (worker -> supervisor)
-  INSTANCE_STATE_CHANGED = 30,
-  INSTANCE_ERROR = 31,
-  WORKER_READY = 32,
-  WORKER_MEMORY_WARNING = 33,
+  INSTANCE_STATE_CHANGED = 32,
+  INSTANCE_ERROR = 33,
+  WORKER_READY = 34,
+  WORKER_MEMORY_WARNING = 35,
 
   // Error
   ERROR_RESPONSE = 255
