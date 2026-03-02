@@ -5,6 +5,7 @@
 #include "core/uuid_generator.h"
 #include "instances/instance_manager.h"
 #include "instances/inprocess_instance_manager.h"
+#include "instances/subprocess_instance_manager.h"
 #include <cvedix/nodes/ba/cvedix_ba_area_jam_node.h>
 #include "solutions/solution_registry.h"
 #include <algorithm>
@@ -1360,7 +1361,22 @@ bool JamsHandler::updateJamsRuntime(const std::string &instanceId, const Json::V
                  // next start
   }
 
-  // Find ba_jam_node in pipeline
+  // Subprocess: send UPDATE_JAMS IPC to worker
+  if (instance_manager_->isSubprocessMode()) {
+    auto *sub = dynamic_cast<SubprocessInstanceManager *>(instance_manager_);
+    if (sub && sub->updateJams(instanceId, jamsArray)) {
+      if (isApiLoggingEnabled()) {
+        PLOG_INFO << "[API] updateJamsRuntime: Jams updated via IPC (subprocess) for instance " << instanceId;
+      }
+      return true;
+    }
+    if (isApiLoggingEnabled()) {
+      PLOG_WARNING << "[API] updateJamsRuntime: Subprocess updateJams failed, fallback to restart for instance " << instanceId;
+    }
+    return false; // Fallback to restart
+  }
+
+  // In-process: Find ba_jam_node in pipeline
   auto baJamNode = findBAJamNode(instanceId);
   if (!baJamNode) {
     if (isApiLoggingEnabled()) {
