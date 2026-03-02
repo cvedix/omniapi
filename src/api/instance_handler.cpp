@@ -11,6 +11,7 @@
 #include "core/timeout_constants.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
+#include "instances/subprocess_instance_manager.h"
 #include "models/update_instance_request.h"
 #include <opencv2/opencv.hpp>
 #include <algorithm>
@@ -31,6 +32,27 @@
 #include <unordered_map>
 #include <vector>
 namespace fs = std::filesystem;
+
+namespace {
+std::string base64Encode(const unsigned char *data, size_t length) {
+  static const char base64_chars[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string encoded;
+  encoded.reserve(((length + 2) / 3) * 4);
+  size_t i = 0;
+  while (i < length) {
+    unsigned char byte1 = data[i++];
+    unsigned char byte2 = (i < length) ? data[i++] : 0;
+    unsigned char byte3 = (i < length) ? data[i++] : 0;
+    unsigned int combined = (byte1 << 16) | (byte2 << 8) | byte3;
+    encoded += base64_chars[(combined >> 18) & 0x3F];
+    encoded += base64_chars[(combined >> 12) & 0x3F];
+    encoded += (i - 2 < length) ? base64_chars[(combined >> 6) & 0x3F] : '=';
+    encoded += (i - 1 < length) ? base64_chars[combined & 0x3F] : '=';
+  }
+  return encoded;
+}
+} // namespace
 
 IInstanceManager *InstanceHandler::instance_manager_ = nullptr;
 
@@ -658,189 +680,40 @@ void InstanceHandler::startInstance(
       }
     }
 
-    // Start instance and wait for it to actually start successfully
-    // This ensures API returns success only when instance is actually running
-    bool startSuccess = false;
-    std::string errorMessage;
-
-    try {
-      // Run startInstance() in async to avoid blocking API thread too long
-      // But wait for result to ensure instance actually started
-      auto future =
-          std::async(std::launch::async, [this, instanceId]() -> bool {
-            try {
-              return instance_manager_->startInstance(instanceId);
-            } catch (const std::exception &e) {
-              std::cerr << "[InstanceHandler] Exception starting instance "
-                        << instanceId << ": " << e.what() << std::endl;
-              return false;
-            } catch (...) {
-              std::cerr
-                  << "[InstanceHandler] Unknown exception starting instance "
-                  << instanceId << std::endl;
-              return false;
-            }
-          });
-
-      // Wait for start to complete (with timeout: 10 seconds)
-      auto status = future.wait_for(std::chrono::seconds(10));
-      if (status == std::future_status::timeout) {
-        if (isApiLoggingEnabled()) {
-          PLOG_WARNING
-              << "[API] POST /v1/core/instance/" << instanceId
-              << "/start - Timeout waiting for instance to start (10s)";
-        }
-        callback(
-            createErrorResponse(504, "Gateway Timeout",
-                                "Instance start operation timed out. "
-                                "Instance may still be starting. "
-                                "Check status using GET /v1/core/instance/" +
-                                    instanceId));
-        return;
-      } else if (status == std::future_status::ready) {
-        startSuccess = future.get();
-      }
-    } catch (const std::exception &e) {
-      errorMessage = e.what();
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[API] POST /v1/core/instance/" << instanceId
-                   << "/start - Exception: " << e.what();
-      }
-    } catch (...) {
-      errorMessage = "Unknown error occurred";
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[API] POST /v1/core/instance/" << instanceId
-                   << "/start - Unknown exception";
-      }
+    // Return 202 Accepted immediately; start runs in background. Client polls GET /v1/core/instance/{id}
+    Json::Value response202;
+    response202["instanceId"] = instanceId;
+    response202["status"] = "starting";
+    response202["message"] = "Instance start accepted. Poll GET /v1/core/instance/" + instanceId + " for status.";
+    if (isApiLoggingEnabled()) {
+      PLOG_INFO << "[API] POST /v1/core/instance/" << instanceId
+                << "/start - Returning 202 Accepted (start in background)";
     }
+    callback(createSuccessResponse(response202, 202));
 
-    // Get instance info to return (with timeout protection)
-    std::optional<InstanceInfo> optInfo;
-    try {
-      auto future =
-          std::async(std::launch::async,
-                     [this, instanceId]() -> std::optional<InstanceInfo> {
-                       try {
-                         if (instance_manager_) {
-                           return instance_manager_->getInstance(instanceId);
-                         }
-                         return std::nullopt;
-                       } catch (...) {
-                         return std::nullopt;
-                       }
-                     });
-
-      auto timeout = TimeoutConstants::getApiWrapperTimeout();
-      auto status = future.wait_for(timeout);
-      if (status == std::future_status::timeout) {
-        if (isApiLoggingEnabled()) {
-          PLOG_WARNING << "[API] POST /v1/core/instance/" << instanceId
-                       << "/start - Timeout getting instance info ("
-                       << timeout.count() << "ms)";
-        }
-        // Even if we can't get instance info, return success if start succeeded
-        if (startSuccess) {
-          callback(createErrorResponse(
-              200, "Instance started",
-              "Instance started successfully but unable to verify status. "
-              "Please check using GET /v1/core/instance/" +
-                  instanceId));
-          return;
-        }
-        callback(createErrorResponse(
-            503, "Service Unavailable",
-            "Instance registry is busy. Please try again later."));
-        return;
-      } else if (status == std::future_status::ready) {
-        try {
-          optInfo = future.get();
-        } catch (...) {
-          // If start succeeded, return partial success
-          if (startSuccess) {
-            callback(createErrorResponse(
-                200, "Instance started",
-                "Instance started successfully but unable to verify status. "
-                "Please check using GET /v1/core/instance/" +
-                    instanceId));
-            return;
+    // Run start in background (detached thread)
+    IInstanceManager *mgr = instance_manager_;
+    std::thread([mgr, instanceId]() {
+      try {
+        if (!mgr) return;
+        bool ok = mgr->startInstance(instanceId);
+        if (ok) {
+          auto &frameProcessor = FrameProcessor::getInstance();
+          frameProcessor.startProcessing(instanceId, mgr);
+          if (isApiLoggingEnabled()) {
+            PLOG_INFO << "[API] [Background] Instance " << instanceId << " started successfully";
           }
-          callback(createErrorResponse(500, "Internal server error",
-                                       "Failed to get instance info"));
-          return;
+        } else {
+          if (isApiLoggingEnabled()) {
+            PLOG_WARNING << "[API] [Background] Instance " << instanceId << " start failed";
+          }
         }
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceHandler] Background start exception " << instanceId << ": " << e.what() << std::endl;
+      } catch (...) {
+        std::cerr << "[InstanceHandler] Unknown exception starting instance " << instanceId << std::endl;
       }
-    } catch (...) {
-      // If start succeeded, return partial success
-      if (startSuccess) {
-        callback(createErrorResponse(
-            200, "Instance started",
-            "Instance started successfully but unable to verify status. Please "
-            "check using GET /v1/core/instance/" +
-                instanceId));
-        return;
-      }
-      callback(createErrorResponse(500, "Internal server error",
-                                   "Failed to get instance info"));
-      return;
-    }
-
-    if (!optInfo.has_value()) {
-      if (startSuccess) {
-        // Start succeeded but can't get instance info - return partial success
-        callback(createErrorResponse(
-            200, "Instance started",
-            "Instance started successfully but unable to verify status. Please "
-            "check using GET /v1/core/instance/" +
-                instanceId));
-        return;
-      }
-      callback(createErrorResponse(404, "Not found", "Instance not found"));
-      return;
-    }
-
-    auto end_time = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        end_time - start_time);
-
-    if (startSuccess) {
-      // Verify instance is actually running
-      if (!optInfo.value().running) {
-        if (isApiLoggingEnabled()) {
-          PLOG_WARNING
-              << "[API] POST /v1/core/instance/" << instanceId
-              << "/start - Start reported success but instance is not running";
-        }
-        callback(
-            createErrorResponse(500, "Internal server error",
-                                "Instance start reported success but instance "
-                                "is not running. Please check logs."));
-        return;
-      }
-
-      // Start frame processor for this instance
-      auto& frameProcessor = FrameProcessor::getInstance();
-      frameProcessor.startProcessing(instanceId, instance_manager_);
-      
-      if (isApiLoggingEnabled()) {
-        PLOG_INFO << "[API] POST /v1/core/instance/" << instanceId
-                  << "/start - Success (verified running) - "
-                  << duration.count() << "ms";
-      }
-      Json::Value response = instanceInfoToJson(optInfo.value());
-      response["message"] = "Instance started successfully and is running";
-      response["status"] = "running";
-      callback(createSuccessResponse(response));
-    } else {
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[API] POST /v1/core/instance/" << instanceId
-                   << "/start - Failed - " << duration.count() << "ms";
-      }
-      std::string errorMsg =
-          errorMessage.empty()
-              ? "Failed to start instance. Check logs for details."
-              : errorMessage;
-      callback(createErrorResponse(500, "Internal server error", errorMsg));
-    }
+    }).detach();
     return;
 
   } catch (const std::exception &e) {
@@ -6125,6 +5998,15 @@ void InstanceHandler::pushEncodedFrame(
       return;
     }
 
+    // Subprocess: push encoded (H.264/H.265) not supported in worker
+    if (instance_manager_->isSubprocessMode()) {
+      callback(createErrorResponse(
+          501, "Not Implemented",
+          "Push encoded frame (H.264/H.265) in subprocess mode is not supported. "
+          "Use in-process mode or push compressed (JPEG/PNG) frames."));
+      return;
+    }
+
     // Use current timestamp if not provided
     if (timestamp == 0) {
       timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -6407,6 +6289,32 @@ void InstanceHandler::pushCompressedFrame(
     if (timestamp == 0) {
       timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+
+    // Subprocess: send frame via IPC PUSH_FRAME (worker decodes and pushes to app_src)
+    if (instance_manager_->isSubprocessMode()) {
+      auto *sub = dynamic_cast<SubprocessInstanceManager *>(instance_manager_);
+      if (sub) {
+        std::string frameBase64 = base64Encode(frameData.data(), frameData.size());
+        std::string codec = "jpeg";
+        if (frameData.size() >= 8 && frameData[0] == 0x89 && frameData[1] == 0x50 &&
+            frameData[2] == 0x4E && frameData[3] == 0x47)
+          codec = "png";
+        else if (frameData.size() >= 3 && frameData[0] == 0xFF && frameData[1] == 0xD8)
+          codec = "jpeg";
+        if (sub->pushFrame(instanceId, frameBase64, codec)) {
+          auto resp = HttpResponse::newHttpResponse();
+          resp->setStatusCode(k204NoContent);
+          resp->addHeader("Access-Control-Allow-Origin", "*");
+          resp->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+          resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+          MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+          return;
+        }
+      }
+      callback(createErrorResponse(500, "Internal Server Error",
+                                   "Failed to push frame to worker"));
+      return;
     }
 
     // Decode frame
