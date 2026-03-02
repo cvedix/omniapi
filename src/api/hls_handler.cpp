@@ -267,15 +267,15 @@ void HlsHandler::getSegment(
 
 std::string HlsHandler::getHlsDirectory(const std::string &instanceId) const {
   // Try multiple possible locations for HLS files (in priority order)
-  // Priority: /opt/edge_ai_api/hls/ (production) first, then fallbacks
+  // Priority: /opt/edgeos-api/hls/ (production) first, then fallbacks
   std::vector<std::string> possiblePaths = {
-    "/opt/edge_ai_api/hls/" + instanceId,  // Production directory (preferred)
+    "/opt/edgeos-api/hls/" + instanceId,  // Production directory (preferred)
     "/tmp/hls/" + instanceId,               // Temporary directory
     "./hls/" + instanceId,                  // Current directory
     "./build/hls/" + instanceId,
     "hls/" + instanceId,
     "build/hls/" + instanceId,
-    EnvConfig::resolveDirectory("/opt/edge_ai_api/hls/" + instanceId, "hls/" + instanceId)
+    EnvConfig::resolveDirectory("/opt/edgeos-api/hls/" + instanceId, "hls/" + instanceId)
   };
 
   // Check existing directories first
@@ -307,7 +307,7 @@ std::string HlsHandler::getHlsDirectory(const std::string &instanceId) const {
   }
 
   // Last resort: return default resolved path (may not exist yet)
-  std::string defaultPath = EnvConfig::resolveDirectory("/opt/edge_ai_api/hls/" + instanceId, "hls/" + instanceId);
+  std::string defaultPath = EnvConfig::resolveDirectory("/opt/edgeos-api/hls/" + instanceId, "hls/" + instanceId);
   if (isApiLoggingEnabled()) {
     PLOG_DEBUG << "[HLS] Using default HLS directory: " << defaultPath;
   }

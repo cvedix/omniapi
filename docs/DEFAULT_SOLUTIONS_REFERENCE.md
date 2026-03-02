@@ -23,7 +23,7 @@ Khi bạn **chạy project**, các **default solutions** sẽ **TỰ ĐỘNG có
 
 ```bash
 cd build
-./edge_ai_api
+./edgeos-api
 ```
 
 ### 2. Kiểm tra solutions có sẵn

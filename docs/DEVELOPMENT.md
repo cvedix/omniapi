@@ -1,4 +1,4 @@
-# Hướng Dẫn Phát Triển - Edge AI API
+# Hướng Dẫn Phát Triển - edgeos-api
 
 Tài liệu này bao gồm setup môi trường, hướng dẫn phát triển API, tổ chức tests, và các tính năng như Swagger/Scalar documentation.
 
@@ -22,8 +22,8 @@ Tài liệu này bao gồm setup môi trường, hướng dẫn phát triển AP
 
 ```bash
 # Clone project
-git clone https://github.com/cvedix/edge_ai_api.git
-cd edge_ai_api
+git clone https://github.com/cvedix/edgeos-api.git
+cd edgeos-api
 
 # Development setup (cài dependencies, tạo thư mục, setup environment)
 ./scripts/dev_setup.sh
@@ -192,10 +192,10 @@ cmake .. -DAUTO_DOWNLOAD_DEPENDENCIES=ON -DBUILD_TESTS=ON
 
 # Hoặc chạy trực tiếp
 cd build
-./bin/edge_ai_api
+./bin/edgeos-api
 
 # Với logging options
-./bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./bin/edgeos-api --log-api --log-instance --log-sdk-output
 ```
 
 ---
@@ -596,10 +596,10 @@ cmake .. -DBUILD_TESTS=ON
 make -j$(nproc)
 
 # Chạy tất cả tests
-./bin/edge_ai_api_tests
+./bin/edgeos_api_tests
 
 # Chạy tests cụ thể
-./bin/edge_ai_api_tests --gtest_filter=MyHandlerTest.*
+./bin/edgeos_api_tests --gtest_filter=MyHandlerTest.*
 
 # Sử dụng script (khuyến nghị)
 ./scripts/run_tests.sh
@@ -996,7 +996,7 @@ pre-commit install --hook-type pre-push
 ```bash
 # Xem chi tiết lỗi
 cd build
-./bin/edge_ai_api_tests --gtest_output=xml
+./bin/edgeos_api_tests --gtest_output=xml
 
 # Hoặc với CTest
 ctest --output-on-failure -V
@@ -1045,7 +1045,7 @@ lsof -ti:8080 | xargs kill -9
 1. **Clone và setup**:
    ```bash
    git clone <repo-url>
-   cd edge_ai_api
+   cd edgeos-api
    ./scripts/dev_setup.sh
    ```
 
@@ -1058,7 +1058,7 @@ lsof -ti:8080 | xargs kill -9
 
 3. **Chạy tests**:
    ```bash
-   ./bin/edge_ai_api_tests
+   ./bin/edgeos_api_tests
    ```
 
 4. **Chạy server**:

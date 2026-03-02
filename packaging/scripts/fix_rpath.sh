@@ -16,10 +16,10 @@ NC='\033[0m'
 
 # Configuration
 BIN_DIR="/usr/local/bin"
-EXPECTED_RPATH="/opt/edge_ai_api/lib:/opt/cvedix-ai-runtime/lib/cvedix"
+EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"
 EXECUTABLES=(
-    "$BIN_DIR/edge_ai_api"
-    "$BIN_DIR/edge_ai_worker"
+    "$BIN_DIR/edgeos-api"
+    "$BIN_DIR/edgeos-worker"
 )
 
 log_info() {

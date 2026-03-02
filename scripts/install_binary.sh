@@ -12,18 +12,18 @@ NC='\033[0m'
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Try build/bin first, then build/
-if [ -f "$PROJECT_ROOT/build/bin/edge_ai_api" ]; then
-    BUILD_BINARY="$PROJECT_ROOT/build/bin/edge_ai_api"
-    BUILD_WORKER="$PROJECT_ROOT/build/bin/edge_ai_worker"
-elif [ -f "$PROJECT_ROOT/build/edge_ai_api" ]; then
-    BUILD_BINARY="$PROJECT_ROOT/build/edge_ai_api"
-    BUILD_WORKER="$PROJECT_ROOT/build/edge_ai_worker"
+if [ -f "$PROJECT_ROOT/build/bin/edgeos-api" ]; then
+    BUILD_BINARY="$PROJECT_ROOT/build/bin/edgeos-api"
+    BUILD_WORKER="$PROJECT_ROOT/build/bin/edgeos-worker"
+elif [ -f "$PROJECT_ROOT/build/edgeos-api" ]; then
+    BUILD_BINARY="$PROJECT_ROOT/build/edgeos-api"
+    BUILD_WORKER="$PROJECT_ROOT/build/edgeos-worker"
 else
     BUILD_BINARY=""
     BUILD_WORKER=""
 fi
-TARGET_BINARY="/usr/local/bin/edge_ai_api"
-TARGET_WORKER="/usr/local/bin/edge_ai_worker"
+TARGET_BINARY="/usr/local/bin/edgeos-api"
+TARGET_WORKER="/usr/local/bin/edgeos-worker"
 SERVICE_NAME="edge-ai-api"
 
 echo -e "${BLUE}========================================${NC}"
@@ -97,7 +97,7 @@ chown root:root "$TARGET_BINARY"
 
 # Also install worker if it exists
 if [ -f "$BUILD_WORKER" ]; then
-    echo "  Also installing edge_ai_worker..."
+    echo "  Also installing edgeos-worker..."
     if [ -f "$TARGET_WORKER" ]; then
         BACKUP_WORKER="$TARGET_WORKER.backup.$(date +%Y%m%d_%H%M%S)"
         cp "$TARGET_WORKER" "$BACKUP_WORKER"

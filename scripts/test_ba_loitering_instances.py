@@ -29,9 +29,9 @@ INSTANCE_BODY = {
     "additionalParams": {
         "input": {
             "RTMP_SRC_URL": "rtmp://192.168.1.128:1935/live/camera_demo_sang_vehicle",
-            "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-            "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-            "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+            "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+            "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+            "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
             "RESIZE_RATIO": "1.0",
             "GST_DECODER_NAME": "nvh264dec"
         },

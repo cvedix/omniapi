@@ -778,8 +778,8 @@ PipelineBuilderSourceNodes::createImageSourceNode(
         portOrLocation = it->second;
       } else {
         // Default: Try production path first, then development path
-        std::string productionPath = "/opt/edge_ai_api/data/test_images/%d.jpg";
-        if (fs::exists("/opt/edge_ai_api/data/test_images")) {
+        std::string productionPath = "/opt/edgeos-api/data/test_images/%d.jpg";
+        if (fs::exists("/opt/edgeos-api/data/test_images")) {
           portOrLocation = productionPath;
           std::cerr << "[PipelineBuilderSourceNodes] Using default production image path: "
                     << productionPath << std::endl;
@@ -791,7 +791,7 @@ PipelineBuilderSourceNodes::createImageSourceNode(
                     << std::endl;
           std::cerr << "[PipelineBuilderSourceNodes] ℹ NOTE: In production, provide "
                        "'IMAGE_SRC_PORT_OR_LOCATION' or upload images to "
-                       "/opt/edge_ai_api/data/test_images/"
+                       "/opt/edgeos-api/data/test_images/"
                     << std::endl;
         }
       }

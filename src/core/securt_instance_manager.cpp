@@ -251,15 +251,15 @@ CreateInstanceRequest SecuRTInstanceManager::createCoreInstanceRequest(
   // Users can override these by providing values in additionalParams when configuring input
   if (req.additionalParams.find("WEIGHTS_PATH") == req.additionalParams.end()) {
     req.additionalParams["WEIGHTS_PATH"] = 
-        "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights";
+        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights";
   }
   if (req.additionalParams.find("CONFIG_PATH") == req.additionalParams.end()) {
     req.additionalParams["CONFIG_PATH"] = 
-        "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg";
+        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg";
   }
   if (req.additionalParams.find("LABELS_PATH") == req.additionalParams.end()) {
     req.additionalParams["LABELS_PATH"] = 
-        "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt";
+        "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt";
   }
   
   // Set instance ID in additional params if needed

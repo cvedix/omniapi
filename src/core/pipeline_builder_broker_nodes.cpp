@@ -48,8 +48,7 @@ class cvedix_json_stop_mqtt_broker_node;
 #include <cvedix/nodes/broker/cvedix_plate_socket_broker_node.h>
 #include <cvedix/nodes/broker/cvedix_expr_socket_broker_node.h>
 // SSE broker node (doesn't require cereal)
-// TEMPORARILY DISABLED: ASIO dependency issue in CVEDIX SDK
-// #include <cvedix/nodes/broker/cvedix_sse_broker_node.h>
+#include <cvedix/nodes/broker/cvedix_sse_broker_node.h>
 #ifdef CVEDIX_WITH_KAFKA
 #include <cvedix/nodes/broker/cvedix_json_kafka_broker_node.h>
 #endif
@@ -266,7 +265,7 @@ PipelineBuilderBrokerNodes::createJSONMQTTBrokerNode(
               << mqtt_broker << ":" << mqtt_port << std::endl;
 
     std::string client_id =
-        "edge_ai_api_" + nodeName + "_" + std::to_string(std::time(nullptr));
+        "edgeos_api_" + nodeName + "_" + std::to_string(std::time(nullptr));
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
         mqtt_broker, mqtt_port, client_id, 60);
     mqtt_client->set_auto_reconnect(true, 5000);
@@ -433,8 +432,8 @@ PipelineBuilderBrokerNodes::createJSONCrosslineMQTTBrokerNode(
     std::cerr << "  Topic: " << mqtt_topic << std::endl;
 
     // Create MQTT client using SDK (like in sample code)
-    // Use instance_id (UUID) for client ID: edge_ai_api_{instance_id}
-    std::string client_id = "edge_ai_api_" + instance_id;
+    // Use instance_id (UUID) for client ID: edgeos_api_{instance_id}
+    std::string client_id = "edgeos_api_" + instance_id;
     std::cerr << "[PipelineBuilderBrokerNodes] [MQTT] Client ID: '" << client_id << "'"
               << std::endl;
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
@@ -617,8 +616,8 @@ PipelineBuilderBrokerNodes::createJSONJamMQTTBrokerNode(
     std::cerr << "  Topic: " << mqtt_topic << std::endl;
 
     // Create MQTT client using SDK (like in sample code)
-    // Use instance_id (UUID) for client ID: edge_ai_api_{instance_id}
-    std::string client_id = "edge_ai_api_" + instance_id;
+    // Use instance_id (UUID) for client ID: edgeos_api_{instance_id}
+    std::string client_id = "edgeos_api_" + instance_id;
     std::cerr << "[PipelineBuilderBrokerNodes] [MQTT] Client ID: '" << client_id << "'"
               << std::endl;
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
@@ -795,8 +794,8 @@ PipelineBuilderBrokerNodes::createJSONStopMQTTBrokerNode(
     std::cerr << "  Topic: " << mqtt_topic << std::endl;
 
     // Create MQTT client using SDK (like in sample code)
-    // Use instance_id (UUID) for client ID: edge_ai_api_{instance_id}
-    std::string client_id = "edge_ai_api_" + instance_id;
+    // Use instance_id (UUID) for client ID: edgeos_api_{instance_id}
+    std::string client_id = "edgeos_api_" + instance_id;
     std::cerr << "[PipelineBuilderBrokerNodes] [MQTT] Client ID: '" << client_id << "'"
               << std::endl;
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
@@ -1522,17 +1521,12 @@ std::stoi(params.at("broking_cache_ignore_threshold")) : 200;
     }
 }
 
-// TEMPORARILY DISABLED: ASIO dependency issue in CVEDIX SDK
 std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilderBrokerNodes::createSSEBrokerNode(
     const std::string &nodeName,
     const std::map<std::string, std::string> &params,
     const CreateInstanceRequest &req) {
 
-  // SSE broker node temporarily disabled due to ASIO dependency issue
-  throw std::runtime_error("SSE broker node is temporarily disabled due to CVEDIX SDK ASIO dependency issue");
-  
-  /* DISABLED CODE - ASIO dependency issue
   try {
     if (nodeName.empty()) {
       throw std::invalid_argument("Node name cannot be empty");
@@ -1542,7 +1536,7 @@ PipelineBuilderBrokerNodes::createSSEBrokerNode(
     std::cerr << "  Name: '" << nodeName << "'" << std::endl;
 
     // Parse parameters with defaults
-    cvedix_broke_for broke_for = cvedix_broke_for::NORMAL;
+    cvedix_nodes::cvedix_broke_for broke_for = cvedix_nodes::cvedix_broke_for::NORMAL;
     int broking_cache_warn_threshold = 50;
     int broking_cache_ignore_threshold = 200;
     int port = 8090;
@@ -1552,12 +1546,13 @@ PipelineBuilderBrokerNodes::createSSEBrokerNode(
     if (params.count("broke_for")) {
       std::string broke_for_str = params.at("broke_for");
       if (broke_for_str == "FACE") {
-        broke_for = cvedix_broke_for::FACE;
-      } else if (broke_for_str == "VEHICLE") {
-        broke_for = cvedix_broke_for::VEHICLE;
-      } else if (broke_for_str == "PERSON") {
-        broke_for = cvedix_broke_for::PERSON;
+        broke_for = cvedix_nodes::cvedix_broke_for::FACE;
+      } else if (broke_for_str == "TEXT") {
+        broke_for = cvedix_nodes::cvedix_broke_for::TEXT;
+      } else if (broke_for_str == "POSE") {
+        broke_for = cvedix_nodes::cvedix_broke_for::POSE;
       }
+      // VEHICLE, PERSON and other values keep NORMAL (generic object detection)
       // Default to NORMAL
     }
 
@@ -1611,5 +1606,4 @@ PipelineBuilderBrokerNodes::createSSEBrokerNode(
               << e.what() << std::endl;
     throw;
   }
-  */
 }

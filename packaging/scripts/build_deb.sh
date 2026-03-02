@@ -81,7 +81,7 @@ update_version_files() {
     
     # Update CMakeLists.txt
     if [ -f "$cmake_file" ]; then
-        sed -i "s/project(edge_ai_api VERSION [0-9.]*)/project(edge_ai_api VERSION $new_version)/" "$cmake_file"
+        sed -i "s/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION $new_version)/" "$cmake_file"
         echo -e "${GREEN}✓${NC} Updated CMakeLists.txt"
     fi
     
@@ -623,9 +623,9 @@ fi
 # Check if executable exists - check multiple possible locations
 EXECUTABLE=""
 EXECUTABLE_PATHS=(
-    "build/bin/edge_ai_api"
-    "build/edge_ai_api"
-    "build/edge_ai_api/edge_ai_api"
+    "build/bin/edgeos-api"
+    "build/edgeos-api"
+    "build/edgeos-api/edgeos-api"
 )
 
 for path in "${EXECUTABLE_PATHS[@]}"; do
@@ -747,7 +747,7 @@ echo "3. If there are dependency issues:"
 echo "   sudo apt-get install -f"
 echo ""
 echo "4. Verify installation:"
-echo "   sudo /opt/edge_ai_api/scripts/validate_installation.sh --verbose"
+echo "   sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose"
 echo ""
 echo "5. Start the service:"
 echo "   sudo systemctl start edge-ai-api"

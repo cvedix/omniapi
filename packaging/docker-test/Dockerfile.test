@@ -97,7 +97,7 @@ echo "Package đã được cài đặt tại:"\n\
 ls -la /usr/local/bin/edge_ai_api 2>/dev/null || echo "Executable không tìm thấy"\n\
 echo ""\n\
 echo "Service files:"\n\
-ls -la /etc/systemd/system/edge-ai-api.service 2>/dev/null || echo "Service file không tìm thấy"\n\
+ls -la /etc/systemd/system/edgeos-api.service 2>/dev/null || echo "Service file không tìm thấy"\n\
 echo ""\n\
 echo "Config files:"\n\
 ls -la /opt/edge_ai_api/ 2>/dev/null || echo "Config directory không tìm thấy"\n\

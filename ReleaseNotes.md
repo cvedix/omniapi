@@ -619,7 +619,7 @@ Sau khi cài đặt package, các file sẽ được đặt tại:
 - **Data**: `/opt/edge_ai_api/` (instances, solutions, models, logs, etc.)
 - **Fonts**: `/opt/edge_ai_api/fonts/` (default fonts - ALL-IN-ONE)
 - **Models**: `/opt/edge_ai_api/models/` (default models - ALL-IN-ONE)
-- **Service**: `/etc/systemd/system/edge-ai-api.service`
+- **Service**: `/etc/systemd/system/edgeos-api.service`
 
 ### Quản Lý Service
 

@@ -1,6 +1,6 @@
 # Scripts Documentation
 
-Tài liệu tổng hợp về tất cả các script trong project Edge AI API.
+Tài liệu tổng hợp về tất cả các script trong project edgeos-api.
 
 ## 📋 Tổng Quan
 
@@ -98,10 +98,10 @@ sudo ./scripts/prod_setup.sh --skip-build
 **Sau khi deploy:**
 ```bash
 # Kiểm tra service
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Xem log
-sudo journalctl -u edge-ai-api -f
+sudo journalctl -u edgeos-api -f
 ```
 
 ---
@@ -141,10 +141,10 @@ sudo journalctl -u edge-ai-api -f
 **Sau khi build:**
 ```bash
 # Cài đặt package
-sudo dpkg -i edge-ai-api-*.deb
+sudo dpkg -i edgeos-api-*.deb
 
 # Khởi động service
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 ```
 
 Xem chi tiết: [packaging/docs/BUILD_DEB.md](../packaging/docs/BUILD_DEB.md)
@@ -171,10 +171,10 @@ Tạo thư mục từ `deploy/directories.conf`.
 
 ```bash
 # Tạo thư mục với permissions từ config
-./scripts/create_directories.sh /opt/edge_ai_api
+./scripts/create_directories.sh /opt/edgeos-api
 
 # Tạo với full permissions
-./scripts/create_directories.sh /opt/edge_ai_api --full-permissions
+./scripts/create_directories.sh /opt/edgeos-api --full-permissions
 ```
 
 ### `scripts/utils.sh setup-face-db`
@@ -223,7 +223,7 @@ sudo ./scripts/utils.sh setup-face-db --full-permissions
 ## 🗂️ Cấu Trúc Thư Mục
 
 ```
-edge_ai_api/
+edgeos-api/
 ├── scripts/              # Development scripts
 │   ├── dev_setup.sh      # Development setup
 │   ├── prod_setup.sh     # Production setup (symlink)
@@ -233,7 +233,7 @@ edge_ai_api/
 ├── deploy/               # Production deployment
 │   ├── deploy.sh         # Production deploy script
 │   ├── directories.conf  # Directory configuration
-│   └── edge-ai-api.service
+│   └── edgeos-api.service
 └── packaging/            # Package building
     └── scripts/
         └── build_deb.sh  # Build .deb package
@@ -260,7 +260,7 @@ edge_ai_api/
 sudo ./scripts/prod_setup.sh
 
 # 2. Kiểm tra
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 ```
 
 ### Build Package
@@ -270,7 +270,7 @@ sudo systemctl status edge-ai-api
 ./packaging/scripts/build_deb.sh
 
 # 2. Cài đặt
-sudo dpkg -i edge-ai-api-*.deb
+sudo dpkg -i edgeos-api-*.deb
 ```
 
 ---

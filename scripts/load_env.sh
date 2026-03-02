@@ -4,7 +4,7 @@
 # ============================================
 #
 # This script loads environment variables from .env file
-# and runs the edge_ai_api server.
+# and runs the edgeos-api server.
 #
 # Usage:
 #   ./scripts/load_env.sh                    # Load .env and run server
@@ -80,8 +80,8 @@ set +a  # Stop automatically exporting
 
 # Config file path - Auto-detection will find config.json in order:
 # 1. ./config.json (current directory - development)
-# 2. /opt/edge_ai_api/config/config.json (production)
-# 3. /etc/edge_ai_api/config.json (system)
+# 2. /opt/edgeos-api/config/config.json (production)
+# 3. /etc/edgeos-api/config.json (system)
 # Can be overridden by CONFIG_FILE in .env file
 if [ -n "$CONFIG_FILE" ]; then
     echo "[Config] Using config.json from CONFIG_FILE: $CONFIG_FILE"
@@ -113,7 +113,7 @@ echo "  LOG_CLEANUP_INTERVAL_HOURS=${LOG_CLEANUP_INTERVAL_HOURS:-24} (default: 2
 
 # Instance Management
 echo "Instance Management:"
-echo "  INSTANCES_DIR=${INSTANCES_DIR:-/opt/edge_ai_api/instances} (default: /opt/edge_ai_api/instances)"
+echo "  INSTANCES_DIR=${INSTANCES_DIR:-/opt/edgeos-api/instances} (default: /opt/edgeos-api/instances)"
 echo "  MODELS_DIR=${MODELS_DIR:-./models} (default: ./models)"
 
 # Watchdog & Health Monitor
@@ -189,12 +189,12 @@ if [ "$LOAD_ONLY" = true ]; then
     echo ""
     echo "To run the server manually:"
     echo "  cd $PROJECT_ROOT"
-    if [ -f "build/bin/edge_ai_api" ]; then
-        echo "  ./build/bin/edge_ai_api"
-    elif [ -f "build/edge_ai_api" ]; then
-        echo "  ./build/edge_ai_api"
+    if [ -f "build/bin/edgeos-api" ]; then
+        echo "  ./build/bin/edgeos-api"
+    elif [ -f "build/edgeos-api" ]; then
+        echo "  ./build/edgeos-api"
     else
-        echo "  ./build/edge_ai_api  # (after building)"
+        echo "  ./build/edgeos-api  # (after building)"
     fi
     echo ""
     echo "Note: Use 'source $0 --load-only' to load variables into current shell session."
@@ -209,13 +209,13 @@ fi
 
 # Check if executable exists (try both locations)
 EXECUTABLE=""
-if [ -f "build/bin/edge_ai_api" ]; then
-    EXECUTABLE="build/bin/edge_ai_api"
-elif [ -f "build/edge_ai_api" ]; then
-    EXECUTABLE="build/edge_ai_api"
+if [ -f "build/bin/edgeos-api" ]; then
+    EXECUTABLE="build/bin/edgeos-api"
+elif [ -f "build/edgeos-api" ]; then
+    EXECUTABLE="build/edgeos-api"
 else
-    echo "Error: edge_ai_api executable not found."
-    echo "Searched in: build/bin/edge_ai_api and build/edge_ai_api"
+    echo "Error: edgeos-api executable not found."
+    echo "Searched in: build/bin/edgeos-api and build/edgeos-api"
     echo "Please build the project first."
     exit 1
 fi

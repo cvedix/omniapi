@@ -2,7 +2,7 @@
 #include "solutions/solution_registry.h"
 #include <gtest/gtest.h>
 #include <json/json.h>
-#include <cvedix/nodes/ba/cvedix_ba_jam_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_jam_node.h>
 
 using namespace std;
 
@@ -44,7 +44,7 @@ TEST(BAJamPipelineTest, CreateBAJamNode) {
 
   bool found_ba_jam = false;
   for (const auto &n : nodes) {
-    if (dynamic_cast<cvedix_nodes::cvedix_ba_jam_node *>(n.get()) != nullptr) {
+    if (dynamic_cast<cvedix_nodes::cvedix_ba_area_jam_node *>(n.get()) != nullptr) {
       found_ba_jam = true;
       break;
     }

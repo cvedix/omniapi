@@ -16,10 +16,10 @@
 #include "core/pipeline_builder_other_nodes.h"
 #include <cstdlib> // For setenv
 #include <cstring> // For strlen
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_jam_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_jam_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_stop_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_loitering_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_loitering_node.h>
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_file_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
@@ -29,8 +29,8 @@
 #endif
 #include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_crossline_osd_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_jam_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_enter_exit_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
@@ -88,7 +88,6 @@
 // cvedix_sface_feature_encoder_node or cvedix_trt_vehicle_feature_encoder
 // instead #include <cvedix/nodes/infers/cvedix_feature_encoder_node.h>
 #include <cvedix/nodes/infers/cvedix_face_swap_node.h>
-#include <cvedix/nodes/infers/fr/cvedix_face_recognition_node.h>
 #include <cvedix/nodes/infers/cvedix_lane_detector_node.h>
 #ifdef CVEDIX_WITH_LLM
 #include <cvedix/nodes/infers/cvedix_mllm_analyser_node.h>
@@ -718,9 +717,9 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                   std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(
                       checkNode) ||
                   std::dynamic_pointer_cast<
-                      cvedix_nodes::cvedix_ba_crossline_osd_node>(checkNode) ||
+                      cvedix_nodes::cvedix_ba_line_crossline_osd_node>(checkNode) ||
                   std::dynamic_pointer_cast<
-                      cvedix_nodes::cvedix_ba_jam_osd_node>(checkNode) ||
+                      cvedix_nodes::cvedix_ba_area_jam_osd_node>(checkNode) ||
                   std::dynamic_pointer_cast<
                       cvedix_nodes::cvedix_ba_stop_osd_node>(checkNode) ||
                   std::dynamic_pointer_cast<
@@ -1293,9 +1292,9 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
               std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(
                   node) != nullptr ||
               std::dynamic_pointer_cast<
-                  cvedix_nodes::cvedix_ba_crossline_osd_node>(node) != nullptr ||
+                  cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) != nullptr ||
               std::dynamic_pointer_cast<
-                  cvedix_nodes::cvedix_ba_jam_osd_node>(node) != nullptr ||
+                  cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) != nullptr ||
               std::dynamic_pointer_cast<
                   cvedix_nodes::cvedix_ba_stop_osd_node>(node) != nullptr || // ba_loitering_osd uses ba_stop_osd_node
               std::dynamic_pointer_cast<
@@ -1336,7 +1335,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
               std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(
                   attachTarget) != nullptr ||
               std::dynamic_pointer_cast<
-                  cvedix_nodes::cvedix_ba_crossline_osd_node>(attachTarget) !=
+                  cvedix_nodes::cvedix_ba_line_crossline_osd_node>(attachTarget) !=
                   nullptr;
 
           appDesNode->attach_to({attachTarget});
@@ -1933,9 +1932,9 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                   std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(
                       node) ||
                   std::dynamic_pointer_cast<
-                      cvedix_nodes::cvedix_ba_crossline_osd_node>(node) ||
+                      cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) ||
                   std::dynamic_pointer_cast<
-                      cvedix_nodes::cvedix_ba_jam_osd_node>(node) ||
+                      cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) ||
                   std::dynamic_pointer_cast<
                       cvedix_nodes::cvedix_ba_stop_osd_node>(node) || // ba_loitering_osd uses ba_stop_osd_node
                   std::dynamic_pointer_cast<
@@ -2342,11 +2341,7 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return nullptr;
 #endif
     } else if (nodeConfig.nodeType == "sse_broker") {
-      // TEMPORARILY DISABLED: ASIO dependency issue in CVEDIX SDK
-      std::cerr << "[PipelineBuilder] sse_broker is temporarily disabled due to CVEDIX SDK ASIO dependency issue"
-                << std::endl;
-      return nullptr;
-      // return PipelineBuilderBrokerNodes::createSSEBrokerNode(nodeName, params, req);
+      return PipelineBuilderBrokerNodes::createSSEBrokerNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "xml_file_broker") {
       // TEMPORARILY DISABLED: cereal/rapidxml macro conflict issue in CVEDIX SDK
       std::cerr << "[PipelineBuilder] xml_file_broker is temporarily disabled due to CVEDIX SDK cereal/rapidxml issue"

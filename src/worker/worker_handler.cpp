@@ -10,11 +10,11 @@
 #include <cvedix/nodes/common/cvedix_node.h>
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_crossline_osd_node.h>
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/objects/shapes/cvedix_line.h>
 #include <cvedix/objects/shapes/cvedix_point.h>
-#include <cvedix/nodes/osd/cvedix_ba_jam_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
@@ -619,13 +619,13 @@ IPCMessage WorkerHandler::handleUpdateLines(const IPCMessage &msg) {
   }
 
   // Find ba_crossline_node in pipeline
-  std::shared_ptr<cvedix_nodes::cvedix_ba_crossline_node> baCrosslineNode = nullptr;
+  std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> baCrosslineNode = nullptr;
   for (const auto &node : pipeline_nodes_) {
     if (!node)
       continue;
 
     auto crosslineNode =
-        std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_node>(node);
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(node);
     if (crosslineNode) {
       baCrosslineNode = crosslineNode;
       break;
@@ -1637,9 +1637,9 @@ void WorkerHandler::setupFrameCaptureHook() {
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) !=
               nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(
               node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_jam_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(
               node) != nullptr;
@@ -2594,7 +2594,7 @@ WorkerArgs WorkerArgs::parse(int argc, char *argv[]) {
       break;
     }
     case 'h':
-      args.error = "Usage: edge_ai_worker --instance-id <id> --socket <path> "
+      args.error = "Usage: edgeos-worker --instance-id <id> --socket <path> "
                    "[--config <json>]";
       return args;
     default:

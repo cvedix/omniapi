@@ -38,7 +38,7 @@ COMMAND="${1:-help}"
 case "$COMMAND" in
     test)
         BUILD_DIR="${2:-build}"
-        TEST_EXEC="${BUILD_DIR}/bin/edge_ai_api_tests"
+        TEST_EXEC="${BUILD_DIR}/bin/edgeos_api_tests"
 
         echo "========================================"
         echo "Running Edge AI API Unit Tests"
@@ -105,7 +105,7 @@ case "$COMMAND" in
         # Configuration
         SERVICE_USER="edgeai"
         SERVICE_GROUP="edgeai"
-        INSTALL_DIR="/opt/edge_ai_api"
+        INSTALL_DIR="/opt/edgeos-api"
         DB_FILENAME="face_database.txt"
 
         # Permission mode: "standard" (644) or "full" (666)
@@ -225,7 +225,7 @@ case "$COMMAND" in
 
         # 2. User directory (if HOME is set)
         if [ -n "$HOME" ] && [ "$HOME" != "" ]; then
-            USER_DB_PATH="$HOME/.local/share/edge_ai_api/$DB_FILENAME"
+            USER_DB_PATH="$HOME/.local/share/edgeos-api/$DB_FILENAME"
             setup_database_file "$USER_DB_PATH" "User directory"
         else
             echo -e "${YELLOW}⚠${NC} HOME không được set, bỏ qua user directory"
@@ -246,7 +246,7 @@ case "$COMMAND" in
         echo "Các file face_database.txt đã được setup:"
         echo "  1. $INSTALL_DIR/data/$DB_FILENAME (production)"
         if [ -n "$HOME" ] && [ "$HOME" != "" ]; then
-            echo "  2. $HOME/.local/share/edge_ai_api/$DB_FILENAME (user directory)"
+            echo "  2. $HOME/.local/share/edgeos-api/$DB_FILENAME (user directory)"
         fi
         if [ -d "$PROJECT_ROOT" ]; then
             echo "  3. $CURRENT_DB_PATH (current directory)"
@@ -272,7 +272,7 @@ case "$COMMAND" in
 
     setup-gst-path)
         # Configuration
-        ENV_FILE="${2:-/opt/edge_ai_api/config/.env}"
+        ENV_FILE="${2:-/opt/edgeos-api/config/.env}"
 
         echo -e "${BLUE}===========================================${NC}"
         echo -e "${BLUE}GStreamer Plugin Path Setup${NC}"

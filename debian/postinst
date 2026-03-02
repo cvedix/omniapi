@@ -1,17 +1,17 @@
 #!/bin/bash
-# postinst script for edge-ai-api
+# postinst script for edgeos-api
 
 # Use set -e for strict error handling
 # Non-critical commands should use || true to prevent script failure
 set -e
 
-PACKAGE_NAME="edge-ai-api"
+PACKAGE_NAME="edgeos-api"
 INSTALL_DIR="/opt/edge_ai_api"
 BIN_DIR="/usr/local/bin"
 LIB_DIR="/opt/edge_ai_api/lib"
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 
 # Function to bundle libraries (libraries should already be bundled in package)
 bundle_libraries() {
@@ -67,8 +67,8 @@ bundle_libraries() {
 
     # Create ldconfig configuration
     if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
-        echo "$LIB_DIR" > /etc/ld.so.conf.d/edge-ai-api.conf 2>/dev/null || {
-            echo "⚠  Warning: Cannot write to /etc/ld.so.conf.d/edge-ai-api.conf"
+        echo "$LIB_DIR" > /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null || {
+            echo "⚠  Warning: Cannot write to /etc/ld.so.conf.d/edgeos-api.conf"
             echo "Library path may not be configured correctly."
         }
         if command -v ldconfig >/dev/null 2>&1; then
@@ -1060,20 +1060,20 @@ else
         echo "  RPATH should be set during package build"
         echo "  Attempting to verify library search path..."
         # Verify that library directory is in ld.so.conf
-        if [ -f /etc/ld.so.conf.d/edge-ai-api.conf ] && grep -q "^$LIB_DIR$" /etc/ld.so.conf.d/edge-ai-api.conf 2>/dev/null; then
+        if [ -f /etc/ld.so.conf.d/edgeos-api.conf ] && grep -q "^$LIB_DIR$" /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null; then
             echo "  ✓ Library directory $LIB_DIR is in ld.so.conf"
         else
             echo "  ⚠  Warning: Library directory $LIB_DIR may not be in ld.so.conf"
             if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
                 echo "  Creating ld.so.conf entry..."
-                if echo "$LIB_DIR" > /etc/ld.so.conf.d/edge-ai-api.conf 2>/dev/null; then
+                if echo "$LIB_DIR" > /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null; then
                     if command -v ldconfig >/dev/null 2>&1; then
                         ldconfig 2>&1 | grep -v "is not a symbolic link" || true
                     else
                         echo "  ⚠  Warning: ldconfig not found. Library cache may not be updated."
                     fi
                 else
-                    echo "  ⚠  Warning: Cannot write to /etc/ld.so.conf.d/edge-ai-api.conf"
+                    echo "  ⚠  Warning: Cannot write to /etc/ld.so.conf.d/edgeos-api.conf"
                 fi
             else
                 echo "  ⚠  Warning: Cannot access /etc/ld.so.conf.d"
@@ -1183,8 +1183,8 @@ echo "  ✓ Permissions configured for data directories"
 echo "  ✓ Library cache updated"
 echo ""
 echo "If you encounter issues, check service status:"
-echo "  sudo systemctl status edge-ai-api"
-echo "  sudo journalctl -u edge-ai-api -n 50"
+echo "  sudo systemctl status edgeos-api"
+echo "  sudo journalctl -u edgeos-api -n 50"
 echo ""
 echo "Service status:"
 echo "  sudo systemctl status ${SERVICE_NAME}"

@@ -1,6 +1,6 @@
 # Hướng Dẫn Cài Đặt CVEDIX SDK
 
-Tài liệu này hướng dẫn cách cài đặt CVEDIX SDK (Core AI Runtime) để sử dụng với Edge AI API.
+Tài liệu này hướng dẫn cách cài đặt CVEDIX SDK (Core AI Runtime / EdgeOS SDK) để sử dụng với edgeos-api.
 
 ## 📋 Tổng Quan
 
@@ -111,7 +111,7 @@ sudo ldconfig
 
 ### 2. Tạo Symlinks (nếu cần)
 
-Edge AI API có thể cần symlinks cho một số dependencies:
+edgeos-api có thể cần symlinks cho một số dependencies:
 
 ```bash
 # Fix symlinks cho CVEDIX SDK
@@ -122,17 +122,17 @@ sudo ln -sf /opt/cvedix/lib/libtinyexpr.so /usr/lib/libtinyexpr.so
 sudo ln -sf /opt/cvedix/lib/libcvedix_instance_sdk.so /usr/lib/libcvedix_instance_sdk.so
 ```
 
-### 3. Cấu hình CMake cho Edge AI API
+### 3. Cấu hình CMake cho edgeos-api
 
-Edge AI API sẽ tự động tìm SDK tại:
-- `/opt/cvedix/` (ưu tiên)
-- `/usr/include/cvedix/` và `/usr/lib/`
+edgeos-api sẽ tự động tìm EdgeOS SDK tại:
+- `/opt/edgeos-sdk/` (ưu tiên, cấu trúc: lib/cvedix, lib/opencv, lib/cuda, lib/cudnn, lib/tensorrt)
+- `/opt/cvedix/` hoặc `/usr/include/cvedix/` và `/usr/lib/`
 
 Nếu SDK ở vị trí khác, thêm vào `CMAKE_PREFIX_PATH`:
 
 ```bash
-cd edge_ai_api/build
-cmake .. -DCMAKE_PREFIX_PATH=/path/to/cvedix/sdk
+cd edgeos-api/build
+cmake .. -DCMAKE_PREFIX_PATH=/path/to/edgeos-sdk
 ```
 
 ## ✅ Kiểm Tra Cài Đặt
@@ -165,11 +165,11 @@ ls -la /opt/cvedix/lib/libcvedix_instance_sdk.so
 ls -la /opt/cvedix/include/cvedix/
 ```
 
-### Kiểm tra từ Edge AI API
+### Kiểm tra từ edgeos-api
 
 ```bash
-cd edge_ai_api/build
-cmake ..  # Sẽ hiển thị thông tin về CVEDIX SDK nếu tìm thấy
+cd edgeos-api/build
+cmake ..  # Sẽ hiển thị thông tin về EdgeOS SDK nếu tìm thấy
 ```
 
 ## 📦 Yêu Cầu Hệ Thống
@@ -206,16 +206,16 @@ sudo apt-get install -y \
     pkg-config
 ```
 
-## 🔧 Sử Dụng SDK trong Edge AI API
+## 🔧 Sử Dụng SDK trong edgeos-api
 
-Edge AI API đã được cấu hình để tự động tìm và sử dụng CVEDIX SDK. Sau khi cài đặt SDK:
+edgeos-api đã được cấu hình để dùng lib có sẵn trong EdgeOS SDK (`/opt/edgeos-sdk/lib/cvedix`, `lib/opencv`, `lib/cuda`, `lib/cudnn`, `lib/tensorrt`). Sau khi cài đặt SDK:
 
-1. **Chạy dev_setup.sh** để fix symlinks:
+1. **Chạy dev_setup.sh** để fix symlinks (nếu cần):
    ```bash
    sudo ./scripts/dev_setup.sh --skip-deps --skip-build
    ```
 
-2. **Build Edge AI API**:
+2. **Build edgeos-api**:
    ```bash
    ./scripts/dev_setup.sh --skip-deps
    # Hoặc
@@ -226,7 +226,7 @@ Edge AI API đã được cấu hình để tự động tìm và sử dụng CV
 
 3. **Kiểm tra build thành công**:
    ```bash
-   ./build/bin/edge_ai_api --version
+   ./build/bin/edgeos-api --version
    ```
 
 ## ⚠️ Troubleshooting
@@ -296,17 +296,40 @@ sudo ln -sf /path/to/cpp-base64/base64.h \
 sudo ./scripts/dev_setup.sh --skip-deps --skip-build
 ```
 
+## ⚠️ Known Issues (Báo cáo cho Team SDK)
+
+### SSE Broker – ASIO dependency issue
+
+**Mô tả**: Node **SSE broker** (`cvedix_sse_broker_node`) bị tắt tạm thời khi tích hợp edgeos-api với CVEDIX SDK do lỗi liên quan tới dependency **ASIO**.
+
+**Thời điểm**: Từ khoảng **2026-02-03** (commit `9d01991` – *Fix build errors: comment ASIO/cereal dependencies temporarily*).
+
+**Vị trí trong edgeos-api**:
+- `src/core/pipeline_builder_broker_nodes.cpp`: `#include <cvedix/nodes/broker/cvedix_sse_broker_node.h>` bị comment; `createSSEBrokerNode()` throw thay vì tạo node.
+- `src/core/pipeline_builder.cpp`: với `nodeType == "sse_broker"` trả về `nullptr` và in cảnh báo.
+
+**Thông tin cần Team SDK hỗ trợ**:
+1. **Nội dung lỗi build gốc** không còn lưu trong repo (chỉ có workaround). Để lấy lại: bật lại include và implementation SSE broker trong edgeos-api rồi build với cùng bộ SDK/compiler.
+2. **Nguyên nhân khả dĩ**: conflict ASIO (standalone hoặc Boost.Asio) giữa SDK và Drogon/Trantor (HTTP server dùng Boost.Asio). Cần xác nhận phiên bản ASIO SDK dùng và cách export/include.
+3. **Đường dẫn ASIO hiện tại**: edgeos-api đã thêm  
+   `/opt/edgeos-sdk/include/cvedix/third_party/asio/include`  
+   (xem `CMakeLists.txt`).
+
+**Để reproduce**: Uncomment `#include <cvedix/nodes/broker/cvedix_sse_broker_node.h>` và phần code tạo `cvedix_sse_broker_node` trong `pipeline_builder_broker_nodes.cpp`, sau đó build. Gửi lại full compiler/linker error log cho Team SDK.
+
+Chi tiết đầy đủ để report: xem `docs/SDK_ISSUE_REPORT_ASIO_SSE_BROKER.md`.
+
 ## 📚 Tài Liệu Thêm
 
 - **SDK Documentation**: Xem `doc/README_SDK.md` trong repository `core_ai_runtime`
 - **SDK Integration**: Xem `doc/pages/sdk_integration.md`
-- **Edge AI API Development**: Xem `docs/DEVELOPMENT.md`
-- **Edge AI API Setup**: Xem `docs/SCRIPTS.md`
+- **edgeos-api Development**: Xem `docs/DEVELOPMENT.md`
+- **edgeos-api Setup**: Xem `docs/SCRIPTS.md`
 
 ## 🔗 Liên Kết
 
 - Repository SDK: `https://github.com/cvedix/core_ai_runtime` (private)
-- Repository Edge AI API: `https://github.com/cvedix/edge_ai_api`
+- Repository edgeos-api: `https://github.com/cvedix/edgeos-api`
 
 ---
 

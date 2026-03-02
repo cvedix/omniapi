@@ -2550,7 +2550,7 @@ std::string SolutionHandler::getDefaultSolutionsDir() const {
       "./examples/default_solutions",
       "../examples/default_solutions",
       "../../examples/default_solutions",
-      "/opt/edge_ai_api/examples/default_solutions",
+      "/opt/edgeos-api/examples/default_solutions",
   };
 
   // Also try relative to executable path
@@ -3369,7 +3369,7 @@ SolutionHandler::getPlaceholder(const std::string &paramName) const {
     return "/path/to/video.mp4";
   }
   if (upperParam.find("MODEL_PATH") != std::string::npos) {
-    return "/opt/edge_ai_api/models/example.onnx";
+    return "/opt/edgeos-api/models/example.onnx";
   }
   if (upperParam == "MQTT_BROKER_URL") {
     return "localhost";
@@ -3490,8 +3490,8 @@ SolutionHandler::getParameterExamples(const std::string &paramName) const {
     examples.push_back("rtmp://youtube.com/live2/stream-key");
   }
   if (upperParam.find("MODEL_PATH") != std::string::npos) {
-    examples.push_back("/opt/edge_ai_api/models/face/yunet.onnx");
-    examples.push_back("/opt/edge_ai_api/models/trt/yolov8.engine");
+    examples.push_back("/opt/edgeos-api/models/face/yunet.onnx");
+    examples.push_back("/opt/edgeos-api/models/trt/yolov8.engine");
   }
   if (upperParam == "MQTT_BROKER_URL") {
     examples.push_back("localhost");

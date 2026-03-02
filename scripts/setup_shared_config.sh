@@ -12,8 +12,8 @@ set -e
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEV_CONFIG="$PROJECT_ROOT/config.json"
-PROD_CONFIG="/opt/edge_ai_api/config/config.json"
-BACKUP_DIR="/opt/edge_ai_api/config/backups"
+PROD_CONFIG="/opt/edgeos-api/config/config.json"
+BACKUP_DIR="/opt/edgeos-api/config/backups"
 
 echo "=========================================="
 echo "Setting up shared config.json"

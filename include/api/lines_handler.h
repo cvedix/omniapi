@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/objects/shapes/cvedix_line.h>
 #include <cvedix/objects/shapes/cvedix_point.h>
 #include <drogon/HttpController.h>
@@ -201,7 +201,7 @@ private:
    * @param instanceId Instance ID
    * @return Shared pointer to ba_crossline_node if found, nullptr otherwise
    */
-  std::shared_ptr<cvedix_nodes::cvedix_ba_crossline_node>
+  std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node>
   findBACrosslineNode(const std::string &instanceId) const;
 
   /**

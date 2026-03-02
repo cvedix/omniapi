@@ -53,7 +53,7 @@ Mỗi lần chạy `./build_deb.sh`, script sẽ:
 ```bash
 cat VERSION
 # Hoặc
-grep "project(edge_ai_api VERSION" CMakeLists.txt
+grep "project(edgeos_api VERSION" CMakeLists.txt
 ```
 
 ## Ví Dụ
@@ -99,7 +99,7 @@ Nếu muốn thay đổi version thủ công (ví dụ: major/minor release):
 echo "2026.0.2.0" > VERSION
 
 # 2. Update CMakeLists.txt
-sed -i 's/project(edge_ai_api VERSION [0-9.]*)/project(edge_ai_api VERSION 2026.0.2.0)/' CMakeLists.txt
+sed -i 's/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION 2026.0.2.0)/' CMakeLists.txt
 
 # 3. Update debian/changelog
 sed -i '1s/edge-ai-api ([0-9.]*)/edge-ai-api (2026.0.2.0)/' debian/changelog

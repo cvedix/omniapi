@@ -97,7 +97,7 @@ update_version_files() {
     
     # Update CMakeLists.txt
     if [ -f "$cmake_file" ]; then
-        sed -i "s/project(edge_ai_api VERSION [0-9.]*)/project(edge_ai_api VERSION $new_version)/" "$cmake_file"
+        sed -i "s/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION $new_version)/" "$cmake_file"
         echo -e "${GREEN}✓${NC} Updated CMakeLists.txt"
     fi
     
@@ -494,9 +494,9 @@ collect_libs() {
 echo "Collecting libraries from main executable..."
 collect_libs "$EXEC_PATH"
 
-WORKER_PATH=$(dirname "$EXEC_PATH")/edge_ai_worker
+WORKER_PATH=$(dirname "$EXEC_PATH")/edgeos-worker
 if [ -f "$WORKER_PATH" ]; then
-    echo "Collecting libraries from edge_ai_worker..."
+    echo "Collecting libraries from edgeos-worker..."
     collect_libs "$WORKER_PATH"
 fi
 
@@ -1267,9 +1267,9 @@ fi
 # Check if executable exists
 EXECUTABLE=""
 EXECUTABLE_PATHS=(
-    "build/bin/edge_ai_api"
-    "build/edge_ai_api"
-    "build/edge_ai_api/edge_ai_api"
+    "build/bin/edgeos-api"
+    "build/edgeos-api"
+    "build/edgeos-api/edgeos-api"
 )
 
 for path in "${EXECUTABLE_PATHS[@]}"; do
@@ -1559,7 +1559,7 @@ Build-Depends: debhelper (>= 13),
                python3-dev,
                python3-numpy
 Standards-Version: 4.6.0
-Homepage: https://github.com/cvedix/edge_ai_api
+Homepage: https://github.com/cvedix/edgeos-api
 
 Package: edge-ai-api
 Architecture: amd64
@@ -1754,7 +1754,7 @@ echo "2. No additional dependencies needed!"
 echo "   This package is self-contained and includes everything."
 echo ""
 echo "3. Verify installation:"
-echo "   sudo /opt/edge_ai_api/scripts/validate_installation.sh --verbose"
+echo "   sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose"
 echo ""
 echo "4. Start the service:"
 echo "   sudo systemctl start edge-ai-api"

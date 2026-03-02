@@ -1,5 +1,5 @@
 /**
- * @file edge_ai_worker.cpp
+ * @file edgeos-worker.cpp
  * @brief Edge AI Worker Process - Isolated subprocess for running AI pipelines
  *
  * This is the main entry point for worker subprocesses.
@@ -8,7 +8,7 @@
  * Communication with main API server is via Unix Socket IPC.
  *
  * Usage:
- *   edge_ai_worker --instance-id <id> --socket <path> [--config <json>]
+ *   edgeos-worker --instance-id <id> --socket <path> [--config <json>]
  *
  * Architecture:
  *   - Main API Server spawns worker processes via WorkerSupervisor
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 
   if (!args.valid) {
     std::cerr << "[Worker] Error: " << args.error << std::endl;
-    std::cerr << "[Worker] Usage: edge_ai_worker --instance-id <id> --socket "
+    std::cerr << "[Worker] Usage: edgeos-worker --instance-id <id> --socket "
                  "<path> [--config <json>]"
               << std::endl;
     return 1;

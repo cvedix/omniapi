@@ -463,8 +463,8 @@ static std::string resolveDatabasePath() {
     }
   }
 
-  // Priority 2: Production path (/opt/edge_ai_api/data/face_database.txt)
-  std::string production_path = "/opt/edge_ai_api/data/face_database.txt";
+  // Priority 2: Production path (/opt/edgeos-api/data/face_database.txt)
+  std::string production_path = "/opt/edgeos-api/data/face_database.txt";
   if (std::filesystem::exists(production_path)) {
     // Check if we have write permission by trying to open in write mode
     std::ofstream test_file(production_path, std::ios::out | std::ios::app);
@@ -521,11 +521,11 @@ static std::string resolveDatabasePath() {
     }
   }
 
-  // Priority 3: User directory (~/.local/share/edge_ai_api/face_database.txt)
+  // Priority 3: User directory (~/.local/share/edgeos-api/face_database.txt)
   const char *home = std::getenv("HOME");
   if (home) {
     std::string user_path =
-        std::string(home) + "/.local/share/edge_ai_api/face_database.txt";
+        std::string(home) + "/.local/share/edgeos-api/face_database.txt";
     try {
       std::filesystem::path filePath(user_path);
       if (filePath.has_parent_path()) {
@@ -550,7 +550,7 @@ static std::string resolveDatabasePath() {
     PLOG_INFO << "[FaceDatabase] Using last resort: " << last_resort
               << " (current directory)";
     PLOG_INFO << "[FaceDatabase] Note: To use production path, run: sudo mkdir "
-                 "-p /opt/edge_ai_api/data";
+                 "-p /opt/edgeos-api/data";
   }
   return last_resort;
 }
@@ -774,7 +774,7 @@ public:
 
     // Find ONNX model
     std::vector<std::string> model_paths = {
-        "/opt/edge_ai_api/models/face/face_recognition_sface_2021dec.onnx",
+        "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx",
         "./models/face/face_recognition_sface_2021dec.onnx",
         "../models/face/face_recognition_sface_2021dec.onnx"};
 
@@ -800,8 +800,8 @@ public:
 
     // Find detector model (try both with and without _int8 suffix)
     std::vector<std::string> detector_paths = {
-        "/opt/edge_ai_api/models/face/face_detection_yunet_2023mar.onnx",
-        "/opt/edge_ai_api/models/face/face_detection_yunet_2023mar_int8.onnx",
+        "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx",
+        "/opt/edgeos-api/models/face/face_detection_yunet_2023mar_int8.onnx",
         "./models/face/face_detection_yunet_2023mar.onnx",
         "./models/face/face_detection_yunet_2023mar_int8.onnx",
         "../models/face/face_detection_yunet_2023mar.onnx",
@@ -861,7 +861,7 @@ public:
       error_msg = "Face detector model not found. Please ensure "
                   "face_detection_yunet_2023mar.onnx or "
                   "face_detection_yunet_2023mar_int8.onnx exists in "
-                  "/opt/edge_ai_api/models/face/";
+                  "/opt/edgeos-api/models/face/";
       if (isApiLoggingEnabled()) {
         PLOG_ERROR << "[FaceDatabase] " << error_msg;
       }
@@ -946,7 +946,7 @@ public:
     if (onnx_model_path_.empty()) {
       error_msg = "Face recognition model not found. Please ensure "
                   "face_recognition_sface_2021dec.onnx exists in "
-                  "/opt/edge_ai_api/models/face/";
+                  "/opt/edgeos-api/models/face/";
       if (isApiLoggingEnabled()) {
         PLOG_ERROR << "[FaceDatabase] " << error_msg;
       }

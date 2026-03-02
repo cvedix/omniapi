@@ -23,8 +23,8 @@ bool PreferencesManager::loadPreferences(const std::string &configPath) {
     std::vector<std::string> possiblePaths = {
         "./config/rtconfig.json",
         "./rtconfig.json",
-        "/opt/edge_ai_api/config/rtconfig.json",
-        "/etc/edge_ai_api/rtconfig.json"
+        "/opt/edgeos-api/config/rtconfig.json",
+        "/etc/edgeos-api/rtconfig.json"
     };
 
     for (const auto &path : possiblePaths) {

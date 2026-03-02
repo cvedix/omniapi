@@ -599,8 +599,8 @@ std::string CreateInstanceHandler::convertPathToProduction(
   std::string result = path;
 
   // Convert absolute development paths to production paths
-  // Pattern: /home/cvedix/project/edge_ai_api/cvedix_data/... -> /opt/edge_ai_api/...
-  const std::string devPrefix = "/home/cvedix/project/edge_ai_api/cvedix_data/";
+  // Pattern: /home/cvedix/project/edgeos-api/cvedix_data/... -> /opt/edgeos-api/...
+  const std::string devPrefix = "/home/cvedix/project/edgeos-api/cvedix_data/";
   if (result.find(devPrefix) == 0) {
     // Extract path after cvedix_data/
     std::string relativePath = result.substr(devPrefix.length());
@@ -610,12 +610,12 @@ std::string CreateInstanceHandler::convertPathToProduction(
       relativePath = "videos/" + relativePath.substr(11);
     }
     
-    result = "/opt/edge_ai_api/" + relativePath;
+    result = "/opt/edgeos-api/" + relativePath;
     return result;
   }
 
   // Also handle other common development paths
-  const std::string devPrefix2 = "/home/cvedix/project/edge_ai_api/";
+  const std::string devPrefix2 = "/home/cvedix/project/edgeos-api/";
   if (result.find(devPrefix2) == 0) {
     std::string relativePath = result.substr(devPrefix2.length());
     
@@ -632,18 +632,18 @@ std::string CreateInstanceHandler::convertPathToProduction(
       relativePath = relativePath.substr(12);
     }
     
-    result = "/opt/edge_ai_api/" + relativePath;
+    result = "/opt/edgeos-api/" + relativePath;
     return result;
   }
 
-  // Convert ./cvedix_data/ paths to /opt/edge_ai_api/
+  // Convert ./cvedix_data/ paths to /opt/edgeos-api/
   if (result.find("./cvedix_data/") == 0) {
     result = result.substr(15); // Remove "./cvedix_data/"
     // Map test_video/ to videos/
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edge_ai_api/" + result;
+    result = "/opt/edgeos-api/" + result;
     return result;
   } else if (result.find("cvedix_data/") == 0) {
     result = result.substr(12); // Remove "cvedix_data/"
@@ -651,20 +651,20 @@ std::string CreateInstanceHandler::convertPathToProduction(
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edge_ai_api/" + result;
+    result = "/opt/edgeos-api/" + result;
     return result;
   }
 
   // Specific mappings
-  // Models: ./cvedix_data/models/ -> /opt/edge_ai_api/models/
+  // Models: ./cvedix_data/models/ -> /opt/edgeos-api/models/
   if (result.find("./models/") == 0) {
-    result = "/opt/edge_ai_api" + result.substr(1);
+    result = "/opt/edgeos-api" + result.substr(1);
     return result;
   }
 
-  // Videos: ./cvedix_data/test_video/ -> /opt/edge_ai_api/videos/
+  // Videos: ./cvedix_data/test_video/ -> /opt/edgeos-api/videos/
   if (result.find("./test_video/") == 0) {
-    result = "/opt/edge_ai_api/videos/" + result.substr(12);
+    result = "/opt/edgeos-api/videos/" + result.substr(12);
     return result;
   }
 

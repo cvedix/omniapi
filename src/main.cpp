@@ -1767,8 +1767,8 @@ static void setupGStreamerPluginPath(bool enable_find_search = false) {
   // Method 1: Check for bundled plugins FIRST (ALL-IN-ONE package)
   // This is the most reliable for all-in-one packages
   std::vector<std::string> bundled_paths = {
-      "/opt/edge_ai_api/lib/gstreamer-1.0",
-      "/usr/local/edge_ai_api/lib/gstreamer-1.0"};
+      "/opt/edgeos-api/lib/gstreamer-1.0",
+      "/usr/local/edgeos-api/lib/gstreamer-1.0"};
   
   for (const auto &path : bundled_paths) {
     if (std::filesystem::exists(path) && std::filesystem::is_directory(path) &&
@@ -2111,7 +2111,7 @@ int main(int argc, char *argv[]) {
     static PipelineBuilder pipelineBuilder;
 
     // Initialize instance storage with configurable directory
-    // Priority: 1. INSTANCES_DIR env var, 2. /opt/edge_ai_api/instances (with
+    // Priority: 1. INSTANCES_DIR env var, 2. /opt/edgeos-api/instances (with
     // auto-fallback)
     std::string instancesDir;
     const char *env_instances_dir = std::getenv("INSTANCES_DIR");
@@ -2120,9 +2120,9 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using INSTANCES_DIR from environment: "
                 << instancesDir << std::endl;
     } else {
-      // Try /opt/edge_ai_api/instances first, fallback to user directory if
+      // Try /opt/edgeos-api/instances first, fallback to user directory if
       // needed
-      instancesDir = "/opt/edge_ai_api/instances";
+      instancesDir = "/opt/edgeos-api/instances";
       std::cerr << "[Main] Attempting to use: " << instancesDir << std::endl;
     }
 
@@ -2160,7 +2160,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/instances";
+                  std::string(home) + "/.local/share/edgeos-api/instances";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2170,11 +2170,11 @@ int main(int argc, char *argv[]) {
                 std::cerr << "[Main] ✓ Using fallback directory: "
                           << instancesDir << std::endl;
                 std::cerr
-                    << "[Main] ℹ Note: To use /opt/edge_ai_api/instances, "
+                    << "[Main] ℹ Note: To use /opt/edgeos-api/instances, "
                        "create parent directory:"
                     << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2286,7 +2286,7 @@ int main(int argc, char *argv[]) {
       } else {
         // Default: try absolute path first, then fallback to just executable name
         // This allows supervisor's findWorkerExecutable() to search in PATH
-        worker_executable = "edge_ai_worker";
+        worker_executable = "edgeos-worker";
         std::cerr << "[Main] Using default worker executable: " << worker_executable
                   << " (set EDGE_AI_WORKER_PATH to override)" << std::endl;
       }
@@ -2317,7 +2317,7 @@ int main(int argc, char *argv[]) {
     PLOG_INFO << "[Main] Node pool manager initialized with default templates";
 
     // Initialize node storage and load persisted nodes
-    // Priority: 1. NODES_DIR env var, 2. /opt/edge_ai_api/nodes (with
+    // Priority: 1. NODES_DIR env var, 2. /opt/edgeos-api/nodes (with
     // auto-fallback)
     std::string nodesDir;
     const char *env_nodes_dir = std::getenv("NODES_DIR");
@@ -2326,8 +2326,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using NODES_DIR from environment: " << nodesDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/nodes first, fallback to user directory if needed
-      nodesDir = "/opt/edge_ai_api/nodes";
+      // Try /opt/edgeos-api/nodes first, fallback to user directory if needed
+      nodesDir = "/opt/edgeos-api/nodes";
       std::cerr << "[Main] Attempting to use: " << nodesDir << std::endl;
     }
 
@@ -2366,7 +2366,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/nodes";
+                  std::string(home) + "/.local/share/edgeos-api/nodes";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2375,11 +2375,11 @@ int main(int argc, char *argv[]) {
                 nodes_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << nodesDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/nodes, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/nodes, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2497,7 +2497,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Initialize solution storage and load custom solutions
-    // Default: /opt/edge_ai_api/solutions (auto-created if needed, with
+    // Default: /opt/edgeos-api/solutions (auto-created if needed, with
     // fallback)
     std::string solutionsDir =
         EnvConfig::resolveDataDir("SOLUTIONS_DIR", "solutions");
@@ -2556,7 +2556,7 @@ int main(int argc, char *argv[]) {
     SolutionHandler::setSolutionStorage(&solutionStorage);
 
     // Initialize group registry and storage
-    // Default: /var/lib/edge_ai_api/groups (auto-created if needed)
+    // Default: /var/lib/edgeos-api/groups (auto-created if needed)
     std::string groupsDir = EnvConfig::resolveDataDir("GROUPS_DIR", "groups");
     PLOG_INFO << "[Main] Groups directory: " << groupsDir;
     static GroupStorage groupStorage(groupsDir);
@@ -2665,7 +2665,7 @@ int main(int argc, char *argv[]) {
     static AreaHandler areaHandler;
 
     // Initialize model upload handler with configurable directory
-    // Priority: 1. MODELS_DIR env var, 2. /opt/edge_ai_api/models (with
+    // Priority: 1. MODELS_DIR env var, 2. /opt/edgeos-api/models (with
     // auto-fallback)
     std::string modelsDir;
     const char *env_models_dir = std::getenv("MODELS_DIR");
@@ -2674,8 +2674,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using MODELS_DIR from environment: " << modelsDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/models first, fallback to user directory if needed
-      modelsDir = "/opt/edge_ai_api/models";
+      // Try /opt/edgeos-api/models first, fallback to user directory if needed
+      modelsDir = "/opt/edgeos-api/models";
       std::cerr << "[Main] Attempting to use: " << modelsDir << std::endl;
     }
 
@@ -2714,7 +2714,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/models";
+                  std::string(home) + "/.local/share/edgeos-api/models";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2723,11 +2723,11 @@ int main(int argc, char *argv[]) {
                 models_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << modelsDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/models, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/models, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2800,7 +2800,7 @@ int main(int argc, char *argv[]) {
     static ModelUploadHandler modelUploadHandler;
 
     // Initialize video upload handler with configurable directory
-    // Priority: 1. VIDEOS_DIR env var, 2. /opt/edge_ai_api/videos (with
+    // Priority: 1. VIDEOS_DIR env var, 2. /opt/edgeos-api/videos (with
     // auto-fallback)
     std::string videosDir;
     const char *env_videos_dir = std::getenv("VIDEOS_DIR");
@@ -2809,8 +2809,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using VIDEOS_DIR from environment: " << videosDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/videos first, fallback to user directory if needed
-      videosDir = "/opt/edge_ai_api/videos";
+      // Try /opt/edgeos-api/videos first, fallback to user directory if needed
+      videosDir = "/opt/edgeos-api/videos";
       std::cerr << "[Main] Attempting to use: " << videosDir << std::endl;
     }
 
@@ -2849,7 +2849,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/videos";
+                  std::string(home) + "/.local/share/edgeos-api/videos";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2858,11 +2858,11 @@ int main(int argc, char *argv[]) {
                 videos_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << videosDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/videos, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/videos, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2936,7 +2936,7 @@ int main(int argc, char *argv[]) {
     static RecognitionHandler recognitionHandler;
 
     // Initialize font upload handler with configurable directory
-    // Priority: 1. FONTS_DIR env var, 2. /opt/edge_ai_api/fonts (with
+    // Priority: 1. FONTS_DIR env var, 2. /opt/edgeos-api/fonts (with
     // auto-fallback)
     std::string fontsDir;
     const char *env_fonts_dir = std::getenv("FONTS_DIR");
@@ -2945,8 +2945,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using FONTS_DIR from environment: " << fontsDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/fonts first, fallback to user directory if needed
-      fontsDir = "/opt/edge_ai_api/fonts";
+      // Try /opt/edgeos-api/fonts first, fallback to user directory if needed
+      fontsDir = "/opt/edgeos-api/fonts";
       std::cerr << "[Main] Attempting to use: " << fontsDir << std::endl;
     }
 
@@ -2985,7 +2985,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/fonts";
+                  std::string(home) + "/.local/share/edgeos-api/fonts";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2994,11 +2994,11 @@ int main(int argc, char *argv[]) {
                 fonts_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << fontsDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/fonts, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/fonts, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "

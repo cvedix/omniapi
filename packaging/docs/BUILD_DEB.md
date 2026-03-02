@@ -288,7 +288,7 @@ Sau khi cài đặt:
 - **Libraries**: `/opt/edge_ai_api/lib/` (bundled - tất cả trong một nơi)
 - **Config**: `/opt/edge_ai_api/config/`
 - **Data**: `/opt/edge_ai_api/` (instances, solutions, models, logs, etc.)
-- **Service**: `/etc/systemd/system/edge-ai-api.service`
+- **Service**: `/etc/systemd/system/edgeos-api.service`
 
 ## ✨ Tính Năng
 

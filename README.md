@@ -1,6 +1,6 @@
-# Edge AI API
+# edgeos-api
 
-REST API server cho CVEDIX Edge AI SDK, cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên.
+REST API server cho CVEDIX Edge AI SDK (EdgeOS SDK), cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên.
 
 ![Edge AI Workflow](docs/image.png)
 
@@ -121,7 +121,7 @@ cmake ..
 make -j$(nproc)
 
 # 3. Chạy server
-./bin/edge_ai_api
+./bin/edgeos-api
 ```
 
 ### Build và Cài Đặt Debian Package
@@ -142,9 +142,9 @@ make -j$(nproc)
 ./packaging/scripts/build_deb.sh
 
 # Cài đặt package
-sudo dpkg -i edge-ai-api-all-in-one-*.deb
+sudo dpkg -i edgeos-api-all-in-one-*.deb
 sudo apt-get install -f  # Nếu có lỗi dependencies
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 ```
 
 **Lưu ý:** Không cần `sudo` để build! Chỉ cần sudo khi **cài đặt** package.
@@ -176,7 +176,7 @@ nano .env  # Chỉnh sửa nếu cần
 ### Với Logging
 
 ```bash
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 ```
 
 ### Environment Variables
@@ -248,10 +248,10 @@ Xem đầy đủ: [docs/API.md](docs/API.md)
 
 ```bash
 # Development - full logging
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 
 # Production - minimal logging
-./build/bin/edge_ai_api --log-api
+./build/bin/edgeos-api --log-api
 ```
 
 **Logs API:**
@@ -272,12 +272,12 @@ sudo ./scripts/prod_setup.sh
 sudo ./deploy/deploy.sh
 
 # Kiểm tra service
-sudo systemctl status edge-ai-api
-sudo journalctl -u edge-ai-api -f
+sudo systemctl status edgeos-api
+sudo journalctl -u edgeos-api -f
 
 # Quản lý
-sudo systemctl restart edge-ai-api
-sudo systemctl stop edge-ai-api
+sudo systemctl restart edgeos-api
+sudo systemctl stop edgeos-api
 ```
 
 Xem chi tiết: [deploy/README.md](deploy/README.md)

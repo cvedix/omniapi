@@ -539,7 +539,7 @@ Nếu gặp lỗi này khi start instance với file source:
 1. Cài đặt plugins (xem phần trên)
 2. Kiểm tra `GST_PLUGIN_PATH` trong service file:
    ```bash
-   cat /etc/systemd/system/edge-ai-api.service | grep GST_PLUGIN_PATH
+   cat /etc/systemd/system/edgeos-api.service | grep GST_PLUGIN_PATH
    ```
 3. Đảm bảo `GST_PLUGIN_PATH` trỏ đến bundled directory:
    ```bash

@@ -1,8 +1,8 @@
-# Hướng Dẫn Sử Dụng Edge AI API
+# Hướng Dẫn Sử Dụng edgeos-api
 
 ## Tổng Quan
 
-Edge AI API là REST API server cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên. API cung cấp các chức năng quản lý instance, nhận diện khuôn mặt, cấu hình hệ thống, và nhiều tính năng khác.
+edgeos-api là REST API server cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên. API cung cấp các chức năng quản lý instance, nhận diện khuôn mặt, cấu hình hệ thống, và nhiều tính năng khác.
 
 **Base URL**: `http://localhost:8080`
 

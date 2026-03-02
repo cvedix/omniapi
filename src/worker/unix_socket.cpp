@@ -648,8 +648,8 @@ std::string generateSocketPath(const std::string &instance_id) {
   if (socket_dir && strlen(socket_dir) > 0) {
     dir = std::string(socket_dir);
   } else {
-    // Default to /opt/edge_ai_api/run
-    dir = "/opt/edge_ai_api/run";
+    // Default to /opt/edgeos-api/run
+    dir = "/opt/edgeos-api/run";
   }
 
   // Create directory if it doesn't exist
@@ -660,7 +660,7 @@ std::string generateSocketPath(const std::string &instance_id) {
     }
   } catch (const std::filesystem::filesystem_error &e) {
     // If can't create in /opt, fallback to /tmp
-    if (dir == "/opt/edge_ai_api/run") {
+    if (dir == "/opt/edgeos-api/run") {
       std::cerr << "[Socket] ⚠ Cannot create " << dir
                 << " (permission denied), falling back to /tmp" << std::endl;
       dir = "/tmp";
@@ -673,7 +673,7 @@ std::string generateSocketPath(const std::string &instance_id) {
   }
 
   // Return full socket path
-  return dir + "/edge_ai_worker_" + instance_id + ".sock";
+  return dir + "/edgeos_worker_" + instance_id + ".sock";
 }
 
 void cleanupSocket(const std::string &socket_path) {
