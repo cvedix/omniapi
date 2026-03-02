@@ -5,6 +5,7 @@
 #include "core/uuid_generator.h"
 #include "instances/instance_manager.h"
 #include "instances/inprocess_instance_manager.h"
+#include "instances/subprocess_instance_manager.h"
 #include <algorithm>
 #include <chrono>
 #include <drogon/HttpResponse.h>
@@ -1315,7 +1316,22 @@ bool StopsHandler::updateStopsRuntime(const std::string &instanceId,
     return true; // Apply on next start
   }
 
-  // Find ba_stop_node in pipeline
+  // Subprocess: send UPDATE_STOPS IPC to worker
+  if (instance_manager_->isSubprocessMode()) {
+    auto *sub = dynamic_cast<SubprocessInstanceManager *>(instance_manager_);
+    if (sub && sub->updateStops(instanceId, stopsArray)) {
+      if (isApiLoggingEnabled()) {
+        PLOG_INFO << "[API] updateStopsRuntime: Stops updated via IPC (subprocess) for instance " << instanceId;
+      }
+      return true;
+    }
+    if (isApiLoggingEnabled()) {
+      PLOG_WARNING << "[API] updateStopsRuntime: Subprocess updateStops failed, fallback to restart for instance " << instanceId;
+    }
+    return false; // Fallback to restart
+  }
+
+  // In-process: Find ba_stop_node in pipeline
   auto baStopNode = findBAStopNode(instanceId);
   if (!baStopNode) {
     if (isApiLoggingEnabled()) {
