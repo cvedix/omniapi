@@ -24,7 +24,7 @@ Thư mục chứa các script và file cấu hình cho production deployment.
   - Single source of truth cho directory structure
   - Format: `["directory_name"]="permissions"`
 
-- **`edge-ai-api.service`** - Systemd service file
+- **`edgeos-api.service`** - Systemd service file
 
 ## Quick Start
 

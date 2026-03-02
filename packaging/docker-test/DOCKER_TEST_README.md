@@ -91,7 +91,7 @@ ls -la /usr/local/bin/edge_ai_api
 ### 3. Kiểm Tra Service File
 
 ```bash
-cat /etc/systemd/system/edge-ai-api.service
+cat /etc/systemd/system/edgeos-api.service
 ls -la /opt/edge_ai_api/
 ```
 

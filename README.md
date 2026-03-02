@@ -142,9 +142,9 @@ make -j$(nproc)
 ./packaging/scripts/build_deb.sh
 
 # Cài đặt package
-sudo dpkg -i edge-ai-api-all-in-one-*.deb
+sudo dpkg -i edgeos-api-all-in-one-*.deb
 sudo apt-get install -f  # Nếu có lỗi dependencies
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 ```
 
 **Lưu ý:** Không cần `sudo` để build! Chỉ cần sudo khi **cài đặt** package.
@@ -272,12 +272,12 @@ sudo ./scripts/prod_setup.sh
 sudo ./deploy/deploy.sh
 
 # Kiểm tra service
-sudo systemctl status edge-ai-api
-sudo journalctl -u edge-ai-api -f
+sudo systemctl status edgeos-api
+sudo journalctl -u edgeos-api -f
 
 # Quản lý
-sudo systemctl restart edge-ai-api
-sudo systemctl stop edge-ai-api
+sudo systemctl restart edgeos-api
+sudo systemctl stop edgeos-api
 ```
 
 Xem chi tiết: [deploy/README.md](deploy/README.md)
