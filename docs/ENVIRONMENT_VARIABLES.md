@@ -150,6 +150,27 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 | `GST_RTSP_PROTOCOLS` | GStreamer RTSP transport protocol (`tcp` hoặc `udp`) | `tcp` | `src/core/pipeline_builder.cpp` |
 | `RTSP_TRANSPORT` | Alternative name cho `GST_RTSP_PROTOCOLS` (`tcp` hoặc `udp`) | (auto-set to `tcp`) | `src/core/pipeline_builder.cpp` |
 
+#### Timeout Configuration
+| Biến | Mô tả | Mặc định | Min–Max | File sử dụng |
+|------|-------|----------|---------|--------------|
+| `SHUTDOWN_TIMEOUT_MS` | Thời gian chờ trước khi force exit khi shutdown (ms) | `500` | 100–5000 | `core/timeout_constants.h`, `main.cpp` |
+| `REGISTRY_MUTEX_TIMEOUT_MS` | Timeout khi lock registry (list/get instance) (ms) | `2000` | 100–30000 | `core/timeout_constants.h`, `instance_registry.cpp` |
+| `API_WRAPPER_TIMEOUT_MS` | Timeout cho API wrapper (getInstance, v.v.) (ms); nên ≥ registry + 500 | (registry + 500) | 500–60000 | `core/timeout_constants.h` |
+| `IPC_START_STOP_TIMEOUT_MS` | Timeout IPC cho start/stop instance (subprocess) (ms) | `10000` | 1000–60000 | `core/timeout_constants.h`, `subprocess_instance_manager.cpp` |
+| `IPC_API_TIMEOUT_MS` | Timeout IPC cho get statistics/frame (ms) | `5000` | 1000–30000 | `core/timeout_constants.h` |
+| `IPC_STATUS_TIMEOUT_MS` | Timeout IPC cho get status nhanh (ms) | `3000` | 500–15000 | `core/timeout_constants.h` |
+| `FRAME_CACHE_MUTEX_TIMEOUT_MS` | Timeout lock frame cache (ms) | `1000` | 100–10000 | `core/timeout_constants.h` |
+| `WORKER_STATE_MUTEX_TIMEOUT_MS` | Timeout lock worker state (ms) | `100` | 50–1000 | `core/timeout_constants.h` |
+
+Các timeout khác (RTSP stop, RTMP reconnect, destination finalize, v.v.) nằm trong `include/core/timeout_constants.h` và có thể cấu hình qua biến môi trường tương ứng (ví dụ `RTSP_STOP_TIMEOUT_MS`, `RTMP_SOURCE_STOP_TIMEOUT_MS`).
+
+#### Queue Monitor Configuration
+| Biến | Mô tả | Mặc định | File sử dụng |
+|------|-------|----------|--------------|
+| `EDGE_AI_QUEUE_MONITOR_ENABLED` | Bật thread giám sát queue/FPS; khi FPS=0 hoặc queue full vượt ngưỡng sẽ restart instance | `false` | `src/main.cpp` |
+
+Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa hai lần restart cho cùng instance; ngưỡng queue full và cửa sổ giám sát xem `QueueMonitor` trong code.
+
 #### Subprocess Worker Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
