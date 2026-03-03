@@ -135,6 +135,12 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 - **⚠️ Không nên lưu trong `build/` directory** - Dữ liệu có thể bị mất khi clean build
 - Xem chi tiết: [Development Setup](DEVELOPMENT_SETUP.md) - Hướng dẫn tạo thư mục tự động với fallback
 
+#### Face / AI Runtime (Recognition)
+| Biến | Mô tả | Mặc định | File sử dụng |
+|------|-------|----------|--------------|
+| `FACE_DETECTOR_PATH` | Đường dẫn model detector face (YuNet ONNX) | (tìm theo thứ tự mặc định) | `src/api/recognition_handler.cpp` |
+| `FACE_RECOGNIZER_PATH` | Đường dẫn model recognizer face (ONNX) | (tìm theo thứ tự mặc định) | `src/api/recognition_handler.cpp` |
+
 #### CVEDIX SDK Configuration (Example)
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
@@ -174,9 +180,11 @@ Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa
 #### Subprocess Worker Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `EDGE_AI_EXECUTION_MODE` | Execution mode: `in-process` hoặc `subprocess` | `in-process` | `src/main.cpp` |
+| `EDGE_AI_EXECUTION_MODE` | Execution mode: `in-process` (legacy/dev) hoặc `subprocess` (production) | `in-process` | `src/main.cpp` |
 | `EDGE_AI_WORKER_PATH` | Đường dẫn đến worker executable | `edgeos-worker` | `src/worker/worker_supervisor.cpp` |
 | `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/edgeos-api/run` | `src/worker/unix_socket.cpp` |
+| `EDGE_AI_MAX_RESTARTS` | Số lần restart worker tối đa (subprocess) | (trong code) | `src/worker/worker_supervisor.cpp` |
+| `EDGE_AI_HEALTH_CHECK_INTERVAL` | Khoảng kiểm tra health worker (ms) | (trong code) | `src/worker/worker_supervisor.cpp` |
 
 **Lưu ý về Socket Directory:**
 - **Default**: `/opt/edgeos-api/run` (tự động tạo nếu chưa tồn tại)
@@ -225,6 +233,14 @@ export LOG_DIR=/var/log/edgeos-api
 ```bash
 export API_PORT=9000
 ```
+
+## Deployment / Operations (khuyến nghị)
+
+- **Production:** Dùng `EDGE_AI_EXECUTION_MODE=subprocess`, cấu hình `EDGE_AI_WORKER_PATH` và `EDGE_AI_SOCKET_DIR`. Xem [ARCHITECTURE.md](ARCHITECTURE.md#khi-nào-dùng-mode-nào).
+- **Timeout:** Điều chỉnh `IPC_*_TIMEOUT_MS`, `REGISTRY_MUTEX_TIMEOUT_MS` nếu hệ thống chậm.
+- **Queue monitor:** Bật `EDGE_AI_QUEUE_MONITOR_ENABLED=true` để tự restart instance khi FPS=0 hoặc queue đầy.
+- **Thread pool:** `THREAD_NUM=0` (auto) hoặc giá trị cố định cho Drogon.
+- **Log:** `LOG_LEVEL`, `LOG_DIR`; xem [LOGGING.md](LOGGING.md).
 
 ## Lưu Ý
 

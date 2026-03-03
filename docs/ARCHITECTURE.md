@@ -2,6 +2,30 @@
 
 Tài liệu này mô tả kiến trúc hệ thống và các flow diagram của edgeos-api.
 
+## API → AI Runtime → SDK
+
+Edge AI API định vị là **nền tảng Edge AI** (REST API + xử lý AI). CVEDIX SDK là tầng hỗ trợ; mọi luồng AI đi qua lớp **AI Runtime** (decode, inference, cache).
+
+```mermaid
+flowchart LR
+    Client[Client] --> API[REST API Server]
+    API --> Runtime[AI Runtime / SDK Helper]
+    Runtime --> Decode[Decode]
+    Runtime --> Infer[InferenceSession]
+    Runtime --> Cache[Cache]
+    Decode --> SDK[CVEDIX SDK]
+    Infer --> SDK
+    Cache --> SDK
+    SDK --> Pipeline[Pipelines]
+```
+
+**Thành phần AI Runtime:**
+- **InferenceSession** — Load/unload model, infer (face detector + recognizer).
+- **AIRuntimeFacade** — Request (payload, codec, model_key) → decode → cache? → infer → response.
+- **PipelineHelper** — Pipeline ngắn: frame → detector → callback (không dùng InstanceRegistry).
+
+Recognition và Push frame dùng chung decode + infer qua facade/session. Xem [AI_RUNTIME_DESIGN.md](AI_RUNTIME_DESIGN.md).
+
 ## System Architecture
 
 ```mermaid
@@ -533,6 +557,8 @@ cgset -r memory.limit_in_bytes=2G edgeos-worker_1
 
 ### Khi nào dùng mode nào?
 
+Execution mode chi tiết và tối ưu ổn định: [task/edgeos-api/01_PHASE_OPTIMIZATION_STABILITY.md](../task/edgeos-api/01_PHASE_OPTIMIZATION_STABILITY.md).
+
 #### Dùng In-Process khi:
 - Development/debugging
 - Số lượng instances ít (1-2)
@@ -670,4 +696,7 @@ graph TB
 ## 📚 Xem Thêm
 
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Hướng dẫn phát triển chi tiết
-- [API_document.md](APIPdocument.md) - Tài liệu tham khảo API đầy đủ
+- [API_document.md](API_document.md) - Tài liệu tham khảo API đầy đủ
+- [AI_RUNTIME_DESIGN.md](AI_RUNTIME_DESIGN.md) - Thiết kế AI Runtime (InferenceSession, Facade)
+- [VISION_AI_PROCESSING_PLATFORM.md](VISION_AI_PROCESSING_PLATFORM.md) - Vision nền tảng Edge AI
+- [task/edgeos-api/00_MASTER_PLAN.md](../task/edgeos-api/00_MASTER_PLAN.md) - Master plan & trạng thái phases
