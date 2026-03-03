@@ -1462,7 +1462,22 @@ bool InstanceRegistry::reconnectRTMPDestinationStream(
         newRtmpNode->attach_to({parentNode});
         std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] ✓ New RTMP destination node attached successfully"
                   << std::endl;
-        
+
+        // Set activity hook on new node so monitor sees real push activity
+        newRtmpNode->set_stream_status_hooker(
+            [this, instanceId](std::string /*node_name*/,
+                               cvedix_nodes::cvedix_stream_status /*status*/) {
+              updateRTMPDestinationActivity(instanceId);
+            });
+        newRtmpNode->set_meta_handled_hooker(
+            [this, instanceId](std::string /*node_name*/, int /*queue_size*/,
+                               std::shared_ptr<cvedix_objects::cvedix_meta> meta) {
+              if (meta && meta->meta_type ==
+                              cvedix_objects::cvedix_meta_type::FRAME) {
+                updateRTMPDestinationActivity(instanceId);
+              }
+            });
+
         // CRITICAL: Update pipelines_ map to remove old RTMP destination nodes and add new one
         // This prevents OSD node from dispatching frames to old nodes
         {

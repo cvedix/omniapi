@@ -2860,6 +2860,9 @@ bool InstanceRegistry::startPipeline(
   // Setup frame capture hook before starting pipeline
   setupFrameCaptureHook(instanceId, nodes);
 
+  // Setup RTMP destination activity hook so monitor sees real push activity
+  setupRTMPDestinationActivityHook(instanceId, nodes);
+
   // Setup queue size tracking hook before starting pipeline
   // This also tracks incoming frames on source node (first node)
   setupQueueSizeTrackingHook(instanceId, nodes);
@@ -6284,6 +6287,48 @@ void InstanceRegistry::setupFrameCaptureHook(
     std::cerr << "[InstanceRegistry] Frame capture will not be available. "
                  "Consider adding app_des_node to pipeline."
               << std::endl;
+  }
+}
+
+void InstanceRegistry::setupRTMPDestinationActivityHook(
+    const std::string &instanceId,
+    const std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> &nodes) {
+  if (nodes.empty()) {
+    return;
+  }
+
+  for (const auto &node : nodes) {
+    if (!node) {
+      continue;
+    }
+    auto rtmpDesNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node);
+    if (!rtmpDesNode) {
+      continue;
+    }
+
+    // Update RTMP destination activity when SDK reports stream status
+    // (frame actually pushed to RTMP). This makes monitor reflect real output.
+    rtmpDesNode->set_stream_status_hooker(
+        [this, instanceId](std::string /*node_name*/,
+                           cvedix_nodes::cvedix_stream_status /*status*/) {
+          updateRTMPDestinationActivity(instanceId);
+        });
+
+    // Fallback: also update when frame meta is handled by rtmp_des node
+    // (in case SDK does not invoke stream_status every time)
+    rtmpDesNode->set_meta_handled_hooker(
+        [this, instanceId](std::string /*node_name*/, int /*queue_size*/,
+                           std::shared_ptr<cvedix_objects::cvedix_meta> meta) {
+          if (meta && meta->meta_type ==
+                          cvedix_objects::cvedix_meta_type::FRAME) {
+            updateRTMPDestinationActivity(instanceId);
+          }
+        });
+
+    std::cerr << "[InstanceRegistry] ✓ RTMP destination activity hook set for "
+                 "instance "
+              << instanceId << std::endl;
   }
 }
 
