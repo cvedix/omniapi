@@ -124,6 +124,7 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/codec_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/frame_decoder.cpp
     ${CMAKE_SOURCE_DIR}/src/core/frame_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/inference_session.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_storage.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_rtmp_monitor.cpp
