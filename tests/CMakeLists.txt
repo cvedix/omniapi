@@ -31,6 +31,8 @@ set(TEST_SOURCES
     unit/Core_API/test_system_config_manager.cpp
     unit/Core_API/test_preferences_manager.cpp
     unit/Core_API/test_decoder_detector.cpp
+    unit/Core_API/test_inference_session.cpp
+    unit/Core_API/test_ai_processor.cpp
     unit/Core_API/test_metrics_handler.cpp
     
     # Instance Management tests
@@ -125,6 +127,10 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/frame_decoder.cpp
     ${CMAKE_SOURCE_DIR}/src/core/frame_processor.cpp
     ${CMAKE_SOURCE_DIR}/src/core/inference_session.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_runtime_facade.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_helper.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_cache.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_storage.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_rtmp_monitor.cpp
