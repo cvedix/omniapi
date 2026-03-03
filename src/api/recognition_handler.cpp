@@ -788,11 +788,16 @@ public:
 
     load_database();
 
-    // Find ONNX model
-    std::vector<std::string> model_paths = {
+    // Find ONNX model (env/config override: FACE_RECOGNIZER_PATH)
+    const char *env_recognizer = std::getenv("FACE_RECOGNIZER_PATH");
+    std::vector<std::string> model_paths;
+    if (env_recognizer && env_recognizer[0] != '\0') {
+      model_paths.push_back(env_recognizer);
+    }
+    model_paths.insert(model_paths.end(), {
         "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx",
         "./models/face/face_recognition_sface_2021dec.onnx",
-        "../models/face/face_recognition_sface_2021dec.onnx"};
+        "../models/face/face_recognition_sface_2021dec.onnx"});
 
     bool found_onnx = false;
     for (const auto &path : model_paths) {
@@ -814,14 +819,19 @@ public:
       }
     }
 
-    // Find detector model (try both with and without _int8 suffix)
-    std::vector<std::string> detector_paths = {
+    // Find detector model (env override: FACE_DETECTOR_PATH, then defaults)
+    const char *env_detector = std::getenv("FACE_DETECTOR_PATH");
+    std::vector<std::string> detector_paths;
+    if (env_detector && env_detector[0] != '\0') {
+      detector_paths.push_back(env_detector);
+    }
+    detector_paths.insert(detector_paths.end(), {
         "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx",
         "/opt/edgeos-api/models/face/face_detection_yunet_2023mar_int8.onnx",
         "./models/face/face_detection_yunet_2023mar.onnx",
         "./models/face/face_detection_yunet_2023mar_int8.onnx",
         "../models/face/face_detection_yunet_2023mar.onnx",
-        "../models/face/face_detection_yunet_2023mar_int8.onnx"};
+        "../models/face/face_detection_yunet_2023mar_int8.onnx"});
 
     bool found_detector = false;
     for (const auto &path : detector_paths) {
