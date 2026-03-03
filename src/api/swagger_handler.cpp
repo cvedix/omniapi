@@ -671,8 +671,6 @@ SwaggerHandler::readOpenAPIFile(const std::string &version,
 
     // Also check in install directory
     const char *installDir = std::getenv("EDGEOS_API_INSTALL_DIR");
-    if (!installDir || installDir[0] == '\0')
-      installDir = std::getenv("EDGE_AI_API_INSTALL_DIR");
     if (installDir && installDir[0] != '\0') {
       try {
         std::filesystem::path installPath(installDir);
@@ -713,8 +711,6 @@ SwaggerHandler::readOpenAPIFile(const std::string &version,
 
   // 4. Check environment variable for installation directory
   const char *installDir = std::getenv("EDGEOS_API_INSTALL_DIR");
-  if (!installDir || installDir[0] == '\0')
-    installDir = std::getenv("EDGE_AI_API_INSTALL_DIR");
   if (installDir && installDir[0] != '\0') {
     try {
       std::filesystem::path installPath(installDir);
