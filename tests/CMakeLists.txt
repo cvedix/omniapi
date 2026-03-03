@@ -146,6 +146,7 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_request_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_source_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_destination_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/rtmp_lastframe_fallback_proxy_node.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_detector_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_broker_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_behavior_analysis_nodes.cpp

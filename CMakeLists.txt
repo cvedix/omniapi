@@ -383,6 +383,7 @@ set(SOURCES
     src/core/pipeline_builder_broker_nodes.cpp
     src/core/pipeline_builder_behavior_analysis_nodes.cpp
     src/core/pipeline_builder_other_nodes.cpp
+    src/core/rtmp_lastframe_fallback_proxy_node.cpp
     src/core/cvedix_validator.cpp
     src/utils/cvedix_mqtt_client_impl.cpp
     src/utils/gstreamer_checker.cpp
@@ -1239,6 +1240,7 @@ set(CORE_LIB_SOURCES
     src/core/pipeline_builder_request_utils.cpp
     src/core/pipeline_builder_source_nodes.cpp
     src/core/pipeline_builder_destination_nodes.cpp
+    src/core/rtmp_lastframe_fallback_proxy_node.cpp
     src/core/pipeline_builder_detector_nodes.cpp
     src/core/pipeline_builder_broker_nodes.cpp
     src/core/pipeline_builder_behavior_analysis_nodes.cpp

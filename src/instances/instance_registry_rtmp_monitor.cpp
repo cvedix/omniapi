@@ -3,6 +3,7 @@
 
 #include "instances/instance_registry.h"
 #include "core/timeout_constants.h"
+#include "core/rtmp_lastframe_fallback_proxy_node.h"
 #include <cvedix/nodes/src/cvedix_rtmp_src_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
@@ -1275,36 +1276,39 @@ bool InstanceRegistry::reconnectRTMPDestinationStream(
 
     std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] RTMP URL: " << rtmpUrl << ", Channel: " << channel << std::endl;
 
-    // CRITICAL: Find parent node (usually OSD node) that feeds into RTMP destination
-    // We need to remember the parent to reattach after detaching
-    // Pipeline structure: ... -> osd -> rtmp_des
-    // So we should find the OSD node, not ba_loitering or ba_crossline
+    // CRITICAL: Find parent node that feeds into RTMP destination
+    // Pipeline structure: ... -> osd -> rtmp_lastframe_proxy -> rtmp_des
     std::shared_ptr<cvedix_nodes::cvedix_node> parentNode = nullptr;
-    
-    // First, try to find OSD node (most common parent for RTMP destination)
-    // Check all OSD node types: face_osd_v2, osd_v3, ba_crossline_osd, ba_jam_osd, ba_stop_osd, ba_loitering_osd
+
+    // First, try to find the last-frame proxy (rtmp_des is attached to proxy)
     for (const auto &node : nodes) {
-      if (!node) {
+      if (!node) continue;
+      if (std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node))
         continue;
-      }
-      // Skip RTMP destination nodes (we're looking for parent, not destination)
-      auto rtmpDesNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node);
-      if (rtmpDesNode) {
-        continue;
-      }
-      // Check if this is an OSD node using dynamic_pointer_cast
-      // Note: ba_loitering_osd uses ba_stop_osd_node (same node type)
-      bool isOSDNode =
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_face_osd_node_v2>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(node) != nullptr;
-      
-      if (isOSDNode) {
+      if (std::dynamic_pointer_cast<edgeos::RtmpLastFrameFallbackProxyNode>(node)) {
         parentNode = node;
-        std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] Found OSD parent node: " << typeid(*node).name() << std::endl;
+        std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] Found last-frame proxy parent node" << std::endl;
         break;
+      }
+    }
+
+    // If no proxy, try OSD node (legacy pipeline: ... -> osd -> rtmp_des)
+    if (!parentNode) {
+      for (const auto &node : nodes) {
+        if (!node) continue;
+        if (std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node))
+          continue;
+        bool isOSDNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_face_osd_node_v2>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(node) != nullptr;
+        if (isOSDNode) {
+          parentNode = node;
+          std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] Found OSD parent node: " << typeid(*node).name() << std::endl;
+          break;
+        }
       }
     }
     

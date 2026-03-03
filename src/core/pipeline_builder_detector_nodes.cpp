@@ -143,69 +143,105 @@ void PipelineBuilderDetectorNodes::logGPUAvailability() {
             << std::endl;
 }
 
+// CPU device names (used for both CPU-first and GPU-first reordering)
+static const std::vector<std::string> &getCPUDeviceNames() {
+  static const std::vector<std::string> cpuDevices = {
+      "openvino.CPU", "armnn.CpuAcc", "armnn.CpuRef", "memx.cpu"};
+  return cpuDevices;
+}
+
+static bool isCPUDevice(const std::string &device) {
+  const auto &cpuDevices = getCPUDeviceNames();
+  return std::find(cpuDevices.begin(), cpuDevices.end(), device) != cpuDevices.end();
+}
+
 // Helper function to ensure CPU devices are prioritized in auto_device_list
 // This helps prevent CUDA compatibility issues by falling back to CPU
 static void ensureCPUFirstInDeviceList() {
   try {
     auto &systemConfig = SystemConfig::getInstance();
     auto deviceList = systemConfig.getAutoDeviceList();
-    
+
     if (deviceList.empty()) {
       return; // Use default
     }
-    
-    // Check if CPU devices are already first
+
     bool cpuFirst = false;
-    std::vector<std::string> cpuDevices = {
-      "openvino.CPU", "armnn.CpuAcc", "armnn.CpuRef", "memx.cpu"
-    };
-    
-    for (const auto &cpuDevice : cpuDevices) {
+    for (const auto &cpuDevice : getCPUDeviceNames()) {
       if (!deviceList.empty() && deviceList[0] == cpuDevice) {
         cpuFirst = true;
         break;
       }
     }
-    
-    // If CPU is not first, check if we should prioritize it
-    // Only do this if there's a risk of CUDA compatibility issues
+
     const char *force_cpu = std::getenv("FORCE_CPU_INFERENCE");
     if (force_cpu && (std::string(force_cpu) == "1" || std::string(force_cpu) == "true")) {
       if (!cpuFirst) {
         std::cerr << "[PipelineBuilderDetectorNodes] FORCE_CPU_INFERENCE=1 detected - "
                      "prioritizing CPU devices"
                   << std::endl;
-        
-        // Create new device list with CPU first
+
         std::vector<std::string> newDeviceList;
-        
-        // Add CPU devices first
-        for (const auto &cpuDevice : cpuDevices) {
+        for (const auto &cpuDevice : getCPUDeviceNames()) {
           if (std::find(deviceList.begin(), deviceList.end(), cpuDevice) != deviceList.end()) {
             newDeviceList.push_back(cpuDevice);
           }
         }
-        
-        // Add other devices (excluding CPU devices already added)
         for (const auto &device : deviceList) {
-          bool isCPU = false;
-          for (const auto &cpuDevice : cpuDevices) {
-            if (device == cpuDevice) {
-              isCPU = true;
-              break;
-            }
-          }
-          if (!isCPU) {
+          if (!isCPUDevice(device)) {
             newDeviceList.push_back(device);
           }
         }
-        
-        // Update config
+
         systemConfig.setAutoDeviceList(newDeviceList);
         std::cerr << "[PipelineBuilderDetectorNodes] ✓ Updated auto_device_list to prioritize CPU"
                   << std::endl;
       }
     }
+  } catch (...) {
+    // Ignore errors - use default config
+  }
+}
+
+// Helper function to ensure GPU/accelerator devices are prioritized over CPU in auto_device_list
+// (default behavior: use GPU first when FORCE_CPU_INFERENCE is not set)
+static void ensureGPUFirstInDeviceList() {
+  try {
+    const char *force_cpu = std::getenv("FORCE_CPU_INFERENCE");
+    if (force_cpu && (std::string(force_cpu) == "1" || std::string(force_cpu) == "true")) {
+      return; // CPU already prioritized by ensureCPUFirstInDeviceList
+    }
+
+    auto &systemConfig = SystemConfig::getInstance();
+    auto deviceList = systemConfig.getAutoDeviceList();
+    if (deviceList.empty()) {
+      return;
+    }
+
+    // If first device is already non-CPU, list is already GPU-first
+    if (!isCPUDevice(deviceList[0])) {
+      return;
+    }
+
+    std::cerr << "[PipelineBuilderDetectorNodes] Prioritizing GPU/accelerator over CPU in "
+                 "auto_device_list"
+              << std::endl;
+
+    std::vector<std::string> gpuFirst;
+    for (const auto &device : deviceList) {
+      if (!isCPUDevice(device)) {
+        gpuFirst.push_back(device);
+      }
+    }
+    for (const auto &device : deviceList) {
+      if (isCPUDevice(device)) {
+        gpuFirst.push_back(device);
+      }
+    }
+
+    systemConfig.setAutoDeviceList(gpuFirst);
+    std::cerr << "[PipelineBuilderDetectorNodes] ✓ Updated auto_device_list to prioritize GPU"
+              << std::endl;
   } catch (...) {
     // Ignore errors - use default config
   }
@@ -388,9 +424,10 @@ PipelineBuilderDetectorNodes::createFaceDetectorNode(
     // Create the YuNet face detector node
     // Log GPU availability before creating node
     PipelineBuilderDetectorNodes::logGPUAvailability();
-    
-    // Ensure CPU is prioritized if FORCE_CPU_INFERENCE is set
+
+    // Ensure CPU first only when FORCE_CPU_INFERENCE=1; otherwise prioritize GPU
     ensureCPUFirstInDeviceList();
+    ensureGPUFirstInDeviceList();
 
     std::shared_ptr<cvedix_nodes::cvedix_yunet_face_detector_node> node;
     try {

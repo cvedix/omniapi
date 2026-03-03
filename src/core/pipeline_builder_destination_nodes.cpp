@@ -1,6 +1,7 @@
 #include "core/pipeline_builder_destination_nodes.h"
 #include "core/pipeline_builder_request_utils.h"
 #include "core/env_config.h"
+#include "core/rtmp_lastframe_fallback_proxy_node.h"
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_file_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
@@ -208,7 +209,8 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
     const CreateInstanceRequest &req,
     const std::string &instanceId,
     const std::set<std::string> &existingRTMPStreamKeys,
-    std::string &actualRtmpUrl) {
+    std::string &actualRtmpUrl,
+    std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> *outExtraNodes) {
 
   try {
     // Helper function to trim whitespace from string
@@ -331,12 +333,9 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
         << "  NOTE: RTMP node automatically adds '_0' suffix to stream key"
         << std::endl;
 
-    std::shared_ptr<cvedix_nodes::cvedix_rtmp_des_node> node;
+    std::shared_ptr<cvedix_nodes::cvedix_rtmp_des_node> rtmpNode;
     if (enableOSD) {
-      // Use constructor with OSD parameter: (node_name, channel, rtmp_url,
-      // resolution, bitrate, osd) Get bitrate from params if provided,
-      // otherwise use default 1024
-      int bitrate = 1024; // Default bitrate
+      int bitrate = 1024;
       if (params.count("bitrate")) {
         bitrate = std::stoi(params.at("bitrate"));
         if (bitrate <= 0) {
@@ -345,38 +344,41 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
           bitrate = 1024;
         }
       }
-      // resolution: empty (use source resolution), bitrate: from params or
-      // 1024, osd: true
-      cvedix_objects::cvedix_size resolution =
-          {}; // Empty resolution = use source resolution
+      cvedix_objects::cvedix_size resolution = {};
       std::cerr << "[PipelineBuilderDestinationNodes] Using bitrate: " << bitrate << " kbps"
                 << std::endl;
-      node = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(
+      rtmpNode = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(
           nodeName, channel, rtmpUrl, resolution, bitrate,
           true // Enable OSD overlay
       );
     } else {
-      // Use simple constructor: (node_name, channel, rtmp_url)
-      node = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(
+      rtmpNode = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(
           nodeName, channel, rtmpUrl);
     }
 
+    // Proxy: when frame is empty, forwards last valid frame so RTMP connection stays alive
+    std::string proxyName = "rtmp_lastframe_proxy_" + instanceId;
+    auto proxy = std::make_shared<edgeos::RtmpLastFrameFallbackProxyNode>(proxyName);
+    rtmpNode->attach_to({proxy});
+
+    if (outExtraNodes) {
+      outExtraNodes->push_back(rtmpNode);
+    }
+
     std::cerr
-        << "[PipelineBuilderDestinationNodes] ✓ RTMP destination node created successfully"
+        << "[PipelineBuilderDestinationNodes] ✓ RTMP destination node created (with last-frame fallback proxy)"
         << std::endl;
     std::cerr << "[PipelineBuilderDestinationNodes] RTMP node will start automatically when pipeline starts"
-              << std::endl;
+        << std::endl;
     std::cerr << "[PipelineBuilderDestinationNodes] NOTE: If RTMP stream is not working, check:"
               << std::endl;
     std::cerr << "  1. RTMP server is accessible: " << rtmpUrl << std::endl;
     std::cerr << "  2. RTMP server is running and accepting connections" << std::endl;
     std::cerr << "  3. Network connectivity to RTMP server" << std::endl;
     std::cerr << "  4. GStreamer pipeline logs for connection errors" << std::endl;
-    
-    // Set actual RTMP URL (may have been modified for conflict resolution)
+
     actualRtmpUrl = rtmpUrl;
-    
-    return node;
+    return proxy;
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderDestinationNodes] Exception in createRTMPDestinationNode: "
               << e.what() << std::endl;

@@ -85,7 +85,8 @@ private:
   std::shared_ptr<cvedix_nodes::cvedix_node>
   createNode(const SolutionConfig::NodeConfig &nodeConfig,
              const CreateInstanceRequest &req, const std::string &instanceId,
-             const std::set<std::string> &existingRTMPStreamKeys = {});
+             const std::set<std::string> &existingRTMPStreamKeys = {},
+             std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> *outExtraNodes = nullptr);
 
   // Helper methods for buildPipeline()
   /**
