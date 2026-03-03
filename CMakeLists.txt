@@ -363,6 +363,8 @@ set(SOURCES
     src/core/ai_processor.cpp
     src/core/ai_watchdog.cpp
     src/core/inference_session.cpp
+    src/core/ai_runtime_facade.cpp
+    src/core/pipeline_helper.cpp
     src/core/backpressure_controller.cpp
     src/core/adaptive_queue_size_manager.cpp
     src/instances/instance_registry.cpp
@@ -420,7 +422,7 @@ set(SOURCES
     src/core/resource_manager.cpp
     src/core/shutdown_flag.cpp
     # src/core/rate_limiter.cpp
-    # src/core/ai_cache.cpp
+    src/core/ai_cache.cpp
     # src/core/priority_queue.cpp
     # src/core/circuit_breaker.cpp
     src/core/performance_monitor.cpp

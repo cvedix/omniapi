@@ -1,5 +1,6 @@
 #include "api/recognition_handler.h"
 #include "config/system_config.h"
+#include "core/ai_runtime_facade.h"
 #include "core/inference_session.h"
 #include "core/logger.h"
 #include "core/logging_flags.h"
@@ -128,19 +129,10 @@ average_embeddings(const std::vector<std::vector<float>> &embeddings) {
   return avg_embedding;
 }
 
-// Session for face inference (shared, reloaded when paths change)
-static core::InferenceSession &getFaceInferenceSession(
-    const std::string &detector_path, const std::string &onnx_path) {
-  static core::InferenceSession session;
-  static std::string last_det, last_rec;
-  static std::mutex session_mutex;
-  std::lock_guard<std::mutex> lock(session_mutex);
-  if (last_det != detector_path || last_rec != onnx_path) {
-    session.load(detector_path, onnx_path);
-    last_det = detector_path;
-    last_rec = onnx_path;
-  }
-  return session;
+// AIRuntimeFacade for decode + infer (used by processFaceRecognition)
+static core::AIRuntimeFacade &getFaceRuntimeFacade() {
+  static core::AIRuntimeFacade facade;
+  return facade;
 }
 
 // Helper function: Face alignment using landmarks
@@ -2587,36 +2579,13 @@ Json::Value RecognitionHandler::processFaceRecognition(
   Json::Value result(Json::arrayValue);
 
   try {
-    // Decode image from memory
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[RecognitionHandler] Decoding image, size: "
-                 << imageData.size() << " bytes";
-    }
-
-    cv::Mat image = cv::imdecode(imageData, cv::IMREAD_COLOR);
-
-    if (image.empty()) {
-      // Return empty result if image cannot be decoded
-      if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[RecognitionHandler] Failed to decode image data";
-      }
-      return result;
-    }
-
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[RecognitionHandler] Decoded image: " << image.cols << "x"
-                 << image.rows << " pixels";
-    }
-
     if (!detectFaces) {
-      // If detect_faces is false, return empty result
       return result;
     }
 
-    // Get database instance (for model paths)
+    // Get database instance (for model paths and embeddings)
     FaceDatabase &db = get_database();
 
-    // Check if models are available
     std::string detector_path = db.get_detector_model_path();
     std::string onnx_path = db.get_onnx_model_path();
 
@@ -2624,7 +2593,6 @@ Json::Value RecognitionHandler::processFaceRecognition(
     std::map<std::string, std::vector<float>> database;
     FaceDatabaseHelper &dbHelper = get_db_helper();
     if (dbHelper.isEnabled()) {
-      // Load from database
       std::string dbError;
       if (!dbHelper.loadAllFaces(database, dbError)) {
         if (isApiLoggingEnabled()) {
@@ -2632,58 +2600,46 @@ Json::Value RecognitionHandler::processFaceRecognition(
               << "[RecognitionHandler] Failed to load faces from database: "
               << dbError << ", falling back to file";
         }
-        // Fallback to file
         database = db.get_database();
       }
     } else {
-      // Use file-based storage
       database = db.get_database();
     }
 
     if (detector_path.empty()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[RecognitionHandler] Face detector model not found. "
-                        "Checked paths:";
-        PLOG_WARNING << "[RecognitionHandler] - "
-                        "/home/cvedix/project/cvedix_data/models/face/"
-                        "face_detection_yunet_2023mar.onnx";
-        PLOG_WARNING << "[RecognitionHandler] - "
-                        "/home/cvedix/project/cvedix_data/models/face/"
-                        "face_detection_yunet_2023mar_int8.onnx";
+        PLOG_WARNING << "[RecognitionHandler] Face detector model not found.";
       }
       return result;
     }
 
-    if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[RecognitionHandler] Using InferenceSession (detector: "
-                << detector_path << ", recognizer: " << onnx_path << ")";
-    }
+    // AIRuntimeFacade: decode + infer (optional cache)
+    core::AIRuntimeRequest req;
+    req.payload = imageData;
+    req.codec = "";
+    req.model_key = "face";
+    req.options["detector_path"] = detector_path;
+    req.options["recognizer_path"] = onnx_path;
+    req.options["det_prob_threshold"] = detProbThreshold;
+    req.options["limit"] = limit;
+    req.options["extract_embedding"] = !onnx_path.empty();
 
-    core::InferenceInput input;
-    input.frame = image;
-    input.model_id = "face";
-    input.options["det_prob_threshold"] = detProbThreshold;
-    input.options["limit"] = limit;
-    input.options["extract_embedding"] = !onnx_path.empty();
+    core::AIRuntimeResponse response = getFaceRuntimeFacade().request(req);
 
-    core::InferenceSession &session =
-        getFaceInferenceSession(detector_path, onnx_path);
-    core::InferenceResult ir = session.infer(input);
-
-    if (!ir.success) {
+    if (!response.success) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[RecognitionHandler] InferenceSession infer failed: "
-                     << ir.error;
+        PLOG_WARNING << "[RecognitionHandler] AIRuntimeFacade request failed: "
+                     << response.error;
       }
       return result;
     }
 
-    if (!ir.data.isMember("faces") || !ir.data["faces"].isArray()) {
+    if (!response.result.isMember("faces") || !response.result["faces"].isArray()) {
       return result;
     }
 
-    const Json::Value &faces_array = ir.data["faces"];
-    uint64_t detector_time = ir.latency_ms;
+    const Json::Value &faces_array = response.result["faces"];
+    uint64_t detector_time = response.inference_ms;
 
     for (Json::ArrayIndex i = 0; i < faces_array.size(); i++) {
       const Json::Value &face_obj = faces_array[i];
@@ -2736,6 +2692,7 @@ Json::Value RecognitionHandler::processFaceRecognition(
       faceResult["subjects"] = subjects;
 
       Json::Value executionTime;
+      executionTime["decode"] = static_cast<double>(response.decode_ms);
       executionTime["detector"] = static_cast<double>(detector_time);
       executionTime["calculator"] = 0.0;
       executionTime["age"] = 0.0;
