@@ -1,22 +1,27 @@
 {
-  "name": "ba_crossline_in_rtsp_out_rtmp",
-  "group": "demo",
+  "name": "ba_crossline_rtmp_rtmp_test",
+  "group": "test",
   "solution": "ba_crossline",
+  "persistent": false,
   "autoStart": false,
+  "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "RTSP_SRC_URL": "rtsp://localhost:8554/mystream",
+      "RTMP_SRC_URL": "rtmp://192.168.1.128:1935/live/camera_demo_sang_vehicle",
       "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
       "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
       "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "CROSSLINE_START_X": "0",
+      "CROSSLINE_START_Y": "250",
+      "CROSSLINE_END_X": "700",
+      "CROSSLINE_END_Y": "220",
       "RESIZE_RATIO": "1.0",
-      "RTSP_TRANSPORT": "udp",
       "GST_DECODER_NAME": "avdec_h264",
       "SKIP_INTERVAL": "0",
       "CODEC_TYPE": "h264"
     },
     "output": {
-      "RTMP_DES_URL": "rtmp://anhoidong.datacenter.cvedix.com:1935/live/tri_test",
+      "RTMP_DES_URL": "rtmp://192.168.1.128:1935/live/ba_crossing_stream_1",
       "ENABLE_SCREEN_DES": "false"
     }
   }

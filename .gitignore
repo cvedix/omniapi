@@ -20,7 +20,7 @@ Testing/
 *.so
 *.dylib
 *.exe
-edge_ai_api
+edgeos-api
 
 # IDE files
 .vscode/
@@ -34,7 +34,7 @@ edge_ai_api
 _deps/
 
 # Test executables
-tests/edge_ai_api_tests
+tests/edgeos_api_tests
 build/tests/
 
 # Logs
@@ -71,7 +71,7 @@ debian/.debhelper/
 debian/debhelper-build-stamp
 debian/*.substvars
 debian/files
-debian/edge-ai-api/
+debian/edgeos-api/
 debian/sdk_extract/
 debian/opencv_lib_path.txt
 

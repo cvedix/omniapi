@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "RESIZE_RATIO": "1.0",
-      "MODEL_PATH": "/opt/edge_ai_api/models/face/face_detection_yunet_2022mar.onnx",
+      "MODEL_PATH": "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx",
       "UDP_PORT": "6000",
       "SKIP_INTERVAL": "0"
     }

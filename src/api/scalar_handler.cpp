@@ -253,7 +253,9 @@ std::string ScalarHandler::readScalarHTMLFile() const {
   }
 
   // 2. Check environment variable for installation directory
-  const char *installDir = std::getenv("EDGE_AI_API_INSTALL_DIR");
+  const char *installDir = std::getenv("EDGEOS_API_INSTALL_DIR");
+  if (!installDir || installDir[0] == '\0')
+    installDir = std::getenv("EDGE_AI_API_INSTALL_DIR");
   if (installDir && installDir[0] != '\0') {
     try {
       std::filesystem::path installPath(installDir);
@@ -330,7 +332,9 @@ std::string ScalarHandler::readScalarCSSFile() const {
   }
 
   // 2. Check environment variable for installation directory
-  const char *installDir = std::getenv("EDGE_AI_API_INSTALL_DIR");
+  const char *installDir = std::getenv("EDGEOS_API_INSTALL_DIR");
+  if (!installDir || installDir[0] == '\0')
+    installDir = std::getenv("EDGE_AI_API_INSTALL_DIR");
   if (installDir && installDir[0] != '\0') {
     try {
       std::filesystem::path installPath(installDir);

@@ -65,7 +65,7 @@ public:
    * @param worker_executable Path to worker executable
    */
   explicit WorkerSupervisor(
-      const std::string &worker_executable = "edge_ai_worker");
+      const std::string &worker_executable = "edgeos-worker");
   ~WorkerSupervisor();
 
   // Non-copyable

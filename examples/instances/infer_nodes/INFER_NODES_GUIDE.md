@@ -239,8 +239,8 @@ Sử dụng solution ID và cung cấp các tham số trong `additionalParams`:
   "autoStart": true,
   "additionalParams": {
     "RTSP_URL": "rtsp://localhost:8554/stream",
-    "MODEL_PATH": "/opt/edge_ai_api/models/trt/others/yolov8s_v8.5.engine",
-    "LABELS_PATH": "/opt/edge_ai_api/models/coco_80classes.txt",
+    "MODEL_PATH": "/opt/edgeos-api/models/trt/others/yolov8s_v8.5.engine",
+    "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
     "RTMP_URL": "rtmp://localhost/live/stream"
   }
 }

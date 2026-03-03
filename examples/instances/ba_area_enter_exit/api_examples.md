@@ -28,10 +28,10 @@ curl -X POST http://localhost:8080/v1/securt/instance \
     "autoStart": false,
     "additionalParams": {
       "input": {
-        "FILE_PATH": "/opt/edge_ai_api/videos/vehicle_count.mp4",
-        "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+        "FILE_PATH": "/opt/edgeos-api/videos/vehicle_count.mp4",
+        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
         "RESIZE_RATIO": "0.6"
       },
       "output": {
@@ -79,10 +79,10 @@ curl -X PUT http://localhost:8080/v1/securt/instance/test-ba-area-001 \
     "autoStart": false,
     "additionalParams": {
       "input": {
-        "FILE_PATH": "/opt/edge_ai_api/videos/vehicle_count.mp4",
-        "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+        "FILE_PATH": "/opt/edgeos-api/videos/vehicle_count.mp4",
+        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
         "RESIZE_RATIO": "0.6"
       },
       "output": {
@@ -242,10 +242,10 @@ curl -X POST http://localhost:8080/v1/securt/instance \
     "autoStart": false,
     "additionalParams": {
       "input": {
-        "FILE_PATH": "/opt/edge_ai_api/videos/vehicle_count.mp4",
-        "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+        "FILE_PATH": "/opt/edgeos-api/videos/vehicle_count.mp4",
+        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
         "RESIZE_RATIO": "0.6"
       },
       "output": {
@@ -275,9 +275,9 @@ curl -X POST http://localhost:8080/v1/securt/instance \
     "additionalParams": {
       "input": {
         "RTSP_URL": "rtsp://192.168.1.100:554/stream1",
-        "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
         "RESIZE_RATIO": "0.6"
       },
       "output": {
@@ -394,10 +394,10 @@ INSTANCE_ID=$(curl -s -X POST http://localhost:8080/v1/core/instance \
     "autoStart": false,
     "additionalParams": {
       "input": {
-        "FILE_PATH": "/opt/edge_ai_api/videos/vehicle_count.mp4",
-        "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+        "FILE_PATH": "/opt/edgeos-api/videos/vehicle_count.mp4",
+        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
         "RESIZE_RATIO": "0.6"
       },
       "output": {

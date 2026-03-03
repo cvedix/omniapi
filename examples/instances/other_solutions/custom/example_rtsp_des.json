@@ -7,7 +7,7 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/opt/edge_ai_api/videos/test.mp4",
+      "FILE_PATH": "/opt/edgeos-api/videos/test.mp4",
       "RESIZE_RATIO": "1.0"
     },
     "output": {

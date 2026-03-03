@@ -24,7 +24,7 @@ else
 fi
 TARGET_BINARY="/usr/local/bin/edgeos-api"
 TARGET_WORKER="/usr/local/bin/edgeos-worker"
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Install New Binary to Production${NC}"

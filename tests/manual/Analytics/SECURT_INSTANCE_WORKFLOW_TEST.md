@@ -149,9 +149,9 @@ curl -X PUT "${SECURT_BASE}/${INSTANCE_ID}" \
 ### Test Case 2: Cấu hình Input
 
 **QUAN TRỌNG**: SecuRT solution cần YOLO model paths để hoạt động. Các giá trị mặc định sau sẽ được tự động thiết lập khi tạo instance:
-- `WEIGHTS_PATH`: `/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights`
-- `CONFIG_PATH`: `/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg`
-- `LABELS_PATH`: `/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt`
+- `WEIGHTS_PATH`: `/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights`
+- `CONFIG_PATH`: `/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg`
+- `LABELS_PATH`: `/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt`
 
 Bạn có thể override các giá trị này bằng cách cung cấp trong `additionalParams` khi cấu hình input.
 

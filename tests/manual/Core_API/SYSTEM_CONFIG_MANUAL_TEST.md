@@ -436,12 +436,12 @@ curl: (7) Failed to connect to localhost port 8080: Connection refused
 **Giải pháp**:
 1. Kiểm tra server đang chạy:
    ```bash
-   ps aux | grep edge_ai_api
+   ps aux | grep edgeos-api
    ```
 
 2. Khởi động server:
    ```bash
-   cd /path/to/edge_ai_api
+   cd /path/to/edgeos-api
    ./scripts/load_env.sh
    ```
 
@@ -648,6 +648,6 @@ echo "All requests completed"
 ## Related Documentation
 
 - [DEVELOPMENT.md](../../../docs/DEVELOPMENT.md) - Development guide
-- [TASK-004-System-Config.md](../../../task/edge_ai_api_task/TASK-004-System-Config.md) - Task specification
+- [TASK-004-System-Config.md](../../../task/edgeos-api_task/TASK-004-System-Config.md) - Task specification
 - [API Specifications](../../../api-specs/) - OpenAPI specifications
 

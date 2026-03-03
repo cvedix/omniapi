@@ -32,7 +32,7 @@ public:
   static std::unique_ptr<IInstanceManager>
   create(InstanceExecutionMode mode, SolutionRegistry &solutionRegistry,
          PipelineBuilder &pipelineBuilder, InstanceStorage &instanceStorage,
-         const std::string &workerExecutable = "edge_ai_worker");
+         const std::string &workerExecutable = "edgeos-worker");
 
   /**
    * @brief Create in-process manager (legacy mode)
@@ -52,7 +52,7 @@ public:
   static std::unique_ptr<IInstanceManager>
   createSubprocess(SolutionRegistry &solutionRegistry,
                    InstanceStorage &instanceStorage,
-                   const std::string &workerExecutable = "edge_ai_worker");
+                   const std::string &workerExecutable = "edgeos-worker");
 
   /**
    * @brief Get execution mode from environment variable or config

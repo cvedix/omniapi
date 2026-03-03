@@ -2978,7 +2978,7 @@ bool InstanceRegistry::startPipeline(
                    "2>&1 | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Service: sudo journalctl -u "
-                   "edge-ai-api | grep -i rtspsrc"
+                   "edgeos-api | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Enable GStreamer debug: export "
                    "GST_DEBUG=rtspsrc:4"

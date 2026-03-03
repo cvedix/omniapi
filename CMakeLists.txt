@@ -1389,7 +1389,7 @@ message(STATUS "✓ edgeos_api linked to edgeos_core")
 # Edge AI Worker executable (subprocess)
 # ============================================
 set(WORKER_SOURCES
-    src/worker/edge_ai_worker.cpp
+    src/worker/edgeos_worker.cpp
     src/worker/worker_handler.cpp
     src/worker/config_file_watcher.cpp
     src/worker/ipc_protocol.cpp

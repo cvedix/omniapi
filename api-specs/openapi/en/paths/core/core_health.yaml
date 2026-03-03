@@ -19,7 +19,7 @@
               status: healthy
               timestamp: '2024-01-01T00:00:00.000Z'
               uptime: 3600
-              service: edge_ai_api
+              service: edgeos-api
               version: 1.0.0
       '500':
         description: Service is unhealthy

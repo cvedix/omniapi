@@ -21,7 +21,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 BUILD_DIR="build"
 PROD_BIN="/usr/local/bin/edgeos-api"
 PROD_WORKER="/usr/local/bin/edgeos-worker"

@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "RTSP_URL": "rtsp://localhost:8554/stream",
-      "MODEL_PATH": "/opt/edge_ai_api/models/det_cls/yolov8n.onnx",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov8n.onnx",
       "RESIZE_RATIO": "0.6"
     },
     "output": {

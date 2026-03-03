@@ -3,7 +3,7 @@
 # Build All-In-One Debian Package
 # ============================================
 #
-# Script này build package edge-ai-api "all-in-one" - tự chứa TẤT CẢ dependencies:
+# Script này build package edgeos-api "all-in-one" - tự chứa TẤT CẢ dependencies:
 # - CVEDIX SDK runtime (bundled)
 # - OpenCV libraries (bundled)
 # - GStreamer libraries và plugins (bundled)
@@ -104,7 +104,7 @@ update_version_files() {
     # Update debian/changelog
     if [ -f "$changelog_file" ]; then
         # Update first line of changelog
-        sed -i "1s/edge-ai-api ([0-9.]*)/edge-ai-api ($new_version)/" "$changelog_file"
+        sed -i "1s/edgeos-api ([0-9.]*)/edgeos-api ($new_version)/" "$changelog_file"
         echo -e "${GREEN}✓${NC} Updated debian/changelog"
     fi
 }
@@ -500,7 +500,7 @@ if [ -f "$WORKER_PATH" ]; then
     collect_libs "$WORKER_PATH"
 fi
 
-CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedge_ai_core.so*
+CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedgeos_core.so*
 if ls $CORE_LIB_PATH 1> /dev/null 2>&1; then
     for core_lib in $CORE_LIB_PATH; do
         if [ -f "$core_lib" ]; then
@@ -1186,8 +1186,8 @@ fi
 if [ "$CLEAN_BUILD" = true ]; then
     echo -e "${BLUE}[3/6]${NC} Cleaning build directory..."
     rm -rf build
-    rm -rf debian/edge-ai-api
-    rm -f ../edge-ai-api_*.deb ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo
+    rm -rf debian/edgeos-api
+    rm -f ../edgeos-api_*.deb ../edgeos-api_*.changes ../edgeos-api_*.buildinfo
     echo -e "${GREEN}✓${NC} Cleaned"
     echo ""
 fi
@@ -1515,7 +1515,7 @@ SDK_DEPENDS=$(dpkg-deb -f "$SDK_DEB_FILE" Depends 2>/dev/null || echo "")
 # Update control file for ALL-IN-ONE package - minimal dependencies only
 # All libraries (OpenCV, GStreamer, FFmpeg, etc.) are bundled in the package
 cat > "$CONTROL_FILE" <<CONTROL_EOF
-Source: edge-ai-api
+Source: edgeos-api
 Section: net
 Priority: optional
 Maintainer: CVEDIX <support@cvedix.com>
@@ -1561,7 +1561,7 @@ Build-Depends: debhelper (>= 13),
 Standards-Version: 4.6.0
 Homepage: https://github.com/cvedix/edgeos-api
 
-Package: edge-ai-api
+Package: edgeos-api
 Architecture: amd64
 Depends: ${misc:Depends},
          libc6,
@@ -1608,17 +1608,17 @@ if [ -f "debian/changelog" ]; then
     echo "  Updating version in changelog to $VERSION..."
     
     # More robust sed pattern to match any version format
-    # Match: edge-ai-api (VERSION) distribution; urgency=...
-    sed -i "1s/^edge-ai-api ([0-9.]*)/edge-ai-api ($VERSION)/" debian/changelog
+    # Match: edgeos-api (VERSION) distribution; urgency=...
+    sed -i "1s/^edgeos-api ([0-9.]*)/edgeos-api ($VERSION)/" debian/changelog
     
     # Verify version was updated
-    CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edge-ai-api (\([0-9.]*\)).*/\1/p')
+    CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edgeos-api (\([0-9.]*\)).*/\1/p')
     if [ "$CHANGELOG_VERSION" != "$VERSION" ]; then
         echo -e "${YELLOW}  ⚠  Warning: Changelog version ($CHANGELOG_VERSION) does not match expected ($VERSION)${NC}"
         echo "  Attempting to fix..."
         # Try more aggressive replacement
         sed -i "1s/([0-9.]*)/($VERSION)/" debian/changelog
-        CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edge-ai-api (\([0-9.]*\)).*/\1/p')
+        CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edgeos-api (\([0-9.]*\)).*/\1/p')
         if [ "$CHANGELOG_VERSION" = "$VERSION" ]; then
             echo -e "${GREEN}  ✓ Fixed changelog version${NC}"
         else
@@ -1662,10 +1662,10 @@ echo "Running dpkg-buildpackage..."
 dpkg-buildpackage -b -us -uc
 
 # Find the generated .deb file
-DEB_FILE=$(find .. -maxdepth 1 -name "edge-ai-api_${VERSION}_${ARCH}.deb" -o -name "edge-ai-api_*.deb" 2>/dev/null | head -1)
+DEB_FILE=$(find .. -maxdepth 1 -name "edgeos-api_${VERSION}_${ARCH}.deb" -o -name "edgeos-api_*.deb" 2>/dev/null | head -1)
 
 if [ -z "$DEB_FILE" ]; then
-    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edge-ai-api | head -1)
+    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edgeos-api | head -1)
 fi
 
 if [ -z "$DEB_FILE" ]; then
@@ -1676,7 +1676,7 @@ fi
 
 # Get absolute path and move to project root with proper name
 DEB_FILE=$(readlink -f "$DEB_FILE")
-FINAL_NAME="edge-ai-api-all-in-one-${VERSION}-${ARCH}.deb"
+FINAL_NAME="edgeos-api-all-in-one-${VERSION}-${ARCH}.deb"
 
 if [ "$(basename "$DEB_FILE")" != "$FINAL_NAME" ]; then
     mv "$DEB_FILE" "$PROJECT_ROOT/$FINAL_NAME"
@@ -1689,10 +1689,10 @@ else
 fi
 
 # Clean up temporary files
-rm -rf debian/edge-ai-api
+rm -rf debian/edgeos-api
 rm -rf debian/sdk_extract
 rm -f debian/opencv_lib_path.txt
-rm -f ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo 2>/dev/null || true
+rm -f ../edgeos-api_*.changes ../edgeos-api_*.buildinfo 2>/dev/null || true
 
 # Restore original files (cleanup will be handled by trap)
 # Files will be restored automatically on exit via cleanup function
@@ -1757,10 +1757,10 @@ echo "3. Verify installation:"
 echo "   sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose"
 echo ""
 echo "4. Start the service:"
-echo "   sudo systemctl start edge-ai-api"
+echo "   sudo systemctl start edgeos-api"
 echo ""
 echo "5. Check status:"
-echo "   sudo systemctl status edge-ai-api"
+echo "   sudo systemctl status edgeos-api"
 echo ""
 echo "=========================================="
 echo "Note"

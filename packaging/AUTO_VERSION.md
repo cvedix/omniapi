@@ -102,7 +102,7 @@ echo "2026.0.2.0" > VERSION
 sed -i 's/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION 2026.0.2.0)/' CMakeLists.txt
 
 # 3. Update debian/changelog
-sed -i '1s/edge-ai-api ([0-9.]*)/edge-ai-api (2026.0.2.0)/' debian/changelog
+sed -i '1s/edgeos-api ([0-9.]*)/edgeos-api (2026.0.2.0)/' debian/changelog
 
 # 4. Build với --no-increment để không tăng thêm
 ./build_deb.sh --no-increment

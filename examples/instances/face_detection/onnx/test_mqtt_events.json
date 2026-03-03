@@ -7,9 +7,9 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/home/cvedix/project/edge_ai_api/cvedix_data/test_video/face.mp4",
-      "MODEL_PATH": "/opt/edge_ai_api/models/face/face_detection_yunet_2022mar.onnx",
-      "SFACE_MODEL_PATH": "/opt/edge_ai_api/models/face/face_recognition_sface_2021dec.onnx",
+      "FILE_PATH": "/home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4",
+      "MODEL_PATH": "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx",
+      "SFACE_MODEL_PATH": "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx",
       "RESIZE_RATIO": "1.0"
     },
     "output": {

@@ -3792,6 +3792,10 @@ int main(int argc, char *argv[]) {
               << "/v1/swagger to view all APIs";
     PLOG_INFO << "[Server] Access http://" << host << ":" << port
               << "/v1/document to view API documentation";
+    if (host == "0.0.0.0" || host.empty()) {
+      PLOG_INFO << "[Server] From this machine use: http://127.0.0.1:" << port
+                << "/v1/swagger and http://127.0.0.1:" << port << "/v1/document";
+    }
 
     // Initialize current server config for auto-reload detection
     systemConfig.initializeCurrentServerConfig(webServerConfig);

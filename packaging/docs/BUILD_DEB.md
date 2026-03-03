@@ -22,13 +22,13 @@ sudo apt-get install -y \
     ffmpeg
 
 # 2. Cài package
-sudo dpkg -i edge-ai-api-*.deb
+sudo dpkg -i edgeos-api-*.deb
 
 # 3. Fix dependencies nếu có lỗi
 sudo apt-get install -f
 
 # 4. Khởi động service
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 ```
 
 ### Khắc Phục Lỗi
@@ -67,13 +67,13 @@ cd packaging/scripts
 
 **Sau khi build:**
 ```bash
-# File sẽ được tạo: edge-ai-api-2025.0.1.3-Beta-amd64.deb
+# File sẽ được tạo: edgeos-api-2025.0.1.3-Beta-amd64.deb
 
 # Cài đặt
-sudo dpkg -i edge-ai-api-2025.0.1.3-Beta-amd64.deb
+sudo dpkg -i edgeos-api-2025.0.1.3-Beta-amd64.deb
 
 # Khởi động service
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 ```
 
 **Script `packaging/scripts/build_deb.sh` tự động làm tất cả:**
@@ -146,7 +146,7 @@ sudo apt-get install -y \
       g++ \
       wget \
       ffmpeg
-  sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+  sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
   ```
 
 ### Các Bước Cài Đặt
@@ -165,14 +165,14 @@ sudo apt-get install -y \
     ffmpeg
 
 # 2. Cài đặt package
-sudo dpkg -i edge-ai-api-2025.0.1.3-Beta-amd64.deb
+sudo dpkg -i edgeos-api-2025.0.1.3-Beta-amd64.deb
 
 # 3. Nếu có lỗi dependencies
 sudo apt-get install -f
 
 # 4. Khởi động service
-sudo systemctl start edge-ai-api
-sudo systemctl enable edge-ai-api  # Tự động chạy khi khởi động
+sudo systemctl start edgeos-api
+sudo systemctl enable edgeos-api  # Tự động chạy khi khởi động
 ```
 
 ### Khắc Phục Lỗi Thiếu Packages Trong Quá Trình Cài Đặt
@@ -195,7 +195,7 @@ sudo apt-get install -y \
     systemd
 
 # Bước 3: Thử cài lại package
-sudo dpkg -i edge-ai-api-2025.0.1.3-Beta-amd64.deb
+sudo dpkg -i edgeos-api-2025.0.1.3-Beta-amd64.deb
 ```
 
 #### Lỗi: "dpkg: error processing package"
@@ -207,8 +207,8 @@ Nếu gặp lỗi này trong quá trình cài đặt:
 sudo dpkg --configure -a
 
 # Bước 2: Nếu package bị broken, remove và cài lại
-sudo dpkg --remove --force-remove-reinstreq edge-ai-api
-sudo dpkg -i edge-ai-api-2025.0.1.3-Beta-amd64.deb
+sudo dpkg --remove --force-remove-reinstreq edgeos-api
+sudo dpkg -i edgeos-api-2025.0.1.3-Beta-amd64.deb
 
 # Bước 3: Fix dependencies
 sudo apt-get install -f
@@ -226,22 +226,22 @@ sudo rm /var/cache/apt/archives/lock
 sudo dpkg --configure -a
 
 # Bước 3: Cài lại package
-sudo dpkg -i edge-ai-api-2025.0.1.3-Beta-amd64.deb
+sudo dpkg -i edgeos-api-2025.0.1.3-Beta-amd64.deb
 ```
 
 #### Lỗi: "Package is in a very bad inconsistent state"
 
 ```bash
 # Bước 1: Remove package hoàn toàn
-sudo dpkg --remove --force-remove-reinstreq edge-ai-api
-sudo apt-get purge edge-ai-api
+sudo dpkg --remove --force-remove-reinstreq edgeos-api
+sudo apt-get purge edgeos-api
 
 # Bước 2: Clean up
 sudo apt-get autoremove
 sudo apt-get autoclean
 
 # Bước 3: Cài lại từ đầu
-sudo dpkg -i edge-ai-api-2025.0.1.3-Beta-amd64.deb
+sudo dpkg -i edgeos-api-2025.0.1.3-Beta-amd64.deb
 sudo apt-get install -f
 ```
 
@@ -261,20 +261,20 @@ sudo apt-get install -y \
     ffmpeg
 
 # 2. Chạy script cài OpenCV 4.10
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
 
 # 3. Khởi động lại service
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 ```
 
 ## ✅ Kiểm Tra
 
 ```bash
 # Kiểm tra service
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Xem log
-sudo journalctl -u edge-ai-api -f
+sudo journalctl -u edgeos-api -f
 
 # Test API
 curl http://localhost:8080/v1/core/health
@@ -284,10 +284,10 @@ curl http://localhost:8080/v1/core/health
 
 Sau khi cài đặt:
 
-- **Executable**: `/usr/local/bin/edge_ai_api`
-- **Libraries**: `/opt/edge_ai_api/lib/` (bundled - tất cả trong một nơi)
-- **Config**: `/opt/edge_ai_api/config/`
-- **Data**: `/opt/edge_ai_api/` (instances, solutions, models, logs, etc.)
+- **Executable**: `/usr/local/bin/edgeos-api`
+- **Libraries**: `/opt/edgeos-api/lib/` (bundled - tất cả trong một nơi)
+- **Config**: `/opt/edgeos-api/config/`
+- **Data**: `/opt/edgeos-api/` (instances, solutions, models, logs, etc.)
 - **Service**: `/etc/systemd/system/edgeos-api.service`
 
 ## ✨ Tính Năng
@@ -305,7 +305,7 @@ Sau khi cài đặt:
 |------|------|-----------|
 | **Build .deb** | `./packaging/scripts/build_deb.sh` | ❌ **KHÔNG** |
 | **Cài đặt package** | `sudo dpkg -i *.deb` | ✅ **CÓ** |
-| **Khởi động service** | `sudo systemctl start edge-ai-api` | ✅ **CÓ** |
+| **Khởi động service** | `sudo systemctl start edgeos-api` | ✅ **CÓ** |
 
 ## 🛠️ Script Làm Gì?
 
@@ -337,32 +337,32 @@ Xem phần [Khắc Phục Lỗi Thiếu Packages](#khắc-phục-lỗi-thiếu-p
 
 **Kiểm tra log:**
 ```bash
-sudo journalctl -u edge-ai-api -n 50
-sudo journalctl -u edge-ai-api -f  # Follow logs
+sudo journalctl -u edgeos-api -n 50
+sudo journalctl -u edgeos-api -f  # Follow logs
 ```
 
 **Kiểm tra permissions:**
 ```bash
-sudo chown -R edgeai:edgeai /opt/edge_ai_api
-sudo chmod -R 755 /opt/edge_ai_api
+sudo chown -R edgeai:edgeai /opt/edgeos-api
+sudo chmod -R 755 /opt/edgeos-api
 ```
 
 **Kiểm tra executable:**
 ```bash
-ls -la /usr/local/bin/edge_ai_api
-file /usr/local/bin/edge_ai_api
+ls -la /usr/local/bin/edgeos-api
+file /usr/local/bin/edgeos-api
 ```
 
 **Kiểm tra libraries:**
 ```bash
-ldd /usr/local/bin/edge_ai_api | grep "not found"
+ldd /usr/local/bin/edgeos-api | grep "not found"
 ```
 
 ### Libraries không được tìm thấy
 
 **Kiểm tra ldconfig:**
 ```bash
-sudo ldconfig -v | grep edge-ai-api
+sudo ldconfig -v | grep edgeos-api
 sudo ldconfig -v | grep cvedix
 ```
 
@@ -373,24 +373,24 @@ sudo ldconfig
 
 **Kiểm tra RPATH:**
 ```bash
-readelf -d /usr/local/bin/edge_ai_api | grep RPATH
+readelf -d /usr/local/bin/edgeos-api | grep RPATH
 ```
 
 **Kiểm tra libraries trong package:**
 ```bash
-ls -la /opt/edge_ai_api/lib/
+ls -la /opt/edgeos-api/lib/
 ```
 
 ### Lỗi: "GStreamer plugins not found"
 
 **Kiểm tra GST_PLUGIN_PATH:**
 ```bash
-cat /opt/edge_ai_api/config/.env | grep GST_PLUGIN_PATH
+cat /opt/edgeos-api/config/.env | grep GST_PLUGIN_PATH
 ```
 
 **Kiểm tra plugins:**
 ```bash
-ls -la /opt/edge_ai_api/lib/gstreamer-1.0/
+ls -la /opt/edgeos-api/lib/gstreamer-1.0/
 ```
 
 **Nếu thiếu plugins:**
@@ -404,7 +404,7 @@ sudo apt-get install -y \
 
 # Hoặc copy từ system vào bundled directory
 sudo cp -r /usr/lib/x86_64-linux-gnu/gstreamer-1.0/* \
-    /opt/edge_ai_api/lib/gstreamer-1.0/
+    /opt/edgeos-api/lib/gstreamer-1.0/
 ```
 
 ### Lỗi: "OpenCV not found"
@@ -428,10 +428,10 @@ sudo apt-get install -y \
     ffmpeg
 
 # Build và cài OpenCV 4.10
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
 
 # Restart service
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 ```
 
 ### Lỗi: "Permission denied"
@@ -444,9 +444,9 @@ groups edgeai
 
 **Fix permissions:**
 ```bash
-sudo chown -R edgeai:edgeai /opt/edge_ai_api
-sudo chmod -R 755 /opt/edge_ai_api
-sudo chmod 640 /opt/edge_ai_api/config/.env
+sudo chown -R edgeai:edgeai /opt/edgeos-api
+sudo chmod -R 755 /opt/edgeos-api
+sudo chmod 640 /opt/edgeos-api/config/.env
 ```
 
 ### Lỗi: "Port already in use"
@@ -460,17 +460,17 @@ sudo lsof -i :8080
 **Nếu port đang được sử dụng:**
 ```bash
 # Stop service
-sudo systemctl stop edge-ai-api
+sudo systemctl stop edgeos-api
 
 # Hoặc thay đổi port trong config
-sudo nano /opt/edge_ai_api/config/config.json
+sudo nano /opt/edgeos-api/config/config.json
 ```
 
 ### Lỗi: "Cannot connect to service"
 
 **Kiểm tra service status:**
 ```bash
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 ```
 
 **Kiểm tra network:**
@@ -486,9 +486,9 @@ sudo iptables -L -n
 
 ## 📝 Lưu Ý
 
-1. **Bundled Libraries**: Package bundle tất cả shared libraries cần thiết vào `/opt/edge_ai_api/lib`. Điều này đảm bảo ứng dụng hoạt động ngay cả khi hệ thống thiếu một số dependencies.
+1. **Bundled Libraries**: Package bundle tất cả shared libraries cần thiết vào `/opt/edgeos-api/lib`. Điều này đảm bảo ứng dụng hoạt động ngay cả khi hệ thống thiếu một số dependencies.
 
-2. **RPATH**: Executable được cấu hình với RPATH để tìm libraries trong `/opt/edge_ai_api/lib` trước khi tìm trong system paths.
+2. **RPATH**: Executable được cấu hình với RPATH để tìm libraries trong `/opt/edgeos-api/lib` trước khi tìm trong system paths.
 
 3. **CVEDIX SDK**: Nếu CVEDIX SDK được cài đặt tại `/opt/cvedix/lib`, các libraries sẽ được tự động bundle vào package.
 

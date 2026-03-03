@@ -26,11 +26,11 @@ public:
    * @param solutionRegistry Reference to solution registry
    * @param instanceStorage Reference to instance storage
    * @param workerExecutable Path to worker executable (default:
-   * "edge_ai_worker")
+   * "edgeos-worker")
    */
   SubprocessInstanceManager(
       SolutionRegistry &solutionRegistry, InstanceStorage &instanceStorage,
-      const std::string &workerExecutable = "edge_ai_worker");
+      const std::string &workerExecutable = "edgeos-worker");
 
   ~SubprocessInstanceManager() override;
 
