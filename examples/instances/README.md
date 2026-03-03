@@ -20,6 +20,7 @@ examples/instances/
 - **ba_crossline/** - Behavior analysis crossline solutions
 - **ba_jam/** - Behavior analysis jam (vehicle stopped) solutions
 - **ba_stop/** - Behavior analysis stop line solutions
+- **ba_crowding/** - Behavior analysis crowding detection
 - **mask_rcnn/** - Mask R-CNN segmentation solutions
 - **fire_smoke_detection/** - Fire/smoke detection (YOLO)
 - **obstacle_detection/** - Obstacle detection on road (YOLO)

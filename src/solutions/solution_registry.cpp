@@ -128,6 +128,7 @@ void SolutionRegistry::initializeDefaultSolutions() {
   registerBALoiteringSolution();                // ba_loitering
   registerBAAreaEnterExitSolution();            // ba_area_enter_exit
   registerBALineCountingSolution();            // ba_line_counting
+  registerBACrowdingSolution();                 // ba_crowding
   registerSecuRTSolution();                     // securt
 
   // Register specialized detection solutions
@@ -1922,6 +1923,70 @@ void SolutionRegistry::registerBALineCountingSolution() {
   config.defaults["detectionSensitivity"] = "0.7";
   config.defaults["sensorModality"] = "RGB";
   config.defaults["RESIZE_RATIO"] = "0.4";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerBACrowdingSolution() {
+  SolutionConfig config;
+  config.solutionId = "ba_crowding";
+  config.solutionName = "Behavior Analysis - Crowding Detection";
+  config.solutionType = "behavior_analysis";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(yoloDetector);
+
+  // SORT Tracker Node
+  SolutionConfig::NodeConfig sortTrack;
+  sortTrack.nodeType = "sort_track";
+  sortTrack.nodeName = "sort_tracker_{instanceId}";
+  config.pipeline.push_back(sortTrack);
+
+  // BA Crowding Node
+  SolutionConfig::NodeConfig baCrowding;
+  baCrowding.nodeType = "ba_crowding";
+  baCrowding.nodeName = "ba_crowding_{instanceId}";
+  baCrowding.parameters["CrowdingZones"] = "${CROWDING_ZONES_JSON}";
+  baCrowding.parameters["check_interval"] = "${CROWDING_CHECK_INTERVAL}";
+  config.pipeline.push_back(baCrowding);
+
+  // BA Crowding OSD Node
+  SolutionConfig::NodeConfig baCrowdingOSD;
+  baCrowdingOSD.nodeType = "ba_crowding_osd";
+  baCrowdingOSD.nodeName = "ba_crowding_osd_{instanceId}";
+  config.pipeline.push_back(baCrowdingOSD);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "ba_crowding";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.5";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+  config.defaults["CROWDING_CHECK_INTERVAL"] = "30";
 
   registerSolution(config);
 }

@@ -562,10 +562,21 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
       }
       
       // Use mutableReq for SecuRT integration (has areas/lines loaded)
-      auto node = createNode(modifiedNodeConfig, mutableReq, instanceId, existingRTMPStreamKeys);
+      std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> extraNodes;
+      auto node = createNode(modifiedNodeConfig, mutableReq, instanceId, existingRTMPStreamKeys, &extraNodes);
       if (node) {
         nodes.push_back(node);
-        nodeTypes.push_back(nodeConfig.nodeType);
+        for (const auto &extra : extraNodes) {
+          nodes.push_back(extra);
+        }
+        if (!extraNodes.empty()) {
+          nodeTypes.push_back("rtmp_lastframe_proxy");
+          for (size_t i = 0; i < extraNodes.size(); ++i) {
+            nodeTypes.push_back("rtmp_des");
+          }
+        } else {
+          nodeTypes.push_back(nodeConfig.nodeType);
+        }
 
         // Connect to previous node(s)
         // For nodes that should attach to multiple sources (detector, tracker), attach to all source nodes
@@ -1898,10 +1909,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         }
         
         std::string actualRtmpUrl;
+        std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> rtmpExtraNodes;
         auto rtmpNode =
-            PipelineBuilderDestinationNodes::createRTMPDestinationNode(rtmpNodeName, rtmpConfig.parameters, req, instanceId, existingRTMPStreamKeys, actualRtmpUrl);
+            PipelineBuilderDestinationNodes::createRTMPDestinationNode(rtmpNodeName, rtmpConfig.parameters, req, instanceId, existingRTMPStreamKeys, actualRtmpUrl, &rtmpExtraNodes);
         if (rtmpNode) {
-          // Store actual RTMP URL (may have been modified for conflict resolution)
           if (!actualRtmpUrl.empty()) {
             actual_rtmp_urls_[instanceId] = actualRtmpUrl;
             std::cerr << "[PipelineBuilder] Stored actual RTMP URL for instance " << instanceId << ": '" << actualRtmpUrl << "'" << std::endl;
@@ -1985,6 +1996,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           if (attachTarget) {
             rtmpNode->attach_to({attachTarget});
             nodes.push_back(rtmpNode);
+            for (const auto &extra : rtmpExtraNodes) {
+              nodes.push_back(extra);
+            }
+            nodeTypes.push_back("rtmp_lastframe_proxy");
             nodeTypes.push_back("rtmp_des");
             std::cerr
                 << "[PipelineBuilder] ✓ Auto-added rtmp_des node (attached to "
@@ -2098,7 +2113,8 @@ std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
                             const CreateInstanceRequest &req,
                             const std::string &instanceId,
-                            const std::set<std::string> &existingRTMPStreamKeys) {
+                            const std::set<std::string> &existingRTMPStreamKeys,
+                            std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> *outExtraNodes) {
 
   // Get node name with instanceId substituted
   std::string nodeName = substituteNodeName(nodeConfig.nodeName, instanceId);
@@ -2255,6 +2271,8 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderBehaviorAnalysisNodes::createBAAreaEnterExitNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "ba_line_counting") {
       return PipelineBuilderBehaviorAnalysisNodes::createBALineCountingNode(nodeName, params, req);
+    } else if (nodeConfig.nodeType == "ba_crowding") {
+      return PipelineBuilderBehaviorAnalysisNodes::createBACrowdingNode(nodeName, params, req);
     }
     // OSD nodes
     else if (nodeConfig.nodeType == "face_osd_v2") {
@@ -2271,6 +2289,8 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderBehaviorAnalysisNodes::createBALoiteringOSDNode(nodeName, params);
     } else if (nodeConfig.nodeType == "ba_area_enter_exit_osd") {
       return PipelineBuilderBehaviorAnalysisNodes::createBAAreaEnterExitOSDNode(nodeName, params);
+    } else if (nodeConfig.nodeType == "ba_crowding_osd") {
+      return PipelineBuilderBehaviorAnalysisNodes::createBACrowdingOSDNode(nodeName, params);
     }
     // Broker nodes
     else if (nodeConfig.nodeType == "json_console_broker") {
@@ -2376,8 +2396,9 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderDestinationNodes::createFileDestinationNode(nodeName, params, instanceId);
     } else if (nodeConfig.nodeType == "rtmp_des") {
       std::string actualRtmpUrl;
-      auto node = PipelineBuilderDestinationNodes::createRTMPDestinationNode(nodeName, params, req, instanceId, existingRTMPStreamKeys, actualRtmpUrl);
-      // Store actual RTMP URL (may have been modified for conflict resolution)
+      auto node = PipelineBuilderDestinationNodes::createRTMPDestinationNode(
+          nodeName, params, req, instanceId, existingRTMPStreamKeys,
+          actualRtmpUrl, outExtraNodes);
       if (!actualRtmpUrl.empty()) {
         actual_rtmp_urls_[instanceId] = actualRtmpUrl;
         std::cerr << "[PipelineBuilder] Stored actual RTMP URL for instance " << instanceId << ": '" << actualRtmpUrl << "'" << std::endl;

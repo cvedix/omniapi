@@ -27,7 +27,7 @@ Các solution sau được đăng ký trong `src/solutions/solution_registry.cpp
 - `ba_crossline`, `ba_crossline_default`, `ba_crossline_mqtt_default`
 - `ba_stop`, `ba_stop_default`, `ba_stop_mqtt_default`
 - `ba_jam`, `ba_jam_default`, `ba_jam_mqtt_default`
-- `ba_loitering`, `ba_area_enter_exit`, `ba_line_counting`
+- `ba_loitering`, `ba_area_enter_exit`, `ba_line_counting`, `ba_crowding`
 - `securt`
 - `face_swap`, `insightface_recognition`, `trt_insightface_recognition` (TRT)
 - `mllm_analysis`
@@ -55,7 +55,7 @@ Các solution sau được đăng ký trong `src/solutions/solution_registry.cpp
 | 9 | `ba_area_enter_exit_sample.cpp` | `ba_area_enter_exit` | Có (ba_area_enter_exit) | Đủ solution + example |
 | 10 | `ba_crossline_mqtt_sample.cpp` | `ba_crossline`, `ba_crossline_mqtt_default` | Có (ba_crossline/yolo, MQTT) | Đủ solution + example |
 | 11 | `ba_crossline_sample.cpp` | `ba_crossline`, `ba_crossline_default` | Có (ba_crossline/yolo) | Đủ solution + example |
-| 12 | `ba_crowding_sample.cpp` | Không | Không | Chưa có solution ba_crowding |
+| 12 | `ba_crowding_sample.cpp` | `ba_crowding` | Có (ba_crowding/yolo) | Đủ solution + example |
 | 13 | `ba_jam_sample.cpp` | `ba_jam`, `ba_jam_default` | Có (ba_jam) | Đủ solution + example |
 | 14 | `ba_loitering_sample.cpp` | `ba_loitering` | Có (ba_loitering) | Đủ solution + example |
 | 15 | `ba_movement_sample.cpp` | Không | Không | Chưa có solution ba_movement |
@@ -91,7 +91,7 @@ Các solution sau được đăng ký trong `src/solutions/solution_registry.cpp
 | 45 | `message_broker_sample2.cpp` | Tương tự | Có | Broker variants |
 | 46 | `message_broker_kafka_sample.cpp` | Face + kafka | Có (infer_nodes: json_kafka_broker) | Custom/cấu hình broker |
 | 47 | `mllm_analyse_sample.cpp` | `mllm_analysis` | Có (other_solutions/mllm_analysis) | Đủ solution + example |
-| 48 | `mllm_analyse_sample_openai.cpp` | `mllm_analysis` | Có (mllm_analysis) | Backend OpenAI |
+| 48 | `mllm_analyse_sample_openai.cpp` | `mllm_analysis` | Có (other_solutions/mllm_analysis) | Backend OpenAI |
 | 49 | `multi_detectors_sample.cpp` | Nhiều detector | Một phần (object_detection_yolo, custom) | Cần custom hoặc nhiều instance |
 | 50 | `multi_detectors_and_classifiers_sample.cpp` | Custom | Có (custom: classifier, vehicle type/color) | Chỉ custom |
 | 51 | `multi_trt_infer_nodes_sample.cpp` | Custom / TRT | Có (custom: trt vehicle) | Chỉ custom |
@@ -129,14 +129,18 @@ Các solution sau được đăng ký trong `src/solutions/solution_registry.cpp
 
 - **Đã hỗ trợ tạo/xử lý instance (solution có sẵn + có hoặc có thể dùng example)**  
   - Face: `1-1-1`, `1-1-N`, `face_tracking_rtsp`, `face_yunet_int8`, `rtsp_src`, `src_des` (face_detection), `yolov11_face_detector_video_output`, `yolov11_onnx_detector` (yolov11_detection).
-  - BA: `ba_crossline`, `ba_crossline_mqtt`, `ba_jam`, `ba_stop`, `ba_loitering`, `ba_area_enter_exit`, `ba_multiline_crossline_test`, `ba_multiple_crossline_counting_sample`, `rtsp_ba_crossline`.
+  - BA: `ba_crossline`, `ba_crossline_mqtt`, `ba_jam`, `ba_stop`, `ba_loitering`, `ba_area_enter_exit`, `ba_crowding`, `ba_multiline_crossline_test`, `ba_multiple_crossline_counting_sample`, `rtsp_ba_crossline`.
   - Khác: `mask_rcnn`, `face_swap`, `face_recognition` (insightface), `mllm_analyse` (mllm_analysis), `firesmoke_detect` (fire_smoke_detection – có example), `obstacle_detect` (obstacle_detection – có example), `wrong_way_detection` (có example).
 
 - **Chỉ hỗ trợ qua custom solution**  
   - App src/des, ffmpeg src/des, image src/des, frame_fusion, record, openpose, enet_seg, lane_detect, video_restoration, các broker (kafka, socket, …), plate, vehicle scanner/cluster, TRT vehicle/plate/face, classifier.
 
 - **Chưa hỗ trợ (không có solution tương ứng)**  
-  - `ba_crowding`, `ba_movement`, `ba_speed_estimation`, `cvedix_logger`, `cvedix_test`, `dynamic_pipeline*`, `interaction_with_pipe`, `license_*`, `nv_hard_codec`, `skip`, `sse_broker`, `ffmpeg_transcode`.
+  - `ba_movement`, `ba_speed_estimation`, `cvedix_logger`, `cvedix_test`, `dynamic_pipeline*`, `interaction_with_pipe`, `license_*`, `nv_hard_codec`, `skip`, `sse_broker`, `ffmpeg_transcode`.
+
+- **Cần bổ sung để hỗ trợ ba_movement / ba_speed_estimation**  
+  - **ba_movement**: Pipeline `file_src → yolo_detector → bytetrack → ba_movement → ba_area_enter_exit_osd → file_des`. Cần solution, node type `ba_movement` trong pipeline_builder (parse areas + MovementAlertConfig), và example instance.  
+  - **ba_speed_estimation**: Pipeline `file_src → trt_yolov11_detector → ocsort → ba_line_speed_estimation → osd → file_des`. Phụ thuộc TRT và ocsort (ocsort hiện tạm tắt trong project). Cần bật/ổn định ocsort, thêm node `ba_line_speed_estimation`, đăng ký solution và example.
 
 - **Example instance dùng solution không có trong registry**  
   - Các file trong `examples/instances/infer_nodes/` dùng `yolo_detection`, `openpose_detection`, `lane_detection`, `enet_segmentation`, `restoration`, `image_source_detection`, … chỉ chạy được khi có custom solution tương ứng được load từ thư mục solutions.

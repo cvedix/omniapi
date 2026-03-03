@@ -15,6 +15,8 @@
 #include <cvedix/nodes/ba/cvedix_ba_area_enter_exit_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_counting_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_crowding_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_crowding_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_enter_exit_osd_node.h>
@@ -1390,6 +1392,107 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
     return node;
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Exception in createBAAreaEnterExitOSDNode: "
+              << e.what() << std::endl;
+    throw;
+  }
+}
+
+std::shared_ptr<cvedix_nodes::cvedix_node>
+PipelineBuilderBehaviorAnalysisNodes::createBACrowdingNode(
+    const std::string &nodeName,
+    const std::map<std::string, std::string> &params,
+    const CreateInstanceRequest &req) {
+
+  try {
+    if (nodeName.empty()) {
+      throw std::invalid_argument("Node name cannot be empty");
+    }
+
+    std::map<int, std::vector<cvedix_objects::cvedix_point>> rois;
+    std::map<int, cvedix_nodes::crowding_config> configs;
+    bool parsed = false;
+
+    auto it = req.additionalParams.find("CrowdingZones");
+    if (it != req.additionalParams.end() && !it->second.empty()) {
+      try {
+        Json::Reader reader;
+        Json::Value arr;
+        if (reader.parse(it->second, arr) && arr.isArray()) {
+          for (Json::ArrayIndex i = 0; i < arr.size(); ++i) {
+            const Json::Value &obj = arr[i];
+            if (!obj.isMember("coordinates") || !obj["coordinates"].isArray() ||
+                obj["coordinates"].size() < 3) {
+              continue;
+            }
+            std::vector<cvedix_objects::cvedix_point> pts;
+            for (const auto &c : obj["coordinates"]) {
+              if (c.isMember("x") && c.isMember("y") && c["x"].isNumeric() && c["y"].isNumeric()) {
+                pts.push_back(cvedix_objects::cvedix_point(
+                    static_cast<int>(c["x"].asDouble()),
+                    static_cast<int>(c["y"].asDouble())));
+              }
+            }
+            if (pts.empty()) continue;
+            int ch = obj.isMember("channel") && obj["channel"].isNumeric()
+                         ? obj["channel"].asInt()
+                         : static_cast<int>(i);
+            rois[ch] = std::move(pts);
+            int threshold = obj.isMember("threshold") && obj["threshold"].isNumeric()
+                                ? obj["threshold"].asInt()
+                                : 3;
+            double alarmSec = obj.isMember("alarm_seconds") && obj["alarm_seconds"].isNumeric()
+                                 ? obj["alarm_seconds"].asDouble()
+                                 : 2.0;
+            std::string name = obj.isMember("name") && obj["name"].isString()
+                                   ? obj["name"].asString()
+                                   : "Zone";
+            configs[ch] = cvedix_nodes::crowding_config(threshold, alarmSec, name);
+            parsed = true;
+          }
+        }
+      } catch (const std::exception &e) {
+        std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: parse CrowdingZones: "
+                  << e.what() << std::endl;
+      }
+    }
+
+    if (!parsed || rois.empty()) {
+      std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] No valid CrowdingZones; creating node with empty ROIs"
+                << std::endl;
+    }
+
+    int checkInterval = 30;
+    auto ciIt = req.additionalParams.find("CROWDING_CHECK_INTERVAL");
+    if (ciIt != req.additionalParams.end() && !ciIt->second.empty()) {
+      try {
+        checkInterval = std::stoi(ciIt->second);
+      } catch (...) {}
+    }
+
+    auto node = std::make_shared<cvedix_nodes::cvedix_ba_area_crowding_node>(
+        nodeName, rois, configs, checkInterval, false, false);
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA crowding node created successfully"
+              << std::endl;
+    return node;
+  } catch (const std::exception &e) {
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Exception in createBACrowdingNode: "
+              << e.what() << std::endl;
+    throw;
+  }
+}
+
+std::shared_ptr<cvedix_nodes::cvedix_node>
+PipelineBuilderBehaviorAnalysisNodes::createBACrowdingOSDNode(
+    const std::string &nodeName,
+    const std::map<std::string, std::string> &params) {
+
+  try {
+    auto node = std::make_shared<cvedix_nodes::cvedix_ba_area_crowding_osd_node>(nodeName);
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA crowding OSD node created successfully"
+              << std::endl;
+    return node;
+  } catch (const std::exception &e) {
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Exception in createBACrowdingOSDNode: "
               << e.what() << std::endl;
     throw;
   }
