@@ -3982,14 +3982,29 @@ void InstanceHandler::getInstanceOutput(
 
     if (hasRTMP) {
       output["type"] = "RTMP_STREAM";
+      std::string rtmpUrlVal;
       if (!info.rtmpUrl.empty()) {
-        output["rtmpUrl"] = info.rtmpUrl;
+        rtmpUrlVal = info.rtmpUrl;
       } else if (info.additionalParams.find("RTMP_DES_URL") !=
                  info.additionalParams.end()) {
-        output["rtmpUrl"] = info.additionalParams.at("RTMP_DES_URL");
+        rtmpUrlVal = info.additionalParams.at("RTMP_DES_URL");
       } else if (info.additionalParams.find("RTMP_URL") !=
                  info.additionalParams.end()) {
-        output["rtmpUrl"] = info.additionalParams.at("RTMP_URL");
+        rtmpUrlVal = info.additionalParams.at("RTMP_URL");
+      }
+      output["rtmpUrl"] = rtmpUrlVal;
+      if (!rtmpUrlVal.empty()) {
+        size_t lastSlash = rtmpUrlVal.find_last_of('/');
+        if (lastSlash != std::string::npos && lastSlash + 1 < rtmpUrlVal.size()) {
+          std::string streamKey = rtmpUrlVal.substr(lastSlash + 1);
+          if (streamKey.size() >= 2 && streamKey.substr(streamKey.size() - 2) != "_0") {
+            output["rtmpPlaybackUrl"] = rtmpUrlVal + "_0";
+          } else {
+            output["rtmpPlaybackUrl"] = rtmpUrlVal;
+          }
+        } else {
+          output["rtmpPlaybackUrl"] = rtmpUrlVal;
+        }
       }
       if (!info.rtspUrl.empty()) {
         output["rtspUrl"] = info.rtspUrl;

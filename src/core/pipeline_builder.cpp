@@ -51,6 +51,8 @@
 #include <cvedix/utils/cvedix_utils.h>
 #include <json/reader.h>
 #include <json/value.h>
+#include <json/writer.h>
+#include <chrono>
 #include <opencv2/core.hpp> // For cv::Exception
 
 // TensorRT Inference Nodes
@@ -576,16 +578,27 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         continue;
       }
       
-      // Skip ba_crossline and ba_crossline_osd nodes if no CrossingLines are provided
+      // Skip ba_crossline and ba_crossline_osd nodes if no CrossingLines (or line params) are provided
       // This allows running only ba_loitering without ba_crossline
       if (nodeConfig.nodeType == "ba_crossline" || nodeConfig.nodeType == "ba_crossline_osd") {
         auto crossingLinesIt = mutableReq.additionalParams.find("CrossingLines");
         bool hasCrossingLines = (crossingLinesIt != mutableReq.additionalParams.end() &&
                                 !crossingLinesIt->second.empty());
-        
+        if (!hasCrossingLines) {
+          auto sx = mutableReq.additionalParams.find("CROSSLINE_START_X");
+          auto sy = mutableReq.additionalParams.find("CROSSLINE_START_Y");
+          auto ex = mutableReq.additionalParams.find("CROSSLINE_END_X");
+          auto ey = mutableReq.additionalParams.find("CROSSLINE_END_Y");
+          if (sx != mutableReq.additionalParams.end() && !sx->second.empty() &&
+              sy != mutableReq.additionalParams.end() && !sy->second.empty() &&
+              ex != mutableReq.additionalParams.end() && !ex->second.empty() &&
+              ey != mutableReq.additionalParams.end() && !ey->second.empty()) {
+            hasCrossingLines = true;
+          }
+        }
         if (!hasCrossingLines) {
           std::cerr << "[PipelineBuilder] Skipping " << nodeConfig.nodeType 
-                    << " node (no CrossingLines provided - running ba_loitering only)"
+                    << " node (no CrossingLines or CROSSLINE_* params - running ba_loitering only)"
                     << std::endl;
           continue;
         }
@@ -789,10 +802,12 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           // If no OSD node found or not RTMP node, use default logic
           if (!attachTarget) {
             // Find the node to attach to
-            // If current node is a destination node and previous node is also a
-            // destination node, attach to the node before the previous one (to
-            // allow multiple destinations from same source)
+            // When rtmp_des returns extraNodes (proxy + rtmp node), "node" is the proxy;
+            // we must attach it to the node *before* the proxy, not to the last pushed node.
             size_t attachIndex = nodes.size() - 2;
+            if (isDestNode && !extraNodes.empty()) {
+              attachIndex = nodes.size() - 2 - extraNodes.size();
+            }
             if (isDestNode && attachIndex > 0) {
               // Check if previous node is also a destination node
               bool prevIsDestNode = (nodeTypes[attachIndex] == "file_des" ||
@@ -3583,6 +3598,8 @@ struct event_message {
   std::vector<line_count> line_counts;
   std::string instance_id;
   std::string instance_name;
+  /** Timestamp (ms, system_clock) when crossline was detected / message built. Used for detection-to-MQTT latency. */
+  int64_t detection_ts_ms = 0;
 
   template <typename Archive> void serialize(Archive &archive) {
     archive(cereal::make_nvp("events", events),
@@ -3592,7 +3609,8 @@ struct event_message {
             cereal::make_nvp("system_timestamp", system_timestamp),
             cereal::make_nvp("line_counts", line_counts),
             cereal::make_nvp("instance_id", instance_id),
-            cereal::make_nvp("instance_name", instance_name));
+            cereal::make_nvp("instance_name", instance_name),
+            cereal::make_nvp("detection_ts_ms", detection_ts_ms));
   }
 };
 } // namespace crossline_event_format
@@ -3623,6 +3641,12 @@ private:
         msg = "";
         return;
       }
+      // Ghi nhận thời điểm ngay khi có kết quả crossline (đầu format_msg) để đo
+      // chính xác toàn bộ thời gian từ detect → gửi MQTT (build message + serialize + publish).
+      const int64_t detection_ts_ms_at_start = static_cast<int64_t>(
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now().time_since_epoch())
+              .count());
 
       crossline_event_format::event_message event_msg;
       bool has_events = false;
@@ -3776,6 +3800,7 @@ private:
       event_msg.system_timestamp = get_current_timestamp();
       event_msg.instance_id = instance_id_;     // UUID thực sự
       event_msg.instance_name = instance_name_; // Tên instance
+      event_msg.detection_ts_ms = detection_ts_ms_at_start;
 
       // Add line counts summary
       {
@@ -3834,10 +3859,44 @@ private:
       return;
     }
     try {
+      const int64_t mqtt_sent_ts_ms = static_cast<int64_t>(
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now().time_since_epoch())
+              .count());
+      std::string out_msg = msg;
+      // Nhẹ: đọc detection_ts_ms từ chuỗi + chèn 2 field, không parse/serialize
+      // toàn bộ JSON → tránh ảnh hưởng hiệu năng (payload có thể rất lớn do base64).
+      const std::string key = "\"detection_ts_ms\":";
+      const size_t key_pos = msg.find(key);
+      int64_t detection_ts = 0;
+      if (key_pos != std::string::npos) {
+        const size_t val_start = key_pos + key.size();
+        size_t val_end = val_start;
+        while (val_end < msg.size() &&
+               (std::isdigit(static_cast<unsigned char>(msg[val_end])) ||
+                msg[val_end] == '-')) {
+          ++val_end;
+        }
+        if (val_end > val_start) {
+          try {
+            detection_ts = std::stoll(msg.substr(val_start, val_end - val_start));
+          } catch (...) {
+          }
+        }
+      }
+      const int64_t d2m_ms = mqtt_sent_ts_ms - detection_ts;
+      const std::string suffix =
+          ",\"mqtt_sent_ts_ms\":" + std::to_string(mqtt_sent_ts_ms) +
+          ",\"detection_to_mqtt_ms\":" + std::to_string(d2m_ms) + "}";
+      const size_t insert_pos = msg.rfind("}]");
+      if (insert_pos != std::string::npos) {
+        out_msg.reserve(msg.size() + suffix.size());
+        out_msg = msg.substr(0, insert_pos + 1) + suffix + msg.substr(insert_pos + 1);
+      }
       std::cerr
           << "[MQTT] [broke_msg] Calling mqtt_publisher_ with message length: "
-          << msg.length() << std::endl;
-      mqtt_publisher_(msg);
+          << out_msg.length() << std::endl;
+      mqtt_publisher_(out_msg);
     } catch (const std::exception &e) {
       std::cerr << "[MQTT] ⚠ Exception in mqtt_publisher_: " << e.what()
                 << std::endl;
