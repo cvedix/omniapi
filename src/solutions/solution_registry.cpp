@@ -396,14 +396,17 @@ void SolutionRegistry::registerBACrosslineSolution() {
   sortTrack.nodeName = "sort_tracker_{instanceId}";
   config.pipeline.push_back(sortTrack);
 
-  // BA Crossline Node
+  // BA Crossline Node (use placeholders so instance additionalParams.input
+  // CROSSLINE_* are applied; fallback in pipeline builder also reads CROSSLINE_*
+  // from additionalParams when solution has no line_channel)
   SolutionConfig::NodeConfig baCrossline;
   baCrossline.nodeType = "ba_crossline";
   baCrossline.nodeName = "ba_crossline_{instanceId}";
-  baCrossline.parameters["line_start_x"] = "1500";
-  baCrossline.parameters["line_start_y"] = "1500";
-  baCrossline.parameters["line_end_x"] = "1000";
-  baCrossline.parameters["line_end_y"] = "1000";
+  baCrossline.parameters["line_channel"] = "0";
+  baCrossline.parameters["line_start_x"] = "${CROSSLINE_START_X}";
+  baCrossline.parameters["line_start_y"] = "${CROSSLINE_START_Y}";
+  baCrossline.parameters["line_end_x"] = "${CROSSLINE_END_X}";
+  baCrossline.parameters["line_end_y"] = "${CROSSLINE_END_Y}";
   config.pipeline.push_back(baCrossline);
 
   // BA Crossline OSD Node

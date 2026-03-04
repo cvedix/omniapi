@@ -15,7 +15,7 @@
       "ENABLE_SCREEN_DES": "false",
       "BROKE_FOR": "NORMAL",
       "MQTT_BROKER_URL": "192.168.1.128",
-      "MQTT_PORT": "1883",
+      "MQTT_PORT": "1884",
       "MQTT_TOPIC": "ba_crossline/events",
       "MQTT_USERNAME": "",
       "MQTT_PASSWORD": "",
