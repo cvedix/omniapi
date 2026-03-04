@@ -150,13 +150,20 @@ def wait_ready(base_url: str, instance_id: str, timeout_sec: int, poll_sec: floa
 
 
 def start_instance(base_url: str, instance_id: str) -> tuple[bool, bool]:
+    """Start instance. Returns (ok, need_poll). need_poll=True khi API trả status 'starting' (poll GET instance cho đến khi running)."""
     url = f"{base_url}/v1/core/instance/{instance_id}/start"
     try:
         r = requests.post(url, headers={"Content-Type": "application/json"}, timeout=BENCHMARK_CONFIG["api_start_timeout"])
-        if r.status_code in (200, 201):
-            return True, False
-        if r.status_code == 202:
-            return True, True
+        if r.status_code in (200, 201, 202):
+            need_poll = r.status_code == 202
+            if r.status_code in (200, 201) and r.text:
+                try:
+                    data = r.json()
+                    if data.get("status") == "starting":
+                        need_poll = True
+                except Exception:
+                    pass
+            return True, need_poll
     except Exception:
         pass
     return False, False
