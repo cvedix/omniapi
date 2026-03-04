@@ -1,15 +1,21 @@
-# Benchmark – Edge AI Instance (ba_crossline MQTT)
+# Benchmark – Edge AI Instance
 
-Công cụ chạy benchmark cho instance **ba_crossline_mqtt_with_lines_demo**: thu thập FPS, CPU, RAM, latency, load, và **thời gian từ lúc phát hiện đến lúc gửi MQTT**, sau đó tạo báo cáo HTML dễ đọc cho người không chuyên dev.
+Công cụ chạy benchmark cho instance Edge AI API: thu thập FPS, CPU, RAM, latency, load; với instance có output MQTT thì thu thêm **thời gian từ phát hiện đến gửi MQTT**. Báo cáo HTML dễ đọc cho người không chuyên dev.
+
+- **`run_benchmark.py`** – Benchmark instance ba_crossline MQTT (config mặc định `instance_benchmark.json`).
+- **`run_benchmark_generic.py`** – Benchmark **bất kỳ instance nào** (truyền `--config` tới file JSON của instance):
+  - Instance có MQTT (additionalParams.output.MQTT_BROKER_URL): thu thêm detection → MQTT.
+  - Instance không có MQTT: chỉ thu **pipeline** (nhận frame → detect → output) qua API `/statistics` và tài nguyên hệ thống.
 
 ## Cấu trúc thư mục
 
 ```
 tests/benchmark/
 ├── config/
-│   └── instance_benchmark.json   # Cấu hình instance chạy benchmark (RTMP + MQTT + CrossingLines)
+│   └── instance_benchmark.json   # Cấu hình instance mặc định (ba_crossline RTMP + MQTT)
 ├── output/                         # Thư mục ra (CSV, events JSON, HTML) – tạo tự động
-├── run_benchmark.py               # Script chính; đầu file có BENCHMARK_CONFIG – các biến cấu hình giá trị test
+├── run_benchmark.py               # Benchmark ba_crossline MQTT
+├── run_benchmark_generic.py       # Benchmark bất kỳ instance (--config <path>)
 ├── report_generator.py            # Sinh file HTML từ CSV + events
 ├── requirements.txt
 └── README.md
@@ -68,6 +74,15 @@ python run_benchmark.py --config ./config/instance_benchmark.json
 ```
 
 **Khi API không báo instance “running” kịp thời** (instance thực tế đang chạy trong worker): dùng `--no-start` khi instance đã được start từ trước, script sẽ chỉ thu metrics và không gọi stop. Nếu không dùng `--no-start`, script vẫn tiếp tục thu metrics sau khi timeout đợi running (chỉ in cảnh báo).
+
+**Benchmark bất kỳ instance (generic):**
+
+```bash
+python run_benchmark_generic.py --config path/to/instance_config.json
+python run_benchmark_generic.py --config examples/instances/ba_crossline/yolo/example_ba_crossline_rtsp_mqtt.json --duration 60
+```
+
+Cùng các tuỳ chọn `--base-url`, `--duration`, `--no-mqtt`, `--no-start`, `--reuse-existing`, `--report-only`, v.v. như `run_benchmark.py`. Instance không có MQTT sẽ chỉ thu FPS, latency, frames_processed từ API và tài nguyên hệ thống.
 
 4. Biến môi trường:
 

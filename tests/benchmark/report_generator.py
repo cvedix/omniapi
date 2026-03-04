@@ -210,7 +210,7 @@ def generate_report(
 
     <div class="section">
       <h2>⏱ Thời gian từ phát hiện đến gửi MQTT</h2>
-      <p>Thời gian từ lúc hệ thống có kết quả crossline đến lúc gửi MQTT. Càng thấp càng tốt.</p>
+      {"<p class=\"highlight\">Instance không có output MQTT — benchmark chỉ gồm pipeline (nhận frame → detect → output) và tài nguyên hệ thống.</p>" if not events else "<p>Thời gian từ lúc hệ thống có kết quả crossline đến lúc gửi MQTT. Càng thấp càng tốt.</p>"}
       {"<p class=\"highlight\"><strong>✓ Chính xác 100%</strong>: Số liệu đo tại server (payload chứa <code>detection_to_mqtt_ms</code>). Số event dùng: " + str(len(d2m_list_server)) + ".</p>" if d2m_is_server else ""}
       {"<p class=\"highlight\">⚠ <strong>Ước lượng</strong>: Payload không có <code>detection_to_mqtt_ms</code>, dùng timestamp trong payload (bao gồm cả độ trễ mạng). Để có số liệu chính xác 100%, dùng bản build C++ đã bổ sung đo thời gian trong broker.</p>" if d2m_list and not d2m_is_server else ""}
       <div class="cards">
@@ -246,6 +246,8 @@ def generate_report(
         <thead><tr><th>#</th><th>Thời điểm nhận (ms)</th><th>Độ trễ (ms)</th><th>Nguồn</th></tr></thead>
         <tbody>
 """
+    if not events:
+        html += "          <tr><td colspan=\"4\">Không có sự kiện MQTT (instance không dùng output MQTT hoặc chưa có event trong thời gian benchmark).</td></tr>\n"
     for i, e in enumerate(events[:200], 1):  # limit 200 rows
         recv = e.get("received_ts_ms", "")
         d2m = e.get("detection_to_mqtt_ms")
