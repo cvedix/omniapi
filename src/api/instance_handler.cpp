@@ -3,7 +3,6 @@
 #include "core/event_queue.h"
 #include "core/frame_input_queue.h"
 #include "core/codec_manager.h"
-#include "core/frame_decoder.h"
 #include "core/frame_processor.h"
 #include "core/logger.h"
 #include "core/logging_flags.h"
@@ -6013,23 +6012,25 @@ void InstanceHandler::pushEncodedFrame(
           std::chrono::system_clock::now().time_since_epoch()).count();
     }
 
-    // Decode frame
-    FrameDecoder decoder;
-    cv::Mat decodedFrame;
-    if (!decoder.decodeEncodedFrame(frameData, normalizedCodec, decodedFrame)) {
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[API] POST /v1/core/instance/" << instanceId
-                   << "/push/encoded/" << codecId << " - Failed to decode frame";
-      }
-      callback(createErrorResponse(500, "Internal Server Error",
-                                   "Failed to decode encoded frame"));
+    // Lightweight validation only. Decode happens once in FrameProcessor
+    // (same as compressed path) to avoid double decode and lag.
+    if (frameData.empty()) {
+      callback(createErrorResponse(400, "Bad Request", "Encoded frame data is empty"));
       return;
     }
 
-    // Push frame to queue
+    // Backpressure: reject when queue is near full so client can reduce rate
     auto& queueManager = FrameInputQueueManager::getInstance();
     auto& queue = queueManager.getQueue(instanceId);
-    
+    size_t maxSz = queue.getMaxSize();
+    if (maxSz > 0 && queue.size() >= static_cast<size_t>(maxSz * 4 / 5)) {
+      auto resp = createErrorResponse(503, "Service Unavailable",
+          "Frame queue near full (backpressure). Reduce push rate or retry later.");
+      resp->addHeader("Retry-After", "1");
+      MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+      return;
+    }
+
     FrameData frameDataObj(FrameType::ENCODED, normalizedCodec, frameData, timestamp);
     if (!queue.push(frameDataObj)) {
       if (isApiLoggingEnabled()) {
@@ -6041,9 +6042,7 @@ void InstanceHandler::pushEncodedFrame(
       return;
     }
 
-    // TODO: Inject decoded frame into instance pipeline
-    // For now, we push to queue. Integration with instance pipeline
-    // (e.g., app_src node) needs to be implemented separately.
+    // FrameProcessor will decode once and push to app_src node.
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -6317,23 +6316,40 @@ void InstanceHandler::pushCompressedFrame(
       return;
     }
 
-    // Decode frame
-    FrameDecoder decoder;
-    cv::Mat decodedFrame;
-    if (!decoder.decodeCompressedFrame(frameData, decodedFrame)) {
+    // Lightweight validation only (magic bytes). Decode happens once in
+    // FrameProcessor to avoid double decode and reduce lag (samples decode
+    // once; API was decoding here then again in FrameProcessor).
+    auto validMagic = [](const std::vector<uint8_t>& d) {
+      if (d.size() < 8u) return false;
+      // JPEG: FF D8 FF
+      if (d[0] == 0xFF && d[1] == 0xD8 && d[2] == 0xFF) return true;
+      // PNG: 89 50 4E 47 0D 0A 1A 0A
+      if (d[0] == 0x89 && d[1] == 0x50 && d[2] == 0x4E && d[3] == 0x47 &&
+          d[4] == 0x0D && d[5] == 0x0A && d[6] == 0x1A && d[7] == 0x0A) return true;
+      return false;
+    };
+    if (!validMagic(frameData)) {
       if (isApiLoggingEnabled()) {
         PLOG_ERROR << "[API] POST /v1/core/instance/" << instanceId
-                   << "/push/compressed - Failed to decode frame";
+                   << "/push/compressed - Invalid image magic (expected JPEG/PNG)";
       }
-      callback(createErrorResponse(500, "Internal Server Error",
-                                   "Failed to decode compressed frame"));
+      callback(createErrorResponse(400, "Bad Request",
+                                   "Invalid compressed image (expected JPEG or PNG)"));
       return;
     }
 
-    // Push frame to queue
+    // Backpressure: reject when queue is near full so client can reduce rate
     auto& queueManager = FrameInputQueueManager::getInstance();
     auto& queue = queueManager.getQueue(instanceId);
-    
+    size_t maxSz = queue.getMaxSize();
+    if (maxSz > 0 && queue.size() >= static_cast<size_t>(maxSz * 4 / 5)) {
+      auto resp = createErrorResponse(503, "Service Unavailable",
+          "Frame queue near full (backpressure). Reduce push rate or retry later.");
+      resp->addHeader("Retry-After", "1");
+      MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+      return;
+    }
+
     FrameData frameDataObj(FrameType::COMPRESSED, "", frameData, timestamp);
     if (!queue.push(frameDataObj)) {
       if (isApiLoggingEnabled()) {
@@ -6345,9 +6361,7 @@ void InstanceHandler::pushCompressedFrame(
       return;
     }
 
-    // TODO: Inject decoded frame into instance pipeline
-    // For now, we push to queue. Integration with instance pipeline
-    // (e.g., app_src node) needs to be implemented separately.
+    // FrameProcessor thread will pop, decode once, and push to app_src node.
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(

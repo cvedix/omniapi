@@ -196,7 +196,8 @@ void segfaultHandler(int /*signal*/) // Parameter name commented to avoid
               << std::endl;
     std::cerr << "[CRITICAL] Too many segmentation faults (" << count
               << ") - forcing exit to prevent infinite crash loop" << std::endl;
-    std::cerr << "[CRITICAL] This indicates RTSP stream is completely unstable"
+    std::cerr << "[CRITICAL] This may be caused by GStreamer/RTSP/RTMP pipeline "
+                 "under load (e.g. queue full, stream lost)"
               << std::endl;
     std::cerr
         << "[CRITICAL] Process will exit immediately to prevent system hang"
@@ -263,7 +264,7 @@ void segfaultHandler(int /*signal*/) // Parameter name commented to avoid
     std::cerr << "[CRITICAL] Segmentation fault (SIGSEGV) detected! (count: "
               << count << ")" << std::endl;
     std::cerr << "[CRITICAL] This is likely caused by GStreamer pipeline crash "
-                 "when RTSP stream is lost"
+                 "(e.g. RTSP/RTMP stream lost or queue full)"
               << std::endl;
     std::cerr << "[CRITICAL] Monitoring thread will attempt to reconnect "
                  "automatically"
@@ -3584,24 +3585,20 @@ int main(int argc, char *argv[]) {
     else if (log_upper == "ERROR")
       log_level = trantor::Logger::kError;
 
-    // Use hardware_concurrency if thread_num is 0
-    // For AI workloads, recommend 2-4x CPU cores for I/O-bound operations
-    // IMPORTANT: Each API request runs on a separate thread from the pool
-    // This ensures RTSP retry loops don't block other API requests
-    unsigned int actual_thread_num =
-        (thread_num == 0) ? std::thread::hardware_concurrency() : thread_num;
-
-    // Optimize thread count for AI workloads if auto-detected
-    // Use more threads to handle concurrent requests and prevent blocking
-    // RTSP retry loops run in SDK threads and won't block API thread pool
-    if (thread_num == 0) {
-      // For AI server with RTSP/file sources, use at least min_threads from config
-      actual_thread_num = std::max(actual_thread_num, performanceConfig.minThreads);
-      // Cap at reasonable maximum to avoid too many threads
-      actual_thread_num = std::min(actual_thread_num, performanceConfig.maxThreads);
+    // When thread_num is 0: use a percentage of CPU cores (default 90%) so the
+    // system does not use 100% capacity, leaving headroom for OS and other work.
+    unsigned int hw = std::thread::hardware_concurrency();
+    unsigned int actual_thread_num = 0;
+    if (thread_num != 0) {
+      actual_thread_num = static_cast<unsigned int>(thread_num);
+    } else {
+      int percent = EnvConfig::getInt("THREAD_USE_PERCENT", 90, 1, 100);
+      actual_thread_num = std::max(1u, (hw * static_cast<unsigned int>(percent)) / 100u);
     }
 
-    PLOG_INFO << "[Performance] Thread pool size: " << actual_thread_num;
+    PLOG_INFO << "[Performance] Thread pool size: " << actual_thread_num
+              << (thread_num == 0 ? " (auto from " + std::to_string(hw) + " cores)"
+                                  : "");
     PLOG_INFO << "[Performance] Keep-alive: " << keepalive_requests
               << " requests, " << keepalive_timeout << "s timeout";
     PLOG_INFO << "[Performance] Max body size: "

@@ -42,9 +42,9 @@ class FrameInputQueue {
 public:
   /**
    * @brief Constructor
-   * @param maxSize Maximum queue size (0 = unlimited)
+   * @param maxSize Maximum queue size (0 = unlimited). Default 30 for real-time latency.
    */
-  explicit FrameInputQueue(size_t maxSize = 1000);
+  explicit FrameInputQueue(size_t maxSize = 30);
   
   /**
    * @brief Destructor

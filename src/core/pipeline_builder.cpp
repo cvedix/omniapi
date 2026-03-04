@@ -518,6 +518,36 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     }
   }
 
+  // Effective input type: only use destination node that matches input for optimization.
+  // file_des only when input is a local file path; RTMP/RTSP/HLS/HTTP use rtmp_des/rtsp_des etc.
+  std::string effectiveInputType = "file";
+  if (hasCustomSourceNodes) {
+    if (multipleSourceType == "file_src") effectiveInputType = "file";
+    else if (multipleSourceType == "rtsp_src") effectiveInputType = "rtsp";
+    else if (multipleSourceType == "rtmp_src") effectiveInputType = "rtmp";
+    else effectiveInputType = "file";
+  } else {
+    auto rtmpSrcIt = mutableReq.additionalParams.find("RTMP_SRC_URL");
+    if (rtmpSrcIt != mutableReq.additionalParams.end() && !rtmpSrcIt->second.empty()) {
+      effectiveInputType = "rtmp";
+    } else {
+      auto rtspSrcIt = mutableReq.additionalParams.find("RTSP_URL");
+      if (rtspSrcIt != mutableReq.additionalParams.end() && !rtspSrcIt->second.empty()) {
+        effectiveInputType = "rtsp";
+      } else {
+        auto filePathIt = mutableReq.additionalParams.find("FILE_PATH");
+        if (filePathIt != mutableReq.additionalParams.end() && !filePathIt->second.empty()) {
+          std::string fp = filePathIt->second;
+          fp.erase(0, fp.find_first_not_of(" \t\n\r"));
+          fp.erase(fp.find_last_not_of(" \t\n\r") + 1);
+          if (!fp.empty()) {
+            effectiveInputType = PipelineBuilderSourceNodes::detectInputType(fp);
+          }
+        }
+      }
+    }
+  }
+
   // Build nodes in pipeline order
   for (const auto &nodeConfig : solution.pipeline) {
     try {
@@ -560,7 +590,16 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           continue;
         }
       }
-      
+
+      // Input-type routing: file_des only when input is a local file path.
+      // Other input types (RTMP, RTSP, HLS, HTTP, UDP) use the matching destination node only.
+      if (nodeConfig.nodeType == "file_des" && effectiveInputType != "file") {
+        std::cerr << "[PipelineBuilder] Skipping file_des (input is " << effectiveInputType
+                  << "; use " << effectiveInputType << "_des only. file_des only for file path input.)"
+                  << std::endl;
+        continue;
+      }
+
       // Use mutableReq for SecuRT integration (has areas/lines loaded)
       std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> extraNodes;
       auto node = createNode(modifiedNodeConfig, mutableReq, instanceId, existingRTMPStreamKeys, &extraNodes);

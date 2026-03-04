@@ -665,7 +665,7 @@ SystemConfig::PerformanceConfig SystemConfig::getPerformanceConfig() const {
     }
   }
 
-  // Priority 2: Fallback to environment variable
+  // Priority 2: Fallback to environment variable (explicit thread count)
   if (config.threadNum == 0) {
     config.threadNum = EnvConfig::getInt("THREAD_NUM", 0, 0, 256);
   }

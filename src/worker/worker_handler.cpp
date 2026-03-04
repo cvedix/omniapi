@@ -20,7 +20,10 @@
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
 #include <cvedix/nodes/src/cvedix_app_src_node.h>
 #include <cvedix/nodes/src/cvedix_file_src_node.h>
+#include <cvedix/nodes/src/cvedix_image_src_node.h>
+#include <cvedix/nodes/src/cvedix_rtmp_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtsp_src_node.h>
+#include <cvedix/nodes/src/cvedix_udp_src_node.h>
 #include <cvedix/objects/cvedix_frame_meta.h>
 #include <cvedix/objects/cvedix_meta.h>
 #include <filesystem>
@@ -1030,8 +1033,17 @@ IPCMessage WorkerHandler::handleGetStatistics(const IPCMessage & /*msg*/) {
         auto rtspNode =
             std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtsp_src_node>(
                 sourceNode);
+        auto rtmpNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
+                sourceNode);
         auto fileNode =
             std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                sourceNode);
+        auto imageNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                sourceNode);
+        auto udpNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
                 sourceNode);
 
         // Use async with timeout to prevent blocking when source node is busy
@@ -1079,6 +1091,42 @@ IPCMessage WorkerHandler::handleGetStatistics(const IPCMessage & /*msg*/) {
             // Timeout - use cached values or defaults
             // This prevents API from hanging when source node is busy
           }
+        } else if (rtmpNode) {
+          auto sourceInfoFuture = std::async(
+              std::launch::async,
+              [rtmpNode]() -> std::pair<int, std::pair<int, int>> {
+                try {
+                  int fps = rtmpNode->get_original_fps();
+                  int width = rtmpNode->get_original_width();
+                  int height = rtmpNode->get_original_height();
+                  return std::make_pair(fps, std::make_pair(width, height));
+                } catch (...) {
+                  return std::make_pair(0, std::make_pair(0, 0));
+                }
+              });
+
+          auto status = sourceInfoFuture.wait_for(source_info_timeout);
+          if (status == std::future_status::ready) {
+            try {
+              auto [fps_int, dimensions] = sourceInfoFuture.get();
+              auto [width, height] = dimensions;
+
+              if (fps_int > 0) {
+                source_fps = static_cast<double>(fps_int);
+              }
+
+              if (width > 0 && height > 0) {
+                source_res =
+                    std::to_string(width) + "x" + std::to_string(height);
+                {
+                  std::lock_guard<std::shared_mutex> lock(state_mutex_);
+                  source_resolution_ = source_res;
+                }
+              }
+            } catch (...) {
+              // Ignore exceptions from get()
+            }
+          }
         } else if (fileNode) {
           // File source inherits from cvedix_src_node, so it has
           // get_original_fps/width/height methods
@@ -1119,7 +1167,58 @@ IPCMessage WorkerHandler::handleGetStatistics(const IPCMessage & /*msg*/) {
             }
           } else {
             // Timeout - use cached values or defaults
-            // This prevents API from hanging when source node is busy
+          }
+        } else if (imageNode) {
+          auto sourceInfoFuture = std::async(
+              std::launch::async,
+              [imageNode]() -> std::pair<int, std::pair<int, int>> {
+                try {
+                  int fps = imageNode->get_original_fps();
+                  int width = imageNode->get_original_width();
+                  int height = imageNode->get_original_height();
+                  return std::make_pair(fps, std::make_pair(width, height));
+                } catch (...) {
+                  return std::make_pair(0, std::make_pair(0, 0));
+                }
+              });
+          auto status = sourceInfoFuture.wait_for(source_info_timeout);
+          if (status == std::future_status::ready) {
+            try {
+              auto [fps_int, dimensions] = sourceInfoFuture.get();
+              auto [width, height] = dimensions;
+              if (fps_int > 0) source_fps = static_cast<double>(fps_int);
+              if (width > 0 && height > 0) {
+                source_res = std::to_string(width) + "x" + std::to_string(height);
+                std::lock_guard<std::shared_mutex> lock(state_mutex_);
+                source_resolution_ = source_res;
+              }
+            } catch (...) {}
+          }
+        } else if (udpNode) {
+          auto sourceInfoFuture = std::async(
+              std::launch::async,
+              [udpNode]() -> std::pair<int, std::pair<int, int>> {
+                try {
+                  int fps = udpNode->get_original_fps();
+                  int width = udpNode->get_original_width();
+                  int height = udpNode->get_original_height();
+                  return std::make_pair(fps, std::make_pair(width, height));
+                } catch (...) {
+                  return std::make_pair(0, std::make_pair(0, 0));
+                }
+              });
+          auto status = sourceInfoFuture.wait_for(source_info_timeout);
+          if (status == std::future_status::ready) {
+            try {
+              auto [fps_int, dimensions] = sourceInfoFuture.get();
+              auto [width, height] = dimensions;
+              if (fps_int > 0) source_fps = static_cast<double>(fps_int);
+              if (width > 0 && height > 0) {
+                source_res = std::to_string(width) + "x" + std::to_string(height);
+                std::lock_guard<std::shared_mutex> lock(state_mutex_);
+                source_resolution_ = source_res;
+              }
+            } catch (...) {}
           }
         }
       }
@@ -1462,24 +1561,80 @@ bool WorkerHandler::startPipeline() {
 
       rtspNode->start();
     } else {
-      // Try file source
-      auto fileNode =
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+      // Try RTMP source (subprocess: no monitor, stable like develop_doc sample)
+      auto rtmpNode =
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
               pipeline_nodes_[0]);
-      if (fileNode) {
-        std::cout << "[Worker:" << instance_id_ << "] Starting file source node"
-                  << std::endl;
+      if (rtmpNode) {
+        std::cout << "[Worker:" << instance_id_
+                  << "] Starting RTMP source node" << std::endl;
 
-        // Check shutdown flag before starting (which may block)
         if (shutdown_requested_.load()) {
           last_error_ = "Shutdown requested before starting source node";
           return false;
         }
 
-        fileNode->start();
+        rtmpNode->start();
       } else {
-        last_error_ = "No supported source node found in pipeline";
-        return false;
+        // Try file source
+        auto fileNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                pipeline_nodes_[0]);
+        if (fileNode) {
+          std::cout << "[Worker:" << instance_id_
+                    << "] Starting file source node" << std::endl;
+
+          if (shutdown_requested_.load()) {
+            last_error_ = "Shutdown requested before starting source node";
+            return false;
+          }
+
+          fileNode->start();
+        } else {
+          auto imageNode =
+              std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                  pipeline_nodes_[0]);
+          if (imageNode) {
+            std::cout << "[Worker:" << instance_id_
+                      << "] Starting image source node" << std::endl;
+            if (shutdown_requested_.load()) {
+              last_error_ = "Shutdown requested before starting source node";
+              return false;
+            }
+            imageNode->start();
+          } else {
+            auto udpNode =
+                std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
+                    pipeline_nodes_[0]);
+            if (udpNode) {
+              std::cout << "[Worker:" << instance_id_
+                        << "] Starting UDP source node" << std::endl;
+              if (shutdown_requested_.load()) {
+                last_error_ = "Shutdown requested before starting source node";
+                return false;
+              }
+              udpNode->start();
+            } else {
+              auto appSrcNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
+                      pipeline_nodes_[0]);
+              if (appSrcNode) {
+                std::cout << "[Worker:" << instance_id_
+                          << "] Starting app source node (push-based)"
+                          << std::endl;
+                if (shutdown_requested_.load()) {
+                  last_error_ = "Shutdown requested before starting source node";
+                  return false;
+                }
+                appSrcNode->start();
+              } else {
+                last_error_ = "No supported source node found in pipeline "
+                             "(rtsp, rtmp, file, image, udp, app_src)";
+                return false;
+              }
+            }
+          }
+        }
       }
     }
 
@@ -1693,32 +1848,70 @@ void WorkerHandler::stopPipeline() {
               stopFuture.get();
             }
           } else {
-            auto fileNode =
-                std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+            auto rtmpNode =
+                std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
                     node);
-            if (fileNode) {
-              // Use configurable timeout for file stop
-              auto stopTimeout =
-                  shutdown_requested_.load()
-                      ? TimeoutConstants::getRtspStopTimeoutDeletion()
-                      : TimeoutConstants::getRtspStopTimeout();
-
-              auto stopFuture = std::async(std::launch::async, [fileNode]() {
+            if (rtmpNode) {
+              try {
+                rtmpNode->stop();
+              } catch (...) {
+                // Ignore; detach_recursively below will clean up
+              }
+            } else {
+              auto imageNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                      node);
+              if (imageNode) {
                 try {
-                  fileNode->stop();
-                  return true;
-                } catch (...) {
-                  return false;
-                }
-              });
+                  imageNode->stop();
+                } catch (...) {}
+              } else {
+                auto udpNode =
+                    std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
+                        node);
+                if (udpNode) {
+                  try {
+                    udpNode->stop();
+                  } catch (...) {}
+                } else {
+                  auto appSrcNode =
+                      std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
+                          node);
+                  if (appSrcNode) {
+                    try {
+                      appSrcNode->stop();
+                    } catch (...) {}
+                  } else {
+              auto fileNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                      node);
+              if (fileNode) {
+                // Use configurable timeout for file stop
+                auto stopTimeout =
+                    shutdown_requested_.load()
+                        ? TimeoutConstants::getRtspStopTimeoutDeletion()
+                        : TimeoutConstants::getRtspStopTimeout();
 
-              auto stopStatus = stopFuture.wait_for(stopTimeout);
-              if (stopStatus == std::future_status::timeout) {
-                std::cerr << "[Worker:" << instance_id_ << "] Stop timeout ("
-                          << stopTimeout.count() << "ms), using detach..."
-                          << std::endl;
-              } else if (stopStatus == std::future_status::ready) {
-                stopFuture.get();
+                auto stopFuture = std::async(std::launch::async, [fileNode]() {
+                  try {
+                    fileNode->stop();
+                    return true;
+                  } catch (...) {
+                    return false;
+                  }
+                });
+
+                auto stopStatus = stopFuture.wait_for(stopTimeout);
+                if (stopStatus == std::future_status::timeout) {
+                  std::cerr << "[Worker:" << instance_id_
+                            << "] Stop timeout (" << stopTimeout.count()
+                            << "ms), using detach..." << std::endl;
+                } else if (stopStatus == std::future_status::ready) {
+                  stopFuture.get();
+                }
+              }
+                  }
+                }
               }
             }
           }
@@ -2635,11 +2828,39 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
         if (rtspNode) {
           rtspNode->stop();
         } else {
-          auto fileNode =
-              std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+          auto rtmpNode =
+              std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
                   node);
-          if (fileNode) {
-            fileNode->stop();
+          if (rtmpNode) {
+            rtmpNode->stop();
+          } else {
+            auto imageNode =
+                std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                    node);
+            if (imageNode) {
+              imageNode->stop();
+            } else {
+              auto udpNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
+                      node);
+              if (udpNode) {
+                udpNode->stop();
+              } else {
+                auto appSrcNode =
+                    std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
+                        node);
+                if (appSrcNode) {
+                  appSrcNode->stop();
+                } else {
+                  auto fileNode =
+                      std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                          node);
+                  if (fileNode) {
+                    fileNode->stop();
+                  }
+                }
+              }
+            }
           }
         }
 

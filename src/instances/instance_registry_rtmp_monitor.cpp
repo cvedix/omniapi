@@ -671,7 +671,8 @@ bool InstanceRegistry::reconnectRTMPSourceStream(
                 << std::endl;
 
       // CRITICAL FIX: Wait additional time after start() to allow GStreamer to initialize
-      // This prevents invalid sample errors immediately after reconnect
+      // and produce valid samples. Prevents "gst_sample_get_caps assertion 'GST_IS_SAMPLE (sample)' failed"
+      // and retrieveVideoFrame NULL (see docs/RTMP_RECONNECT_GSTREAMER_NULL_SAMPLE.md).
       auto initializationTimeout = TimeoutConstants::getRtmpSourceReconnectInitialization();
       int initializationMs = initializationTimeout.count();
       int initSleepIterations = (initializationMs + 99) / 100; // Round up to nearest 100ms
@@ -777,26 +778,18 @@ void InstanceRegistry::startRTMPDestinationMonitorThread(const std::string &inst
     std::cerr << "[InstanceRegistry] [RTMP Destination Monitor] Monitoring RTMP destination stream: "
               << rtmpUrl << std::endl;
 
-    const auto check_interval = std::chrono::seconds(
-        2); // Check every 2 seconds
+    const auto check_interval = std::chrono::seconds(2);
 
-    // CRITICAL: Different timeouts for initial connection vs disconnection
-    // - Initial connection: Allow 30 seconds for RTMP destination to establish
-    // - After connection: Use 20 seconds for disconnection detection (reduced from 30s for faster error detection)
-    //   This allows reasonable time for frames to be processed through the pipeline,
-    //   but detects write failures faster to prevent queue backup
-    const auto initial_connection_timeout =
-        std::chrono::seconds(30); // Allow 30 seconds for initial RTMP destination connection
-    // Base disconnection timeout - will be reduced adaptively if errors detected
-    auto disconnection_timeout =
-        std::chrono::seconds(20); // Consider disconnected if no activity for 20 seconds (faster detection of write failures)
-
-    const auto reconnect_cooldown =
-        std::chrono::seconds(10); // Wait 10 seconds between reconnect attempts
-    const auto reconnect_grace_period =
-        std::chrono::seconds(30); // Grace period after successful reconnect to allow connection establishment
-    const int max_reconnect_attempts =
-        10; // Maximum reconnect attempts before giving up
+    // Configurable via env: RTMP_DES_* (see include/core/timeout_constants.h) to reduce false disconnect
+    const auto initial_connection_timeout = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesInitialConnectionTimeoutSec());
+    auto disconnection_timeout = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesDisconnectionTimeoutSec());
+    const auto reconnect_cooldown = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesReconnectCooldownSec());
+    const auto reconnect_grace_period = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesReconnectGracePeriodSec());
+    const int max_reconnect_attempts = 10;
 
     auto instance_start_time =
         std::chrono::steady_clock::now();
@@ -910,18 +903,12 @@ void InstanceRegistry::startRTMPDestinationMonitorThread(const std::string &inst
 
       // CRITICAL FIX: Early detection and queue clearing
       // If destination has no activity for > threshold, detach destination node immediately
-      // to clear queue and prevent backup. This prevents "queue full, dropping meta!" warnings
-      // and allows faster recovery.
-      // Use adaptive threshold: shorter for consecutive errors (when activity stops suddenly)
-      // This helps detect GStreamer "Error pushing buffer" issues that accumulate over time
-      int early_detection_threshold = 15; // Default: 15s
-      
-      // CRITICAL: If we had activity before but now stopped, likely errors accumulating
-      // Use shorter threshold to detect GStreamer buffer errors faster
+      // to clear queue and prevent backup. Configurable via RTMP_DES_EARLY_DETECTION_THRESHOLD_SEC.
+      int early_detection_threshold =
+          TimeoutConstants::getRtmpDesEarlyDetectionThresholdSec();
+      // If we had activity before but now stopped, use shorter threshold to recover faster
       if (has_connected && has_activity && time_since_activity > 5) {
-        // Activity stopped after being connected - likely errors
-        // Use shorter threshold (10s) to detect and recover faster
-        early_detection_threshold = 10;
+        early_detection_threshold = std::min(early_detection_threshold, 12);
       }
       
       // Check if we're in grace period after successful reconnect
