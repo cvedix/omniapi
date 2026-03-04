@@ -104,6 +104,7 @@
 #include <cvedix/nodes/infers/cvedix_trt_insight_face_recognition_node.h>
 #endif
 #include <atomic>
+#include <functional>
 #include <tuple>
 #include <vector>
 
@@ -1609,19 +1610,9 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           mqttConfig.nodeName = "json_crossline_mqtt_broker_{instanceId}";
           mqttConfig.parameters = {};
 
-          std::string mqttNodeName = mqttConfig.nodeName;
-          size_t pos = mqttNodeName.find("{instanceId}");
-          while (pos != std::string::npos) {
-            mqttNodeName.replace(pos, 12, instanceId);
-            pos = mqttNodeName.find("{instanceId}", pos + instanceId.length());
-          }
-
-          // TEMPORARILY DISABLED: cereal/rapidxml macro conflict issue in CVEDIX SDK
-          std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker is temporarily disabled due to CVEDIX SDK cereal/rapidxml issue"
-                    << std::endl;
-          // auto mqttNode = PipelineBuilderBrokerNodes::createJSONCrosslineMQTTBrokerNode(
-          //     mqttNodeName, mqttConfig.parameters, req, instanceId);
-          std::shared_ptr<cvedix_nodes::cvedix_node> mqttNode = nullptr;
+          std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> mqttExtraNodes;
+          std::shared_ptr<cvedix_nodes::cvedix_node> mqttNode =
+              createNode(mqttConfig, mutableReq, instanceId, existingRTMPStreamKeys, &mqttExtraNodes);
           if (mqttNode) {
             // Find ba_crossline node to attach to (like in sample code)
             auto attachTarget = findAttachTargetForBrokerCrossline(true);
@@ -2163,6 +2154,17 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
   return nodes;
 }
 
+#ifdef CVEDIX_WITH_MQTT
+namespace pipeline_builder_crossline_mqtt {
+std::shared_ptr<cvedix_nodes::cvedix_node> createCrosslineMQTTBrokerNode(
+    const std::string &nodeName,
+    std::function<void(const std::string &)> mqtt_publish_func,
+    const std::string &instance_id, const std::string &instance_name,
+    const std::string &zone_id, const std::string &zone_name,
+    const std::string &crossing_lines_json);
+}
+#endif
+
 std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
                             const CreateInstanceRequest &req,
@@ -2372,12 +2374,92 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
 #endif
     } else if (nodeConfig.nodeType == "json_crossline_mqtt_broker") {
 #ifdef CVEDIX_WITH_MQTT
-      // TEMPORARILY DISABLED: cereal/rapidxml macro conflict issue in CVEDIX SDK
-      std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker is temporarily disabled due to CVEDIX SDK cereal/rapidxml issue"
-                << std::endl;
-      return nullptr;
-      // return PipelineBuilderBrokerNodes::createJSONCrosslineMQTTBrokerNode(nodeName, params, req,
-      //                                          instanceId);
+      // Create crossline MQTT broker node inline (class is defined in this file)
+      // Supports CrossingLines from additionalParams (top-level or from input/output merge)
+      std::string instance_id = instanceId;
+      std::string instance_name = req.name.empty() ? instanceId : req.name;
+      std::string zone_id = "default_zone";
+      std::string zone_name = "CrosslineZone";
+      auto zoneIdIt = req.additionalParams.find("ZONE_ID");
+      if (zoneIdIt != req.additionalParams.end() && !zoneIdIt->second.empty())
+        zone_id = zoneIdIt->second;
+      auto zoneNameIt = req.additionalParams.find("ZONE_NAME");
+      if (zoneNameIt != req.additionalParams.end() && !zoneNameIt->second.empty())
+        zone_name = zoneNameIt->second;
+
+      std::string mqtt_broker;
+      int mqtt_port = 1883;
+      std::string mqtt_topic = "events";
+      std::string mqtt_username, mqtt_password;
+      auto brokerIt = req.additionalParams.find("MQTT_BROKER_URL");
+      if (brokerIt != req.additionalParams.end() && !brokerIt->second.empty()) {
+        mqtt_broker = brokerIt->second;
+        size_t p = mqtt_broker.find_first_not_of(" \t\n\r");
+        if (p != std::string::npos) {
+          size_t q = mqtt_broker.find_last_not_of(" \t\n\r");
+          mqtt_broker = mqtt_broker.substr(p, q != std::string::npos ? q - p + 1 : std::string::npos);
+        }
+      }
+      auto portIt = req.additionalParams.find("MQTT_PORT");
+      if (portIt != req.additionalParams.end() && !portIt->second.empty()) {
+        try { mqtt_port = std::stoi(portIt->second); } catch (...) {}
+      }
+      auto topicIt = req.additionalParams.find("MQTT_TOPIC");
+      if (topicIt != req.additionalParams.end() && !topicIt->second.empty())
+        mqtt_topic = topicIt->second;
+      auto usernameIt = req.additionalParams.find("MQTT_USERNAME");
+      if (usernameIt != req.additionalParams.end()) mqtt_username = usernameIt->second;
+      auto passwordIt = req.additionalParams.find("MQTT_PASSWORD");
+      if (passwordIt != req.additionalParams.end()) mqtt_password = passwordIt->second;
+
+      std::string crossing_lines_json;
+      auto crossingLinesIt = req.additionalParams.find("CrossingLines");
+      if (crossingLinesIt != req.additionalParams.end() && !crossingLinesIt->second.empty())
+        crossing_lines_json = crossingLinesIt->second;
+
+      if (mqtt_broker.empty()) {
+        std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker: MQTT_BROKER_URL empty, skipping"
+                  << std::endl;
+        return nullptr;
+      }
+
+      std::string client_id = "edgeos_api_" + instance_id;
+      auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
+          mqtt_broker, mqtt_port, client_id, 60);
+      mqtt_client->set_auto_reconnect(true, 5000);
+      bool connected = mqtt_client->connect(mqtt_username, mqtt_password);
+      if (connected)
+        std::cerr << "[PipelineBuilder] [MQTT] Crossline broker connected to " << mqtt_broker << ":"
+                  << mqtt_port << std::endl;
+      else
+        std::cerr << "[PipelineBuilder] [MQTT] Crossline broker connection pending (auto-reconnect)"
+                  << std::endl;
+
+      static std::mutex mqtt_crossline_publish_mutex;
+      auto mqtt_client_ptr = std::shared_ptr<cvedix_utils::cvedix_mqtt_client>(mqtt_client.release());
+      auto mqtt_publish_func = [mqtt_client_ptr, mqtt_topic](const std::string &json_message) {
+        std::lock_guard<std::mutex> lock(mqtt_crossline_publish_mutex);
+        if (!mqtt_client_ptr || !mqtt_client_ptr->is_ready()) return;
+        if (json_message.empty()) return;
+        mqtt_client_ptr->publish(mqtt_topic, json_message, 1, false);
+        std::cerr << "[MQTT] ✓ Published crossline event to " << mqtt_topic << std::endl;
+      };
+
+      try {
+        auto node = pipeline_builder_crossline_mqtt::createCrosslineMQTTBrokerNode(
+            nodeName, mqtt_publish_func, instance_id, instance_name, zone_id, zone_name,
+            crossing_lines_json);
+        if (node) {
+          std::cerr << "[PipelineBuilder] ✓ json_crossline_mqtt_broker created (topic: "
+                    << mqtt_topic << ", CrossingLines: " << (crossing_lines_json.empty() ? "none" : "set")
+                    << ")" << std::endl;
+        }
+        return node;
+      } catch (const std::exception &e) {
+        std::cerr << "[PipelineBuilder] Failed to create json_crossline_mqtt_broker: " << e.what()
+                  << std::endl;
+        return nullptr;
+      }
 #else
       std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker requires "
                    "CVEDIX_WITH_MQTT to be enabled"
@@ -3955,6 +4037,21 @@ public:
     }
   }
 };
+
+#ifdef CVEDIX_WITH_MQTT
+namespace pipeline_builder_crossline_mqtt {
+std::shared_ptr<cvedix_nodes::cvedix_node> createCrosslineMQTTBrokerNode(
+    const std::string &nodeName,
+    std::function<void(const std::string &)> mqtt_publish_func,
+    const std::string &instance_id, const std::string &instance_name,
+    const std::string &zone_id, const std::string &zone_name,
+    const std::string &crossing_lines_json) {
+  return std::make_shared<cvedix_json_crossline_mqtt_broker_node>(
+      nodeName, mqtt_publish_func, instance_id, instance_name, zone_id, zone_name,
+      crossing_lines_json);
+}
+}
+#endif
 
 // ========== Helper Functions for Jam MQTT Broker ==========
 namespace {} // namespace
