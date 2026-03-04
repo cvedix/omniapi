@@ -80,3 +80,8 @@ version_manifest_*.txt
 
 # Backup files
 *.backup
+
+# Benchmark (Python)
+tests/benchmark/__pycache__/
+tests/benchmark/venv/
+tests/benchmark/output/
