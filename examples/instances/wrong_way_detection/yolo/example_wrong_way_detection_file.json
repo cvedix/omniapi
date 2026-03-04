@@ -1,0 +1,15 @@
+{
+  "name": "wrong_way_detection_file_demo",
+  "group": "demo",
+  "solution": "wrong_way_detection",
+  "autoStart": false,
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "./cvedix_data/test_video/vietnam_plate.mp4",
+      "MODEL_PATH": "./cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+      "CONFIG_PATH": "./cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg",
+      "LABELS_PATH": "./cvedix_data/models/det_cls/yolov3_tiny_5classes.txt",
+      "RESIZE_RATIO": "0.5"
+    }
+  }
+}

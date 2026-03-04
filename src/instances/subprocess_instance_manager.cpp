@@ -1407,6 +1407,83 @@ bool SubprocessInstanceManager::updateLines(const std::string &instanceId,
   return false;
 }
 
+bool SubprocessInstanceManager::updateJams(const std::string &instanceId,
+                                          const Json::Value &jamsJson) {
+  auto workerState = supervisor_->getWorkerState(instanceId);
+  if (workerState != worker::WorkerState::READY &&
+      workerState != worker::WorkerState::BUSY) {
+    std::cerr << "[SubprocessInstanceManager] Worker not ready: " << instanceId
+              << std::endl;
+    return false;
+  }
+  worker::IPCMessage msg;
+  msg.type = worker::MessageType::UPDATE_JAMS;
+  msg.payload["instance_id"] = instanceId;
+  msg.payload["jams"] = jamsJson;
+  auto response = supervisor_->sendToWorker(
+      instanceId, msg, TimeoutConstants::getIpcApiTimeoutMs());
+  if (response.type == worker::MessageType::UPDATE_JAMS_RESPONSE &&
+      response.payload.get("success", false).asBool()) {
+    return true;
+  }
+  std::cerr << "[SubprocessInstanceManager] Failed to update jams: "
+            << response.payload.get("error", "Unknown error").asString()
+            << std::endl;
+  return false;
+}
+
+bool SubprocessInstanceManager::updateStops(const std::string &instanceId,
+                                           const Json::Value &stopsJson) {
+  auto workerState = supervisor_->getWorkerState(instanceId);
+  if (workerState != worker::WorkerState::READY &&
+      workerState != worker::WorkerState::BUSY) {
+    std::cerr << "[SubprocessInstanceManager] Worker not ready: " << instanceId
+              << std::endl;
+    return false;
+  }
+  worker::IPCMessage msg;
+  msg.type = worker::MessageType::UPDATE_STOPS;
+  msg.payload["instance_id"] = instanceId;
+  msg.payload["stops"] = stopsJson;
+  auto response = supervisor_->sendToWorker(
+      instanceId, msg, TimeoutConstants::getIpcApiTimeoutMs());
+  if (response.type == worker::MessageType::UPDATE_STOPS_RESPONSE &&
+      response.payload.get("success", false).asBool()) {
+    return true;
+  }
+  std::cerr << "[SubprocessInstanceManager] Failed to update stops: "
+            << response.payload.get("error", "Unknown error").asString()
+            << std::endl;
+  return false;
+}
+
+bool SubprocessInstanceManager::pushFrame(const std::string &instanceId,
+                                           const std::string &frameBase64,
+                                           const std::string &codec) {
+  auto workerState = supervisor_->getWorkerState(instanceId);
+  if (workerState != worker::WorkerState::READY &&
+      workerState != worker::WorkerState::BUSY) {
+    std::cerr << "[SubprocessInstanceManager] Worker not ready for pushFrame: "
+              << instanceId << std::endl;
+    return false;
+  }
+  worker::IPCMessage msg;
+  msg.type = worker::MessageType::PUSH_FRAME;
+  msg.payload["instance_id"] = instanceId;
+  msg.payload["frame_base64"] = frameBase64;
+  msg.payload["codec"] = codec;
+  auto response = supervisor_->sendToWorker(
+      instanceId, msg, TimeoutConstants::getIpcApiTimeoutMs());
+  if (response.type == worker::MessageType::PUSH_FRAME_RESPONSE &&
+      response.payload.get("success", false).asBool()) {
+    return true;
+  }
+  std::cerr << "[SubprocessInstanceManager] pushFrame failed: "
+            << response.payload.get("error", "Unknown error").asString()
+            << std::endl;
+  return false;
+}
+
 Json::Value SubprocessInstanceManager::getInstanceConfig(
     const std::string &instanceId) const {
   std::lock_guard<std::mutex> lock(instances_mutex_);

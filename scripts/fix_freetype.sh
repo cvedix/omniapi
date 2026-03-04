@@ -24,7 +24,7 @@ NC='\033[0m'
 # Configuration
 INSTALL_DIR="${INSTALL_DIR:-/opt/edgeos-api}"
 FREETYPE_410_TARGET="$INSTALL_DIR/lib/libopencv_freetype.so.410"
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
 

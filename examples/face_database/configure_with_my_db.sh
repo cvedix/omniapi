@@ -25,7 +25,7 @@ echo ""
 echo "Kiểm tra API server..."
 if ! curl -s "$API_URL/v1/core/health" > /dev/null; then
     echo "❌ API server không khả dụng tại $API_URL"
-    echo "Đảm bảo server đang chạy: ./build/edge_ai_api"
+    echo "Đảm bảo server đang chạy: ./build/edgeos-api"
     exit 1
 fi
 echo "✓ API server đang chạy"

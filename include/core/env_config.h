@@ -232,13 +232,13 @@ inline int parseLogLevelInt(const std::string &level_str, int default_level) {
  * DIRECTORY_CREATION_GUIDE.md:
  * 1. Try to create preferred_path (production path)
  * 2. If permission denied, fallback to user directory
- * (~/.local/share/edge_ai_api/{subdir})
+ * (~/.local/share/edgeos-api/{subdir})
  * 3. If that fails, fallback to current directory (./{subdir})
  *
  * Never throws exceptions - always returns a path (even if creation failed)
  *
  * @param preferred_path Preferred directory path (e.g.,
- * "/opt/edge_ai_api/instances")
+ * "/opt/edgeos-api/instances")
  * @param subdir Subdirectory name for fallback (e.g., "instances")
  * @return Resolved directory path (may be different from preferred_path if
  * fallback was used)
@@ -263,7 +263,7 @@ inline std::string resolveDirectory(const std::string &preferred_path,
         const char *home = std::getenv("HOME");
         if (home && !subdir.empty()) {
           std::string fallback =
-              std::string(home) + "/.local/share/edge_ai_api/" + subdir;
+              std::string(home) + "/.local/share/edgeos-api/" + subdir;
           try {
             std::filesystem::create_directories(fallback);
             std::cerr << "[EnvConfig] ✓ Using fallback: " << fallback
@@ -328,8 +328,8 @@ inline std::string resolveDirectory(const std::string &preferred_path,
  * from all tiers)
  *
  * Returns all possible paths in priority order:
- * 1. Production path: /opt/edge_ai_api/{subdir}
- * 2. User directory: ~/.local/share/edge_ai_api/{subdir}
+ * 1. Production path: /opt/edgeos-api/{subdir}
+ * 2. User directory: ~/.local/share/edgeos-api/{subdir}
  * 3. Current directory: ./{subdir}
  *
  * @param subdir Subdirectory name (e.g., "instances")
@@ -340,12 +340,12 @@ getAllPossibleDirectories(const std::string &subdir) {
   std::vector<std::string> paths;
 
   // Tier 1: Production path
-  paths.push_back("/opt/edge_ai_api/" + subdir);
+  paths.push_back("/opt/edgeos-api/" + subdir);
 
   // Tier 2: User directory
   const char *home = std::getenv("HOME");
   if (home) {
-    paths.push_back(std::string(home) + "/.local/share/edge_ai_api/" + subdir);
+    paths.push_back(std::string(home) + "/.local/share/edgeos-api/" + subdir);
   }
 
   // Tier 3: Current directory
@@ -359,15 +359,15 @@ getAllPossibleDirectories(const std::string &subdir) {
  *
  * Priority:
  * 1. Environment variable (if set) - highest priority
- * 2. Use /opt/edge_ai_api/{subdir} as default (production path)
- * 3. Fallback to ~/.local/share/edge_ai_api/{subdir} (user directory)
+ * 2. Use /opt/edgeos-api/{subdir} as default (production path)
+ * 3. Fallback to ~/.local/share/edgeos-api/{subdir} (user directory)
  * 4. Last resort: ./{subdir} (current directory)
  *
  * Directory will be created automatically if it doesn't exist.
  * Follows XDG Base Directory Specification for user fallback.
  *
  * @param env_var_name Environment variable name (e.g., "SOLUTIONS_DIR")
- * @param subdir Subdirectory name under /opt/edge_ai_api (e.g., "solutions")
+ * @param subdir Subdirectory name under /opt/edgeos-api (e.g., "solutions")
  * @return Resolved directory path
  */
 inline std::string resolveDataDir(const char *env_var_name,
@@ -400,8 +400,8 @@ inline std::string resolveDataDir(const char *env_var_name,
     }
   }
 
-  // Tier 2: Use /opt/edge_ai_api/{subdir} as default (production path)
-  std::string default_path = "/opt/edge_ai_api/" + subdir;
+  // Tier 2: Use /opt/edgeos-api/{subdir} as default (production path)
+  std::string default_path = "/opt/edgeos-api/" + subdir;
 
   // Try to create production directory
   try {
@@ -429,12 +429,12 @@ inline std::string resolveDataDir(const char *env_var_name,
     // Fall through to fallback
   }
 
-  // Tier 3: Fallback to user directory (~/.local/share/edge_ai_api/{subdir})
+  // Tier 3: Fallback to user directory (~/.local/share/edgeos-api/{subdir})
   // Follows XDG Base Directory Specification
   const char *home = std::getenv("HOME");
   if (home) {
     std::string fallback_path =
-        std::string(home) + "/.local/share/edge_ai_api/" + subdir;
+        std::string(home) + "/.local/share/edgeos-api/" + subdir;
     try {
       std::filesystem::create_directories(fallback_path);
       std::cerr << "[EnvConfig] ✓ Using fallback user directory: "
@@ -567,10 +567,10 @@ inline std::string resolveDefaultFontPath() {
     }
   }
 
-  // Priority 5: /opt/edge_ai_api/fonts/NotoSansCJKsc-Medium.otf (production
+  // Priority 5: /opt/edgeos-api/fonts/NotoSansCJKsc-Medium.otf (production
   // fonts directory)
   std::string productionFontPath =
-      "/opt/edge_ai_api/fonts/NotoSansCJKsc-Medium.otf";
+      "/opt/edgeos-api/fonts/NotoSansCJKsc-Medium.otf";
   try {
     if (std::filesystem::exists(productionFontPath)) {
       std::cerr << "[EnvConfig] ✓ Using font from production fonts directory: "
@@ -583,7 +583,7 @@ inline std::string resolveDefaultFontPath() {
 
   // Priority 6: Development fallback:
   // ./cvedix_data/font/NotoSansCJKsc-Medium.otf NOTE: This path will NOT exist
-  // in production - all fonts should be in /opt/edge_ai_api/fonts
+  // in production - all fonts should be in /opt/edgeos-api/fonts
   std::string relativePath = "./cvedix_data/font/NotoSansCJKsc-Medium.otf";
   try {
     if (std::filesystem::exists(relativePath)) {
@@ -609,9 +609,9 @@ inline std::string resolveDefaultFontPath() {
  * 1. CONFIG_FILE environment variable (if set) - highest priority
  * 2. Try paths in order:
  *    - ./config.json (current directory)
- *    - /opt/edge_ai_api/config/config.json (production)
- *    - /etc/edge_ai_api/config.json (system)
- *    - ~/.config/edge_ai_api/config.json (user config - fallback)
+ *    - /opt/edgeos-api/config/config.json (production)
+ *    - /etc/edgeos-api/config.json (system)
+ *    - ~/.config/edgeos-api/config.json (user config - fallback)
  *    - ./config.json (last resort)
  *
  * Parent directories will be created automatically if needed.
@@ -655,8 +655,8 @@ inline std::string resolveConfigPath() {
     return current_dir_path;
   }
 
-  // Tier 2: Production path (/opt/edge_ai_api/config/config.json)
-  std::string production_path = "/opt/edge_ai_api/config/config.json";
+  // Tier 2: Production path (/opt/edgeos-api/config/config.json)
+  std::string production_path = "/opt/edgeos-api/config/config.json";
   if (std::filesystem::exists(production_path)) {
     std::cerr << "[EnvConfig] ✓ Found existing config file: " << production_path
               << " (production)" << std::endl;
@@ -685,8 +685,8 @@ inline std::string resolveConfigPath() {
               << ", trying fallback..." << std::endl;
   }
 
-  // Tier 3: System path (/etc/edge_ai_api/config.json)
-  std::string system_path = "/etc/edge_ai_api/config.json";
+  // Tier 3: System path (/etc/edgeos-api/config.json)
+  std::string system_path = "/etc/edgeos-api/config.json";
   if (std::filesystem::exists(system_path)) {
     std::cerr << "[EnvConfig] ✓ Found existing config file: " << system_path
               << " (system)" << std::endl;
@@ -715,11 +715,11 @@ inline std::string resolveConfigPath() {
               << ", trying fallback..." << std::endl;
   }
 
-  // Fallback 1: User config directory (~/.config/edge_ai_api/config.json)
+  // Fallback 1: User config directory (~/.config/edgeos-api/config.json)
   const char *home = std::getenv("HOME");
   if (home) {
     std::string user_config =
-        std::string(home) + "/.config/edge_ai_api/config.json";
+        std::string(home) + "/.config/edgeos-api/config.json";
     try {
       std::filesystem::path filePath(user_config);
       if (filePath.has_parent_path()) {
@@ -740,7 +740,7 @@ inline std::string resolveConfigPath() {
       << "[EnvConfig] ✓ Using last resort: ./config.json (current directory)"
       << std::endl;
   std::cerr << "[EnvConfig] ℹ Note: To use production path, run: sudo mkdir -p "
-               "/opt/edge_ai_api/config"
+               "/opt/edgeos-api/config"
             << std::endl;
   return "./config.json";
 }

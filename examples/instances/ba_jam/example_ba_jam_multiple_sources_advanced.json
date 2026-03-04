@@ -5,10 +5,10 @@
   "autoStart": false,
   "additionalParams": {
     "input": {
-      "FILE_PATHS": "[{\"file_path\":\"/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam.mp4\",\"channel\":0,\"resize_ratio\":0.5},{\"file_path\":\"/home/cvedix/project/edge_ai_api/cvedix_data/test_video/jam2.mp4\",\"channel\":1,\"resize_ratio\":0.6}]",
-      "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-      "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt"
+      "FILE_PATHS": "[{\"file_path\":\"/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam.mp4\",\"channel\":0,\"resize_ratio\":0.5},{\"file_path\":\"/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam2.mp4\",\"channel\":1,\"resize_ratio\":0.6}]",
+      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt"
     },
     "output": {
       "ENABLE_SCREEN_DES": "false"

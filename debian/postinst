@@ -6,9 +6,9 @@
 set -e
 
 PACKAGE_NAME="edgeos-api"
-INSTALL_DIR="/opt/edge_ai_api"
+INSTALL_DIR="/opt/edgeos-api"
 BIN_DIR="/usr/local/bin"
-LIB_DIR="/opt/edge_ai_api/lib"
+LIB_DIR="/opt/edgeos-api/lib"
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
 SERVICE_NAME="edgeos-api"
@@ -189,7 +189,7 @@ else
 fi
 
 # Setup permissions for external data directories (e.g., cvedix_data)
-# This handles cases where data is stored outside /opt/edge_ai_api
+# This handles cases where data is stored outside /opt/edgeos-api
 echo "Setting up permissions for external data directories..."
 
 # Function to setup external data directory permissions
@@ -249,10 +249,10 @@ setup_external_data_permissions() {
 # Common external data directory locations
 # Check in order of likelihood
 EXTERNAL_DATA_DIRS=(
-    "/home/*/project/edge_ai_api/cvedix_data"
-    "/home/*/edge_ai_api/cvedix_data"
+    "/home/*/project/edgeos-api/cvedix_data"
+    "/home/*/edgeos-api/cvedix_data"
     "/opt/cvedix_data"
-    "/var/lib/edge_ai_api/cvedix_data"
+    "/var/lib/edgeos-api/cvedix_data"
 )
 
 # Also check if CVEDIX_DATA_ROOT environment variable is set in any user's environment
@@ -260,7 +260,7 @@ for user_home in /home/*; do
     if [ -d "$user_home" ]; then
         username=$(basename "$user_home")
         # Check for cvedix_data in common project locations
-        for pattern in "$user_home/project/edge_ai_api/cvedix_data" "$user_home/edge_ai_api/cvedix_data"; do
+        for pattern in "$user_home/project/edgeos-api/cvedix_data" "$user_home/edgeos-api/cvedix_data"; do
             if [ -d "$pattern" ]; then
                 setup_external_data_permissions "$pattern" "User $username data directory"
             fi
@@ -294,7 +294,7 @@ done
 
 echo "External data directory permissions setup completed."
 
-# Note: Record directory (/opt/edge_ai_api/record) is now created automatically
+# Note: Record directory (/opt/edgeos-api/record) is now created automatically
 # by create_directories.sh script from directories.conf configuration
 
 # Bundle libraries
@@ -402,7 +402,7 @@ setup_database_file "$INSTALL_DIR/data/$DB_FILENAME" "Production path"
 if id "$SERVICE_USER" &>/dev/null; then
     USER_HOME=$(getent passwd "$SERVICE_USER" | cut -d: -f6)
     if [ -n "$USER_HOME" ] && [ "$USER_HOME" != "/" ]; then
-        USER_DB_PATH="$USER_HOME/.local/share/edge_ai_api/$DB_FILENAME"
+        USER_DB_PATH="$USER_HOME/.local/share/edgeos-api/$DB_FILENAME"
         setup_database_file "$USER_DB_PATH" "User directory"
     fi
 fi
@@ -593,7 +593,7 @@ install_opencv_410() {
     echo "OpenCV 4.10 Installation Required"
     echo "=========================================="
     echo ""
-    echo "OpenCV 4.10 with freetype support is required for edge_ai_api."
+    echo "OpenCV 4.10 with freetype support is required for edgeos-api."
     echo "The installation process will take approximately 30-60 minutes."
     echo ""
     
@@ -1032,27 +1032,27 @@ fi
 
 # Verify RPATH is set correctly for executables (critical for finding bundled libraries)
 echo "Verifying RPATH configuration..."
-EXPECTED_RPATH="/opt/edge_ai_api/lib:/opt/cvedix-ai-runtime/lib/cvedix"
+EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/cvedix-ai-runtime/lib/cvedix"
 
 if command -v patchelf >/dev/null 2>&1; then
-    if [ -f "$BIN_DIR/edge_ai_api" ]; then
-        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_api" 2>/dev/null || echo "")
+    if [ -f "$BIN_DIR/edgeos-api" ]; then
+        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
         if [ "$CURRENT_RPATH" != "$EXPECTED_RPATH" ]; then
-            echo "  Setting RPATH for edge_ai_api..."
-            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edge_ai_api" 2>/dev/null || true
-            echo "  ✓ RPATH updated for edge_ai_api"
+            echo "  Setting RPATH for edgeos-api..."
+            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edgeos-api" 2>/dev/null || true
+            echo "  ✓ RPATH updated for edgeos-api"
         else
-            echo "  ✓ RPATH already correct for edge_ai_api"
+            echo "  ✓ RPATH already correct for edgeos-api"
         fi
     fi
-    if [ -f "$BIN_DIR/edge_ai_worker" ]; then
-        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_worker" 2>/dev/null || echo "")
+    if [ -f "$BIN_DIR/edgeos-worker" ]; then
+        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-worker" 2>/dev/null || echo "")
         if [ "$CURRENT_RPATH" != "$EXPECTED_RPATH" ]; then
-            echo "  Setting RPATH for edge_ai_worker..."
-            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edge_ai_worker" 2>/dev/null || true
-            echo "  ✓ RPATH updated for edge_ai_worker"
+            echo "  Setting RPATH for edgeos-worker..."
+            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edgeos-worker" 2>/dev/null || true
+            echo "  ✓ RPATH updated for edgeos-worker"
         else
-            echo "  ✓ RPATH already correct for edge_ai_worker"
+            echo "  ✓ RPATH already correct for edgeos-worker"
         fi
     fi
 else
@@ -1127,10 +1127,10 @@ if [ -f "$INSTALL_DIR/scripts/validate_installation.sh" ]; then
 else
     # Fallback to basic verification
     echo "Verifying executable..."
-    if [ -f "$BIN_DIR/edge_ai_api" ]; then
+    if [ -f "$BIN_DIR/edgeos-api" ]; then
         # Check if executable can find libraries
         if command -v ldd >/dev/null 2>&1; then
-            MISSING_LIBS=$(ldd "$BIN_DIR/edge_ai_api" 2>&1 | grep "not found" || true)
+            MISSING_LIBS=$(ldd "$BIN_DIR/edgeos-api" 2>&1 | grep "not found" || true)
             if [ -n "$MISSING_LIBS" ]; then
                 echo "Warning: Some libraries may be missing:"
                 echo "$MISSING_LIBS"
@@ -1139,7 +1139,7 @@ else
 
         # Check RPATH
         if command -v patchelf >/dev/null 2>&1; then
-            RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_api" 2>/dev/null || echo "")
+            RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
             echo "Executable RPATH: ${RPATH:-not set}"
         fi
     fi
@@ -1171,7 +1171,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -d "/etc/systemd/system" ]; then
 else
     echo "⚠  Warning: systemctl not found or systemd not available"
     echo "Service management commands will not work. Please start the service manually:"
-    echo "  $BIN_DIR/edge_ai_api"
+    echo "  $BIN_DIR/edgeos-api"
 fi
 
 echo "Installation completed successfully!"
@@ -1217,9 +1217,9 @@ echo ""
 echo "4. If OpenCV 4.10 is NOT installed, install it using the build script:"
 echo "   # Download the build script if not available:"
 echo "   cd /tmp"
-echo "   wget https://raw.githubusercontent.com/cvedix/edge_ai_api/main/scripts/build_opencv_safe.sh"
+echo "   wget https://raw.githubusercontent.com/cvedix/edgeos-api/main/scripts/build_opencv_safe.sh"
 echo "   # Or use the script from package source:"
-echo "   # cd /path/to/edge_ai_api"
+echo "   # cd /path/to/edgeos-api"
 echo "   # sudo ./scripts/build_opencv_safe.sh"
 echo ""
 echo "   # Make script executable and run:"

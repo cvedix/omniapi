@@ -25,7 +25,7 @@
   "additionalParams": {
     "input": {
       "RTSP_URL": "rtsp://localhost:8554/live/vanphong",
-      "MODEL_PATH": "/opt/edge_ai_api/models/detection/pva_det_full_frame_512.trt"
+      "MODEL_PATH": "/opt/edgeos-api/models/detection/pva_det_full_frame_512.trt"
     }
   }
 }

@@ -98,6 +98,9 @@ uint64_t FrameInputQueue::getDroppedCount() const {
 
 // ========== FrameInputQueueManager Implementation ==========
 
+// Real-time default: small queue to bound latency (was 1000, caused 30+ s delay at 30fps)
+static constexpr size_t kDefaultFrameQueueMaxSize = 30;
+
 FrameInputQueueManager& FrameInputQueueManager::getInstance() {
   static FrameInputQueueManager instance;
   return instance;
@@ -108,8 +111,7 @@ FrameInputQueue& FrameInputQueueManager::getQueue(const std::string& instanceId)
   
   auto it = queues_.find(instanceId);
   if (it == queues_.end()) {
-    // Create new queue with default max size (1000 frames)
-    auto queue = std::make_unique<FrameInputQueue>(1000);
+    auto queue = std::make_unique<FrameInputQueue>(kDefaultFrameQueueMaxSize);
     auto* queuePtr = queue.get();
     queues_[instanceId] = std::move(queue);
     return *queuePtr;

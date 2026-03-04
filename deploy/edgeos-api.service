@@ -59,7 +59,7 @@ Environment="EDGE_AI_EXECUTION_MODE=in-process"
 Environment="INSTANCES_DIR=/opt/edgeos-api/instances"
 # Installation directory (required for finding api-specs/scalar files)
 # Default: /opt/edgeos-api
-Environment="EDGE_AI_API_INSTALL_DIR=/opt/edgeos-api"
+Environment="EDGEOS_API_INSTALL_DIR=/opt/edgeos-api"
 # GStreamer plugin path (required for filesrc and other plugins)
 # Priority: 1) Bundled plugins in /opt/edgeos-api/lib/gstreamer-1.0 (all-in-one)
 #          2) Value from /opt/edgeos-api/config/.env (set by postinst)

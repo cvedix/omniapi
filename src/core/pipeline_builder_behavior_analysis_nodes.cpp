@@ -15,6 +15,8 @@
 #include <cvedix/nodes/ba/cvedix_ba_area_enter_exit_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_counting_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_area_crowding_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_crowding_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_enter_exit_osd_node.h>
@@ -246,10 +248,39 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineNode(
       }
 
       if (!hasValidParams) {
-        std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] No valid line configuration found. "
-                     "BA crossline node will be created without lines. "
-                     "Lines can be added later via API."
-                  << std::endl;
+        // Priority 3: Legacy CROSSLINE_* from additionalParams (e.g. additionalParams.input)
+        auto sx = req.additionalParams.find("CROSSLINE_START_X");
+        auto sy = req.additionalParams.find("CROSSLINE_START_Y");
+        auto ex = req.additionalParams.find("CROSSLINE_END_X");
+        auto ey = req.additionalParams.find("CROSSLINE_END_Y");
+        if (sx != req.additionalParams.end() && !sx->second.empty() &&
+            sy != req.additionalParams.end() && !sy->second.empty() &&
+            ex != req.additionalParams.end() && !ex->second.empty() &&
+            ey != req.additionalParams.end() && !ey->second.empty()) {
+          try {
+            int start_x = std::stoi(sx->second);
+            int start_y = std::stoi(sy->second);
+            int end_x = std::stoi(ex->second);
+            int end_y = std::stoi(ey->second);
+            cvedix_objects::cvedix_point start(start_x, start_y);
+            cvedix_objects::cvedix_point end(end_x, end_y);
+            lines[0] = cvedix_objects::cvedix_line(start, end);
+            linesParsed = true;
+            std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Using line from legacy "
+                         "CROSSLINE_* in additionalParams (channel 0: ("
+                      << start_x << "," << start_y << ") -> (" << end_x << "," << end_y << "))"
+                      << std::endl;
+          } catch (const std::exception &e) {
+            std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: Failed to parse legacy "
+                         "CROSSLINE_*: " << e.what() << std::endl;
+          }
+        }
+        if (!linesParsed) {
+          std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] No valid line configuration found. "
+                       "BA crossline node will be created without lines. "
+                       "Lines can be added later via API."
+                    << std::endl;
+        }
       }
     }
 
@@ -797,6 +828,37 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineOSDNode(
       } catch (const std::exception &e) {
         std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: Failed to parse "
                      "CrossingLines for OSD node: " << e.what() << std::endl;
+      }
+    }
+
+    // Fallback: legacy CROSSLINE_START_X/Y, CROSSLINE_END_X/Y from additionalParams
+    // (e.g. when instance uses additionalParams.input with these keys and no CrossingLines)
+    auto sx = req.additionalParams.find("CROSSLINE_START_X");
+    auto sy = req.additionalParams.find("CROSSLINE_START_Y");
+    auto ex = req.additionalParams.find("CROSSLINE_END_X");
+    auto ey = req.additionalParams.find("CROSSLINE_END_Y");
+    if (sx != req.additionalParams.end() && !sx->second.empty() &&
+        sy != req.additionalParams.end() && !sy->second.empty() &&
+        ex != req.additionalParams.end() && !ex->second.empty() &&
+        ey != req.additionalParams.end() && !ey->second.empty()) {
+      try {
+        int start_x = std::stoi(sx->second);
+        int start_y = std::stoi(sy->second);
+        int end_x = std::stoi(ex->second);
+        int end_y = std::stoi(ey->second);
+        cvedix_objects::cvedix_point start(start_x, start_y);
+        cvedix_objects::cvedix_point end(end_x, end_y);
+        cvedix_objects::cvedix_line line(start, end);
+        cv::Scalar line_color = cv::Scalar(0, 255, 0); // BGR green
+        cvedix_nodes::line_display_config displayConfig(
+            line, line_color, "Crossline", cvedix_objects::cvedix_ba_direct_type::BOTH);
+        node->set_line_configs(0, {displayConfig});
+        std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   ✓ Set 1 line from legacy "
+                     "CROSSLINE_* params (channel 0: (" << start_x << "," << start_y << ") -> ("
+                  << end_x << "," << end_y << "))" << std::endl;
+      } catch (const std::exception &e) {
+        std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: Failed to parse legacy "
+                     "CROSSLINE_* for OSD: " << e.what() << std::endl;
       }
     }
 
@@ -1390,6 +1452,107 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
     return node;
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Exception in createBAAreaEnterExitOSDNode: "
+              << e.what() << std::endl;
+    throw;
+  }
+}
+
+std::shared_ptr<cvedix_nodes::cvedix_node>
+PipelineBuilderBehaviorAnalysisNodes::createBACrowdingNode(
+    const std::string &nodeName,
+    const std::map<std::string, std::string> &params,
+    const CreateInstanceRequest &req) {
+
+  try {
+    if (nodeName.empty()) {
+      throw std::invalid_argument("Node name cannot be empty");
+    }
+
+    std::map<int, std::vector<cvedix_objects::cvedix_point>> rois;
+    std::map<int, cvedix_nodes::crowding_config> configs;
+    bool parsed = false;
+
+    auto it = req.additionalParams.find("CrowdingZones");
+    if (it != req.additionalParams.end() && !it->second.empty()) {
+      try {
+        Json::Reader reader;
+        Json::Value arr;
+        if (reader.parse(it->second, arr) && arr.isArray()) {
+          for (Json::ArrayIndex i = 0; i < arr.size(); ++i) {
+            const Json::Value &obj = arr[i];
+            if (!obj.isMember("coordinates") || !obj["coordinates"].isArray() ||
+                obj["coordinates"].size() < 3) {
+              continue;
+            }
+            std::vector<cvedix_objects::cvedix_point> pts;
+            for (const auto &c : obj["coordinates"]) {
+              if (c.isMember("x") && c.isMember("y") && c["x"].isNumeric() && c["y"].isNumeric()) {
+                pts.push_back(cvedix_objects::cvedix_point(
+                    static_cast<int>(c["x"].asDouble()),
+                    static_cast<int>(c["y"].asDouble())));
+              }
+            }
+            if (pts.empty()) continue;
+            int ch = obj.isMember("channel") && obj["channel"].isNumeric()
+                         ? obj["channel"].asInt()
+                         : static_cast<int>(i);
+            rois[ch] = std::move(pts);
+            int threshold = obj.isMember("threshold") && obj["threshold"].isNumeric()
+                                ? obj["threshold"].asInt()
+                                : 3;
+            double alarmSec = obj.isMember("alarm_seconds") && obj["alarm_seconds"].isNumeric()
+                                 ? obj["alarm_seconds"].asDouble()
+                                 : 2.0;
+            std::string name = obj.isMember("name") && obj["name"].isString()
+                                   ? obj["name"].asString()
+                                   : "Zone";
+            configs[ch] = cvedix_nodes::crowding_config(threshold, alarmSec, name);
+            parsed = true;
+          }
+        }
+      } catch (const std::exception &e) {
+        std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: parse CrowdingZones: "
+                  << e.what() << std::endl;
+      }
+    }
+
+    if (!parsed || rois.empty()) {
+      std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] No valid CrowdingZones; creating node with empty ROIs"
+                << std::endl;
+    }
+
+    int checkInterval = 30;
+    auto ciIt = req.additionalParams.find("CROWDING_CHECK_INTERVAL");
+    if (ciIt != req.additionalParams.end() && !ciIt->second.empty()) {
+      try {
+        checkInterval = std::stoi(ciIt->second);
+      } catch (...) {}
+    }
+
+    auto node = std::make_shared<cvedix_nodes::cvedix_ba_area_crowding_node>(
+        nodeName, rois, configs, checkInterval, false, false);
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA crowding node created successfully"
+              << std::endl;
+    return node;
+  } catch (const std::exception &e) {
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Exception in createBACrowdingNode: "
+              << e.what() << std::endl;
+    throw;
+  }
+}
+
+std::shared_ptr<cvedix_nodes::cvedix_node>
+PipelineBuilderBehaviorAnalysisNodes::createBACrowdingOSDNode(
+    const std::string &nodeName,
+    const std::map<std::string, std::string> &params) {
+
+  try {
+    auto node = std::make_shared<cvedix_nodes::cvedix_ba_area_crowding_osd_node>(nodeName);
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] ✓ BA crowding OSD node created successfully"
+              << std::endl;
+    return node;
+  } catch (const std::exception &e) {
+    std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Exception in createBACrowdingOSDNode: "
               << e.what() << std::endl;
     throw;
   }

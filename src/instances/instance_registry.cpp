@@ -33,9 +33,12 @@
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
+#include <cvedix/nodes/src/cvedix_app_src_node.h>
 #include <cvedix/nodes/src/cvedix_file_src_node.h>
+#include <cvedix/nodes/src/cvedix_image_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtmp_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtsp_src_node.h>
+#include <cvedix/nodes/src/cvedix_udp_src_node.h>
 #include <cvedix/objects/cvedix_frame_meta.h>
 #include <cvedix/objects/cvedix_meta.h>
 #include <fcntl.h>
@@ -2860,6 +2863,9 @@ bool InstanceRegistry::startPipeline(
   // Setup frame capture hook before starting pipeline
   setupFrameCaptureHook(instanceId, nodes);
 
+  // Setup RTMP destination activity hook so monitor sees real push activity
+  setupRTMPDestinationActivityHook(instanceId, nodes);
+
   // Setup queue size tracking hook before starting pipeline
   // This also tracks incoming frames on source node (first node)
   setupQueueSizeTrackingHook(instanceId, nodes);
@@ -2978,7 +2984,7 @@ bool InstanceRegistry::startPipeline(
                    "2>&1 | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Service: sudo journalctl -u "
-                   "edge-ai-api | grep -i rtspsrc"
+                   "edgeos-api | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Enable GStreamer debug: export "
                    "GST_DEBUG=rtspsrc:4"
@@ -3412,23 +3418,74 @@ bool InstanceRegistry::startPipeline(
       return true;
     }
 
+    // Check for image source node (image_src)
+    auto imageNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(nodes[0]);
+    if (imageNode) {
+      std::cerr << "[InstanceRegistry] Starting image source pipeline..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      try {
+        imageNode->start();
+        std::cerr << "[InstanceRegistry] ✓ Image source node started"
+                  << std::endl;
+        return true;
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceRegistry] ✗ Exception during imageNode->start(): "
+                  << e.what() << std::endl;
+        return false;
+      }
+    }
+
+    // Check for UDP source node (udp_src)
+    auto udpNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(nodes[0]);
+    if (udpNode) {
+      std::cerr << "[InstanceRegistry] Starting UDP source pipeline..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      try {
+        udpNode->start();
+        std::cerr << "[InstanceRegistry] ✓ UDP source node started"
+                  << std::endl;
+        return true;
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceRegistry] ✗ Exception during udpNode->start(): "
+                  << e.what() << std::endl;
+        return false;
+      }
+    }
+
+    // Check for app source node (app_src, push-based)
+    auto appSrcNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(nodes[0]);
+    if (appSrcNode) {
+      std::cerr << "[InstanceRegistry] Starting app source pipeline (push-based)..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      try {
+        appSrcNode->start();
+        std::cerr << "[InstanceRegistry] ✓ App source node started"
+                  << std::endl;
+        return true;
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceRegistry] ✗ Exception during appSrcNode->start(): "
+                  << e.what() << std::endl;
+        return false;
+      }
+    }
+
     // If not a recognized source node, cannot start pipeline
-    // RTSP, File, and RTMP source nodes are currently supported
     std::cerr << "[InstanceRegistry] ✗ Error: First node is not a recognized "
-                 "source node (RTSP, File, or RTMP)"
+                 "source node (RTSP, File, RTMP, Image, UDP, or App)"
               << std::endl;
     std::cerr << "[InstanceRegistry] Currently supported source node types:"
               << std::endl;
-    std::cerr
-        << "[InstanceRegistry]   - cvedix_rtsp_src_node (for RTSP streams)"
-        << std::endl;
-    std::cerr << "[InstanceRegistry]   - cvedix_file_src_node (for video files)"
+    std::cerr << "[InstanceRegistry]   - cvedix_rtsp_src_node, cvedix_rtmp_src_node, "
+                 "cvedix_file_src_node (ff_src uses file_src),"
               << std::endl;
-    std::cerr
-        << "[InstanceRegistry]   - cvedix_rtmp_src_node (for RTMP streams)"
-        << std::endl;
-    std::cerr << "[InstanceRegistry] Please ensure your solution config uses "
-                 "one of these as the first node"
+    std::cerr << "[InstanceRegistry]   - cvedix_image_src_node, cvedix_udp_src_node, "
+                 "cvedix_app_src_node"
               << std::endl;
     return false;
   } catch (const std::exception &e) {
@@ -5433,6 +5490,8 @@ InstanceRegistry::getInstanceStatistics(const std::string &instanceId) {
   std::string format_cached;
   size_t current_queue_size_cached = 0;
   size_t max_queue_size_seen_cached = 0;
+  bool has_rtmp_des = false;
+  bool has_rtmp_src = false;
 
   {
     // CRITICAL: Use timeout to prevent blocking if mutex is locked by another
@@ -5518,6 +5577,10 @@ InstanceRegistry::getInstanceStatistics(const std::string &instanceId) {
     format_cached = tracker.format;
     current_queue_size_cached = tracker.current_queue_size;
     max_queue_size_seen_cached = tracker.max_queue_size_seen;
+    auto it = info.additionalParams.find("RTMP_DES_URL");
+    has_rtmp_des = (it != info.additionalParams.end() && !it->second.empty());
+    it = info.additionalParams.find("RTMP_SRC_URL");
+    has_rtmp_src = (it != info.additionalParams.end() && !it->second.empty());
   } // LOCK RELEASED HERE - all subsequent operations are lock-free!
 
   // Step 2: Check cache (lock-free)
@@ -5613,6 +5676,17 @@ InstanceRegistry::getInstanceStatistics(const std::string &instanceId) {
       trackerPtr->frames_incoming.load(std::memory_order_relaxed);
   uint64_t dropped_frames_value =
       trackerPtr->dropped_frames.load(std::memory_order_relaxed);
+
+  // Refresh RTMP activity when pipeline is processing frames (reduces false
+  // "no activity" reconnect when hook misses or pipeline is slow)
+  if (frames_processed_value > 0) {
+    if (has_rtmp_des) {
+      updateRTMPDestinationActivity(instanceId);
+    }
+    if (has_rtmp_src) {
+      updateRTMPSourceActivity(instanceId);
+    }
+  }
 
   // Debug logging for statistics - flush to ensure it appears
   std::cout << "[InstanceRegistry] getInstanceStatistics(" << instanceId
@@ -6284,6 +6358,48 @@ void InstanceRegistry::setupFrameCaptureHook(
     std::cerr << "[InstanceRegistry] Frame capture will not be available. "
                  "Consider adding app_des_node to pipeline."
               << std::endl;
+  }
+}
+
+void InstanceRegistry::setupRTMPDestinationActivityHook(
+    const std::string &instanceId,
+    const std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> &nodes) {
+  if (nodes.empty()) {
+    return;
+  }
+
+  for (const auto &node : nodes) {
+    if (!node) {
+      continue;
+    }
+    auto rtmpDesNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node);
+    if (!rtmpDesNode) {
+      continue;
+    }
+
+    // Update RTMP destination activity when SDK reports stream status
+    // (frame actually pushed to RTMP). This makes monitor reflect real output.
+    rtmpDesNode->set_stream_status_hooker(
+        [this, instanceId](std::string /*node_name*/,
+                           cvedix_nodes::cvedix_stream_status /*status*/) {
+          updateRTMPDestinationActivity(instanceId);
+        });
+
+    // Fallback: also update when frame meta is handled by rtmp_des node
+    // (in case SDK does not invoke stream_status every time)
+    rtmpDesNode->set_meta_handled_hooker(
+        [this, instanceId](std::string /*node_name*/, int /*queue_size*/,
+                           std::shared_ptr<cvedix_objects::cvedix_meta> meta) {
+          if (meta && meta->meta_type ==
+                          cvedix_objects::cvedix_meta_type::FRAME) {
+            updateRTMPDestinationActivity(instanceId);
+          }
+        });
+
+    std::cerr << "[InstanceRegistry] ✓ RTMP destination activity hook set for "
+                 "instance "
+              << instanceId << std::endl;
   }
 }
 

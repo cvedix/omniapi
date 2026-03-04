@@ -108,7 +108,7 @@ curl -X POST http://localhost:8080/v1/core/instance \
   "solution": "default_minimal",
   "additionalParams": {
     "FILE_PATH": "./test_video/face.mp4",
-    "MODEL_PATH": "/opt/edge_ai_api/models/face/yunet.onnx"
+    "MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx"
   }
 }
 ```
@@ -131,7 +131,7 @@ curl -X POST http://localhost:8080/v1/core/instance \
   "solution": "default_face_detection_file",
   "additionalParams": {
     "FILE_PATH": "./test_video/face.mp4",
-    "MODEL_PATH": "/opt/edge_ai_api/models/face/yunet.onnx",
+    "MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx",
     "RESIZE_RATIO": "0.5"
   }
 }
@@ -155,7 +155,7 @@ curl -X POST http://localhost:8080/v1/core/instance \
   "solution": "default_face_detection_rtsp",
   "additionalParams": {
     "RTSP_URL": "rtsp://localhost:8554/live/stream",
-    "MODEL_PATH": "/opt/edge_ai_api/models/face/yunet.onnx"
+    "MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx"
   }
 }
 ```
@@ -177,7 +177,7 @@ curl -X POST http://localhost:8080/v1/core/instance \
   "additionalParams": {
     "FILE_PATH": "./test_video/face.mp4",
     "RTMP_URL": "rtmp://localhost:1935/live/face_stream",
-    "MODEL_PATH": "/opt/edge_ai_api/models/face/yunet.onnx"
+    "MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx"
   }
 }
 ```
@@ -199,9 +199,9 @@ curl -X POST http://localhost:8080/v1/core/instance \
   "solution": "default_object_detection_yolo",
   "additionalParams": {
     "FILE_PATH": "./test_video/objects.mp4",
-    "MODEL_PATH": "/opt/edge_ai_api/models/yolo/yolov8.weights",
-    "CONFIG_PATH": "/opt/edge_ai_api/models/yolo/yolov8.cfg",
-    "LABELS_PATH": "/opt/edge_ai_api/models/yolo/coco.names"
+    "MODEL_PATH": "/opt/edgeos-api/models/yolo/yolov8.weights",
+    "CONFIG_PATH": "/opt/edgeos-api/models/yolo/yolov8.cfg",
+    "LABELS_PATH": "/opt/edgeos-api/models/yolo/coco.names"
   }
 }
 ```
@@ -228,9 +228,9 @@ curl -X POST http://localhost:8080/v1/core/instance \
   "solution": "default_mask_rcnn_detection",
   "additionalParams": {
     "FILE_PATH": "./test_video/segmentation.mp4",
-    "MODEL_PATH": "/opt/edge_ai_api/models/mask_rcnn/frozen_inference_graph.pb",
-    "MODEL_CONFIG_PATH": "/opt/edge_ai_api/models/mask_rcnn/mask_rcnn.pbtxt",
-    "LABELS_PATH": "/opt/edge_ai_api/models/coco_80classes.txt",
+    "MODEL_PATH": "/opt/edgeos-api/models/mask_rcnn/frozen_inference_graph.pb",
+    "MODEL_CONFIG_PATH": "/opt/edgeos-api/models/mask_rcnn/mask_rcnn.pbtxt",
+    "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
     "INPUT_WIDTH": "416",
     "INPUT_HEIGHT": "416",
     "SCORE_THRESHOLD": "0.5"
@@ -257,9 +257,9 @@ curl -X POST http://localhost:8080/v1/core/instance \
   "solution": "default_ba_crossline",
   "additionalParams": {
     "FILE_PATH": "./test_video/crossline.mp4",
-    "WEIGHTS_PATH": "/opt/edge_ai_api/models/yolo/yolov8.weights",
-    "CONFIG_PATH": "/opt/edge_ai_api/models/yolo/yolov8.cfg",
-    "LABELS_PATH": "/opt/edge_ai_api/models/yolo/coco.names",
+    "WEIGHTS_PATH": "/opt/edgeos-api/models/yolo/yolov8.weights",
+    "CONFIG_PATH": "/opt/edgeos-api/models/yolo/yolov8.cfg",
+    "LABELS_PATH": "/opt/edgeos-api/models/yolo/coco.names",
     "CROSSLINE_START_X": "100",
     "CROSSLINE_START_Y": "200",
     "CROSSLINE_END_X": "800",

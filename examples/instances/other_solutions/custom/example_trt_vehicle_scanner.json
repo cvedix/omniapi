@@ -7,8 +7,8 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/opt/edge_ai_api/test_video/vehicle.mp4",
-      "VEHICLE_SCANNER_MODEL_PATH": "/opt/edge_ai_api/models/trt/vehicle/vehicle_scanner.trt"
+      "FILE_PATH": "/opt/edgeos-api/test_video/vehicle.mp4",
+      "VEHICLE_SCANNER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_scanner.trt"
     }
   },
   "pipeline": [

@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 // Forward declarations
 namespace cvedix_nodes {
@@ -27,8 +28,12 @@ public:
                             const std::string &instanceId);
 
   /**
-   * @brief Create RTMP destination node
-   * @param actualRtmpUrl Output parameter: will contain the actual RTMP URL used (may be modified for conflict resolution)
+   * @brief Create RTMP destination with last-frame-fallback proxy.
+   * Returns a proxy node (attach to OSD); rtmp_des is attached to proxy.
+   * When outExtraNodes is non-null, the actual rtmp_des node is appended
+   * so the caller can add it to the pipeline nodes list.
+   * @param actualRtmpUrl Output: actual RTMP URL used
+   * @param outExtraNodes Optional: append rtmp_des node here so caller can add to pipeline
    */
   static std::shared_ptr<cvedix_nodes::cvedix_node>
   createRTMPDestinationNode(const std::string &nodeName,
@@ -36,7 +41,8 @@ public:
                             const CreateInstanceRequest &req,
                             const std::string &instanceId,
                             const std::set<std::string> &existingRTMPStreamKeys,
-                            std::string &actualRtmpUrl);
+                            std::string &actualRtmpUrl,
+                            std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> *outExtraNodes = nullptr);
 
   /**
    * @brief Create screen destination node

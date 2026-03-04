@@ -245,7 +245,7 @@ if [ -f "$WORKER_PATH" ]; then
     collect_libs "$WORKER_PATH"
 fi
 
-CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedge_ai_core.so*
+CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedgeos_core.so*
 if ls $CORE_LIB_PATH 1> /dev/null 2>&1; then
     for core_lib in $CORE_LIB_PATH; do
         if [ -f "$core_lib" ]; then

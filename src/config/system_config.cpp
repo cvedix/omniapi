@@ -130,28 +130,24 @@ bool SystemConfig::saveConfig(const std::string &configPath) {
   }
 }
 
+// Default auto_device_list: GPU/accelerator devices before CPU (prioritize GPU)
+static std::vector<std::string> getDefaultAutoDeviceList() {
+  return {
+      "hailo.auto",   "blaize.auto", "tensorrt.1", "rknn.auto", "tensorrt.2",
+      "cavalry",      "openvino.VPU", "openvino.GPU", "openvino.CPU",
+      "snpe.dsp",     "snpe.aip",    "mnn.auto",   "armnn.GpuAcc", "armnn.CpuAcc",
+      "armnn.CpuRef", "memx.memx",   "memx.cpu",
+  };
+}
+
 void SystemConfig::initializeDefaults() {
   config_json_ = Json::Value(Json::objectValue);
 
-  // auto_device_list
+  // auto_device_list (GPU-first default)
   Json::Value autoDeviceList(Json::arrayValue);
-  autoDeviceList.append("hailo.auto");
-  autoDeviceList.append("blaize.auto");
-  autoDeviceList.append("tensorrt.1");
-  autoDeviceList.append("rknn.auto");
-  autoDeviceList.append("tensorrt.2");
-  autoDeviceList.append("cavalry");
-  autoDeviceList.append("openvino.VPU");
-  autoDeviceList.append("openvino.GPU");
-  autoDeviceList.append("openvino.CPU");
-  autoDeviceList.append("snpe.dsp");
-  autoDeviceList.append("snpe.aip");
-  autoDeviceList.append("mnn.auto");
-  autoDeviceList.append("armnn.GpuAcc");
-  autoDeviceList.append("armnn.CpuAcc");
-  autoDeviceList.append("armnn.CpuRef");
-  autoDeviceList.append("memx.memx");
-  autoDeviceList.append("memx.cpu");
+  for (const auto &d : getDefaultAutoDeviceList()) {
+    autoDeviceList.append(d);
+  }
   config_json_["auto_device_list"] = autoDeviceList;
 
   // decoder_priority_list
@@ -390,6 +386,10 @@ std::vector<std::string> SystemConfig::getAutoDeviceList() const {
     }
   }
 
+  // When missing or empty, return GPU-first default so inference prefers GPU over CPU
+  if (result.empty()) {
+    result = getDefaultAutoDeviceList();
+  }
   return result;
 }
 
@@ -665,7 +665,7 @@ SystemConfig::PerformanceConfig SystemConfig::getPerformanceConfig() const {
     }
   }
 
-  // Priority 2: Fallback to environment variable
+  // Priority 2: Fallback to environment variable (explicit thread count)
   if (config.threadNum == 0) {
     config.threadNum = EnvConfig::getInt("THREAD_NUM", 0, 0, 256);
   }

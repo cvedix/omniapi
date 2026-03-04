@@ -8,9 +8,9 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/object.mp4",
-      "MODEL_PATH": "/opt/edge_ai_api/models/mask_rcnn/mask_rcnn_inception_v2_coco.pb",
-      "MODEL_CONFIG_PATH": "/opt/edge_ai_api/models/mask_rcnn/mask_rcnn_inception_v2_coco.pbtxt",
-      "LABELS_PATH": "/opt/edge_ai_api/models/coco_80classes.txt",
+      "MODEL_PATH": "/opt/edgeos-api/models/mask_rcnn/mask_rcnn_inception_v2_coco.pb",
+      "MODEL_CONFIG_PATH": "/opt/edgeos-api/models/mask_rcnn/mask_rcnn_inception_v2_coco.pbtxt",
+      "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
       "INPUT_WIDTH": "416",
       "INPUT_HEIGHT": "416",
       "SCORE_THRESHOLD": "0.5"

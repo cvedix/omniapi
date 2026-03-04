@@ -357,6 +357,18 @@ private:
       const std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> &nodes);
 
   /**
+   * @brief Setup RTMP destination activity hook on rtmp_des nodes
+   * Updates RTMP destination activity when frames are actually pushed (stream
+   * status or meta_handled), so monitor reflects real output instead of
+   * frame cache availability.
+   * @param instanceId Instance ID
+   * @param nodes Pipeline nodes
+   */
+  void setupRTMPDestinationActivityHook(
+      const std::string &instanceId,
+      const std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> &nodes);
+
+  /**
    * @brief Setup queue size tracking hook for pipeline nodes
    * Also tracks incoming frames on source node (first node)
    * @param instanceId Instance ID

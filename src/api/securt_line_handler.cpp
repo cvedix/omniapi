@@ -6,6 +6,7 @@
 #include "core/securt_line_manager.h"
 #include "core/securt_pipeline_integration.h"
 #include "instances/inprocess_instance_manager.h"
+#include "instances/subprocess_instance_manager.h"
 #include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/objects/shapes/cvedix_line.h>
 #include <cvedix/objects/shapes/cvedix_point.h>
@@ -1110,10 +1111,25 @@ bool SecuRTLineHandler::updateLinesRuntime(const std::string &instanceId) const 
     return true; // Not an error - instance not running, config will apply on next start
   }
 
-  // Check if we're in subprocess mode
+  // Subprocess: send UPDATE_LINES IPC via SubprocessInstanceManager
   if (coreInstanceManager->isSubprocessMode()) {
+    auto *sub = dynamic_cast<SubprocessInstanceManager *>(coreInstanceManager);
+    if (sub) {
+      std::string crossingLinesJson =
+          SecuRTPipelineIntegration::convertLinesToCrossingLinesFormat(
+              line_manager_, instanceId);
+      Json::Reader reader;
+      Json::Value linesArray;
+      if (reader.parse(crossingLinesJson, linesArray) && linesArray.isArray() &&
+          sub->updateLines(instanceId, linesArray)) {
+        if (isApiLoggingEnabled()) {
+          PLOG_INFO << "[API] updateLinesRuntime: Lines updated via IPC (subprocess) for instance " << instanceId;
+        }
+        return true;
+      }
+    }
     if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[API] updateLinesRuntime: Subprocess mode - cannot update runtime";
+      PLOG_WARNING << "[API] updateLinesRuntime: Subprocess updateLines failed, fallback to restart for instance " << instanceId;
     }
     return false; // Fallback to restart
   }

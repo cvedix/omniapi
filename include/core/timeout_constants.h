@@ -108,9 +108,29 @@ inline int getRtmpSourceReconnectStabilizationMs() {
 }
 
 // RTMP source reconnect initialization wait time (after restart)
-// Allows GStreamer pipeline to initialize before processing frames
+// Allows GStreamer pipeline to initialize before processing frames.
+// Higher value reduces "gst_sample_get_caps assertion / retrieveVideoFrame NULL" errors
+// when the first pull after reconnect gets an invalid sample (see docs/RTMP_RECONNECT_GSTREAMER_NULL_SAMPLE.md).
 inline int getRtmpSourceReconnectInitializationMs() {
-  return EnvConfig::getInt("RTMP_SOURCE_RECONNECT_INITIALIZATION_MS", 1000, 500, 5000);
+  return EnvConfig::getInt("RTMP_SOURCE_RECONNECT_INITIALIZATION_MS", 10000, 500, 20000);
+}
+
+// ========== RTMP Destination Monitor (reduce false disconnect) ==========
+inline int getRtmpDesInitialConnectionTimeoutSec() {
+  return EnvConfig::getInt("RTMP_DES_INITIAL_CONNECTION_TIMEOUT_SEC", 45, 15, 120);
+}
+inline int getRtmpDesDisconnectionTimeoutSec() {
+  return EnvConfig::getInt("RTMP_DES_DISCONNECTION_TIMEOUT_SEC", 25, 10, 90);
+}
+inline int getRtmpDesReconnectGracePeriodSec() {
+  return EnvConfig::getInt("RTMP_DES_RECONNECT_GRACE_PERIOD_SEC", 45, 15, 120);
+}
+inline int getRtmpDesReconnectCooldownSec() {
+  return EnvConfig::getInt("RTMP_DES_RECONNECT_COOLDOWN_SEC", 12, 5, 60);
+}
+// Seconds without activity before "early" reconnect (clear queue). Increase to reduce false disconnect.
+inline int getRtmpDesEarlyDetectionThresholdSec() {
+  return EnvConfig::getInt("RTMP_DES_EARLY_DETECTION_THRESHOLD_SEC", 20, 10, 120);
 }
 
 // Helper functions for std::chrono::milliseconds

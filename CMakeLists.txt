@@ -362,6 +362,9 @@ set(SOURCES
     src/core/cors_helper.cpp
     src/core/ai_processor.cpp
     src/core/ai_watchdog.cpp
+    src/core/inference_session.cpp
+    src/core/ai_runtime_facade.cpp
+    src/core/pipeline_helper.cpp
     src/core/backpressure_controller.cpp
     src/core/adaptive_queue_size_manager.cpp
     src/instances/instance_registry.cpp
@@ -380,6 +383,7 @@ set(SOURCES
     src/core/pipeline_builder_broker_nodes.cpp
     src/core/pipeline_builder_behavior_analysis_nodes.cpp
     src/core/pipeline_builder_other_nodes.cpp
+    src/core/rtmp_lastframe_fallback_proxy_node.cpp
     src/core/cvedix_validator.cpp
     src/utils/cvedix_mqtt_client_impl.cpp
     src/utils/gstreamer_checker.cpp
@@ -419,7 +423,7 @@ set(SOURCES
     src/core/resource_manager.cpp
     src/core/shutdown_flag.cpp
     # src/core/rate_limiter.cpp
-    # src/core/ai_cache.cpp
+    src/core/ai_cache.cpp
     # src/core/priority_queue.cpp
     # src/core/circuit_breaker.cpp
     src/core/performance_monitor.cpp
@@ -1236,6 +1240,7 @@ set(CORE_LIB_SOURCES
     src/core/pipeline_builder_request_utils.cpp
     src/core/pipeline_builder_source_nodes.cpp
     src/core/pipeline_builder_destination_nodes.cpp
+    src/core/rtmp_lastframe_fallback_proxy_node.cpp
     src/core/pipeline_builder_detector_nodes.cpp
     src/core/pipeline_builder_broker_nodes.cpp
     src/core/pipeline_builder_behavior_analysis_nodes.cpp
@@ -1386,7 +1391,7 @@ message(STATUS "✓ edgeos_api linked to edgeos_core")
 # Edge AI Worker executable (subprocess)
 # ============================================
 set(WORKER_SOURCES
-    src/worker/edge_ai_worker.cpp
+    src/worker/edgeos_worker.cpp
     src/worker/worker_handler.cpp
     src/worker/config_file_watcher.cpp
     src/worker/ipc_protocol.cpp

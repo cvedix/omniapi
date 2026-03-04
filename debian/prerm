@@ -1,5 +1,5 @@
 #!/bin/bash
-# prerm script for edge-ai-api
+# prerm script for edgeos-api
 
 set -e
 

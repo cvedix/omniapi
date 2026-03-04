@@ -3,6 +3,7 @@
 
 #include "instances/instance_registry.h"
 #include "core/timeout_constants.h"
+#include "core/rtmp_lastframe_fallback_proxy_node.h"
 #include <cvedix/nodes/src/cvedix_rtmp_src_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
@@ -670,7 +671,8 @@ bool InstanceRegistry::reconnectRTMPSourceStream(
                 << std::endl;
 
       // CRITICAL FIX: Wait additional time after start() to allow GStreamer to initialize
-      // This prevents invalid sample errors immediately after reconnect
+      // and produce valid samples. Prevents "gst_sample_get_caps assertion 'GST_IS_SAMPLE (sample)' failed"
+      // and retrieveVideoFrame NULL (see docs/RTMP_RECONNECT_GSTREAMER_NULL_SAMPLE.md).
       auto initializationTimeout = TimeoutConstants::getRtmpSourceReconnectInitialization();
       int initializationMs = initializationTimeout.count();
       int initSleepIterations = (initializationMs + 99) / 100; // Round up to nearest 100ms
@@ -776,26 +778,18 @@ void InstanceRegistry::startRTMPDestinationMonitorThread(const std::string &inst
     std::cerr << "[InstanceRegistry] [RTMP Destination Monitor] Monitoring RTMP destination stream: "
               << rtmpUrl << std::endl;
 
-    const auto check_interval = std::chrono::seconds(
-        2); // Check every 2 seconds
+    const auto check_interval = std::chrono::seconds(2);
 
-    // CRITICAL: Different timeouts for initial connection vs disconnection
-    // - Initial connection: Allow 30 seconds for RTMP destination to establish
-    // - After connection: Use 20 seconds for disconnection detection (reduced from 30s for faster error detection)
-    //   This allows reasonable time for frames to be processed through the pipeline,
-    //   but detects write failures faster to prevent queue backup
-    const auto initial_connection_timeout =
-        std::chrono::seconds(30); // Allow 30 seconds for initial RTMP destination connection
-    // Base disconnection timeout - will be reduced adaptively if errors detected
-    auto disconnection_timeout =
-        std::chrono::seconds(20); // Consider disconnected if no activity for 20 seconds (faster detection of write failures)
-
-    const auto reconnect_cooldown =
-        std::chrono::seconds(10); // Wait 10 seconds between reconnect attempts
-    const auto reconnect_grace_period =
-        std::chrono::seconds(30); // Grace period after successful reconnect to allow connection establishment
-    const int max_reconnect_attempts =
-        10; // Maximum reconnect attempts before giving up
+    // Configurable via env: RTMP_DES_* (see include/core/timeout_constants.h) to reduce false disconnect
+    const auto initial_connection_timeout = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesInitialConnectionTimeoutSec());
+    auto disconnection_timeout = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesDisconnectionTimeoutSec());
+    const auto reconnect_cooldown = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesReconnectCooldownSec());
+    const auto reconnect_grace_period = std::chrono::seconds(
+        TimeoutConstants::getRtmpDesReconnectGracePeriodSec());
+    const int max_reconnect_attempts = 10;
 
     auto instance_start_time =
         std::chrono::steady_clock::now();
@@ -909,18 +903,12 @@ void InstanceRegistry::startRTMPDestinationMonitorThread(const std::string &inst
 
       // CRITICAL FIX: Early detection and queue clearing
       // If destination has no activity for > threshold, detach destination node immediately
-      // to clear queue and prevent backup. This prevents "queue full, dropping meta!" warnings
-      // and allows faster recovery.
-      // Use adaptive threshold: shorter for consecutive errors (when activity stops suddenly)
-      // This helps detect GStreamer "Error pushing buffer" issues that accumulate over time
-      int early_detection_threshold = 15; // Default: 15s
-      
-      // CRITICAL: If we had activity before but now stopped, likely errors accumulating
-      // Use shorter threshold to detect GStreamer buffer errors faster
+      // to clear queue and prevent backup. Configurable via RTMP_DES_EARLY_DETECTION_THRESHOLD_SEC.
+      int early_detection_threshold =
+          TimeoutConstants::getRtmpDesEarlyDetectionThresholdSec();
+      // If we had activity before but now stopped, use shorter threshold to recover faster
       if (has_connected && has_activity && time_since_activity > 5) {
-        // Activity stopped after being connected - likely errors
-        // Use shorter threshold (10s) to detect and recover faster
-        early_detection_threshold = 10;
+        early_detection_threshold = std::min(early_detection_threshold, 12);
       }
       
       // Check if we're in grace period after successful reconnect
@@ -1275,36 +1263,39 @@ bool InstanceRegistry::reconnectRTMPDestinationStream(
 
     std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] RTMP URL: " << rtmpUrl << ", Channel: " << channel << std::endl;
 
-    // CRITICAL: Find parent node (usually OSD node) that feeds into RTMP destination
-    // We need to remember the parent to reattach after detaching
-    // Pipeline structure: ... -> osd -> rtmp_des
-    // So we should find the OSD node, not ba_loitering or ba_crossline
+    // CRITICAL: Find parent node that feeds into RTMP destination
+    // Pipeline structure: ... -> osd -> rtmp_lastframe_proxy -> rtmp_des
     std::shared_ptr<cvedix_nodes::cvedix_node> parentNode = nullptr;
-    
-    // First, try to find OSD node (most common parent for RTMP destination)
-    // Check all OSD node types: face_osd_v2, osd_v3, ba_crossline_osd, ba_jam_osd, ba_stop_osd, ba_loitering_osd
+
+    // First, try to find the last-frame proxy (rtmp_des is attached to proxy)
     for (const auto &node : nodes) {
-      if (!node) {
+      if (!node) continue;
+      if (std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node))
         continue;
-      }
-      // Skip RTMP destination nodes (we're looking for parent, not destination)
-      auto rtmpDesNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node);
-      if (rtmpDesNode) {
-        continue;
-      }
-      // Check if this is an OSD node using dynamic_pointer_cast
-      // Note: ba_loitering_osd uses ba_stop_osd_node (same node type)
-      bool isOSDNode =
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_face_osd_node_v2>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(node) != nullptr;
-      
-      if (isOSDNode) {
+      if (std::dynamic_pointer_cast<edgeos::RtmpLastFrameFallbackProxyNode>(node)) {
         parentNode = node;
-        std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] Found OSD parent node: " << typeid(*node).name() << std::endl;
+        std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] Found last-frame proxy parent node" << std::endl;
         break;
+      }
+    }
+
+    // If no proxy, try OSD node (legacy pipeline: ... -> osd -> rtmp_des)
+    if (!parentNode) {
+      for (const auto &node : nodes) {
+        if (!node) continue;
+        if (std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node))
+          continue;
+        bool isOSDNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_face_osd_node_v2>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) != nullptr ||
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(node) != nullptr;
+        if (isOSDNode) {
+          parentNode = node;
+          std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] Found OSD parent node: " << typeid(*node).name() << std::endl;
+          break;
+        }
       }
     }
     
@@ -1462,7 +1453,22 @@ bool InstanceRegistry::reconnectRTMPDestinationStream(
         newRtmpNode->attach_to({parentNode});
         std::cerr << "[InstanceRegistry] [RTMP Destination Reconnect] ✓ New RTMP destination node attached successfully"
                   << std::endl;
-        
+
+        // Set activity hook on new node so monitor sees real push activity
+        newRtmpNode->set_stream_status_hooker(
+            [this, instanceId](std::string /*node_name*/,
+                               cvedix_nodes::cvedix_stream_status /*status*/) {
+              updateRTMPDestinationActivity(instanceId);
+            });
+        newRtmpNode->set_meta_handled_hooker(
+            [this, instanceId](std::string /*node_name*/, int /*queue_size*/,
+                               std::shared_ptr<cvedix_objects::cvedix_meta> meta) {
+              if (meta && meta->meta_type ==
+                              cvedix_objects::cvedix_meta_type::FRAME) {
+                updateRTMPDestinationActivity(instanceId);
+              }
+            });
+
         // CRITICAL: Update pipelines_ map to remove old RTMP destination nodes and add new one
         // This prevents OSD node from dispatching frames to old nodes
         {

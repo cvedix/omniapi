@@ -31,6 +31,8 @@ set(TEST_SOURCES
     unit/Core_API/test_system_config_manager.cpp
     unit/Core_API/test_preferences_manager.cpp
     unit/Core_API/test_decoder_detector.cpp
+    unit/Core_API/test_inference_session.cpp
+    unit/Core_API/test_ai_processor.cpp
     unit/Core_API/test_metrics_handler.cpp
     
     # Instance Management tests
@@ -124,6 +126,11 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/codec_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/frame_decoder.cpp
     ${CMAKE_SOURCE_DIR}/src/core/frame_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/inference_session.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_runtime_facade.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_helper.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_cache.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_storage.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_rtmp_monitor.cpp
@@ -139,6 +146,7 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_request_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_source_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_destination_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/rtmp_lastframe_fallback_proxy_node.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_detector_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_broker_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_behavior_analysis_nodes.cpp

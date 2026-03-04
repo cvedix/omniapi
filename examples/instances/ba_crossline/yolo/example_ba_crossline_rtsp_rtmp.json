@@ -6,9 +6,9 @@
   "additionalParams": {
     "input": {
       "RTSP_SRC_URL": "rtsp://localhost:8554/mystream",
-      "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-      "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
       "RESIZE_RATIO": "1.0",
       "RTSP_TRANSPORT": "udp",
       "GST_DECODER_NAME": "avdec_h264",

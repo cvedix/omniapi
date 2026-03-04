@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/lane.mp4",
-      "MODEL_PATH": "/opt/edge_ai_api/models/lane/lane_detection.onnx",
+      "MODEL_PATH": "/opt/edgeos-api/models/lane/lane_detection.onnx",
       "INPUT_WIDTH": "736",
       "INPUT_HEIGHT": "416"
     }

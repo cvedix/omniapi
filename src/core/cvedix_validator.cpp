@@ -107,9 +107,9 @@ std::string CVEDIXValidator::getPermissionErrorMessage(const std::string &filePa
   oss << "  2. File should be readable (644 or 664)\n";
   oss << "  3. Directory should be traversable (755 or 775)\n";
   oss << "  4. Fix permissions and symlinks:\n";
-  oss << "     sudo systemctl restart edge-ai-api\n";
+  oss << "     sudo systemctl restart edgeos-api\n";
   oss << "  5. Restart service:\n";
-  oss << "     sudo systemctl restart edge-ai-api\n";
+  oss << "     sudo systemctl restart edgeos-api\n";
   return oss.str();
 }
 
@@ -122,7 +122,7 @@ std::string CVEDIXValidator::getDependencyErrorMessage() {
   oss << "  2. Update library cache:\n";
   oss << "     sudo ldconfig\n";
   oss << "  3. Restart service:\n";
-  oss << "     sudo systemctl restart edge-ai-api\n";
+  oss << "     sudo systemctl restart edgeos-api\n";
   return oss.str();
 }
 

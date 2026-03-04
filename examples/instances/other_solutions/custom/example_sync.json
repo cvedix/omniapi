@@ -7,8 +7,8 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH_0": "/opt/edge_ai_api/test_video/video1.mp4",
-      "FILE_PATH_1": "/opt/edge_ai_api/test_video/video2.mp4",
+      "FILE_PATH_0": "/opt/edgeos-api/test_video/video1.mp4",
+      "FILE_PATH_1": "/opt/edgeos-api/test_video/video2.mp4",
       "SYNC_MODE": "timestamp",
       "SYNC_THRESHOLD": "100"
     }

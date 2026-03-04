@@ -15,12 +15,12 @@ if [ -f "config.json" ]; then
 else
     echo "❌ config.json không tồn tại"
     echo "Tìm trong các vị trí khác..."
-    if [ -f "/opt/edge_ai_api/config/config.json" ]; then
-        echo "Tìm thấy tại: /opt/edge_ai_api/config/config.json"
-        cat /opt/edge_ai_api/config/config.json | jq '.face_database' 2>/dev/null
-    elif [ -f "/etc/edge_ai_api/config.json" ]; then
-        echo "Tìm thấy tại: /etc/edge_ai_api/config.json"
-        cat /etc/edge_ai_api/config.json | jq '.face_database' 2>/dev/null
+    if [ -f "/opt/edgeos-api/config/config.json" ]; then
+        echo "Tìm thấy tại: /opt/edgeos-api/config/config.json"
+        cat /opt/edgeos-api/config/config.json | jq '.face_database' 2>/dev/null
+    elif [ -f "/etc/edgeos-api/config.json" ]; then
+        echo "Tìm thấy tại: /etc/edgeos-api/config.json"
+        cat /etc/edgeos-api/config.json | jq '.face_database' 2>/dev/null
     fi
 fi
 echo ""
@@ -88,9 +88,9 @@ echo "[5/5] Kiểm tra logs (nếu có)..."
 if [ -f "logs/api.log" ]; then
     echo "Recent database-related logs:"
     tail -50 logs/api.log | grep -i "FaceDatabaseHelper\|RecognitionHandler.*Database\|Database enabled" | tail -10
-elif [ -f "/opt/edge_ai_api/logs/api.log" ]; then
+elif [ -f "/opt/edgeos-api/logs/api.log" ]; then
     echo "Recent database-related logs:"
-    tail -50 /opt/edge_ai_api/logs/api.log | grep -i "FaceDatabaseHelper\|RecognitionHandler.*Database\|Database enabled" | tail -10
+    tail -50 /opt/edgeos-api/logs/api.log | grep -i "FaceDatabaseHelper\|RecognitionHandler.*Database\|Database enabled" | tail -10
 else
     echo "Không tìm thấy log file"
 fi
