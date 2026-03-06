@@ -1,17 +1,17 @@
 #!/bin/bash
-# postinst script for edge-ai-api
+# postinst script for edgeos-api
 
 # Use set -e for strict error handling
 # Non-critical commands should use || true to prevent script failure
 set -e
 
-PACKAGE_NAME="edge-ai-api"
-INSTALL_DIR="/opt/edge_ai_api"
+PACKAGE_NAME="edgeos-api"
+INSTALL_DIR="/opt/edgeos-api"
 BIN_DIR="/usr/local/bin"
-LIB_DIR="/opt/edge_ai_api/lib"
+LIB_DIR="/opt/edgeos-api/lib"
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 
 # Function to bundle libraries (libraries should already be bundled in package)
 bundle_libraries() {
@@ -67,8 +67,8 @@ bundle_libraries() {
 
     # Create ldconfig configuration
     if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
-        echo "$LIB_DIR" > /etc/ld.so.conf.d/edge-ai-api.conf 2>/dev/null || {
-            echo "⚠  Warning: Cannot write to /etc/ld.so.conf.d/edge-ai-api.conf"
+        echo "$LIB_DIR" > /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null || {
+            echo "⚠  Warning: Cannot write to /etc/ld.so.conf.d/edgeos-api.conf"
             echo "Library path may not be configured correctly."
         }
         if command -v ldconfig >/dev/null 2>&1; then
@@ -152,15 +152,6 @@ if [ -z "$CREATE_DIRS_SCRIPT" ] || [ ! -f "$CREATE_DIRS_SCRIPT" ]; then
     mkdir -p "$INSTALL_DIR"/run
     mkdir -p "$INSTALL_DIR"/record
     echo "  ✓ Directories created"
-    # CRITICAL: Set permissions to 755 for all directories to ensure traverse access
-    # This prevents "open file failed" errors when service tries to access files
-    echo "  Setting permissions to 755 for all directories..."
-    chmod 755 "$INSTALL_DIR"/instances "$INSTALL_DIR"/solutions "$INSTALL_DIR"/groups \
-              "$INSTALL_DIR"/nodes "$INSTALL_DIR"/models "$INSTALL_DIR"/videos \
-              "$INSTALL_DIR"/fonts "$INSTALL_DIR"/logs "$INSTALL_DIR"/data \
-              "$INSTALL_DIR"/config "$INSTALL_DIR"/uploads "$INSTALL_DIR"/lib \
-              "$INSTALL_DIR"/run "$INSTALL_DIR"/record 2>/dev/null || true
-    echo "  ✓ Permissions set to 755"
 fi
 
 # Set up directory permissions
@@ -178,76 +169,27 @@ chmod 755 "$INSTALL_DIR" 2>/dev/null || {
     echo "  ⚠  Warning: Cannot set permissions on $INSTALL_DIR"
 }
 
-# CRITICAL: Apply permissions from directories.conf AFTER chown
-# This ensures permissions are set correctly even after ownership change
-# On Linux, execute permission (x) on directory is REQUIRED to access files inside
+# Apply permissions from directories.conf
 if [ -f "$INSTALL_DIR/deploy/directories.conf" ]; then
-    echo "  Applying permissions from directories.conf..."
-    # Source directories.conf using a safe method
-    if [ -r "$INSTALL_DIR/deploy/directories.conf" ]; then
-        # Use bash to source the config file (postinst runs with bash)
-        declare -A APP_DIRECTORIES=()
-        eval "$(bash -c "source '$INSTALL_DIR/deploy/directories.conf' && declare -p APP_DIRECTORIES" 2>/dev/null || echo "")"
-        
-        if [ ${#APP_DIRECTORIES[@]} -gt 0 ]; then
-            for dir_name in "${!APP_DIRECTORIES[@]}"; do
-                dir_path="$INSTALL_DIR/$dir_name"
-                dir_perms="${APP_DIRECTORIES[$dir_name]}"
-                if [ -d "$dir_path" ]; then
-                    # CRITICAL: Force all directories to 755 to ensure traverse access
-                    # On Linux, execute permission (x) on directory is REQUIRED to access files inside
-                    # This prevents "open file failed" errors
-                    dir_perms="755"
-                    chmod "$dir_perms" "$dir_path" 2>/dev/null || true
-                fi
-            done
-            echo "  ✓ Permissions applied from directories.conf (all set to 755)"
-        else
-            echo "  ⚠  Warning: Failed to load APP_DIRECTORIES from directories.conf, using fallback"
-            # Fall through to fallback
+    source "$INSTALL_DIR/deploy/directories.conf"
+    for dir_name in "${!APP_DIRECTORIES[@]}"; do
+        dir_path="$INSTALL_DIR/$dir_name"
+        dir_perms="${APP_DIRECTORIES[$dir_name]}"
+        if [ -d "$dir_path" ]; then
+            chmod "$dir_perms" "$dir_path" 2>/dev/null || true
         fi
-    else
-        echo "  ⚠  Warning: Cannot read directories.conf, using fallback"
-        # Fall through to fallback
-    fi
-fi
-
-# Fallback: Use 755 for all directories if directories.conf not available or failed
-# CRITICAL: This ensures traverse access is always enabled
-if [ ${#APP_DIRECTORIES[@]} -eq 0 ] || [ ! -f "$INSTALL_DIR/deploy/directories.conf" ]; then
-    echo "  Setting fallback permissions to 755 for all directories..."
-    chmod 755 "$INSTALL_DIR"/instances "$INSTALL_DIR"/solutions "$INSTALL_DIR"/groups \
+    done
+else
+    # Fallback permissions (must match directories.conf)
+    chmod 750 "$INSTALL_DIR"/instances "$INSTALL_DIR"/solutions "$INSTALL_DIR"/groups \
               "$INSTALL_DIR"/nodes "$INSTALL_DIR"/models "$INSTALL_DIR"/videos \
               "$INSTALL_DIR"/fonts "$INSTALL_DIR"/logs "$INSTALL_DIR"/data \
-              "$INSTALL_DIR"/config "$INSTALL_DIR"/uploads "$INSTALL_DIR"/lib \
-              "$INSTALL_DIR"/run "$INSTALL_DIR"/record 2>/dev/null || true
-    echo "  ✓ All directories set to 755 (traverse access enabled)"
-fi
-
-# CRITICAL: Final verification - ensure ALL directories have execute permission (755)
-# This is the most common cause of "open file failed" errors
-# On Linux, execute permission (x) on directory is REQUIRED to access files inside
-echo "  Verifying all directory permissions are 755..."
-ALL_DIRS_OK=true
-for dir_name in instances solutions groups nodes models videos fonts logs data config uploads lib run record; do
-    dir_path="$INSTALL_DIR/$dir_name"
-    if [ -d "$dir_path" ]; then
-        CURRENT_PERMS=$(stat -c "%a" "$dir_path" 2>/dev/null || echo "")
-        if [ -n "$CURRENT_PERMS" ] && [ "$CURRENT_PERMS" != "755" ] && [ "$CURRENT_PERMS" != "775" ] && [ "$CURRENT_PERMS" != "777" ]; then
-            echo "  ⚠  Warning: $dir_name directory has restrictive permissions ($CURRENT_PERMS), fixing..."
-            chmod 755 "$dir_path" 2>/dev/null || true
-            ALL_DIRS_OK=false
-        fi
-    fi
-done
-if [ "$ALL_DIRS_OK" = true ]; then
-    echo "  ✓ All directories have correct permissions (755)"
-else
-    echo "  ✓ Fixed restrictive directory permissions to 755"
+              "$INSTALL_DIR"/config "$INSTALL_DIR"/record 2>/dev/null || true
+    chmod 755 "$INSTALL_DIR"/uploads "$INSTALL_DIR"/lib "$INSTALL_DIR"/run 2>/dev/null || true
 fi
 
 # Setup permissions for external data directories (e.g., cvedix_data)
-# This handles cases where data is stored outside /opt/edge_ai_api
+# This handles cases where data is stored outside /opt/edgeos-api
 echo "Setting up permissions for external data directories..."
 
 # Function to setup external data directory permissions
@@ -307,10 +249,10 @@ setup_external_data_permissions() {
 # Common external data directory locations
 # Check in order of likelihood
 EXTERNAL_DATA_DIRS=(
-    "/home/*/project/edge_ai_api/cvedix_data"
-    "/home/*/edge_ai_api/cvedix_data"
+    "/home/*/project/edgeos-api/cvedix_data"
+    "/home/*/edgeos-api/cvedix_data"
     "/opt/cvedix_data"
-    "/var/lib/edge_ai_api/cvedix_data"
+    "/var/lib/edgeos-api/cvedix_data"
 )
 
 # Also check if CVEDIX_DATA_ROOT environment variable is set in any user's environment
@@ -318,7 +260,7 @@ for user_home in /home/*; do
     if [ -d "$user_home" ]; then
         username=$(basename "$user_home")
         # Check for cvedix_data in common project locations
-        for pattern in "$user_home/project/edge_ai_api/cvedix_data" "$user_home/edge_ai_api/cvedix_data"; do
+        for pattern in "$user_home/project/edgeos-api/cvedix_data" "$user_home/edgeos-api/cvedix_data"; do
             if [ -d "$pattern" ]; then
                 setup_external_data_permissions "$pattern" "User $username data directory"
             fi
@@ -352,7 +294,7 @@ done
 
 echo "External data directory permissions setup completed."
 
-# Note: Record directory (/opt/edge_ai_api/record) is now created automatically
+# Note: Record directory (/opt/edgeos-api/record) is now created automatically
 # by create_directories.sh script from directories.conf configuration
 
 # Bundle libraries
@@ -360,10 +302,11 @@ bundle_libraries
 
 # Setup CVEDIX SDK library path (SDK is bundled in this package)
 echo "Setting up CVEDIX SDK library path..."
-if [ -d "/opt/cvedix/lib" ]; then
+CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+if [ -d "$CVEDIX_LIB_DIR" ]; then
     if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
-        if echo "/opt/cvedix/lib" > /etc/ld.so.conf.d/cvedix.conf 2>/dev/null; then
-            echo "  ✓ Added /opt/cvedix/lib to library search path"
+        if echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/cvedix.conf 2>/dev/null; then
+            echo "  ✓ Added $CVEDIX_LIB_DIR to library search path"
             if command -v ldconfig >/dev/null 2>&1; then
                 ldconfig 2>&1 | grep -v "is not a symbolic link" || true
             else
@@ -376,7 +319,7 @@ if [ -d "/opt/cvedix/lib" ]; then
         echo "  ⚠  Warning: Cannot access /etc/ld.so.conf.d. Library path may not be configured."
     fi
 else
-    echo "  ⚠  Warning: /opt/cvedix/lib not found (SDK may not be properly installed)"
+    echo "  ⚠  Warning: $CVEDIX_LIB_DIR not found (SDK may not be properly installed)"
 fi
 
 # Check OpenCV installation (bundled or system)
@@ -459,7 +402,7 @@ setup_database_file "$INSTALL_DIR/data/$DB_FILENAME" "Production path"
 if id "$SERVICE_USER" &>/dev/null; then
     USER_HOME=$(getent passwd "$SERVICE_USER" | cut -d: -f6)
     if [ -n "$USER_HOME" ] && [ "$USER_HOME" != "/" ]; then
-        USER_DB_PATH="$USER_HOME/.local/share/edge_ai_api/$DB_FILENAME"
+        USER_DB_PATH="$USER_HOME/.local/share/edgeos-api/$DB_FILENAME"
         setup_database_file "$USER_DB_PATH" "User directory"
     fi
 fi
@@ -581,190 +524,6 @@ setup_gst_plugin_path() {
 setup_gst_plugin_path
 
 # ============================================
-# Check and Install GStreamer Plugins
-# ============================================
-check_and_install_gstreamer_plugins() {
-    echo ""
-    echo "============================================"
-    echo "Checking GStreamer plugins..."
-    echo "============================================"
-    
-    # Required plugins for file source and RTMP
-    local required_plugins=(
-        "isomp4:gstreamer1.0-plugins-good"
-        "h264parse:gstreamer1.0-plugins-good"
-        "avdec_h264:gstreamer1.0-libav"
-        "filesrc:gstreamer1.0-plugins-base"
-        "videoconvert:gstreamer1.0-plugins-base"
-        "x264enc:gstreamer1.0-plugins-ugly"
-        "flvmux:gstreamer1.0-plugins-good"
-        "rtmpsink:gstreamer1.0-plugins-bad"
-    )
-    
-    local missing_plugins=()
-    local missing_packages=()
-    local plugin_path=""
-    
-    # Get plugin path from .env or use bundled path
-    if [ -f "$INSTALL_DIR/config/.env" ]; then
-        plugin_path=$(grep "^GST_PLUGIN_PATH=" "$INSTALL_DIR/config/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '"' || echo "")
-    fi
-    
-    # Fallback to bundled path
-    if [ -z "$plugin_path" ] || [ ! -d "$plugin_path" ]; then
-        plugin_path="$INSTALL_DIR/lib/gstreamer-1.0"
-    fi
-    
-    # Also check system paths (plugins may be installed system-wide)
-    local system_plugin_paths=(
-        "/usr/lib/x86_64-linux-gnu/gstreamer-1.0"
-        "/usr/lib/aarch64-linux-gnu/gstreamer-1.0"
-        "/usr/lib/arm-linux-gnueabihf/gstreamer-1.0"
-        "/usr/lib64/gstreamer-1.0"
-        "/usr/lib/gstreamer-1.0"
-    )
-    
-    # Combine bundled and system paths for checking
-    local all_plugin_paths="$plugin_path"
-    for sys_path in "${system_plugin_paths[@]}"; do
-        if [ -d "$sys_path" ]; then
-            all_plugin_paths="$all_plugin_paths:$sys_path"
-        fi
-    done
-    
-    # Check each required plugin
-    export GST_PLUGIN_PATH="$all_plugin_paths"
-    for plugin_info in "${required_plugins[@]}"; do
-        local plugin_name=$(echo "$plugin_info" | cut -d':' -f1)
-        local package_name=$(echo "$plugin_info" | cut -d':' -f2)
-        
-        # Check if plugin is available
-        if command -v gst-inspect-1.0 >/dev/null 2>&1; then
-            if ! gst-inspect-1.0 "$plugin_name" >/dev/null 2>&1; then
-                missing_plugins+=("$plugin_name")
-                if [[ ! " ${missing_packages[@]} " =~ " ${package_name} " ]]; then
-                    missing_packages+=("$package_name")
-                fi
-            fi
-        else
-            # If gst-inspect-1.0 is not available, check by file existence
-            local plugin_file="libgst${plugin_name}.so"
-            if [ "$plugin_name" = "isomp4" ]; then
-                plugin_file="libgstisomp4.so"
-            elif [ "$plugin_name" = "avdec_h264" ]; then
-                plugin_file="libgstav.so"
-            elif [ "$plugin_name" = "filesrc" ]; then
-                plugin_file="libgstcoreelements.so"
-            fi
-            
-            if [ ! -f "$plugin_path/$plugin_file" ]; then
-                missing_plugins+=("$plugin_name")
-                if [[ ! " ${missing_packages[@]} " =~ " ${package_name} " ]]; then
-                    missing_packages+=("$package_name")
-                fi
-            fi
-        fi
-    done
-    
-    # If no plugins are missing, we're done
-    if [ ${#missing_plugins[@]} -eq 0 ]; then
-        echo "  ✓ All required GStreamer plugins are available"
-        return 0
-    fi
-    
-    # Report missing plugins
-    echo "  ⚠  Missing required GStreamer plugins:"
-    for plugin in "${missing_plugins[@]}"; do
-        echo "     - $plugin"
-    done
-    echo ""
-    echo "  These plugins are required for:"
-    echo "    - Reading video files (MP4/H.264)"
-    echo "    - RTMP streaming output"
-    echo "    - Video format conversion"
-    echo ""
-    
-    # Check if we're in non-interactive mode (e.g., automated installation)
-    if [ -n "$DEBIAN_FRONTEND" ] && [ "$DEBIAN_FRONTEND" = "noninteractive" ]; then
-        echo "  ⚠  Running in non-interactive mode"
-        echo "  ⚠  GStreamer plugins will NOT be installed automatically"
-        echo "  ⚠  Please install them manually after installation:"
-        echo "     sudo apt-get update"
-        echo "     sudo apt-get install -y ${missing_packages[*]}"
-        return 1
-    fi
-    
-    # In interactive mode, automatically install (postinst scripts typically can't read stdin reliably)
-    # User can skip by setting environment variable: DEBIAN_FRONTEND=noninteractive
-    echo "  Installing missing GStreamer plugins automatically..."
-    echo "  (To skip, set DEBIAN_FRONTEND=noninteractive before installation)"
-    echo ""
-    
-    # Auto-install in interactive mode
-    if true; then
-        echo "  Installing GStreamer plugins..."
-        
-        # Update package list
-        if command -v apt-get >/dev/null 2>&1; then
-            if apt-get update >/dev/null 2>&1; then
-                echo "  ✓ Updated package list"
-            else
-                echo "  ⚠  Warning: Failed to update package list"
-                echo "  ⚠  Attempting to install anyway..."
-            fi
-            
-            # Install packages
-            if apt-get install -y "${missing_packages[@]}" >/dev/null 2>&1; then
-                echo "  ✓ Installed GStreamer plugin packages"
-                
-                # Update GStreamer registry
-                export GST_PLUGIN_PATH="$plugin_path"
-                if command -v gst-inspect-1.0 >/dev/null 2>&1; then
-                    echo "  Updating GStreamer plugin registry..."
-                    gst-inspect-1.0 >/dev/null 2>&1 || true
-                    echo "  ✓ GStreamer registry updated"
-                fi
-                
-                # Verify installation
-                local all_found=true
-                for plugin in "${missing_plugins[@]}"; do
-                    if command -v gst-inspect-1.0 >/dev/null 2>&1; then
-                        if gst-inspect-1.0 "$plugin" >/dev/null 2>&1; then
-                            echo "  ✓ Plugin '$plugin' is now available"
-                        else
-                            echo "  ⚠  Warning: Plugin '$plugin' still not found after installation"
-                            all_found=false
-                        fi
-                    fi
-                done
-                
-                if [ "$all_found" = true ]; then
-                    echo "  ✓ All required GStreamer plugins are now available"
-                    return 0
-                else
-                    echo "  ⚠  Some plugins may still be missing"
-                    echo "  ⚠  You may need to restart the service: sudo systemctl restart $SERVICE_NAME"
-                    return 1
-                fi
-            else
-                echo "  ✗ Failed to install GStreamer plugins"
-                echo "  ⚠  Please install manually:"
-                echo "     sudo apt-get update"
-                echo "     sudo apt-get install -y ${missing_packages[*]}"
-                return 1
-            fi
-        else
-            echo "  ✗ apt-get not found, cannot install plugins automatically"
-            echo "  ⚠  Please install manually using your package manager"
-            return 1
-        fi
-    fi
-}
-
-# Check and install GStreamer plugins (after plugin path is set up)
-check_and_install_gstreamer_plugins || true
-
-# ============================================
 # Check and Install OpenCV 4.10
 # ============================================
 check_opencv_410() {
@@ -834,7 +593,7 @@ install_opencv_410() {
     echo "OpenCV 4.10 Installation Required"
     echo "=========================================="
     echo ""
-    echo "OpenCV 4.10 with freetype support is required for edge_ai_api."
+    echo "OpenCV 4.10 with freetype support is required for edgeos-api."
     echo "The installation process will take approximately 30-60 minutes."
     echo ""
     
@@ -1072,7 +831,7 @@ echo "Fixing CVEDIX SDK issues..."
 
 fix_cvedix_issues() {
     echo "  [1/4] Fixing libtinyexpr.so symlink..."
-    CVEDIX_LIB_DIR="/opt/cvedix/lib"
+    CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
     TINYEXPR_SOURCE="$CVEDIX_LIB_DIR/libtinyexpr.so"
     TINYEXPR_TARGET="/usr/lib/libtinyexpr.so"
     
@@ -1096,7 +855,7 @@ fix_cvedix_issues() {
     fi
     
     if [ -n "$CEREAL_SOURCE" ]; then
-        CVEDIX_CEREAL_DIR="/opt/cvedix/include/cvedix/third_party"
+        CVEDIX_CEREAL_DIR="/opt/cvedix-ai-runtime/include/cvedix/third_party"
         mkdir -p "$CVEDIX_CEREAL_DIR"
         if [ -L "$CVEDIX_CEREAL_DIR/cereal" ] || [ -d "$CVEDIX_CEREAL_DIR/cereal" ]; then
             rm -rf "$CVEDIX_CEREAL_DIR/cereal"
@@ -1126,7 +885,7 @@ fix_cvedix_issues() {
     fi
     
     if [ -n "$BASE64_SOURCE" ]; then
-        CVEDIX_BASE64_DIR="/opt/cvedix/include/cvedix/third_party/cpp_base64"
+        CVEDIX_BASE64_DIR="/opt/cvedix-ai-runtime/include/cvedix/third_party/cpp_base64"
         mkdir -p "$CVEDIX_BASE64_DIR"
         if [ -L "$CVEDIX_BASE64_DIR/base64.h" ] || [ -f "$CVEDIX_BASE64_DIR/base64.h" ]; then
             rm -f "$CVEDIX_BASE64_DIR/base64.h"
@@ -1150,6 +909,12 @@ fix_cvedix_issues() {
     FREETYPE_410_TARGET="$INSTALL_DIR/lib/libopencv_freetype.so.410"
     mkdir -p "$INSTALL_DIR/lib"
     
+    # Ensure directory is writable
+    if [ ! -w "$INSTALL_DIR/lib" ]; then
+        echo "    ⚠  Warning: $INSTALL_DIR/lib is not writable, attempting to fix permissions..."
+        chmod 755 "$INSTALL_DIR/lib" 2>/dev/null || true
+    fi
+    
     # Check if file already exists in bundled lib directory (from package)
     if [ -f "$FREETYPE_410_TARGET" ]; then
         echo "    ✓ libopencv_freetype.so.410 already exists in bundled lib directory"
@@ -1163,7 +928,13 @@ fix_cvedix_issues() {
         FREETYPE_COPIED=false
         
         # First, try to find from OpenCV 4.10 (preferred) - check after installation attempt
+        # Priority: actual files first, then symlinks (to avoid symlink resolution issues)
         OPENCV_410_FREETYPE_SOURCES=(
+            # Priority 1: Actual files (not symlinks)
+            "/usr/local/lib/libopencv_freetype.so.4.10.0"
+            "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10.0"
+            "/usr/lib/libopencv_freetype.so.4.10.0"
+            # Priority 2: Symlinks (will be resolved)
             "/usr/local/lib/libopencv_freetype.so.4.10"
             "/usr/local/lib/libopencv_freetype.so.410"
             "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10"
@@ -1173,9 +944,32 @@ fix_cvedix_issues() {
         )
         
         for source in "${OPENCV_410_FREETYPE_SOURCES[@]}"; do
-            if [ -f "$source" ]; then
+            # Check if source exists (file or symlink)
+            if [ -f "$source" ] || [ -L "$source" ]; then
                 echo "    Copying from OpenCV 4.10: $source"
-                cp "$source" "$FREETYPE_410_TARGET" 2>/dev/null && FREETYPE_COPIED=true && break || true
+                
+                # Resolve symlink to get actual file path
+                if [ -L "$source" ]; then
+                    resolved_source=$(readlink -f "$source" 2>/dev/null || echo "")
+                    if [ -n "$resolved_source" ] && [ -f "$resolved_source" ]; then
+                        echo "    Resolved symlink to: $resolved_source"
+                        source="$resolved_source"
+                    fi
+                fi
+                
+                # Try to copy with verbose error reporting
+                if cp -L "$source" "$FREETYPE_410_TARGET" 2>&1; then
+                    # Verify the copy was successful
+                    if [ -f "$FREETYPE_410_TARGET" ] && [ -r "$FREETYPE_410_TARGET" ]; then
+                        FREETYPE_COPIED=true
+                        echo "    ✓ Successfully copied to $FREETYPE_410_TARGET"
+                        break
+                    else
+                        echo "    ⚠  Copy appeared to succeed but file not found at destination"
+                    fi
+                else
+                    echo "    ⚠  Copy failed, trying next source..."
+                fi
             fi
         done
         
@@ -1238,27 +1032,27 @@ fi
 
 # Verify RPATH is set correctly for executables (critical for finding bundled libraries)
 echo "Verifying RPATH configuration..."
-EXPECTED_RPATH="/opt/edge_ai_api/lib:/opt/cvedix/lib"
+EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/cvedix-ai-runtime/lib/cvedix"
 
 if command -v patchelf >/dev/null 2>&1; then
-    if [ -f "$BIN_DIR/edge_ai_api" ]; then
-        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_api" 2>/dev/null || echo "")
+    if [ -f "$BIN_DIR/edgeos-api" ]; then
+        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
         if [ "$CURRENT_RPATH" != "$EXPECTED_RPATH" ]; then
-            echo "  Setting RPATH for edge_ai_api..."
-            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edge_ai_api" 2>/dev/null || true
-            echo "  ✓ RPATH updated for edge_ai_api"
+            echo "  Setting RPATH for edgeos-api..."
+            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edgeos-api" 2>/dev/null || true
+            echo "  ✓ RPATH updated for edgeos-api"
         else
-            echo "  ✓ RPATH already correct for edge_ai_api"
+            echo "  ✓ RPATH already correct for edgeos-api"
         fi
     fi
-    if [ -f "$BIN_DIR/edge_ai_worker" ]; then
-        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_worker" 2>/dev/null || echo "")
+    if [ -f "$BIN_DIR/edgeos-worker" ]; then
+        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-worker" 2>/dev/null || echo "")
         if [ "$CURRENT_RPATH" != "$EXPECTED_RPATH" ]; then
-            echo "  Setting RPATH for edge_ai_worker..."
-            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edge_ai_worker" 2>/dev/null || true
-            echo "  ✓ RPATH updated for edge_ai_worker"
+            echo "  Setting RPATH for edgeos-worker..."
+            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edgeos-worker" 2>/dev/null || true
+            echo "  ✓ RPATH updated for edgeos-worker"
         else
-            echo "  ✓ RPATH already correct for edge_ai_worker"
+            echo "  ✓ RPATH already correct for edgeos-worker"
         fi
     fi
 else
@@ -1266,20 +1060,20 @@ else
         echo "  RPATH should be set during package build"
         echo "  Attempting to verify library search path..."
         # Verify that library directory is in ld.so.conf
-        if [ -f /etc/ld.so.conf.d/edge-ai-api.conf ] && grep -q "^$LIB_DIR$" /etc/ld.so.conf.d/edge-ai-api.conf 2>/dev/null; then
+        if [ -f /etc/ld.so.conf.d/edgeos-api.conf ] && grep -q "^$LIB_DIR$" /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null; then
             echo "  ✓ Library directory $LIB_DIR is in ld.so.conf"
         else
             echo "  ⚠  Warning: Library directory $LIB_DIR may not be in ld.so.conf"
             if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
                 echo "  Creating ld.so.conf entry..."
-                if echo "$LIB_DIR" > /etc/ld.so.conf.d/edge-ai-api.conf 2>/dev/null; then
+                if echo "$LIB_DIR" > /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null; then
                     if command -v ldconfig >/dev/null 2>&1; then
                         ldconfig 2>&1 | grep -v "is not a symbolic link" || true
                     else
                         echo "  ⚠  Warning: ldconfig not found. Library cache may not be updated."
                     fi
                 else
-                    echo "  ⚠  Warning: Cannot write to /etc/ld.so.conf.d/edge-ai-api.conf"
+                    echo "  ⚠  Warning: Cannot write to /etc/ld.so.conf.d/edgeos-api.conf"
                 fi
             else
                 echo "  ⚠  Warning: Cannot access /etc/ld.so.conf.d"
@@ -1333,10 +1127,10 @@ if [ -f "$INSTALL_DIR/scripts/validate_installation.sh" ]; then
 else
     # Fallback to basic verification
     echo "Verifying executable..."
-    if [ -f "$BIN_DIR/edge_ai_api" ]; then
+    if [ -f "$BIN_DIR/edgeos-api" ]; then
         # Check if executable can find libraries
         if command -v ldd >/dev/null 2>&1; then
-            MISSING_LIBS=$(ldd "$BIN_DIR/edge_ai_api" 2>&1 | grep "not found" || true)
+            MISSING_LIBS=$(ldd "$BIN_DIR/edgeos-api" 2>&1 | grep "not found" || true)
             if [ -n "$MISSING_LIBS" ]; then
                 echo "Warning: Some libraries may be missing:"
                 echo "$MISSING_LIBS"
@@ -1345,7 +1139,7 @@ else
 
         # Check RPATH
         if command -v patchelf >/dev/null 2>&1; then
-            RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_api" 2>/dev/null || echo "")
+            RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
             echo "Executable RPATH: ${RPATH:-not set}"
         fi
     fi
@@ -1377,7 +1171,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -d "/etc/systemd/system" ]; then
 else
     echo "⚠  Warning: systemctl not found or systemd not available"
     echo "Service management commands will not work. Please start the service manually:"
-    echo "  $BIN_DIR/edge_ai_api"
+    echo "  $BIN_DIR/edgeos-api"
 fi
 
 echo "Installation completed successfully!"
@@ -1389,8 +1183,8 @@ echo "  ✓ Permissions configured for data directories"
 echo "  ✓ Library cache updated"
 echo ""
 echo "If you encounter issues, check service status:"
-echo "  sudo systemctl status edge-ai-api"
-echo "  sudo journalctl -u edge-ai-api -n 50"
+echo "  sudo systemctl status edgeos-api"
+echo "  sudo journalctl -u edgeos-api -n 50"
 echo ""
 echo "Service status:"
 echo "  sudo systemctl status ${SERVICE_NAME}"
@@ -1423,9 +1217,9 @@ echo ""
 echo "4. If OpenCV 4.10 is NOT installed, install it using the build script:"
 echo "   # Download the build script if not available:"
 echo "   cd /tmp"
-echo "   wget https://raw.githubusercontent.com/cvedix/edge_ai_api/main/scripts/build_opencv_safe.sh"
+echo "   wget https://raw.githubusercontent.com/cvedix/edgeos-api/main/scripts/build_opencv_safe.sh"
 echo "   # Or use the script from package source:"
-echo "   # cd /path/to/edge_ai_api"
+echo "   # cd /path/to/edgeos-api"
 echo "   # sudo ./scripts/build_opencv_safe.sh"
 echo ""
 echo "   # Make script executable and run:"
@@ -1435,8 +1229,7 @@ echo ""
 echo "   # After installation, copy the freetype library:"
 echo "   sudo cp /usr/local/lib/libopencv_freetype.so.4.10 $INSTALL_DIR/lib/libopencv_freetype.so.410"
 echo ""
-echo "5. Fallback: If OpenCV 4.6 is available (not recommended):"
-echo "   sudo cp /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0 $INSTALL_DIR/lib/libopencv_freetype.so.410"
+echo "5. OpenCV 4.6 is NOT supported. You MUST use OpenCV 4.10."
 echo ""
 echo "6. Set correct permissions:"
 echo "   sudo chmod 644 $INSTALL_DIR/lib/libopencv_freetype.so.410"

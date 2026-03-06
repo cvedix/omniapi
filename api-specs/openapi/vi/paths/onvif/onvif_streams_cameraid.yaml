@@ -1,0 +1,73 @@
+# API endpoint: /v1/onvif/streams/{cameraid}
+# Tag: ONVIF
+
+/v1/onvif/streams/{cameraid}:
+  get:
+    summary: Lấy streams cho một camera ONVIF
+    description: 'Lấy các video streams có sẵn cho một camera ONVIF cụ thể.
+
+      **Camera ID:** - Có thể là địa chỉ IP của camera (ví dụ: "192.168.1.100") hoặc UUID - Định dạng địa chỉ IP: 0-255.0-255.0-255.0-255
+
+      **Thông tin Stream:** - Mỗi stream bao gồm profile token, độ phân giải (width/height), frame rate (fps) và RTSP URI
+      - Streams được lấy bằng dịch vụ ONVIF Media - Credentials của camera phải được thiết lập trước khi lấy streams (nếu
+      yêu cầu xác thực)
+
+      **Cách sử dụng:** 1. Khám phá camera bằng POST /v1/onvif/discover 2. Lấy danh sách camera bằng GET /v1/onvif/cameras
+      3. Thiết lập credentials bằng POST /v1/onvif/camera/{cameraid}/credentials (nếu cần) 4. Lấy streams bằng endpoint này '
+    operationId: getONVIFStreams
+    tags:
+    - ONVIF
+    parameters:
+    - name: cameraid
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh camera (địa chỉ IP hoặc UUID)
+      example: 192.168.1.100
+    responses:
+      '200':
+        description: Danh sách streams có sẵn cho camera
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ONVIFStream'
+            example:
+            - token: Profile_1
+              width: 1920
+              height: 1080
+              fps: 30
+              uri: rtsp://192.168.1.100:554/Streaming/Channels/101
+            - token: Profile_2
+              width: 640
+              height: 480
+              fps: 15
+              uri: rtsp://192.168.1.100:554/Streaming/Channels/102
+      '400':
+        description: Yêu cầu không hợp lệ (thiếu hoặc không hợp lệ camera ID)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy camera
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho streams ONVIF
+    operationId: getONVIFStreamsOptions
+    tags:
+    - ONVIF
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

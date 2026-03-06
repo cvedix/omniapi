@@ -1,0 +1,68 @@
+# API endpoint: /v1/core/instance/{instanceId}/consume_events
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/consume_events:
+  get:
+    summary: Lấy events từ instance
+    description: 'Lấy events từ hàng đợi events của instance. Events được publish bởi instance processing pipeline và có thể
+      được lấy qua endpoint này.
+
+      **Định dạng Event:** - Mỗi event có `dataType` (ví dụ: "detection", "tracking", "analytics") và `jsonObject` (chuỗi
+      JSON đã serialize) - Events tuân theo schema tại https://bin.cvedia.com/schema/
+
+      **Hành vi:** - Trả về tất cả events có sẵn từ hàng đợi - Events sẽ bị xóa khỏi hàng đợi sau khi lấy - Trả về 204 No
+      Content nếu không có events - Trả về 200 OK với mảng events nếu có events'
+    operationId: coreConsumeEventsV1
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    responses:
+      '200':
+        description: Lấy events thành công
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  dataType:
+                    type: string
+                    description: 'Loại dữ liệu event (ví dụ: "detection", "tracking", "analytics")'
+                  jsonObject:
+                    type: string
+                    description: Chuỗi JSON đã serialize chứa dữ liệu event
+            example:
+            - dataType: detection
+              jsonObject: '{"timestamp": "2024-01-01T00:00:00Z", "objects": []}'
+            - dataType: tracking
+              jsonObject: '{"timestamp": "2024-01-01T00:00:01Z", "tracks": []}'
+      '204':
+        description: Không có events
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho endpoint consume events
+    operationId: consumeEventsOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

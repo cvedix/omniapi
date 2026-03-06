@@ -95,6 +95,44 @@ inline int getRtmpPrepareTimeoutDeletionMs() {
   return EnvConfig::getInt("RTMP_PREPARE_TIMEOUT_DELETION_MS", 50, 20, 500);
 }
 
+// RTMP source node stop timeout during reconnect
+// Longer timeout to avoid using detach_recursively() which can affect destination
+inline int getRtmpSourceStopTimeoutMs() {
+  return EnvConfig::getInt("RTMP_SOURCE_STOP_TIMEOUT_MS", 2000, 500, 10000);
+}
+
+// RTMP source reconnect stabilization wait time (after stop, before restart)
+// Allows GStreamer pipeline to fully release resources and destination to stabilize
+inline int getRtmpSourceReconnectStabilizationMs() {
+  return EnvConfig::getInt("RTMP_SOURCE_RECONNECT_STABILIZATION_MS", 3000, 1000, 10000);
+}
+
+// RTMP source reconnect initialization wait time (after restart)
+// Allows GStreamer pipeline to initialize before processing frames.
+// Higher value reduces "gst_sample_get_caps assertion / retrieveVideoFrame NULL" errors
+// when the first pull after reconnect gets an invalid sample (see docs/RTMP_RECONNECT_GSTREAMER_NULL_SAMPLE.md).
+inline int getRtmpSourceReconnectInitializationMs() {
+  return EnvConfig::getInt("RTMP_SOURCE_RECONNECT_INITIALIZATION_MS", 10000, 500, 20000);
+}
+
+// ========== RTMP Destination Monitor (reduce false disconnect) ==========
+inline int getRtmpDesInitialConnectionTimeoutSec() {
+  return EnvConfig::getInt("RTMP_DES_INITIAL_CONNECTION_TIMEOUT_SEC", 45, 15, 120);
+}
+inline int getRtmpDesDisconnectionTimeoutSec() {
+  return EnvConfig::getInt("RTMP_DES_DISCONNECTION_TIMEOUT_SEC", 25, 10, 90);
+}
+inline int getRtmpDesReconnectGracePeriodSec() {
+  return EnvConfig::getInt("RTMP_DES_RECONNECT_GRACE_PERIOD_SEC", 45, 15, 120);
+}
+inline int getRtmpDesReconnectCooldownSec() {
+  return EnvConfig::getInt("RTMP_DES_RECONNECT_COOLDOWN_SEC", 12, 5, 60);
+}
+// Seconds without activity before "early" reconnect (clear queue). Increase to reduce false disconnect.
+inline int getRtmpDesEarlyDetectionThresholdSec() {
+  return EnvConfig::getInt("RTMP_DES_EARLY_DETECTION_THRESHOLD_SEC", 20, 10, 120);
+}
+
 // Helper functions for std::chrono::milliseconds
 inline std::chrono::milliseconds getRegistryMutexTimeout() {
   return std::chrono::milliseconds(getRegistryMutexTimeoutMs());
@@ -150,6 +188,18 @@ inline std::chrono::milliseconds getRtmpPrepareTimeout() {
 
 inline std::chrono::milliseconds getRtmpPrepareTimeoutDeletion() {
   return std::chrono::milliseconds(getRtmpPrepareTimeoutDeletionMs());
+}
+
+inline std::chrono::milliseconds getRtmpSourceStopTimeout() {
+  return std::chrono::milliseconds(getRtmpSourceStopTimeoutMs());
+}
+
+inline std::chrono::milliseconds getRtmpSourceReconnectStabilization() {
+  return std::chrono::milliseconds(getRtmpSourceReconnectStabilizationMs());
+}
+
+inline std::chrono::milliseconds getRtmpSourceReconnectInitialization() {
+  return std::chrono::milliseconds(getRtmpSourceReconnectInitializationMs());
 }
 
 } // namespace TimeoutConstants

@@ -1,0 +1,97 @@
+# API endpoint: /v1/securt/instance/{instanceId}/input
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/input:
+  post:
+    summary: Set input source for SecuRT instance
+    description: 'Sets the input source configuration for a SecuRT instance. Supports multiple input types including File,
+      RTSP, RTMP, and HLS streams.
+
+      **Input Types:**
+
+      - **File**: Video file from local path or URL
+
+      - **RTSP**: RTSP stream URL (uses `rtsp_src` node)
+
+      - **RTMP**: RTMP stream URL (uses `rtmp_src` node)
+
+      - **HLS**: HLS stream URL (.m3u8) (uses `hls_src` node)
+
+      **Additional Parameters:**
+
+      For RTSP input, you can specify: - `RTSP_TRANSPORT`: Transport protocol ("tcp" or "udp") - `GST_DECODER_NAME`: GStreamer
+      decoder name (e.g., "avdec_h264", "decodebin") - `USE_URISOURCEBIN`: Use urisourcebin format for auto-detection ("true"
+      or "false")
+
+      The instance must exist. If the instance is currently running, it will be automatically restarted to apply the changes.
+
+      '
+    operationId: setSecuRTInstanceInput
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SecuRTInputRequest'
+          examples:
+            rtspInput:
+              summary: RTSP input from camera
+              value:
+                type: RTSP
+                uri: rtsp://192.168.1.100:554/stream1
+                additionalParams:
+                  RTSP_TRANSPORT: tcp
+                  GST_DECODER_NAME: avdec_h264
+            fileInput:
+              summary: Video file input
+              value:
+                type: File
+                uri: ./test_video.mp4
+            rtmpInput:
+              summary: RTMP stream input
+              value:
+                type: RTMP
+                uri: rtmp://live.example.com/live/stream
+            hlsInput:
+              summary: HLS stream input
+              value:
+                type: HLS
+                uri: http://example.com/stream.m3u8
+    responses:
+      '204':
+        description: Input settings updated successfully
+      '400':
+        description: Invalid request (invalid input type or missing required fields)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for input
+    operationId: setSecuRTInstanceInputOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: CORS preflight response

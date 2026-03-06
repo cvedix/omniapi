@@ -1,0 +1,47 @@
+{
+  "name": "rtsp_destination_demo",
+  "group": "destination",
+  "solution": "custom",
+  "persistent": true,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/videos/test.mp4",
+      "RESIZE_RATIO": "1.0"
+    },
+    "output": {
+      "RTSP_DES_PORT": "8000",
+      "RTSP_DES_STREAM_NAME": "output_stream"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_rtsp_des_demo",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "${RESIZE_RATIO}"
+      }
+    },
+    {
+      "nodeType": "osd",
+      "nodeName": "osd_rtsp_des_demo",
+      "parameters": {
+        "font_path": ""
+      }
+    },
+    {
+      "nodeType": "rtsp_des",
+      "nodeName": "rtsp_des_demo",
+      "parameters": {
+        "channel": "0",
+        "port": "${RTSP_DES_PORT}",
+        "stream_name": "${RTSP_DES_STREAM_NAME}",
+        "osd": "true"
+      }
+    }
+  ]
+}
+

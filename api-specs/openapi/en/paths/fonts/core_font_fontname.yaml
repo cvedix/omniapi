@@ -1,0 +1,153 @@
+# API endpoint: /v1/core/font/{fontName}
+# Tag: Fonts
+
+/v1/core/font/{fontName}:
+  put:
+    summary: Rename a font file
+    description: 'Renames a font file on the server.
+
+      You can specify a subdirectory using the `directory` query parameter if the file is in a subdirectory.
+
+      '
+    operationId: renameFont
+    tags:
+    - Fonts
+    parameters:
+    - name: fontName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Current name of the font file to rename
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Subdirectory path where the font file is located (e.g., "projects/myproject/fonts", "themes/custom").
+
+        If not specified, the file is assumed to be in the base fonts directory.
+
+        '
+      example: projects/myproject/fonts
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - newName
+            properties:
+              newName:
+                type: string
+                description: New name for the font file (must have valid font file extension)
+                example: string.otf
+    responses:
+      '200':
+        description: Font file renamed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                oldName:
+                  type: string
+                newName:
+                  type: string
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Font file not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: New name already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete a font file
+    description: 'Deletes a font file from the server.
+
+      You can specify a subdirectory using the `directory` query parameter if the file is in a subdirectory.
+
+      '
+    operationId: deleteFont
+    tags:
+    - Fonts
+    parameters:
+    - name: fontName
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Name of the font file to delete
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Subdirectory path where the font file is located (e.g., "projects/myproject/fonts", "themes/custom").
+
+        If not specified, the file is assumed to be in the base fonts directory.
+
+        '
+      example: projects/myproject/fonts
+    responses:
+      '200':
+        description: Font file deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                filename:
+                  type: string
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Font file not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for font operations
+    operationId: fontOptionsHandler
+    tags:
+    - Fonts
+    responses:
+      '200':
+        description: CORS preflight response

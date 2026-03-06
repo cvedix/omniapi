@@ -1,13 +1,13 @@
 #!/bin/bash
-# postrm script for edge-ai-api
+# postrm script for edgeos-api
 
 set -e
 
-LIB_DIR="/opt/edge_ai_api/lib"
+LIB_DIR="/opt/edgeos-api/lib"
 
 # Remove ldconfig configuration
-if [ -f "/etc/ld.so.conf.d/edge-ai-api.conf" ]; then
-    rm -f /etc/ld.so.conf.d/edge-ai-api.conf
+if [ -f "/etc/ld.so.conf.d/edgeos-api.conf" ]; then
+    rm -f /etc/ld.so.conf.d/edgeos-api.conf
     ldconfig
 fi
 

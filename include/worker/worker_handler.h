@@ -155,6 +155,10 @@ private:
   IPCMessage handleStartInstance(const IPCMessage &msg);
   IPCMessage handleStopInstance(const IPCMessage &msg);
   IPCMessage handleUpdateInstance(const IPCMessage &msg);
+  IPCMessage handleUpdateLines(const IPCMessage &msg);
+  IPCMessage handleUpdateJams(const IPCMessage &msg);
+  IPCMessage handleUpdateStops(const IPCMessage &msg);
+  IPCMessage handlePushFrame(const IPCMessage &msg);
   IPCMessage handleGetStatus(const IPCMessage &msg);
   IPCMessage handleGetStatistics(const IPCMessage &msg);
   IPCMessage handleGetLastFrame(const IPCMessage &msg);

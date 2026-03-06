@@ -5,16 +5,14 @@
 bool CreateInstanceRequest::validate() const {
   validation_error_.clear();
 
-  // Validate name (required, pattern: ^[A-Za-z0-9 -_]+$)
-  if (name.empty()) {
-    validation_error_ = "name is required";
-    return false;
-  }
-
-  std::regex name_pattern("^[A-Za-z0-9 -_]+$");
-  if (!std::regex_match(name, name_pattern)) {
-    validation_error_ = "name must match pattern: ^[A-Za-z0-9 -_]+$";
-    return false;
+  // Validate name (optional, but if provided must match pattern: ^[A-Za-z0-9 -_]+$)
+  // If empty, will use default name during instance creation
+  if (!name.empty()) {
+    std::regex name_pattern("^[A-Za-z0-9 -_]+$");
+    if (!std::regex_match(name, name_pattern)) {
+      validation_error_ = "name must match pattern: ^[A-Za-z0-9 -_]+$";
+      return false;
+    }
   }
 
   // Validate group (optional, but if provided must match pattern)
@@ -47,8 +45,8 @@ bool CreateInstanceRequest::validate() const {
   }
 
   // Validate detectorMode
-  if (detectorMode != "SmartDetection") {
-    validation_error_ = "detectorMode must be SmartDetection";
+  if (detectorMode != "SmartDetection" && detectorMode != "Detection") {
+    validation_error_ = "detectorMode must be 'SmartDetection' or 'Detection'";
     return false;
   }
 
@@ -61,6 +59,12 @@ bool CreateInstanceRequest::validate() const {
   // Validate frameRateLimit
   if (frameRateLimit < 0) {
     validation_error_ = "frameRateLimit must be >= 0";
+    return false;
+  }
+
+  // Validate fps (must be positive integer if set)
+  if (fps < 0) {
+    validation_error_ = "fps must be >= 0";
     return false;
   }
 

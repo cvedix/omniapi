@@ -1,0 +1,38 @@
+# API endpoint: /v1/core/node/template/{category}
+# Tag: Node
+
+/v1/core/node/template/{category}:
+  get:
+    summary: Lấy template theo category
+    description: Lấy danh sách node template lọc theo category
+    operationId: getTemplatesByCategory
+    tags:
+    - Node
+    parameters:
+    - name: category
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Danh mục template
+      example: detection
+    responses:
+      '200':
+        description: Danh sách template trong danh mục
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templates:
+                  type: array
+                  items:
+                    type: object
+                total:
+                  type: integer
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

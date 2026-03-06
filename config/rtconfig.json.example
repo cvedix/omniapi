@@ -1,0 +1,24 @@
+{
+  "vms.show_area_crossing": true,
+  "vms.show_line_crossing": true,
+  "vms.show_intrusion": true,
+  "vms.show_crowding": true,
+  "vms.show_loitering": true,
+  "vms.show_object_left": true,
+  "vms.show_object_guarding": true,
+  "vms.show_tailgating": true,
+  "vms.show_fallen_person": true,
+  "vms.show_armed_person": true,
+  "vms.show_access_control_plate": true,
+  "vms.show_access_control_face": true,
+  "vms.show_appearance_search": true,
+  "vms.show_identities": true,
+  "vms.show_remote_mode": true,
+  "vms.show_thermal_support": true,
+  "vms.show_active_detection": true,
+  "vms.show_error_reporting": true,
+  "vms.show_trial_licenses": true,
+  "vms.hardware_decoding": true,
+  "global.default_performance_mode": "Performance"
+}
+

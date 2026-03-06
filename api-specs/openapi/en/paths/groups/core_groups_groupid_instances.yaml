@@ -1,0 +1,103 @@
+# API endpoint: /v1/core/groups/{groupId}/instances
+# Tag: Groups
+
+/v1/core/groups/{groupId}/instances:
+  get:
+    summary: Get instances in a group
+    description: 'Returns a list of all instances that belong to a specific group.
+
+
+      The response includes:
+
+      - Group ID
+
+      - List of instances with summary information (ID, display name, solution, running status)
+
+      - Total count of instances in the group
+
+
+      **Use Cases:**
+
+      - View all instances in a specific group
+
+      - Monitor group status and performance
+
+      - Manage instances by group
+
+
+      The group must exist. If the group is not found, a 404 error will be returned.
+
+      '
+    operationId: getGroupInstances
+    tags:
+    - Groups
+    parameters:
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Group ID
+    responses:
+      '200':
+        description: List of instances in the group
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groupId:
+                  type: string
+                  description: Group ID
+                instances:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      instanceId:
+                        type: string
+                      displayName:
+                        type: string
+                      solutionId:
+                        type: string
+                      running:
+                        type: boolean
+                      loaded:
+                        type: boolean
+                count:
+                  type: integer
+                  description: Number of instances in the group
+            example:
+              groupId: cameras
+              count: 2
+              instances:
+              - instanceId: abc-123
+                displayName: Camera 1
+                solutionId: face_detection
+                running: true
+                loaded: true
+              - instanceId: def-456
+                displayName: Camera 2
+                solutionId: face_detection
+                running: false
+                loaded: true
+      '404':
+        description: Group not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for group instances
+    operationId: getGroupInstancesOptions
+    tags:
+    - Groups
+    responses:
+      '200':
+        description: CORS preflight response

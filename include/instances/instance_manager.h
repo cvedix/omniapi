@@ -151,6 +151,40 @@ public:
    */
   virtual int checkAndHandleRetryLimits() = 0;
 
+  // ========== Instance State Management ==========
+
+  /**
+   * @brief Load instance into memory
+   * @param instanceId Instance ID
+   * @return true if successful
+   */
+  virtual bool loadInstance(const std::string &instanceId) = 0;
+
+  /**
+   * @brief Unload instance from memory
+   * @param instanceId Instance ID
+   * @return true if successful
+   */
+  virtual bool unloadInstance(const std::string &instanceId) = 0;
+
+  /**
+   * @brief Get runtime state of instance
+   * @param instanceId Instance ID
+   * @return JSON object with state (empty if instance not loaded)
+   */
+  virtual Json::Value getInstanceState(const std::string &instanceId) = 0;
+
+  /**
+   * @brief Set runtime state value at a specific path
+   * @param instanceId Instance ID
+   * @param path Path string with "/" separator (e.g., "Output/handlers/Mqtt")
+   * @param value JSON value to set
+   * @return true if successful
+   */
+  virtual bool setInstanceState(const std::string &instanceId,
+                                const std::string &path,
+                                const Json::Value &value) = 0;
+
   // ========== Backend Info ==========
 
   /**

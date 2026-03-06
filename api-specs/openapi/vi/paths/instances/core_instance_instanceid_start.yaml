@@ -1,0 +1,51 @@
+# API endpoint: /v1/core/instance/{instanceId}/start
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/start:
+  post:
+    summary: Khởi động instance
+    description: 'Khởi động pipeline của instance. Instance phải có pipeline đã cấu hình và solution hợp lệ.
+
+
+      **Điều kiện:** Instance phải tồn tại, có cấu hình solution hợp lệ, không read-only; nguồn đầu vào phải được cấu hình đúng (nếu solution yêu cầu). **Hành vi:** Nếu instance đã chạy thì yêu cầu vẫn thành công; pipeline được build và start theo cấu hình solution; xử lý bắt đầu theo nguồn đầu vào và thiết lập detector; trả về thông tin instance với `running: true`. **Lưu ý:** Khởi động instance có thể mất vài giây khi pipeline được khởi tạo.'
+
+    operationId: startInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+    responses:
+      '200':
+        description: Đã khởi động instance thành công
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/InstanceInfo'
+              - type: object
+                properties:
+                  message:
+                    type: string
+      '400':
+        description: Khởi động instance thất bại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

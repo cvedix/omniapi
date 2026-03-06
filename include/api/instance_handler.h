@@ -94,6 +94,26 @@ public:
                 "/v1/core/instance/{instanceId}/classes", Get);
   ADD_METHOD_TO(InstanceHandler::getInstancePreview,
                 "/v1/core/instance/{instanceId}/preview", Get);
+  ADD_METHOD_TO(InstanceHandler::loadInstance,
+                "/v1/core/instance/{instanceId}/load", Post);
+  ADD_METHOD_TO(InstanceHandler::unloadInstance,
+                "/v1/core/instance/{instanceId}/unload", Post);
+  ADD_METHOD_TO(InstanceHandler::getInstanceState,
+                "/v1/core/instance/{instanceId}/state", Get);
+  ADD_METHOD_TO(InstanceHandler::setInstanceState,
+                "/v1/core/instance/{instanceId}/state", Post);
+  ADD_METHOD_TO(InstanceHandler::patchInstance,
+                "/v1/core/instance/{instanceId}", Patch);
+  ADD_METHOD_TO(InstanceHandler::consumeEvents,
+                "/v1/core/instance/{instanceId}/consume_events", Get);
+  ADD_METHOD_TO(InstanceHandler::configureHlsOutput,
+                "/v1/core/instance/{instanceId}/output/hls", Post);
+  ADD_METHOD_TO(InstanceHandler::configureRtspOutput,
+                "/v1/core/instance/{instanceId}/output/rtsp", Post);
+  ADD_METHOD_TO(InstanceHandler::pushEncodedFrame,
+                "/v1/core/instance/{instanceId}/push/encoded/{codecId}", Post);
+  ADD_METHOD_TO(InstanceHandler::pushCompressedFrame,
+                "/v1/core/instance/{instanceId}/push/compressed", Post);
   ADD_METHOD_TO(InstanceHandler::handleOptions, "/v1/core/instance", Options);
   ADD_METHOD_TO(InstanceHandler::handleOptions,
                 "/v1/core/instance/{instanceId}", Options);
@@ -119,6 +139,22 @@ public:
                 "/v1/core/instance/{instanceId}/classes", Options);
   ADD_METHOD_TO(InstanceHandler::handleOptions,
                 "/v1/core/instance/{instanceId}/preview", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/load", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/unload", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/state", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/consume_events", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/output/hls", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/output/rtsp", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/push/encoded/{codecId}", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/push/compressed", Options);
   ADD_METHOD_TO(InstanceHandler::handleOptions, "/v1/core/instance/batch/start",
                 Options);
   ADD_METHOD_TO(InstanceHandler::handleOptions, "/v1/core/instance/batch/stop",
@@ -294,6 +330,76 @@ public:
   void
   getInstancePreview(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle POST /v1/core/instance/{instanceId}/load
+   * Loads instance into memory
+   */
+  void loadInstance(const HttpRequestPtr &req,
+                    std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle POST /v1/core/instance/{instanceId}/unload
+   * Unloads instance from memory
+   */
+  void unloadInstance(const HttpRequestPtr &req,
+                      std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle GET /v1/core/instance/{instanceId}/state
+   * Gets runtime state of instance
+   */
+  void getInstanceState(const HttpRequestPtr &req,
+                       std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle POST /v1/core/instance/{instanceId}/state
+   * Sets runtime state value at a specific path
+   */
+  void setInstanceState(const HttpRequestPtr &req,
+                       std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle PATCH /v1/core/instance/{instanceId}
+   * Updates instance with partial data
+   */
+  void patchInstance(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle GET /v1/core/instance/{instanceId}/consume_events
+   * Consumes events from instance event queue
+   */
+  void consumeEvents(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle POST /v1/core/instance/{instanceId}/output/hls
+   * Configures HLS output for instance
+   */
+  void configureHlsOutput(const HttpRequestPtr &req,
+                          std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle POST /v1/core/instance/{instanceId}/output/rtsp
+   * Configures RTSP output for instance
+   */
+  void configureRtspOutput(const HttpRequestPtr &req,
+                           std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle POST /v1/core/instance/{instanceId}/push/encoded/{codecId}
+   * Push encoded frame (H.264/H.265) into instance
+   */
+  void pushEncodedFrame(const HttpRequestPtr &req,
+                        std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle POST /v1/core/instance/{instanceId}/push/compressed
+   * Push compressed frame (JPEG/PNG) into instance
+   */
+  void pushCompressedFrame(const HttpRequestPtr &req,
+                           std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
    * @brief Handle OPTIONS request for CORS preflight

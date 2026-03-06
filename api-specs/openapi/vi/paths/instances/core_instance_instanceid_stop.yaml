@@ -1,0 +1,51 @@
+# API endpoint: /v1/core/instance/{instanceId}/stop
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/stop:
+  post:
+    summary: Dừng instance
+    description: 'Dừng pipeline của instance, dừng mọi xử lý và giải phóng tài nguyên.
+
+
+      **Hành vi:** Nếu instance đã dừng thì yêu cầu vẫn thành công. Pipeline được dừng đúng cách và mọi tài nguyên được giải phóng. Xử lý dừng ngay. Trả về thông tin instance với `running: false`. **Lưu ý:** Dừng instance có thể mất vài giây khi pipeline được dọn dẹp. Cấu hình instance được giữ và có thể start lại bằng endpoint start.'
+
+    operationId: stopInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+    responses:
+      '200':
+        description: Đã dừng instance thành công
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/InstanceInfo'
+              - type: object
+                properties:
+                  message:
+                    type: string
+      '400':
+        description: Dừng instance thất bại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

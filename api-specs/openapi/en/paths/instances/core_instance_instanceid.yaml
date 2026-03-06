@@ -1,0 +1,345 @@
+# API endpoint: /v1/core/instance/{instanceId}
+# Tag: Instances
+
+/v1/core/instance/{instanceId}:
+  get:
+    summary: Get instance details
+    description: 'Returns detailed information about a specific instance including full configuration, status, and runtime
+      information.
+
+
+      The response includes:
+
+      - Instance configuration (display name, group, solution, etc.)
+
+      - Runtime status (running, loaded, FPS, etc.)
+
+      - Configuration settings (detector mode, sensitivity, frame rate limits, etc.)
+
+      - Input/Output configuration
+
+      - Originator information
+
+
+      The instance must exist. If the instance is not found, a 404 error will be returned.
+
+      '
+    operationId: getInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: Instance details
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceInfo'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Update instance information
+    description: 'Updates configuration of an existing instance. Only provided fields will be updated. Supports two update
+      formats:
+
+
+      **Update Format 1: Field-by-field (camelCase)**
+
+      - Update individual fields like `name`, `group`, `autoStart`, `frameRateLimit`, etc.
+
+      - Use `additionalParams` to update solution-specific parameters (RTSP_URL, MODEL_PATH, etc.)
+
+
+      **Update Format 2: Direct Config (PascalCase)**
+
+      - Update using PascalCase format matching instance config file
+
+      - Can update `Input`, `Output`, `Detector`, `Zone`, etc. directly
+
+
+      **Behavior:**
+
+      - If the instance is currently running, it will be automatically restarted to apply the changes
+
+      - If the instance is not running, changes will take effect when the instance is started
+
+      - The instance must exist and not be read-only
+
+      - Only provided fields will be updated; other fields remain unchanged
+
+      '
+    operationId: updateInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateInstanceRequest'
+    responses:
+      '200':
+        description: Instance updated successfully
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/InstanceInfo'
+              - type: object
+                properties:
+                  message:
+                    type: string
+                    example: Instance updated successfully
+      '400':
+        description: Invalid request or validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  patch:
+    summary: Patch instance with partial data
+    description: 'Updates an instance with partial data. This is similar to PUT but explicitly designed for partial updates
+      where only specific fields need to be changed.
+
+
+      **Difference from PUT:**
+
+      - **PATCH**: Explicitly designed for partial updates, only update provided fields
+
+      - **PUT**: Can be used for full or partial updates
+
+
+      **Behavior:**
+
+      - Only provided fields will be updated; other fields remain unchanged
+
+      - Supports both camelCase (field-by-field) and PascalCase (direct config) formats
+
+      - If the instance is currently running, it will be automatically restarted to apply the changes
+
+      - The instance must exist and not be read-only
+
+
+      **Use Cases:**
+
+      - Update a single field (e.g., just the name)
+
+      - Update a few related fields
+
+      - Partial configuration updates
+
+
+      **Example:**
+
+      Update only the instance name:
+
+      ```json
+
+      {
+
+      "name": "Updated Instance Name"
+
+      }
+
+      ```
+
+
+      Update name and frame rate limit:
+
+      ```json
+
+      {
+
+      "name": "Updated Instance Name",
+
+      "frameRateLimit": 30
+
+      }
+
+      ```
+
+      '
+    operationId: corePatchInstanceV1
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+      example: '{threshold}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateInstanceRequest'
+          examples:
+            updateName:
+              summary: Update instance name only
+              value:
+                name: Updated Instance Name
+            updateMultiple:
+              summary: Update multiple fields
+              value:
+                name: Updated Instance Name
+                frameRateLimit: 30
+                autoStart: true
+    responses:
+      '204':
+        description: Instance updated successfully
+      '400':
+        description: Bad request (parsing error or invalid arguments)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+            example:
+              error: Bad request
+              message: Invalid request body or validation failed
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+            example:
+              error: Not found
+              message: 'Instance not found: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+            example:
+              error: Internal Server Error
+              message: Failed to update instance
+  options:
+    summary: CORS preflight for update instance
+    operationId: updateInstanceOptions
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: CORS preflight response
+        headers:
+          Access-Control-Allow-Origin:
+            schema:
+              type: string
+              example: '*'
+          Access-Control-Allow-Methods:
+            schema:
+              type: string
+              example: GET, PUT, PATCH, DELETE, OPTIONS
+          Access-Control-Allow-Headers:
+            schema:
+              type: string
+              example: Content-Type, Authorization
+  delete:
+    summary: Delete an instance
+    description: 'Deletes an instance and stops its pipeline if running. This operation permanently removes the instance from
+      the system.
+
+
+      **Behavior:**
+
+      - If the instance is currently running, it will be stopped first
+
+      - The instance configuration will be removed from memory
+
+      - If the instance is persistent, its configuration file will be deleted from storage
+
+      - All resources associated with the instance will be released
+
+
+      **Prerequisites:**
+
+      - Instance must exist
+
+      - Instance must not be read-only (system instances cannot be deleted)
+
+
+      **Note:** This operation cannot be undone. Once deleted, the instance must be recreated using the create instance endpoint.
+
+      '
+    operationId: deleteInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: Instance deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                instanceId:
+                  type: string
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

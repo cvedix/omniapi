@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edge AI API - Scalar Documentation</title>
+    <!-- Load Scalar CSS first to avoid auto-loading warning -->
+    <link rel="stylesheet" href="{{CSS_URL}}">
+    <!-- Using manual initialization method as per Scalar official documentation -->
     <script>
         // Global state to track Scalar loading
         window.scalarLoadState = {
@@ -127,80 +130,14 @@
             return loadPromise;
         }
         
-        // Set initial data-spec-url BEFORE loading Scalar script
-        // This ensures Scalar can auto-initialize when it loads
-        function setInitialSpecUrl() {
-            const apiRef = document.getElementById('api-reference');
-            console.log('[Scalar] setInitialSpecUrl - apiRef:', apiRef);
-            if (apiRef) {
-                // Check if data-spec-url already set by server
-                const existingUrl = apiRef.getAttribute('data-spec-url');
-                console.log('[Scalar] setInitialSpecUrl - existing data-spec-url:', existingUrl);
-                
-                // Get language from URL or default to 'en'
-                const urlParams = new URLSearchParams(window.location.search);
-                const lang = urlParams.get('lang') || localStorage.getItem('api-docs-language') || 'en';
-                const baseUrl = window.location.origin;
-                const version = 'v1';
-                const specUrl = baseUrl + '/' + version + '/openapi/' + lang + '/openapi.yaml';
-                
-                console.log('[Scalar] setInitialSpecUrl - computed specUrl:', specUrl);
-                console.log('[Scalar] setInitialSpecUrl - language:', lang);
-                
-                // Only set if not already set or if different
-                if (!existingUrl || existingUrl !== specUrl) {
-                    apiRef.setAttribute('data-spec-url', specUrl);
-                    console.log('[Scalar] setInitialSpecUrl - Set data-spec-url to:', specUrl);
-                } else {
-                    console.log('[Scalar] setInitialSpecUrl - data-spec-url already correct:', existingUrl);
-                }
-                return true; // Element found and URL set
-            }
-            return false; // Element not found
-        }
-        
-        // Try to set URL immediately if DOM is ready
-        if (document.readyState === 'loading') {
-            // DOM is still loading, wait for DOMContentLoaded
-            document.addEventListener('DOMContentLoaded', function() {
-                console.log('[Scalar] DOMContentLoaded fired');
-                if (setInitialSpecUrl()) {
-                    // Element found and URL set, now load script
-                    console.log('[Scalar] Starting to load Scalar script after DOMContentLoaded');
-                    loadScalarScript().catch(error => {
-                        console.warn('Initial Scalar load attempt failed (will retry on init):', error);
-                    });
-                } else {
-                    console.error('[Scalar] Element #api-reference not found in DOMContentLoaded!');
-                }
-            });
-        } else {
-            // DOM is already ready
-            console.log('[Scalar] DOM already ready, setting URL immediately');
-            if (setInitialSpecUrl()) {
-                // Element found and URL set, now load script
-                console.log('[Scalar] Starting to load Scalar script (DOM already ready)');
-                loadScalarScript().catch(error => {
-                    console.warn('Initial Scalar load attempt failed (will retry on init):', error);
-                });
-            } else {
-                console.error('[Scalar] Element #api-reference not found! Waiting for DOMContentLoaded...');
-                // Wait a bit and try again
-                setTimeout(function() {
-                    if (setInitialSpecUrl()) {
-                        console.log('[Scalar] Element found after delay, loading script');
-                        loadScalarScript().catch(error => {
-                            console.warn('Initial Scalar load attempt failed (will retry on init):', error);
-                        });
-                    }
-                }, 100);
-            }
-        }
+        // No need for setInitialSpecUrl - using official Scalar.createApiReference() method
+        // Scalar will be initialized directly in initializeScalar() function
     </script>
     <style>
         body {
             margin: 0;
             padding: 0;
+            background: #fafafa;
         }
         .language-selector {
             position: fixed;
@@ -226,7 +163,8 @@
             border-radius: 4px;
             font-size: 14px;
             cursor: pointer;
-            background: white;
+            background: #ffffff !important;
+            color: #333 !important;
         }
         .language-selector select:hover {
             border-color: #999;
@@ -236,7 +174,12 @@
             border-color: #0066cc;
             box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
         }
+        /* Script tag for Scalar API (hidden, just for configuration) */
         #api-reference {
+            display: none;
+        }
+        /* Container where Scalar will mount */
+        #scalar-container {
             position: relative;
             z-index: 1;
             min-height: 100vh;
@@ -251,6 +194,291 @@
             margin: 0;
             padding: 0;
             overflow-x: hidden;
+            background: #fafafa;
+        }
+        
+        /* ============================================
+           JSON Display Enhancement Styles
+           ============================================ */
+        
+        /* Container cho JSON response với controls */
+        .json-display-wrapper {
+            position: relative;
+            margin: 12px 0;
+        }
+        
+        /* Controls bar cho JSON blocks */
+        .json-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            font-size: 12px;
+        }
+        
+        /* Nút Copy JSON */
+        .json-copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #374151;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .json-copy-btn:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+            color: #111827;
+        }
+        
+        .json-copy-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .json-copy-btn.copied {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+        
+        .json-copy-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+        
+        /* Toggle wrap button */
+        .json-wrap-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #374151;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .json-wrap-toggle:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+        
+        .json-wrap-toggle.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+        }
+        
+        /* Cải thiện hiển thị <pre><code> chứa JSON */
+        /* Target các pre code blocks trong Scalar response */
+        .scalar-api-reference pre code,
+        pre code.hljs,
+        pre code[class*="hljs"],
+        pre code[class*="language-json"],
+        .response-body pre code,
+        .response-body pre code.hljs {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace !important;
+            font-size: 13px !important;
+            line-height: 1.7 !important;
+            color: #24292e !important;
+            background: transparent !important;
+            padding: 0 !important;
+            display: block !important;
+            white-space: pre !important;
+            word-wrap: normal !important;
+            overflow-x: auto !important;
+            tab-size: 2 !important;
+        }
+        
+        /* Container cho pre code với line numbers */
+        .json-with-lines {
+            position: relative;
+            display: flex;
+            background: #f8f9fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 0 0 6px 6px;
+            overflow: hidden;
+            width: 100%;
+            min-width: 0; /* Cho phép container shrink */
+        }
+        
+        /* Line numbers column */
+        .json-line-numbers {
+            flex-shrink: 0;
+            padding: 16px 12px 16px 16px;
+            background: #f1f3f5;
+            border-right: 1px solid #e1e4e8;
+            color: #6e7681;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            text-align: right;
+            user-select: none;
+            min-width: 50px;
+        }
+        
+        /* Code content area */
+        .json-code-content {
+            flex: 1;
+            overflow: auto;
+            padding: 16px;
+            position: relative;
+            min-width: 0; /* Cho phép flex item shrink */
+            width: 100%;
+        }
+        
+        /* Pre element styling */
+        .json-code-content pre {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            overflow: visible !important;
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        /* Code element styling - đảm bảo hiển thị đầy đủ */
+        .json-code-content pre code,
+        .json-code-content pre code.hljs {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+            word-break: normal !important;
+        }
+        
+        /* Wrap mode - cho phép wrap dòng */
+        .json-display-wrapper.wrap-mode .json-code-content pre code,
+        .json-display-wrapper.wrap-mode .json-code-content pre code.hljs {
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+        
+        /* Đảm bảo wrapper không bị giới hạn width */
+        .json-display-wrapper {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* Scrollbar styling cho JSON container */
+        .json-code-content::-webkit-scrollbar,
+        .json-display-wrapper pre::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        .json-code-content::-webkit-scrollbar-track,
+        .json-display-wrapper pre::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+        }
+        
+        .json-code-content::-webkit-scrollbar-thumb,
+        .json-display-wrapper pre::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 5px;
+        }
+        
+        .json-code-content::-webkit-scrollbar-thumb:hover,
+        .json-display-wrapper pre::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Giữ nguyên syntax highlighting của highlight.js */
+        .json-code-content .hljs-keyword,
+        .json-code-content code .hljs-keyword {
+            color: #d73a49 !important;
+        }
+        
+        .json-code-content .hljs-string,
+        .json-code-content code .hljs-string {
+            color: #032f62 !important;
+        }
+        
+        .json-code-content .hljs-number,
+        .json-code-content code .hljs-number {
+            color: #005cc5 !important;
+        }
+        
+        .json-code-content .hljs-literal,
+        .json-code-content code .hljs-literal {
+            color: #e36209 !important;
+        }
+        
+        .json-code-content .hljs-attr,
+        .json-code-content code .hljs-attr {
+            color: #6f42c1 !important;
+            font-weight: 500 !important;
+        }
+        
+        /* Responsive: ẩn line numbers trên màn hình nhỏ */
+        @media (max-width: 768px) {
+            .json-line-numbers {
+                display: none;
+            }
+            .json-code-content {
+                padding-left: 16px;
+            }
+        }
+        
+        /* Override Scalar background colors */
+        html,
+        body,
+        #scalar-api-reference,
+        #scalar-api-reference > div,
+        .scalar-api-reference,
+        .scalar-api-reference > div {
+            background: #fafafa !important;
+        }
+        
+        /* Change background for select/dropdown elements */
+        select,
+        .language-selector select,
+        .scalar-api-reference select,
+        .scalar-api-reference [role="combobox"],
+        .scalar-api-reference [class*="select"],
+        .scalar-api-reference [class*="Select"] {
+            background: #ffffff !important;
+            color: #333 !important;
+            border: 1px solid #ddd !important;
+        }
+        
+        /* Change text color for better contrast */
+        .scalar-api-reference,
+        .scalar-api-reference * {
+            color: #333 !important;
+        }
+        
+        /* Override specific Scalar components */
+        .scalar-api-reference [class*="sidebar"],
+        .scalar-api-reference [class*="Sidebar"] {
+            background: #f5f5f5 !important;
+        }
+        
+        .scalar-api-reference [class*="content"],
+        .scalar-api-reference [class*="Content"] {
+            background: #fafafa !important;
         }
     </style>
 </head>
@@ -263,7 +491,138 @@
         </select>
     </div>
     
-    <div id="api-reference" data-spec-url="{{INITIAL_SPEC_URL}}"></div>
+    <!-- Container for Scalar API Reference -->
+    <div id="scalar-api-reference">
+        <!-- Script tag for Scalar auto-initialization -->
+        <!-- Scalar will auto-detect script tags with id="api-reference" and data-url attribute -->
+        <script id="api-reference" type="application/json" data-url="{{INITIAL_SPEC_URL_ATTR}}"></script>
+    </div>
+    
+    <!-- Prevent Scalar from auto-detecting and auto-loading CSS -->
+    <script>
+        // Set flags BEFORE Scalar script loads
+        window.__SCALAR_CSS_LOADED__ = true;
+        window.__SCALAR_INITIALIZED__ = false;
+        
+        // Function to initialize Scalar - will be called when script loads
+        window.initScalarAPI = function() {
+            if (window.__SCALAR_INITIALIZED__) {
+                return; // Already initialized
+            }
+            
+            if (typeof Scalar === 'undefined' || typeof Scalar.createApiReference !== 'function') {
+                // Scalar not ready yet, retry
+                setTimeout(window.initScalarAPI, 50);
+                return;
+            }
+            
+            const container = document.getElementById('scalar-api-reference');
+            if (!container) {
+                console.error('[Scalar] Container not found');
+                return;
+            }
+            
+            // Get config from server or use defaults
+            const configScript = document.getElementById('server-config');
+            let specUrl = window.location.origin + '/v1/openapi/en/openapi.yaml'; // Default
+            
+            if (configScript) {
+                try {
+                    const config = JSON.parse(configScript.textContent);
+                    const baseUrl = config.baseUrl || window.location.origin;
+                    const version = config.version || 'v1';
+                    const lang = new URLSearchParams(window.location.search).get('lang') || 
+                                localStorage.getItem('api-docs-language') || 'en';
+                    specUrl = baseUrl + '/' + version + '/openapi/' + lang + '/openapi.yaml';
+                } catch (e) {
+                    console.warn('[Scalar] Failed to parse server config, using default');
+                }
+            }
+            
+            console.log('[Scalar] Initializing with URL:', specUrl);
+            try {
+                Scalar.createApiReference('#scalar-api-reference', {
+                    url: specUrl
+                });
+                window.__SCALAR_INITIALIZED__ = true;
+            } catch (error) {
+                console.error('[Scalar] Initialization failed:', error);
+            }
+        };
+    </script>
+    
+    <!-- Load Scalar script from CDN (with fallback) -->
+    <script>
+        // Track script loading state
+        window.scalarScriptLoaded = false;
+        window.scalarScriptError = false;
+        
+        function loadScalarScript() {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.24.0/dist/browser/standalone.js';
+            script.async = true;
+            script.crossOrigin = 'anonymous';
+            
+            script.onload = function() {
+                console.log('[Scalar] Script loaded from primary CDN');
+                window.scalarScriptLoaded = true;
+                // Check if Scalar is available after load
+                setTimeout(function() {
+                    console.log('[Scalar] After load - window.Scalar:', typeof window.Scalar);
+                    console.log('[Scalar] After load - Scalar:', typeof Scalar);
+                    // Try to find Scalar in window
+                    for (let key in window) {
+                        if (key.toLowerCase().includes('scalar') && 
+                            key !== 'scalarScriptLoaded' && 
+                            key !== 'scalarScriptError' &&
+                            key !== 'scalarLoadState' &&
+                            key !== 'scalarInstance') {
+                            const obj = window[key];
+                            console.log('[Scalar] Found in window:', key, typeof obj);
+                            if (obj && typeof obj === 'object') {
+                                console.log('[Scalar] Object keys:', Object.keys(obj));
+                                if (obj.createApiReference) {
+                                    console.log('[Scalar] ✅ Found createApiReference in:', key);
+                                }
+                            }
+                        }
+                    }
+                    // Check if data-configuration auto-initialized
+                    const container = document.getElementById('scalar-api-reference');
+                    if (container) {
+                        console.log('[Scalar] Container children:', container.children.length);
+                        console.log('[Scalar] Container innerHTML length:', container.innerHTML.length);
+                    }
+                }, 500); // Wait longer for Scalar to initialize
+            };
+            
+            script.onerror = function() {
+                console.error('[Scalar] Failed to load from primary CDN, trying fallback...');
+                const fallback = document.createElement('script');
+                fallback.src = 'https://unpkg.com/@scalar/api-reference@1.24.0/dist/browser/standalone.js';
+                fallback.async = true;
+                fallback.crossOrigin = 'anonymous';
+                fallback.onload = function() {
+                    console.log('[Scalar] Script loaded from fallback CDN');
+                    window.scalarScriptLoaded = true;
+                };
+                fallback.onerror = function() {
+                    console.error('[Scalar] Failed to load from fallback CDN');
+                    window.scalarScriptError = true;
+                };
+                document.head.appendChild(fallback);
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // Load script when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadScalarScript);
+        } else {
+            loadScalarScript();
+        }
+    </script>
     
     <!-- Server will inject configuration here -->
     <!-- If placeholders are not replaced, the code will use fallback defaults -->
@@ -442,55 +801,23 @@
             console.log('[Scalar] Base URL:', baseUrl);
             console.log('[Scalar] Version:', versionStr);
 
-            // Get the api-reference element
-            const apiRef = document.getElementById('api-reference');
-            if (!apiRef) {
-                console.error('api-reference element not found');
-                return Promise.reject(new Error('api-reference element not found'));
-            }
-
-            // Clear old content completely - force remove element and recreate to ensure clean state
-            console.log('[Scalar] Clearing old content, current innerHTML length:', apiRef.innerHTML.length);
-            
-            // Store parent and position
-            const parent = apiRef.parentNode;
-            const nextSibling = apiRef.nextSibling;
-            
-            // Remove old element completely
-            apiRef.remove();
-            
-            // Create fresh element with new spec URL
-            const newApiRef = document.createElement('div');
-            newApiRef.id = 'api-reference';
-            newApiRef.setAttribute('data-spec-url', specUrl);
-            
-            // Insert at same position
-            if (nextSibling) {
-                parent.insertBefore(newApiRef, nextSibling);
-            } else {
-                parent.appendChild(newApiRef);
+            // Use official Scalar.createApiReference() method
+            // Get the container element
+            const container = document.getElementById('scalar-api-reference');
+            if (!container) {
+                console.error('[Scalar] scalar-api-reference container not found');
+                return Promise.reject(new Error('scalar-api-reference container not found'));
             }
             
-            console.log('[Scalar] Created fresh api-reference element with data-spec-url:', specUrl);
-            console.log('[Scalar] data-spec-url after setting:', newApiRef.getAttribute('data-spec-url'));
-            
-            // Always use manual initialization for better control, especially when switching languages
-            // First ensure Scalar script is loaded, then initialize
+            // Always use manual initialization with official API
             return waitForScalarAndManualInit(specUrl, fallbackUrl, baseUrl);
             
             async function waitForScalarAndManualInit(currentSpecUrl, currentFallbackUrl, currentBaseUrl) {
-                // Get the fresh api-reference element
-                const freshApiRef = document.getElementById('api-reference');
-                if (!freshApiRef) {
-                    console.error('[Scalar] api-reference element not found after recreation');
-                    return Promise.reject(new Error('api-reference element not found'));
-                }
-                
-                // Verify the spec URL is set correctly
-                const elementSpecUrl = freshApiRef.getAttribute('data-spec-url');
-                if (elementSpecUrl !== currentSpecUrl) {
-                    console.warn('[Scalar] Spec URL mismatch. Expected:', currentSpecUrl, 'Got:', elementSpecUrl);
-                    freshApiRef.setAttribute('data-spec-url', currentSpecUrl);
+                // Get the container element
+                const container = document.getElementById('scalar-api-reference');
+                if (!container) {
+                    console.error('[Scalar] scalar-api-reference container not found');
+                    return Promise.reject(new Error('scalar-api-reference container not found'));
                 }
                 
                 // First, ensure Scalar script is loaded
@@ -503,17 +830,14 @@
                     // Continue anyway, might already be loaded
                 }
                 
-                // Wait for ScalarApiReference to be available - check for actual ScalarApiReference object
+                // Wait for Scalar to be available (official API)
                 let retries = 0;
-                const maxRetries = 150; // 15 seconds - give even more time for script to fully load
+                const maxRetries = 150; // 15 seconds
                 while (retries < maxRetries) {
-                    // Check directly for ScalarApiReference (not through helper to avoid loadScalarScript)
-                    if (typeof window.ScalarApiReference !== 'undefined' && 
-                        window.ScalarApiReference !== window.loadScalarScript &&
-                        typeof window.ScalarApiReference === 'object' &&
-                        (window.ScalarApiReference.default || window.ScalarApiReference.ApiReference)) {
-                        console.log('[Scalar] ScalarApiReference found, initializing manually with URL:', currentSpecUrl);
-                        // Always use manual initialization for better control
+                    // Check for official Scalar API
+                    if (typeof window.Scalar !== 'undefined' && 
+                        typeof window.Scalar.createApiReference === 'function') {
+                        console.log('[Scalar] Scalar API found, initializing with URL:', currentSpecUrl);
                         return initScalar(currentSpecUrl, currentFallbackUrl, currentBaseUrl);
                     }
                     await new Promise(resolve => setTimeout(resolve, 100));
@@ -521,19 +845,15 @@
                 }
                 
                 // If Scalar didn't load, try manual initialization anyway
-                console.warn('[Scalar] ScalarApiReference not found after waiting, trying manual init anyway');
+                console.warn('[Scalar] Scalar API not found after waiting, trying manual init anyway');
                 return initScalar(currentSpecUrl, currentFallbackUrl, currentBaseUrl);
             }
 
-            // Helper function to check if Scalar is available - check all possible ways
+            // Helper function to check if Scalar is available (official API)
             function isScalarAvailable() {
-                // Check various possible global names
-                if (typeof ScalarApiReference !== 'undefined') return true;
-                if (typeof window.ScalarApiReference !== 'undefined') return true;
-                if (window.ScalarApiReference) return true;
-                if (typeof Scalar !== 'undefined') return true;
-                if (typeof window.Scalar !== 'undefined') return true;
-                if (window.Scalar) return true;
+                // Check for official Scalar API
+                if (typeof Scalar !== 'undefined' && typeof Scalar.createApiReference === 'function') return true;
+                if (typeof window.Scalar !== 'undefined' && typeof window.Scalar.createApiReference === 'function') return true;
                 
                 // Check if script has loaded by looking for any Scalar-related globals
                 for (let key in window) {
@@ -594,15 +914,12 @@
                     const fallbackUrlToUse = currentFallbackUrl || fallbackUrl;
                     const baseUrlToUse = currentBaseUrl || baseUrl;
                     
-                    // Get fresh reference to api-reference element
-                    const freshApiRef = document.getElementById('api-reference');
-                    if (!freshApiRef) {
-                        throw new Error('api-reference element not found in initScalar');
+                    // Get container element for Scalar (using official method)
+                    const container = document.getElementById('scalar-api-reference');
+                    if (!container) {
+                        throw new Error('scalar-api-reference container not found in initScalar');
                     }
                     
-                    // Verify spec URL is correct
-                    const elementSpecUrl = freshApiRef.getAttribute('data-spec-url');
-                    console.log('[Scalar] initScalar - element spec URL:', elementSpecUrl);
                     console.log('[Scalar] initScalar - parameter spec URL:', specUrlToUse);
                     
                     // Use the URL from parameter (most reliable)
@@ -680,7 +997,45 @@
                                 'Pragma': 'no-cache',
                                 'Expires': '0'
                             }
-                        }
+                        },
+                        // Custom CSS để cải thiện định dạng response body
+                        // Note: JSON enhancement được xử lý bởi script riêng
+                        customCss: `
+                            /* Thay đổi màu nền chính */
+                            html, body, #scalar-api-reference, .scalar-api-reference {
+                                background: #fafafa !important;
+                            }
+                            
+                            /* Thay đổi màu nền cho select/dropdown */
+                            .scalar-api-reference select,
+                            .scalar-api-reference [role="combobox"],
+                            .scalar-api-reference [class*="select"],
+                            .scalar-api-reference [class*="Select"] {
+                                background: #ffffff !important;
+                                color: #333 !important;
+                                border: 1px solid #ddd !important;
+                            }
+                            
+                            /* Cải thiện hiển thị response section tổng thể */
+                            .scalar-api-reference .response-section {
+                                padding: 20px !important;
+                                background: #ffffff !important;
+                                border: 1px solid #e1e4e8 !important;
+                                border-radius: 6px !important;
+                                margin-top: 16px !important;
+                            }
+                            
+                            /* Cải thiện hiển thị response headers */
+                            .scalar-api-reference .response-headers {
+                                font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace !important;
+                                font-size: 12px !important;
+                            }
+                            
+                            /* Đảm bảo response body có không gian đủ */
+                            .scalar-api-reference .response-body {
+                                margin: 12px 0 !important;
+                            }
+                        `
                     };
                     console.log('Final URL for Scalar:', finalUrl);
                     console.log('Server URL for API testing:', serverUrl);
@@ -709,682 +1064,207 @@
                         retries++;
                     }
                     
-                    const ScalarRef = getScalarApiReference();
-                    if (!ScalarRef) {
-                        console.warn('ScalarApiReference not found, trying data-configuration method...');
-                        // Configuration will be created later, use default for now
+                    // Use official Scalar API as per GitHub documentation
+                    // Check for Scalar global (official API)
+                    if (typeof Scalar === 'undefined' && typeof window.Scalar === 'undefined') {
+                        console.warn('Scalar not found, trying data-configuration method...');
                         useDataConfigurationMethod();
                         return;
                     }
                     
-                    // Log the structure to understand what we have
-                    console.log('ScalarRef type:', typeof ScalarRef);
-                    console.log('ScalarRef:', ScalarRef);
-                    console.log('ScalarRef.default:', ScalarRef.default);
-                    console.log('ScalarRef keys:', Object.keys(ScalarRef || {}));
+                    const ScalarAPI = window.Scalar || Scalar;
                     
-                    // Scalar đã load, khởi tạo trực tiếp
+                    // Scalar đã load, khởi tạo trực tiếp theo hướng dẫn chính thức
                     try {
-                        console.log('Initializing Scalar with configuration:', configuration);
+                        console.log('[Scalar] Initializing with official API method');
+                        console.log('[Scalar] Configuration:', configuration);
                         
-                        // Try multiple ways to initialize
-                        let scalarInstance = null;
-                        
-                        // Method 1: ScalarRef.default
-                        if (ScalarRef.default && typeof ScalarRef.default === 'function') {
-                            scalarInstance = ScalarRef.default;
-                            console.log('Using ScalarRef.default');
-                        }
-                        // Method 2: ScalarRef itself
-                        else if (typeof ScalarRef === 'function') {
-                            scalarInstance = ScalarRef;
-                            console.log('Using ScalarRef directly');
-                        }
-                        // Method 3: ScalarRef.ApiReference
-                        else if (ScalarRef.ApiReference && typeof ScalarRef.ApiReference === 'function') {
-                            scalarInstance = ScalarRef.ApiReference;
-                            console.log('Using ScalarRef.ApiReference');
-                        }
-                        // Method 4: ScalarRef.create
-                        else if (ScalarRef.create && typeof ScalarRef.create === 'function') {
-                            scalarInstance = ScalarRef.create;
-                            console.log('Using ScalarRef.create');
-                        }
-                        // Method 5: Check for any function property
-                        else {
-                            for (let key in ScalarRef) {
-                                if (typeof ScalarRef[key] === 'function') {
-                                    console.log('Found function property:', key);
-                                    scalarInstance = ScalarRef[key];
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (scalarInstance && typeof scalarInstance === 'function') {
-                            const apiRef = document.getElementById('api-reference');
-                            if (!apiRef) {
-                                console.error('api-reference element not found');
-                                return;
-                            }
-                            
-                            // Destroy previous instance if exists
-                            if (window.scalarInstance) {
-                                try {
-                                    console.log('Destroying previous Scalar instance...');
-                                    if (window.scalarInstance.destroy && typeof window.scalarInstance.destroy === 'function') {
-                                        window.scalarInstance.destroy();
-                                    } else if (window.scalarInstance.unmount && typeof window.scalarInstance.unmount === 'function') {
-                                        window.scalarInstance.unmount();
-                                    } else if (window.scalarInstance.app && window.scalarInstance.app.unmount) {
-                                        window.scalarInstance.app.unmount();
-                                    }
-                                } catch (destroyError) {
-                                    console.warn('Error destroying previous instance:', destroyError);
-                                }
-                                window.scalarInstance = null;
-                            }
-                            
-                            // Try multiple ways to call createApiReference
-                            let initialized = false;
-                            
-                            // Method 1: With target selector (try sync and async)
+                        // Destroy previous instance if exists
+                        if (window.scalarInstance) {
                             try {
-                                console.log('Method 1: Calling with target selector');
-                                const result1 = scalarInstance({
-                                    ...configuration,
-                                    target: '#api-reference'
-                                });
-                                
-                                // Store instance reference for cleanup
-                                if (result1) {
-                                    window.scalarInstance = result1;
+                                console.log('[Scalar] Destroying previous instance...');
+                                if (window.scalarInstance.destroy && typeof window.scalarInstance.destroy === 'function') {
+                                    window.scalarInstance.destroy();
+                                } else if (window.scalarInstance.unmount && typeof window.scalarInstance.unmount === 'function') {
+                                    window.scalarInstance.unmount();
+                                } else if (window.scalarInstance.app && window.scalarInstance.app.unmount) {
+                                    window.scalarInstance.app.unmount();
                                 }
-                                
-                                console.log('Method 1 result:', result1);
-                                console.log('Method 1 result keys:', result1 ? Object.keys(result1) : 'null');
-                                
-                                // Check if result has an app that needs mounting
-                                if (result1 && result1.app) {
-                                    console.log('Found app in result, checking if it needs mounting...');
-                                    console.log('app type:', typeof result1.app);
-                                    console.log('app keys:', result1.app ? Object.keys(result1.app) : 'null');
-                                    
-                                    // Try mounting the app if it has a mount method
-                                    if (result1.app && typeof result1.app.mount === 'function') {
-                                        console.log('Mounting app to #api-reference...');
-                                        try {
-                                            result1.app.mount('#api-reference');
-                                            console.log('✅ App mounted successfully to #api-reference');
-                                            initialized = true;
-                                        } catch (mountError) {
-                                            console.warn('Mount to #api-reference failed:', mountError);
-                                            // Try mounting to element directly
-                                            try {
-                                                result1.app.mount(apiRef);
-                                                console.log('✅ App mounted successfully to element');
-                                                initialized = true;
-                                            } catch (mountError2) {
-                                                console.warn('Mount to element also failed:', mountError2);
-                                                // Still mark as initialized, maybe it will work
-                                                initialized = true;
-                                            }
-                                        }
-                                    } else {
-                                        console.log('App does not have mount method or app is null');
-                                        console.log('Result structure:', {
-                                            hasApp: !!result1.app,
-                                            appType: typeof result1.app,
-                                            appKeys: result1.app ? Object.keys(result1.app) : null
-                                        });
-                                        initialized = true;
-                                    }
-                                }
-                                
-                                // Check if it's a promise
-                                if (!initialized && result1 && typeof result1.then === 'function') {
-                                    console.log('Method 1 returned a promise, awaiting...');
-                                    result1.then((resolvedResult) => {
-                                        console.log('Method 1 promise resolved:', resolvedResult);
-                                        // Check if resolved result has app
-                                        if (resolvedResult && resolvedResult.app && typeof resolvedResult.app.mount === 'function') {
-                                            try {
-                                                resolvedResult.app.mount('#api-reference');
-                                                console.log('✅ App mounted from promise');
-                                            } catch (mountErr) {
-                                                console.warn('Mount from promise failed, trying element:', mountErr);
-                                                try {
-                                                    resolvedResult.app.mount(apiRef);
-                                                    console.log('✅ App mounted to element from promise');
-                                                } catch (mountErr2) {
-                                                    console.warn('Mount to element from promise also failed:', mountErr2);
-                                                }
-                                            }
-                                        }
-                                        initialized = true;
-                                    }).catch(err => {
-                                        console.warn('Method 1 promise rejected:', err);
-                                    });
-                                } else if (!initialized) {
-                                    initialized = true;
-                                }
-                            } catch (e1) {
-                                console.warn('Method 1 failed:', e1.message);
+                            } catch (destroyError) {
+                                console.warn('[Scalar] Error destroying previous instance:', destroyError);
                             }
-                            
-                            // Method 2: With element directly (if createApiReference) - try different formats
-                            if (!initialized && scalarInstance === ScalarRef.createApiReference) {
-                                // Helper function to mount app if present
-                                const tryMountApp = (result, methodName) => {
-                                    if (result && result.app && typeof result.app.mount === 'function') {
-                                        console.log(`Mounting app from ${methodName}...`);
-                                        try {
-                                            result.app.mount('#api-reference');
-                                            console.log(`${methodName} app mounted successfully`);
-                                            initialized = true;
-                                            return true;
-                                        } catch (mountErr) {
-                                            console.warn(`${methodName} mount failed, trying element:`, mountErr);
-                                            try {
-                                                result.app.mount(apiRef);
-                                                console.log(`${methodName} app mounted to element successfully`);
-                                                initialized = true;
-                                                return true;
-                                            } catch (mountErr2) {
-                                                console.warn(`${methodName} mount to element also failed:`, mountErr2);
-                                                return false;
-                                            }
-                                        }
-                                    }
-                                    return false;
-                                };
-                                
-                                // Try 2a: element + config object
-                                try {
-                                    console.log('Method 2a: createApiReference(element, config)');
-                                    const result2a = ScalarRef.createApiReference(apiRef, configuration);
-                                    console.log('Method 2a result:', result2a);
-                                    
-                                    // Store instance reference
-                                    if (result2a) {
-                                        window.scalarInstance = result2a;
-                                    }
-                                    
-                                    // Check if it's a promise
-                                    if (result2a && typeof result2a.then === 'function') {
-                                        console.log('Method 2a returned a promise, awaiting...');
-                                        result2a.then((resolvedResult) => {
-                                            console.log('Method 2a promise resolved:', resolvedResult);
-                                            if (resolvedResult) {
-                                                window.scalarInstance = resolvedResult;
-                                            }
-                                            if (!tryMountApp(resolvedResult, 'Method 2a')) {
-                                                initialized = true;
-                                            }
-                                        }).catch(err => {
-                                            console.warn('Method 2a promise rejected:', err);
-                                        });
-                                    } else {
-                                        if (!tryMountApp(result2a, 'Method 2a')) {
-                                            initialized = true;
-                                        }
-                                    }
-                                } catch (e2a) {
-                                    console.warn('Method 2a failed:', e2a.message);
-                                    
-                                    // Try 2b: element + spec URL string
-                                    try {
-                                        console.log('Method 2b: createApiReference(element, specUrl)');
-                                        const result2b = ScalarRef.createApiReference(apiRef, configuration.url);
-                                        console.log('Method 2b result:', result2b);
-                                        
-                                        // Store instance reference
-                                        if (result2b) {
-                                            window.scalarInstance = result2b;
-                                        }
-                                        
-                                        if (result2b && typeof result2b.then === 'function') {
-                                            result2b.then((resolvedResult) => {
-                                                console.log('Method 2b promise resolved:', resolvedResult);
-                                                if (resolvedResult) {
-                                                    window.scalarInstance = resolvedResult;
-                                                }
-                                                if (!tryMountApp(resolvedResult, 'Method 2b')) {
-                                                    initialized = true;
-                                                }
-                                            }).catch(err => {
-                                                console.warn('Method 2b promise rejected:', err);
-                                            });
-                                        } else {
-                                            if (!tryMountApp(result2b, 'Method 2b')) {
-                                                initialized = true;
-                                            }
-                                        }
-                                    } catch (e2b) {
-                                        console.warn('Method 2b failed:', e2b.message);
-                                        
-                                        // Try 2c: just element (maybe it reads from data-configuration)
-                                        try {
-                                            console.log('Method 2c: createApiReference(element)');
-                                            const result2c = ScalarRef.createApiReference(apiRef);
-                                            console.log('Method 2c result:', result2c);
-                                            
-                                            // Store instance reference
-                                            if (result2c) {
-                                                window.scalarInstance = result2c;
-                                            }
-                                            
-                                            if (result2c && typeof result2c.then === 'function') {
-                                                result2c.then((resolvedResult) => {
-                                                    console.log('Method 2c promise resolved:', resolvedResult);
-                                                    if (resolvedResult) {
-                                                        window.scalarInstance = resolvedResult;
-                                                    }
-                                                    if (!tryMountApp(resolvedResult, 'Method 2c')) {
-                                                        initialized = true;
-                                                    }
-                                                }).catch(err => {
-                                                    console.warn('Method 2c promise rejected:', err);
-                                                });
-                                            } else {
-                                                if (!tryMountApp(result2c, 'Method 2c')) {
-                                                    initialized = true;
-                                                }
-                                            }
-                                        } catch (e2c) {
-                                            console.warn('Method 2c failed:', e2c.message);
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Method 3: With element and target
-                            if (!initialized) {
-                                try {
-                                    console.log('Method 3: Calling with element in config');
-                                    const result3 = scalarInstance({
-                                        ...configuration,
-                                        target: apiRef
-                                    });
-                                    
-                                    // Store instance reference
-                                    if (result3) {
-                                        window.scalarInstance = result3;
-                                    }
-                                    
-                                    console.log('Method 3 result:', result3);
-                                    initialized = true;
-                                } catch (e3) {
-                                    console.warn('Method 3 failed:', e3.message);
-                                }
-                            }
-                            
-                            // Wait a bit for async operations
-                            setTimeout(async () => {
-                                if (initialized) {
-                                    // Check if element was populated after a delay
-                                    const apiRefCheck = document.getElementById('api-reference');
-                                    if (apiRefCheck) {
-                                        console.log('Checking api-reference after initialization...');
-                                        console.log('api-reference innerHTML length:', apiRefCheck.innerHTML.length);
-                                        console.log('api-reference children count:', apiRefCheck.children.length);
-                                        console.log('api-reference computed style display:', window.getComputedStyle(apiRefCheck).display);
-                                        console.log('api-reference first 500 chars:', apiRefCheck.innerHTML.substring(0, 500));
-                                        
-                                        // Only hide actual skeleton loaders - be very careful not to hide real content
-                                        const hideSkeletons = () => {
-                                            // Only target elements that are clearly skeletons and empty
-                                            const skeletons = apiRefCheck.querySelectorAll('[data-skeleton="true"], [class*="skeleton"]:empty, [aria-label*="loading"][aria-busy="true"]:empty');
-                                            skeletons.forEach(el => {
-                                                // Double check it's actually a skeleton and not content
-                                                if (el && el.parentElement && el.children.length === 0 && el.textContent.trim() === '') {
-                                                    const hasContent = el.querySelector('*');
-                                                    if (!hasContent) {
-                                                        el.style.display = 'none';
-                                                    }
-                                                }
-                                            });
-                                        };
-                                        
-                                        // Only run after content is loaded, and only once
-                                        if (apiRefCheck.innerHTML.length > 100) {
-                                            setTimeout(hideSkeletons, 2000);
-                                        }
-                                        
-                                        if (apiRefCheck.innerHTML.length === 0 || 
-                                            (apiRefCheck.children.length === 0 && apiRefCheck.innerHTML.trim().length < 50)) {
-                                            console.warn('api-reference is still empty after 3 seconds');
-                                            console.warn('Trying data-configuration method as fallback...');
-                                            useDataConfigurationMethod();
-                                        } else {
-                                            console.log('✅ Scalar content rendered successfully!');
-                                            
-                                            // Force visibility - check if content is hidden
-                                            const computedStyle = window.getComputedStyle(apiRefCheck);
-                                            console.log('Element visibility:', {
-                                                display: computedStyle.display,
-                                                visibility: computedStyle.visibility,
-                                                opacity: computedStyle.opacity,
-                                                height: computedStyle.height,
-                                                width: computedStyle.width
-                                            });
-                                            
-                                            // Ensure element is visible
-                                            if (computedStyle.display === 'none') {
-                                                console.warn('Element is hidden, forcing display...');
-                                                apiRefCheck.style.display = 'block';
-                                            }
-                                            if (computedStyle.visibility === 'hidden') {
-                                                console.warn('Element visibility is hidden, forcing visible...');
-                                                apiRefCheck.style.visibility = 'visible';
-                                            }
-                                            if (parseFloat(computedStyle.opacity) === 0) {
-                                                console.warn('Element opacity is 0, forcing opacity...');
-                                                apiRefCheck.style.opacity = '1';
-                                            }
-                                            
-                                            // Force CSS to ensure visibility
-                                            apiRefCheck.style.setProperty('display', 'block', 'important');
-                                            apiRefCheck.style.setProperty('visibility', 'visible', 'important');
-                                            apiRefCheck.style.setProperty('opacity', '1', 'important');
-                                            apiRefCheck.style.setProperty('position', 'relative', 'important');
-                                            apiRefCheck.style.setProperty('z-index', '1', 'important');
-                                            
-                                            // Check if children are visible
-                                            const firstChild = apiRefCheck.firstElementChild;
-                                            if (firstChild) {
-                                                const childStyle = window.getComputedStyle(firstChild);
-                                                console.log('First child visibility:', {
-                                                    display: childStyle.display,
-                                                    visibility: childStyle.visibility,
-                                                    opacity: childStyle.opacity,
-                                                    position: childStyle.position,
-                                                    zIndex: childStyle.zIndex
-                                                });
-                                                
-                                                // Force child visibility
-                                                firstChild.style.setProperty('display', 'block', 'important');
-                                                firstChild.style.setProperty('visibility', 'visible', 'important');
-                                                firstChild.style.setProperty('opacity', '1', 'important');
-                                                
-                                                // Check if element is in viewport
-                                                const rect = apiRefCheck.getBoundingClientRect();
-                                                console.log('Element position in viewport:', {
-                                                    top: rect.top,
-                                                    left: rect.left,
-                                                    bottom: rect.bottom,
-                                                    right: rect.right,
-                                                    width: rect.width,
-                                                    height: rect.height,
-                                                    inViewport: rect.top >= 0 && rect.left >= 0 && 
-                                                               rect.bottom <= window.innerHeight && 
-                                                               rect.right <= window.innerWidth
-                                                });
-                                                
-                                                // Scroll to element if not in viewport
-                                                if (rect.top < 0 || rect.top > window.innerHeight) {
-                                                    console.log('Element not in viewport, scrolling to it...');
-                                                    apiRefCheck.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                                }
-                                            }
-                                            
-                                            // Check for any overlaying elements
-                                            const elementsAtPoint = document.elementsFromPoint(
-                                                window.innerWidth / 2, 
-                                                window.innerHeight / 2
-                                            );
-                                            console.log('Elements at center of viewport:', elementsAtPoint.slice(0, 5).map(el => ({
-                                                tag: el.tagName,
-                                                id: el.id,
-                                                class: el.className,
-                                                zIndex: window.getComputedStyle(el).zIndex
-                                            })));
-                                        }
-                                    }
-                                } else {
-                                    console.error('All initialization methods failed');
-                                    useDataConfigurationMethod();
-                                }
-                            }, 3000); // Wait 3 seconds for async operations
-                        } else {
-                            console.error('No valid Scalar function found, structure:', ScalarRef);
-                            // Try data-configuration method instead
-                            useDataConfigurationMethod();
-                            return;
+                            window.scalarInstance = null;
                         }
-                    } catch (error) {
-                        console.error('Error initializing Scalar:', error);
-                        // Fallback: thử dùng fallbackUrl với format mới
-                        try {
-                            const fallbackConfig = {
-                                url: fallbackUrl,  // New format - not deprecated
-                                theme: 'default',
-                                layout: 'modern'
-                            };
-                            console.log('Trying fallback URL with new format:', fallbackUrl);
-                            const ScalarRef2 = getScalarApiReference();
-                            if (!ScalarRef2) {
-                                throw new Error('ScalarApiReference not available');
-                            }
-                            
-                            // Try the same methods as above
-                            let scalarInstance = ScalarRef2.default || ScalarRef2;
-                            if (ScalarRef2.ApiReference && typeof ScalarRef2.ApiReference === 'function') {
-                                scalarInstance = ScalarRef2.ApiReference;
-                            }
-                            
-                            if (typeof scalarInstance === 'function') {
-                                const fallbackResult = scalarInstance({
-                                    ...fallbackConfig,
-                                    target: '#api-reference'
+                        
+                        // Clear container before initializing
+                        container.innerHTML = '';
+                        
+                        // Use official Scalar.createApiReference() method as per GitHub docs
+                        let initialized = false;
+                        
+                        if (ScalarAPI && typeof ScalarAPI.createApiReference === 'function') {
+                            console.log('[Scalar] Using Scalar.createApiReference()');
+                            try {
+                                const result = ScalarAPI.createApiReference('#scalar-api-reference', {
+                                    url: finalUrl,
+                                    theme: configuration.theme,
+                                    layout: configuration.layout,
+                                    defaultHttpClient: configuration.defaultHttpClient,
+                                    withCredentials: configuration.withCredentials,
+                                    proxy: configuration.proxy,
+                                    fetchOptions: configuration.fetchOptions,
+                                    customCss: configuration.customCss
                                 });
                                 
-                                // Try mounting app if present
-                                // Store instance reference
-                                if (fallbackResult) {
-                                    window.scalarInstance = fallbackResult;
-                                }
-                                
-                                if (fallbackResult && fallbackResult.app && typeof fallbackResult.app.mount === 'function') {
-                                    try {
-                                        fallbackResult.app.mount('#api-reference');
-                                        console.log('✅ Fallback URL app mounted successfully');
-                                    } catch (mountErr) {
-                                        console.warn('Fallback mount failed:', mountErr);
-                                    }
-                                }
-                                console.log('Fallback URL initialization succeeded');
-                            } else {
-                                throw new Error('Scalar instance is not a function');
+                                window.scalarInstance = result;
+                                console.log('[Scalar] ✅ Successfully initialized with createApiReference()');
+                                initialized = true;
+                            } catch (createError) {
+                                console.error('[Scalar] Error calling createApiReference():', createError);
+                                // Fallback to data-configuration method
+                                useDataConfigurationMethod(configuration);
                             }
-                        } catch (fallbackError) {
-                            console.error('Fallback also failed:', fallbackError);
-                            // Last resort: use data-configuration
-                            console.log('Trying data-configuration method as last resort...');
+                        } else {
+                            console.warn('[Scalar] Scalar.createApiReference not found, using fallback');
                             useDataConfigurationMethod(configuration);
                         }
+                        
+                        if (!initialized) {
+                            console.warn('[Scalar] Initialization failed, using data-configuration method');
+                            useDataConfigurationMethod(configuration);
+                        }
+                    } catch (error) {
+                        console.error('[Scalar] Error in initScalar:', error);
+                        // Last resort: use data-configuration
+                        useDataConfigurationMethod(configuration);
                     }
                 } catch (error) {
-                    console.error('Error in initScalar:', error);
-                    // Last resort: use data-configuration
-                    console.log('Trying data-configuration method as last resort...');
+                    console.error('[Scalar] Outer error in initScalar:', error);
                     useDataConfigurationMethod(configuration);
                 }
             }
             
-            // Use data-configuration method (like the C++ code does)
+            // Legacy code removed - using official Scalar.createApiReference() method above
+            // Old Method 1, 2, 3... code removed for clarity
+            
+            // Use data-configuration method (fallback)
             function useDataConfigurationMethod(configToUse = null) {
-                console.log('Using data-configuration method to initialize Scalar');
-                const apiRef = document.getElementById('api-reference');
-                if (apiRef) {
-                    // Use provided config or create a default one
-                    const config = configToUse || {
-                        url: fallbackUrl || specUrl,
-                        theme: 'default',
-                        layout: 'modern'
-                    };
-                    
-                    // Don't clear content if it already has content (might be from previous mount)
-                    if (apiRef.innerHTML.trim().length < 100) {
-                        apiRef.innerHTML = '';
-                    } else {
-                        console.log('api-reference already has content, keeping it');
+                console.log('[Scalar] Using data-configuration method to initialize Scalar');
+                const container = document.getElementById('scalar-api-reference');
+                if (!container) {
+                    console.error('[Scalar] scalar-api-reference container not found');
+                    return;
+                }
+                
+                // For backward compatibility, also check api-reference
+                const apiRef = document.getElementById('api-reference') || container;
+                
+                // Use provided config or create a default one
+                const defaultCustomCss = `
+                    /* Thay đổi màu nền chính */
+                    html, body, #scalar-api-reference, .scalar-api-reference {
+                        background: #fafafa !important;
                     }
                     
-                    // Remove any existing config script to prevent auto-initialization conflicts
+                    /* Thay đổi màu nền cho select/dropdown */
+                    .scalar-api-reference select,
+                    .scalar-api-reference [role="combobox"],
+                    .scalar-api-reference [class*="select"],
+                    .scalar-api-reference [class*="Select"] {
+                        background: #ffffff !important;
+                        color: #333 !important;
+                        border: 1px solid #ddd !important;
+                    }
+                    
+                    .scalar-api-reference .response-section {
+                        padding: 20px !important;
+                        background: #ffffff !important;
+                        border: 1px solid #e1e4e8 !important;
+                        border-radius: 6px !important;
+                        margin-top: 16px !important;
+                    }
+                    .scalar-api-reference .response-body {
+                        margin: 12px 0 !important;
+                    }
+                `;
+                
+                const config = configToUse || {
+                    url: fallbackUrl || specUrl,
+                    theme: 'default',
+                    layout: 'modern',
+                    customCss: defaultCustomCss
+                };
+                
+                // Try to use Scalar.createApiReference if available
+                if (typeof Scalar !== 'undefined' && typeof Scalar.createApiReference === 'function') {
+                    try {
+                        const result = Scalar.createApiReference('#scalar-api-reference', config);
+                        window.scalarInstance = result;
+                        console.log('[Scalar] ✅ Initialized using createApiReference() in fallback method');
+                        return;
+                    } catch (error) {
+                        console.warn('[Scalar] createApiReference failed in fallback, trying data-configuration:', error);
+                    }
+                }
+                
+                // Fallback to data-configuration method
+                if (apiRef) {
+                    // Don't clear content if it already has content
+                    if (apiRef.innerHTML.trim().length < 100) {
+                        apiRef.innerHTML = '';
+                    }
+                    
+                    // Remove any existing config script
                     const existingConfig = document.getElementById('api-reference-config');
                     if (existingConfig) {
                         existingConfig.remove();
                     }
                     
-                    // Remove data-configuration from div to prevent auto-initialization
+                    // Remove data-configuration from div
                     apiRef.removeAttribute('data-configuration');
                     
                     // Don't use data-configuration method if we already have content
-                    // Instead, try manual initialization
                     if (apiRef.innerHTML.trim().length > 100) {
-                        console.log('Content already exists, skipping data-configuration method');
+                        console.log('[Scalar] Content already exists, skipping data-configuration method');
                         return;
                     }
+                }
+                
+                // If we get here, data-configuration method is not applicable
+                console.warn('[Scalar] Data-configuration method not applicable, Scalar should auto-initialize');
+            }
+            
+            // All legacy code removed - using official Scalar.createApiReference() method
+            // Scalar is now initialized inline right after script load (see HTML above)
+            
+            // Use data-configuration method (like the C++ code does) - kept for backward compatibility
+            function useDataConfigurationMethod(configToUse = null) {
+                console.log('[Scalar] Using data-configuration method (fallback)');
+                // This method is kept for backward compatibility but should not be needed
+                // since Scalar is initialized inline right after script load
+                const container = document.getElementById('scalar-api-reference');
+                if (container && typeof Scalar !== 'undefined' && typeof Scalar.createApiReference === 'function') {
+                    const configScript = document.getElementById('server-config');
+                    let specUrl = window.location.origin + '/v1/openapi/en/openapi.yaml';
                     
-                    // Try method 1: Set data-configuration on the div itself
-                    apiRef.setAttribute('data-configuration', JSON.stringify(config));
-                    console.log('Set data-configuration on #api-reference div');
-                    
-                    // Try method 2: Also create a script element with data-configuration (like C++ code)
-                    const configScript = document.createElement('script');
-                    configScript.id = 'api-reference-config';
-                    configScript.setAttribute('data-configuration', JSON.stringify(config));
-                    document.body.appendChild(configScript);
-                    console.log('Created data-configuration script element in body');
-                    
-                    // Scalar standalone.js should auto-initialize when it sees this
-                    console.log('Waiting for Scalar to auto-initialize...');
-                    
-                    // Wait a bit and check if Scalar initialized
-                    setTimeout(() => {
-                        // Check if api-reference has content (Scalar initialized)
-                        const hasContent = apiRef.children.length > 0 && 
-                                         !apiRef.querySelector('#api-reference-config') &&
-                                         apiRef.innerHTML.trim().length > 0;
-                        
-                        if (!hasContent) {
-                            console.warn('Scalar did not auto-initialize from data-configuration');
-                            console.log('api-reference content:', apiRef.innerHTML.substring(0, 200));
-                            
-                            // Try to find Scalar and initialize manually
-                            const ScalarRef = getScalarApiReference();
-                            if (ScalarRef) {
-                                console.log('Found ScalarRef, trying manual initialization with all methods...');
-                                try {
-                                    // Try all possible initialization methods
-                                    const methods = [
-                                        () => ScalarRef.default,
-                                        () => ScalarRef,
-                                        () => ScalarRef.ApiReference,
-                                        () => ScalarRef.create,
-                                        () => {
-                                            for (let key in ScalarRef) {
-                                                if (typeof ScalarRef[key] === 'function') {
-                                                    return ScalarRef[key];
-                                                }
-                                            }
-                                            return null;
-                                        }
-                                    ];
-                                    
-                                    let initialized = false;
-                                    for (let getMethod of methods) {
-                                        try {
-                                            const method = getMethod();
-                                            if (method && typeof method === 'function') {
-                                                console.log('Trying initialization method:', getMethod.toString().substring(0, 50));
-                                                const result = method({
-                                                    ...config,
-                                                    target: '#api-reference'
-                                                });
-                                                console.log('Method result:', result);
-                                                
-                                                // Check if result has app that needs mounting
-                                                if (result && result.app && typeof result.app.mount === 'function') {
-                                                    console.log('Mounting app from result...');
-                                                    try {
-                                                        result.app.mount('#api-reference');
-                                                        console.log('App mounted successfully!');
-                                                        initialized = true;
-                                                        break;
-                                                    } catch (mountErr) {
-                                                        console.warn('Mount failed, trying element:', mountErr);
-                                                        try {
-                                                            result.app.mount(apiRef);
-                                                            console.log('App mounted to element successfully!');
-                                                            initialized = true;
-                                                            break;
-                                                        } catch (mountErr2) {
-                                                            console.warn('Mount to element also failed:', mountErr2);
-                                                        }
-                                                    }
-                                                } else {
-                                                    console.log('No app to mount, assuming auto-initialized');
-                                                    initialized = true;
-                                                    break;
-                                                }
-                                            }
-                                        } catch (e) {
-                                            console.warn('Method failed:', e.message);
-                                        }
-                                    }
-                                    
-                                    if (!initialized) {
-                                        throw new Error('All initialization methods failed');
-                                    }
-                                } catch (e) {
-                                    console.error('Manual initialization failed:', e);
-                                    showScalarInitError(e);
-                                }
-                            } else {
-                                console.error('ScalarApiReference still not available');
-                                showScalarLoadError();
-                            }
-                        } else {
-                            console.log('Scalar auto-initialized successfully from data-configuration');
+                    if (configScript) {
+                        try {
+                            const config = JSON.parse(configScript.textContent);
+                            const baseUrl = config.baseUrl || window.location.origin;
+                            const version = config.version || 'v1';
+                            const lang = new URLSearchParams(window.location.search).get('lang') || 
+                                        localStorage.getItem('api-docs-language') || 'en';
+                            specUrl = baseUrl + '/' + version + '/openapi/' + lang + '/openapi.yaml';
+                        } catch (e) {
+                            console.warn('[Scalar] Failed to parse server config');
                         }
-                    }, 3000); // Wait 3 seconds for auto-initialization
+                    }
+                    
+                    Scalar.createApiReference('#scalar-api-reference', { url: specUrl });
                 }
             }
             
-            // Helper function to show load error
-            function showScalarLoadError() {
-                const apiRef = document.getElementById('api-reference');
-                if (apiRef) {
-                    apiRef.innerHTML = 
-                        '<div style="padding: 40px; text-align: center; max-width: 600px; margin: 50px auto;">' +
-                        '<h2 style="color: #d32f2f;">Error loading API documentation</h2>' +
-                        '<p style="color: #666; margin: 20px 0;">Scalar script failed to load from all CDN sources. This could be due to:</p>' +
-                        '<ul style="text-align: left; display: inline-block; color: #666;">' +
-                        '<li>Network connectivity issues</li>' +
-                        '<li>CDN blocking or unavailable (jsdelivr.net, unpkg.com)</li>' +
-                        '<li>Browser tracking prevention blocking the CDN</li>' +
-                        '<li>Firewall/proxy restrictions</li>' +
-                        '</ul>' +
-                        '<p style="color: #666; margin-top: 20px;">Please check your internet connection, disable tracking prevention for this site, or try refreshing the page.</p>' +
-                        '<button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer;">Refresh Page</button>' +
-                        '</div>';
-                }
-            }
-            
-            // Helper function to show init error
-            function showScalarInitError(error) {
-                const apiRef = document.getElementById('api-reference');
-                if (apiRef) {
-                    apiRef.innerHTML = 
-                        '<div style="padding: 20px; text-align: center;">' +
-                        '<h2>Error loading API documentation</h2>' +
-                        '<p>Failed to initialize Scalar. Error: ' + (error?.message || 'Unknown error') + '</p>' +
-                        '<p>Please check browser console for details.</p>' +
-                        '</div>';
-                }
-            }
+            // Legacy code removed - all initialization is now done inline after script load
         }
 
         // Xử lý thay đổi ngôn ngữ
@@ -1398,7 +1278,7 @@
             // Reload page to ensure fresh content (most reliable solution)
             // This ensures:
             // 1. Server renders HTML with correct language parameter
-            // 2. Scalar initializes fresh with correct data-spec-url
+            // 2. Scalar initializes fresh with correct data-url
             // 3. No cache issues or stale content
             // The URL already has ?lang= parameter, so reload will fetch correct content
             window.location.reload();
@@ -1413,45 +1293,170 @@
                 select.addEventListener('change', handleLanguageChange);
             }
             
-            // Set initial data-spec-url immediately so Scalar can auto-initialize when it loads
+            // Set initial data-url immediately so Scalar can auto-initialize when it loads
+            const container = document.getElementById('scalar-api-reference');
             const apiRef = document.getElementById('api-reference');
             console.log('[Scalar] init() - currentLang:', currentLang);
+            console.log('[Scalar] init() - container:', container);
             console.log('[Scalar] init() - apiRef:', apiRef);
-            if (apiRef) {
-                const existingUrl = apiRef.getAttribute('data-spec-url');
-                console.log('[Scalar] init() - existing data-spec-url:', existingUrl);
-                
+            
+            if (container) {
                 const baseUrl = window.location.origin;
                 const version = 'v1';
                 const specUrl = baseUrl + '/' + version + '/openapi/' + currentLang + '/openapi.yaml';
                 console.log('[Scalar] init() - computed specUrl:', specUrl);
                 
-                if (!existingUrl || existingUrl !== specUrl) {
-                    apiRef.setAttribute('data-spec-url', specUrl);
-                    console.log('[Scalar] init() - Set data-spec-url to:', specUrl);
-                } else {
-                    console.log('[Scalar] init() - data-spec-url already correct');
+                // Find or create script tag with id="api-reference" and data-url
+                let scriptTag = apiRef || container.querySelector('script#api-reference');
+                if (!scriptTag) {
+                    scriptTag = document.createElement('script');
+                    scriptTag.id = 'api-reference';
+                    scriptTag.type = 'application/json';
+                    container.appendChild(scriptTag);
                 }
-                console.log('[Scalar] init() - Final data-spec-url:', apiRef.getAttribute('data-spec-url'));
+                scriptTag.setAttribute('data-url', specUrl);
+                console.log('[Scalar] init() - Set data-url to:', specUrl);
             }
             
-            // Also call initializeScalar to handle language switching
-            // Đợi window load xong (bao gồm cả external scripts)
-            if (document.readyState === 'complete') {
-                // Page already fully loaded
-                setTimeout(function() {
+            // Wait for Scalar script to load before initializing
+            let retryCount = 0;
+            const maxRetries = 200; // 20 seconds max
+            
+            function waitForScalarAndInit() {
+                retryCount++;
+                
+                // Check if script has loaded
+                if (!window.scalarScriptLoaded && !window.scalarScriptError && retryCount < 50) {
+                    // Still waiting for script to load
+                    if (retryCount % 10 === 0) {
+                        console.log('[Scalar] Waiting for script to load... (attempt ' + retryCount + ')');
+                    }
+                    setTimeout(waitForScalarAndInit, 100);
+                    return;
+                }
+                
+                // Check multiple ways Scalar might be exposed
+                let scalarAPI = null;
+                
+                // Method 1: window.Scalar
+                if (typeof window.Scalar !== 'undefined' && typeof window.Scalar.createApiReference === 'function') {
+                    scalarAPI = window.Scalar;
+                    console.log('[Scalar] Found via window.Scalar');
+                }
+                // Method 2: Scalar (global)
+                else if (typeof Scalar !== 'undefined' && typeof Scalar.createApiReference === 'function') {
+                    scalarAPI = Scalar;
+                    console.log('[Scalar] Found via global Scalar');
+                }
+                // Method 3: Check for any Scalar-related global
+                else {
+                    for (let key in window) {
+                        if (key.toLowerCase().includes('scalar') && key !== 'scalarScriptLoaded' && key !== 'scalarScriptError') {
+                            const obj = window[key];
+                            if (obj && typeof obj === 'object') {
+                                if (typeof obj.createApiReference === 'function') {
+                                    scalarAPI = obj;
+                                    console.log('[Scalar] Found Scalar API as:', key);
+                                    break;
+                                }
+                                // Also check if it's a default export
+                                if (obj.default && typeof obj.default.createApiReference === 'function') {
+                                    scalarAPI = obj.default;
+                                    console.log('[Scalar] Found Scalar API as:', key + '.default');
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Check if Scalar has auto-initialized via data-url method
+                const container = document.getElementById('scalar-api-reference');
+                const apiRef = document.getElementById('api-reference');
+                
+                if (container && apiRef) {
+                    // Check multiple ways to see if Scalar initialized
+                    const hasContent = container.children.length > 1 || // More than just the script tag
+                                     (container.innerHTML.trim().length > 200) ||
+                                     container.querySelector('[class*="scalar"]') ||
+                                     container.querySelector('[id*="scalar"]') ||
+                                     container.querySelector('iframe') ||
+                                     container.querySelector('[role="main"]') ||
+                                     container.querySelector('div[class*="theme"]') ||
+                                     container.querySelector('div[class*="layout"]');
+                    
+                    if (hasContent) {
+                        console.log('[Scalar] ✅ Scalar initialized via data-url auto-detection');
+                        console.log('[Scalar] Container has content:', container.children.length, 'children');
+                        console.log('[Scalar] Container innerHTML length:', container.innerHTML.length);
+                        return; // Already initialized
+                    } else if (retryCount < 100) {
+                        console.log('[Scalar] Container has script tag but no content yet, waiting for auto-initialization... (attempt ' + retryCount + ')');
+                        // Wait a bit more for auto-initialization
+                        setTimeout(waitForScalarAndInit, 200);
+                        return;
+                    }
+                }
+                
+                if (scalarAPI) {
+                    console.log('[Scalar] Scalar API found, initializing programmatically...');
                     initializeScalar(currentLang).catch(err => {
                         console.error('Failed to initialize Scalar:', err);
                     });
-                }, 500);
+                } else if (retryCount < maxRetries) {
+                    // Retry after a short delay
+                    if (retryCount % 10 === 0) {
+                        console.log('[Scalar] Waiting for Scalar API... (attempt ' + retryCount + '/' + maxRetries + ')');
+                        // Debug: log what's available
+                        console.log('[Scalar] Debug - window.Scalar:', typeof window.Scalar);
+                        console.log('[Scalar] Debug - Scalar:', typeof Scalar);
+                        console.log('[Scalar] Debug - script loaded:', window.scalarScriptLoaded);
+                        console.log('[Scalar] Debug - script error:', window.scalarScriptError);
+                    }
+                    setTimeout(waitForScalarAndInit, 100);
+                } else {
+                    console.error('[Scalar] Failed to find Scalar API after ' + maxRetries + ' attempts.');
+                    console.error('[Scalar] Script loaded:', window.scalarScriptLoaded);
+                    console.error('[Scalar] Script error:', window.scalarScriptError);
+                    console.error('[Scalar] Available globals with "scalar":', Object.keys(window).filter(k => k.toLowerCase().includes('scalar')));
+                    
+                    // Check one more time if container has content (Scalar might have auto-initialized)
+                    const container = document.getElementById('scalar-api-reference');
+                    if (container && (container.children.length > 0 || container.innerHTML.trim().length > 100)) {
+                        console.log('[Scalar] ✅ Container has content - Scalar may have auto-initialized via data-configuration');
+                        return; // Already initialized
+                    }
+                    
+                    // Last resort: try to manually trigger data-configuration initialization
+                    console.log('[Scalar] Trying to manually trigger data-configuration initialization...');
+                    const apiRef = document.getElementById('api-reference');
+                    if (apiRef && apiRef.hasAttribute('data-configuration')) {
+                        // Re-set the attribute to trigger Scalar's auto-detection
+                        const config = apiRef.getAttribute('data-configuration');
+                        apiRef.removeAttribute('data-configuration');
+                        setTimeout(() => {
+                            apiRef.setAttribute('data-configuration', config);
+                            console.log('[Scalar] Re-set data-configuration attribute');
+                        }, 100);
+                    }
+                    
+                    // Also try programmatic initialization as fallback
+                    console.log('[Scalar] Trying programmatic initialization as fallback...');
+                    initializeScalar(currentLang).catch(err => {
+                        console.error('Failed to initialize Scalar:', err);
+                    });
+                }
+            }
+            
+            // Start waiting for Scalar to load
+            // Đợi window load xong (bao gồm cả external scripts)
+            if (document.readyState === 'complete') {
+                // Page already fully loaded
+                setTimeout(waitForScalarAndInit, 100);
             } else {
                 // Wait for window load event (fires after all resources loaded)
                 window.addEventListener('load', function() {
-                    setTimeout(function() {
-                        initializeScalar(currentLang).catch(err => {
-                            console.error('Failed to initialize Scalar:', err);
-                        });
-                    }, 500);
+                    setTimeout(waitForScalarAndInit, 100);
                 });
             }
         }
@@ -1463,5 +1468,854 @@
             init();
         }
     </script>
+    
+    <!-- JSON Display Enhancement Script -->
+    <script>
+        (function() {
+            'use strict';
+            
+            // Icon SVG cho nút Copy
+            const copyIconSvg = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 2.5H11.5C12.0523 2.5 12.5 2.94772 12.5 3.5V9.5C12.5 10.0523 12.0523 10.5 11.5 10.5H9.5V12.5C9.5 13.0523 9.05228 13.5 8.5 13.5H2.5C1.94772 13.5 1.5 13.0523 1.5 12.5V6.5C1.5 5.94772 1.94772 5.5 2.5 5.5H4.5V3.5C4.5 2.94772 4.94772 2.5 5.5 2.5ZM4.5 5.5H2.5V12.5H8.5V10.5H6.5C5.94772 10.5 5.5 10.0523 5.5 9.5V5.5H4.5ZM6.5 5.5V9.5H11.5V3.5H5.5V5.5H6.5Z"/></svg>';
+            const checkIconSvg = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 4.5L6 12L2.5 8.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            
+            // Hàm copy text vào clipboard
+            async function copyToClipboard(text) {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } else {
+                        // Fallback cho browsers cũ
+                        const textArea = document.createElement('textarea');
+                        textArea.value = text;
+                        textArea.style.position = 'fixed';
+                        textArea.style.opacity = '0';
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        const success = document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        return success;
+                    }
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    return false;
+                }
+            }
+            
+            // Hàm lấy text thuần từ code element (loại bỏ HTML tags)
+            function getPlainText(codeElement) {
+                if (!codeElement) return '';
+                
+                // Nếu có textContent, dùng nó (đã loại bỏ HTML)
+                if (codeElement.textContent) {
+                    return codeElement.textContent;
+                }
+                
+                // Fallback: clone và loại bỏ các span
+                const clone = codeElement.cloneNode(true);
+                const spans = clone.querySelectorAll('span');
+                spans.forEach(span => {
+                    const text = document.createTextNode(span.textContent);
+                    span.parentNode.replaceChild(text, span);
+                });
+                return clone.textContent || clone.innerText || '';
+            }
+            
+            // Hàm đếm số dòng trong text
+            function countLines(text) {
+                if (!text) return 0;
+                return text.split('\n').length;
+            }
+            
+            // Hàm tạo line numbers HTML
+            function createLineNumbers(count) {
+                const lines = [];
+                for (let i = 1; i <= count; i++) {
+                    lines.push(i);
+                }
+                return lines.join('\n');
+            }
+            
+            // Hàm enhance JSON display cho một pre code block
+            function enhanceJsonDisplay(preCodeBlock) {
+                // Kiểm tra xem đã được enhance chưa
+                if (preCodeBlock.closest('.json-display-wrapper')) {
+                    return;
+                }
+                
+                // Chỉ enhance trong response body area, không enhance trong request examples
+                const isInResponse = preCodeBlock.closest('[class*="response"], [class*="Response"], [id*="response"], [id*="Response"]');
+                const isInRequest = preCodeBlock.closest('[class*="request"], [class*="Request"], [class*="example"], [class*="Example"], [class*="curl"]');
+                
+                // Nếu không trong response area hoặc trong request area, skip
+                if (!isInResponse || isInRequest) {
+                    return;
+                }
+                
+                const codeElement = preCodeBlock.querySelector('code');
+                if (!codeElement) return;
+                
+                // Lấy text thuần
+                const plainText = getPlainText(codeElement);
+                if (!plainText || plainText.trim().length === 0) return;
+                
+                // Kiểm tra xem có phải JSON không (heuristic)
+                const trimmed = plainText.trim();
+                const looksLikeJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                                     (trimmed.startsWith('[') && trimmed.endsWith(']'));
+                
+                if (!looksLikeJson) return;
+                
+                // Kiểm tra thêm: JSON phải có ít nhất một key-value pair hoặc array element
+                // Tránh wrap các code blocks ngắn không phải JSON response
+                if (trimmed.length < 10) return;
+                
+                // Kiểm tra có chứa JSON structure cơ bản
+                const hasJsonStructure = trimmed.includes(':') || 
+                                        (trimmed.startsWith('[') && trimmed.includes(','));
+                
+                if (!hasJsonStructure) return;
+                
+                // Đếm số dòng
+                const lineCount = countLines(plainText);
+                
+                // Tạo wrapper
+                const wrapper = document.createElement('div');
+                wrapper.className = 'json-display-wrapper';
+                
+                // Tạo controls bar
+                const controls = document.createElement('div');
+                controls.className = 'json-controls';
+                
+                // Nút Copy
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'json-copy-btn';
+                copyBtn.innerHTML = copyIconSvg + '<span>Copy JSON</span>';
+                copyBtn.type = 'button';
+                copyBtn.addEventListener('click', async function() {
+                    const success = await copyToClipboard(plainText);
+                    if (success) {
+                        copyBtn.classList.add('copied');
+                        copyBtn.innerHTML = checkIconSvg + '<span>Copied!</span>';
+                        setTimeout(() => {
+                            copyBtn.classList.remove('copied');
+                            copyBtn.innerHTML = copyIconSvg + '<span>Copy JSON</span>';
+                        }, 2000);
+                    }
+                });
+                
+                // Toggle Wrap button
+                const wrapToggle = document.createElement('button');
+                wrapToggle.className = 'json-wrap-toggle';
+                wrapToggle.textContent = 'Wrap Lines';
+                wrapToggle.type = 'button';
+                wrapToggle.addEventListener('click', function() {
+                    wrapper.classList.toggle('wrap-mode');
+                    wrapToggle.classList.toggle('active');
+                    wrapToggle.textContent = wrapper.classList.contains('wrap-mode') 
+                        ? 'No Wrap' 
+                        : 'Wrap Lines';
+                });
+                
+                controls.appendChild(copyBtn);
+                controls.appendChild(wrapToggle);
+                
+                // Tạo container với line numbers
+                const jsonContainer = document.createElement('div');
+                jsonContainer.className = 'json-with-lines';
+                
+                // Line numbers (chỉ hiển thị nếu có nhiều hơn 1 dòng)
+                if (lineCount > 1) {
+                    const lineNumbers = document.createElement('div');
+                    lineNumbers.className = 'json-line-numbers';
+                    lineNumbers.textContent = createLineNumbers(lineCount);
+                    jsonContainer.appendChild(lineNumbers);
+                }
+                
+                // Code content area
+                const codeContent = document.createElement('div');
+                codeContent.className = 'json-code-content';
+                
+                // Di chuyển pre element vào codeContent (không clone, move trực tiếp để giữ nguyên mọi thứ)
+                // Clone trước để giữ nguyên trong DOM gốc nếu cần
+                const preElement = preCodeBlock.cloneNode(true);
+                
+                // Đảm bảo pre element giữ nguyên styles và attributes
+                preElement.style.margin = '0';
+                preElement.style.padding = '0';
+                preElement.style.background = 'transparent';
+                
+                codeContent.appendChild(preElement);
+                jsonContainer.appendChild(codeContent);
+                
+                // Assemble
+                wrapper.appendChild(controls);
+                wrapper.appendChild(jsonContainer);
+                
+                // Thay thế preCodeBlock bằng wrapper
+                // Đảm bảo parent node tồn tại
+                if (preCodeBlock.parentNode) {
+                    preCodeBlock.parentNode.replaceChild(wrapper, preCodeBlock);
+                } else {
+                    console.warn('Cannot replace: preCodeBlock has no parent node');
+                    return;
+                }
+                
+                // Đảm bảo content hiển thị sau khi replace
+                setTimeout(() => {
+                    const codeEl = codeContent.querySelector('code');
+                    if (codeEl && codeEl.textContent.trim().length === 0) {
+                        console.warn('Warning: Code element appears empty after enhancement');
+                    }
+                }, 100);
+            }
+            
+            // Hàm tìm và enhance tất cả JSON blocks
+            function enhanceAllJsonDisplays() {
+                // Chỉ tìm trong response body areas, tránh request examples
+                const responseSelectors = [
+                    '[class*="response"] pre code',
+                    '[class*="Response"] pre code',
+                    '[id*="response"] pre code',
+                    '[id*="Response"] pre code',
+                    'pre code.hljs',
+                    'pre code[class*="hljs"]',
+                    'pre code[class*="language-json"]'
+                ];
+                
+                let found = false;
+                const processed = new Set(); // Track processed elements để tránh duplicate
+                
+                responseSelectors.forEach(selector => {
+                    try {
+                        const codeBlocks = document.querySelectorAll(selector);
+                        codeBlocks.forEach(codeBlock => {
+                            // Skip nếu đã được xử lý
+                            if (processed.has(codeBlock)) return;
+                            
+                            // Chỉ xử lý nếu trong response area, không phải request
+                            const isInResponse = codeBlock.closest('[class*="response"], [class*="Response"], [id*="response"], [id*="Response"]');
+                            const isInRequest = codeBlock.closest('[class*="request"], [class*="Request"], [class*="example"], [class*="Example"], [class*="curl"], [class*="Curl"]');
+                            
+                            if (isInResponse && !isInRequest) {
+                                const preBlock = codeBlock.closest('pre');
+                                if (preBlock && !preBlock.closest('.json-display-wrapper')) {
+                                    processed.add(codeBlock);
+                                    enhanceJsonDisplay(preBlock);
+                                    found = true;
+                                }
+                            }
+                        });
+                    } catch (e) {
+                        console.warn('Error processing selector:', selector, e);
+                    }
+                });
+                
+                return found;
+            }
+            
+            // Observer để tự động enhance khi có content mới
+            let observer = null;
+            
+            function setupObserver() {
+                if (observer) {
+                    observer.disconnect();
+                }
+                
+                observer = new MutationObserver(function(mutations) {
+                    let shouldEnhance = false;
+                    mutations.forEach(mutation => {
+                        if (mutation.addedNodes.length > 0) {
+                            shouldEnhance = true;
+                        }
+                    });
+                    
+                    if (shouldEnhance) {
+                        // Debounce: đợi một chút để Scalar render xong
+                        setTimeout(() => {
+                            enhanceAllJsonDisplays();
+                        }, 500);
+                    }
+                });
+                
+                // Observe toàn bộ document
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+            
+            // Khởi tạo
+            function initJsonEnhancement() {
+                console.log('[JSON Enhancement] Initializing...');
+                
+                // Enhance ngay lập tức
+                const found = enhanceAllJsonDisplays();
+                console.log('[JSON Enhancement] Initial enhancement:', found ? 'found JSON blocks' : 'no JSON blocks found');
+                
+                // Setup observer
+                setupObserver();
+                
+                // Enhance lại sau khi Scalar load xong (nếu có)
+                if (typeof window.scalarInstance !== 'undefined') {
+                    setTimeout(() => {
+                        console.log('[JSON Enhancement] Re-enhancing after Scalar load...');
+                        enhanceAllJsonDisplays();
+                    }, 2000);
+                }
+            }
+            
+            // Chạy khi DOM ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(initJsonEnhancement, 500);
+                });
+            } else {
+                setTimeout(initJsonEnhancement, 500);
+            }
+            
+            // Chạy lại sau khi window load (để bắt Scalar content)
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    console.log('[JSON Enhancement] Re-enhancing after window load...');
+                    initJsonEnhancement();
+                }, 1500);
+            });
+            
+            // Expose function để có thể gọi thủ công nếu cần
+            window.enhanceJsonDisplays = function() {
+                console.log('[JSON Enhancement] Manual trigger');
+                return enhanceAllJsonDisplays();
+            };
+        })();
+    </script>
+    
+    <!-- Path Parameters Sync Script -->
+    <script>
+        (function() {
+            'use strict';
+            
+            console.log('[Path Parameters Sync] Initializing path parameters synchronization...');
+            
+            /**
+             * Sync path parameters from Variables section to URL
+             * This fixes the issue where Scalar shows path parameters in Variables
+             * but doesn't update the URL when values change
+             */
+            function syncPathParametersToURL() {
+                // Wait for Scalar to fully load
+                const maxRetries = 50;
+                let retries = 0;
+                let elementsFound = false;
+                let syncPerformed = false;
+                
+                const checkAndSync = setInterval(function() {
+                    retries++;
+                    
+                    // Find all request URL inputs in Scalar
+                    const urlInputs = document.querySelectorAll('input[type="text"][placeholder*="URL"], input[type="text"][class*="url"], input[type="text"][id*="url"]');
+                    
+                    // Find Variables section
+                    const variablesSections = document.querySelectorAll('[class*="variable"], [class*="Variable"], [data-testid*="variable"]');
+                    
+                    if (urlInputs.length > 0 && variablesSections.length > 0) {
+                        elementsFound = true;
+                        
+                        // For each variable section, check if it contains path parameter names
+                        variablesSections.forEach(function(variableSection) {
+                            // Look for instanceId or other path parameters
+                            const instanceIdInput = variableSection.querySelector('input[value*="-"], input[placeholder*="instance"], input[name*="instanceId"]');
+                            
+                            if (instanceIdInput) {
+                                const instanceIdValue = instanceIdInput.value || instanceIdInput.getAttribute('value');
+                                
+                                if (instanceIdValue) {
+                                    // Find the corresponding URL input
+                                    urlInputs.forEach(function(urlInput) {
+                                        const currentUrl = urlInput.value || '';
+                                        
+                                        // Check if URL contains instanceId pattern
+                                        const instanceIdPattern = /\/instance\/([a-f0-9-]+)\//i;
+                                        const match = currentUrl.match(instanceIdPattern);
+                                        
+                                        if (match && match[1] !== instanceIdValue) {
+                                            console.log('[Path Parameters Sync] Syncing instanceId:', match[1], '->', instanceIdValue);
+                                            
+                                            // Update URL with new instanceId
+                                            const newUrl = currentUrl.replace(instanceIdPattern, '/instance/' + instanceIdValue + '/');
+                                            urlInput.value = newUrl;
+                                            
+                                            // Trigger input event to notify Scalar
+                                            const event = new Event('input', { bubbles: true });
+                                            urlInput.dispatchEvent(event);
+                                            
+                                            // Also trigger change event
+                                            const changeEvent = new Event('change', { bubbles: true });
+                                            urlInput.dispatchEvent(changeEvent);
+                                            
+                                            syncPerformed = true;
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                        
+                        // If we found elements and checked them, we can stop early
+                        // Only continue if we haven't found elements yet (page still loading)
+                        if (elementsFound && retries >= 5) {
+                            clearInterval(checkAndSync);
+                            return;
+                        }
+                    }
+                    
+                    if (retries >= maxRetries) {
+                        clearInterval(checkAndSync);
+                        // Only log warning if we never found elements (likely an issue)
+                        if (!elementsFound) {
+                            console.warn('[Path Parameters Sync] Stopped checking after', maxRetries, 'retries - elements not found');
+                        }
+                    }
+                }, 1000); // Check every second
+            }
+            
+            /**
+             * Monitor changes in Variables section and sync to URL
+             */
+            function setupPathParameterSync() {
+                // Use MutationObserver to watch for changes in Variables section
+                const observer = new MutationObserver(function(mutations) {
+                    let shouldSync = false;
+                    
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList' || mutation.type === 'attributes' || mutation.type === 'characterData') {
+                            // Check if the change is in a variables section
+                            const target = mutation.target;
+                            if (target.closest && (
+                                target.closest('[class*="variable"]') ||
+                                target.closest('[class*="Variable"]') ||
+                                target.closest('[data-testid*="variable"]')
+                            )) {
+                                shouldSync = true;
+                            }
+                        }
+                    });
+                    
+                    if (shouldSync) {
+                        // Debounce: wait a bit for Scalar to finish updating
+                        setTimeout(function() {
+                            syncPathParametersToURL();
+                        }, 500);
+                    }
+                });
+                
+                // Start observing when DOM is ready
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        observer.observe(document.body, {
+                            childList: true,
+                            subtree: true,
+                            attributes: true,
+                            attributeFilter: ['value', 'placeholder']
+                        });
+                        
+                        // Also run initial sync after a delay
+                        setTimeout(syncPathParametersToURL, 2000);
+                    });
+                } else {
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['value', 'placeholder']
+                    });
+                    
+                    // Run initial sync after a delay
+                    setTimeout(syncPathParametersToURL, 2000);
+                }
+            }
+            
+            // Initialize
+            setupPathParameterSync();
+            
+            // Also run sync when window loads (after Scalar initializes)
+            window.addEventListener('load', function() {
+                setTimeout(syncPathParametersToURL, 3000);
+            });
+            
+            // Expose function for manual sync
+            window.syncPathParameters = syncPathParametersToURL;
+            
+            console.log('[Path Parameters Sync] Setup complete. Use window.syncPathParameters() to manually sync.');
+        })();
+    </script>
+    
+    <!-- Example Copy Button Script -->
+    <script>
+        (function() {
+            'use strict';
+            
+            console.log('[Example Copy] Initializing example copy button...');
+            
+            // Cache for example values
+            const exampleCache = new Map();
+            let currentExampleValue = null;
+            let copyButton = null;
+            
+            /**
+             * Get example value from OpenAPI spec
+             */
+            async function getExampleValue(exampleKey) {
+                // Check cache
+                if (exampleCache.has(exampleKey)) {
+                    return exampleCache.get(exampleKey);
+                }
+                
+                // Try to fetch from OpenAPI spec as JSON
+                const specUrl = document.getElementById('api-reference')?.getAttribute('data-url') ||
+                              window.location.origin + '/v1/openapi.yaml';
+                
+                const jsonSpecUrl = specUrl.replace(/\.yaml$/, '.json');
+                try {
+                    const response = await fetch(jsonSpecUrl);
+                    if (response.ok) {
+                        const jsonSpec = await response.json();
+                        const operation = jsonSpec.paths?.['/v1/core/instance']?.post;
+                        if (operation?.requestBody?.content?.['application/json']?.examples?.[exampleKey]) {
+                            const example = operation.requestBody.content['application/json'].examples[exampleKey];
+                            const value = example.value || null;
+                            if (value) {
+                                exampleCache.set(exampleKey, value);
+                                return value;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('[Example Copy] JSON spec not available');
+                }
+                
+                return null;
+            }
+            
+            /**
+             * Create copy button
+             */
+            function createCopyButton() {
+                if (copyButton) {
+                    return copyButton;
+                }
+                
+                const button = document.createElement('button');
+                button.innerHTML = '📋 Copy Body';
+                button.style.cssText = `
+                    margin-left: 8px;
+                    padding: 6px 12px;
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    font-weight: 500;
+                    transition: background 0.2s;
+                `;
+                
+                button.addEventListener('mouseenter', () => {
+                    button.style.background = '#2563eb';
+                });
+                
+                button.addEventListener('mouseleave', () => {
+                    button.style.background = '#3b82f6';
+                });
+                
+                button.addEventListener('click', async () => {
+                    if (!currentExampleValue) {
+                        console.warn('[Example Copy] No example value to copy');
+                        return;
+                    }
+                    
+                    try {
+                        // Format JSON with proper indentation (2 spaces)
+                        const jsonString = JSON.stringify(currentExampleValue, null, 2);
+                        
+                        // Copy only the JSON body (not the curl command)
+                        await navigator.clipboard.writeText(jsonString);
+                        
+                        // Show feedback
+                        const originalText = button.innerHTML;
+                        button.innerHTML = '✓ Copied!';
+                        button.style.background = '#10b981';
+                        
+                        setTimeout(() => {
+                            button.innerHTML = originalText;
+                            button.style.background = '#3b82f6';
+                        }, 2000);
+                        
+                        console.log('[Example Copy] JSON body copied to clipboard');
+                        console.log('[Example Copy] Copied content (first 100 chars):', jsonString.substring(0, 100));
+                    } catch (err) {
+                        console.error('[Example Copy] Failed to copy:', err);
+                        button.innerHTML = '✗ Error';
+                        setTimeout(() => {
+                            button.innerHTML = '📋 Copy Body';
+                        }, 2000);
+                    }
+                });
+                
+                copyButton = button;
+                return button;
+            }
+            
+            /**
+             * Find and attach to example selector
+             */
+            function setupExampleCopyButton() {
+                const maxRetries = 100;
+                let retries = 0;
+                let lastProcessedCount = 0;
+                let stableCount = 0;
+                
+                const checkAndSetup = setInterval(() => {
+                    retries++;
+                    
+                    // Find example selector in request sections - try multiple approaches
+                    const requestSections = document.querySelectorAll('[class*="request"], [class*="Request"], [class*="operation"], [class*="Operation"]');
+                    
+                    let processedThisRound = 0;
+                    
+                    for (const section of requestSections) {
+                        // Skip response sections
+                        if (section.closest('[class*="response"], [class*="Response"]')) {
+                            continue;
+                        }
+                        
+                        // Find ALL select elements in request section (Scalar might use different structures)
+                        const selects = section.querySelectorAll('select');
+                        for (const select of selects) {
+                            // Check if already attached
+                            if (select.hasAttribute('data-copy-button-attached')) {
+                                continue;
+                            }
+                            
+                            // More lenient check - if it's a select in request area, it might be example selector
+                            const text = (select.textContent || '').toLowerCase();
+                            const ariaLabel = (select.getAttribute('aria-label') || '').toLowerCase();
+                            const className = (select.className || '').toLowerCase();
+                            const id = (select.id || '').toLowerCase();
+                            
+                            // Check options for example patterns
+                            let hasExampleOptions = false;
+                            let optionCount = 0;
+                            if (select.options && select.options.length > 0) {
+                                optionCount = select.options.length;
+                                for (let i = 0; i < select.options.length; i++) {
+                                    const optionText = select.options[i].text || '';
+                                    const optionValue = select.options[i].value || '';
+                                    // Example keys often contain "___" or are descriptive
+                                    if (optionValue.includes('___') || 
+                                        optionText.length > 20 ||
+                                        optionText.includes('Example') ||
+                                        optionText.includes(' - ')) {
+                                        hasExampleOptions = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // More lenient: if select has multiple options and is in request area, treat as example selector
+                            // But exclude client/shell selectors (they have ~36 options and specific values)
+                            const isClientSelector = select.value && (
+                                select.value.includes('"targetKey"') ||
+                                select.value.includes('"clientKey"') ||
+                                text.includes('client') ||
+                                text.includes('shell')
+                            );
+                            
+                            const isExampleSelector = !isClientSelector && (
+                                text.includes('example') || 
+                                ariaLabel.includes('example') || 
+                                className.includes('example') ||
+                                id.includes('example') ||
+                                (hasExampleOptions && optionCount > 1) ||
+                                (optionCount > 3 && optionCount < 50 && !text.includes('method') && !text.includes('http'))
+                            );
+                            
+                            if (isExampleSelector) {
+                                console.log('[Example Copy] Found example selector:', select, 'Options:', optionCount);
+                                select.setAttribute('data-copy-button-attached', 'true');
+                                processedThisRound++;
+                                
+                                // Create copy button for this select
+                                const btn = createCopyButton();
+                                
+                                // Find the best place to insert button
+                                // Try to find a container that holds the select and related elements
+                                let container = select.parentElement;
+                                
+                                // Look for a flex container or div that contains the select
+                                while (container && container !== section) {
+                                    const containerClass = (container.className || '').toLowerCase();
+                                    if (containerClass.includes('example') || 
+                                        containerClass.includes('select') ||
+                                        container.tagName === 'DIV') {
+                                        break;
+                                    }
+                                    container = container.parentElement;
+                                }
+                                
+                                if (!container) {
+                                    container = select.parentElement;
+                                }
+                                
+                                // Check if button already exists for this select
+                                const existingBtn = container.querySelector(`[data-example-copy-button="${select.id || 'default'}"]`);
+                                if (existingBtn) {
+                                    continue;
+                                }
+                                
+                                btn.setAttribute('data-example-copy-button', select.id || 'default');
+                                
+                                // Try multiple insertion strategies
+                                try {
+                                    // Strategy 1: Insert right after select
+                                    select.insertAdjacentElement('afterend', btn);
+                                } catch (e1) {
+                                    try {
+                                        // Strategy 2: Insert in parent container
+                                        container.appendChild(btn);
+                                    } catch (e2) {
+                                        // Strategy 3: Insert before select's next sibling
+                                        if (select.nextSibling) {
+                                            container.insertBefore(btn, select.nextSibling);
+                                        } else {
+                                            container.appendChild(btn);
+                                        }
+                                    }
+                                }
+                                
+                                // Show button initially if an example is already selected
+                                if (select.value && select.value.trim()) {
+                                    // Check if current selection is an example
+                                    const currentValue = select.value;
+                                    getExampleValue(currentValue).then(exampleValue => {
+                                        if (exampleValue) {
+                                            currentExampleValue = exampleValue;
+                                            btn.style.display = 'inline-block';
+                                        } else {
+                                            btn.style.display = 'none';
+                                        }
+                                    });
+                                } else {
+                                    btn.style.display = 'none';
+                                }
+                                
+                                // Listen for example selection
+                                select.addEventListener('change', async (e) => {
+                                    const selectedValue = e.target.value;
+                                    const selectedText = e.target.options[e.target.selectedIndex]?.text;
+                                    
+                                    if (!selectedValue || selectedValue.trim() === '') {
+                                        currentExampleValue = null;
+                                        btn.style.display = 'none';
+                                        return;
+                                    }
+                                    
+                                    // Get example value
+                                    const exampleValue = await getExampleValue(selectedValue);
+                                    
+                                    if (exampleValue) {
+                                        currentExampleValue = exampleValue;
+                                        // Show copy button
+                                        btn.style.display = 'inline-block';
+                                    } else {
+                                        currentExampleValue = null;
+                                        // Hide copy button
+                                        btn.style.display = 'none';
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Check if we're stable (no new elements processed for a few rounds)
+                    if (processedThisRound === lastProcessedCount) {
+                        stableCount++;
+                    } else {
+                        stableCount = 0;
+                    }
+                    lastProcessedCount = processedThisRound;
+                    
+                    // Stop early if we've been stable for 3 rounds and found elements, or if we've processed elements and no new ones appear
+                    if ((stableCount >= 3 && retries >= 5) || (retries >= 10 && processedThisRound === 0 && lastProcessedCount > 0)) {
+                        clearInterval(checkAndSetup);
+                        return;
+                    }
+                    
+                    if (retries >= maxRetries) {
+                        clearInterval(checkAndSetup);
+                        // Only log warning if we never processed anything
+                        if (lastProcessedCount === 0) {
+                            console.warn('[Example Copy] Stopped checking after', maxRetries, 'retries - no example selectors found');
+                        }
+                    }
+                }, 1000);
+            }
+            
+            // Setup MutationObserver to watch for new elements
+            const observer = new MutationObserver((mutations) => {
+                let shouldCheck = false;
+                mutations.forEach((mutation) => {
+                    if (mutation.addedNodes.length > 0) {
+                        for (const node of mutation.addedNodes) {
+                            if (node.nodeType === 1) { // Element node
+                                // Check if it's a select or contains a select
+                                if (node.tagName === 'SELECT' || node.querySelector('select')) {
+                                    shouldCheck = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                if (shouldCheck) {
+                    // Debounce
+                    setTimeout(setupExampleCopyButton, 500);
+                }
+            });
+            
+            // Initialize
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(setupExampleCopyButton, 2000);
+                    // Start observing
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
+                });
+            } else {
+                setTimeout(setupExampleCopyButton, 2000);
+                // Start observing
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+            
+            // Also run when window loads
+            window.addEventListener('load', () => {
+                setTimeout(setupExampleCopyButton, 3000);
+            });
+            
+            // Periodic check as fallback
+            setInterval(() => {
+                setupExampleCopyButton();
+            }, 5000);
+            
+            console.log('[Example Copy] Setup complete');
+            console.log('[Example Copy] Looking for example selectors in request sections...');
+        })();
+    </script>
 </body>
 </html>
+

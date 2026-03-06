@@ -1,13 +1,23 @@
 #include "core/ai_processor.h"
+#include "core/inference_session.h"
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <json/json.h>
+#include <sstream>
 #include <thread>
+
+struct AIProcessor::SessionHolder {
+  std::unique_ptr<core::InferenceSession> session;
+  cv::Mat pending_frame;
+  std::mutex frame_mutex;
+};
 
 AIProcessor::AIProcessor()
     : status_(Status::Stopped), should_stop_(false),
       last_fps_calc_time_(std::chrono::steady_clock::now()),
-      frame_count_since_last_calc_(0) {
+      frame_count_since_last_calc_(0),
+      session_holder_(std::make_unique<SessionHolder>()) {
   metrics_.frames_processed = 0;
   metrics_.frames_dropped = 0;
   metrics_.fps = 0.0;
@@ -168,43 +178,78 @@ void AIProcessor::processingLoop() {
   std::cout << "[AIProcessor] Processing thread stopped" << std::endl;
 }
 
-void AIProcessor::processFrame() {
-  // Override this in derived class or use callback
-  // For now, just a placeholder
-  // In real implementation, this would call SDK processing
-
-  // Example:
-  // if (result_callback_) {
-  //     std::string result = sdk->process();
-  //     result_callback_(result);
-  // }
+void AIProcessor::submitFrame(const cv::Mat &frame) {
+  if (!session_holder_)
+    return;
+  std::lock_guard<std::mutex> lock(session_holder_->frame_mutex);
+  frame.copyTo(session_holder_->pending_frame);
 }
 
-bool AIProcessor::initializeSDK(const std::string & /*config*/) {
-  // Override this in derived class
-  // Initialize your AI SDK here
-  // Return true if successful
+void AIProcessor::processFrame() {
+  if (!session_holder_ || !session_holder_->session ||
+      !session_holder_->session->isLoaded()) {
+    return;
+  }
+  cv::Mat frame;
+  {
+    std::lock_guard<std::mutex> lock(session_holder_->frame_mutex);
+    if (session_holder_->pending_frame.empty())
+      return;
+    frame = session_holder_->pending_frame.clone();
+  }
+  core::InferenceInput input;
+  input.frame = frame;
+  input.model_id = "face";
+  input.options["extract_embedding"] = true;
 
-  // Example:
-  // try {
-  //     sdk_ = std::make_unique<YourSDK>(config);
-  //     return sdk_->initialize();
-  // } catch (...) {
-  //     return false;
-  // }
+  core::InferenceResult ir = session_holder_->session->infer(input);
+  if (!ir.success) {
+    std::lock_guard<std::mutex> lock(error_mutex_);
+    last_error_ = ir.error;
+    return;
+  }
+  if (result_callback_ && ir.success && !ir.data.isNull()) {
+    Json::StreamWriterBuilder wb;
+    wb["indentation"] = "";
+    std::string json_str = Json::writeString(wb, ir.data);
+    result_callback_(json_str);
+  }
+}
 
-  return true; // Placeholder
+bool AIProcessor::initializeSDK(const std::string &config) {
+  session_holder_->session = std::make_unique<core::InferenceSession>();
+  if (config.empty())
+    return true;
+
+  Json::CharReaderBuilder rb;
+  std::istringstream ss(config);
+  std::string errs;
+  Json::Value root;
+  if (!Json::parseFromStream(rb, ss, &root, &errs)) {
+    std::cerr << "[AIProcessor] Invalid config JSON: " << errs << std::endl;
+    return true;  // still start without session loaded
+  }
+  std::string detector_path =
+      root.isMember("detector_path") ? root["detector_path"].asString() : "";
+  std::string recognizer_path =
+      root.isMember("recognizer_path") ? root["recognizer_path"].asString()
+                                       : "";
+  if (detector_path.empty()) {
+    return true;
+  }
+  if (!session_holder_->session->load(detector_path, recognizer_path)) {
+    std::cerr << "[AIProcessor] Failed to load InferenceSession"
+              << std::endl;
+    return true;  // allow start; processFrame will no-op until loaded
+  }
+  return true;
 }
 
 void AIProcessor::cleanupSDK() {
-  // Override this in derived class
-  // Cleanup your AI SDK here
-
-  // Example:
-  // if (sdk_) {
-  //     sdk_->cleanup();
-  //     sdk_.reset();
-  // }
+  if (session_holder_ && session_holder_->session) {
+    session_holder_->session->unload();
+    session_holder_->session.reset();
+  }
 }
 
 AIProcessor::Metrics AIProcessor::getMetrics() const {

@@ -1,0 +1,57 @@
+{
+  "name": "trt_vehicle_type_classifier_demo_1",
+  "group": "vehicle",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/test_video/vehicle.mp4",
+      "VEHICLE_DETECTOR_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_v8.5.trt",
+      "VEHICLE_TYPE_CLASSIFIER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_type_v8.5.trt",
+      "CLASS_IDS_APPLIED_TO": "0,1,2"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_vehicle_type",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "trt_vehicle_detector",
+      "nodeName": "trt_vehicle_detector_type",
+      "parameters": {
+        "model_path": "${VEHICLE_DETECTOR_MODEL_PATH}"
+      }
+    },
+    {
+      "nodeType": "trt_vehicle_type_classifier",
+      "nodeName": "trt_vehicle_type_classifier",
+      "parameters": {
+        "model_path": "${VEHICLE_TYPE_CLASSIFIER_MODEL_PATH}",
+        "class_ids_applied_to": "${CLASS_IDS_APPLIED_TO}",
+        "min_width_applied_to": "0",
+        "min_height_applied_to": "0"
+      }
+    },
+    {
+      "nodeType": "osd_v3",
+      "nodeName": "osd_vehicle_type",
+      "parameters": {}
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_vehicle_type",
+      "parameters": {
+        "channel": "0"
+      }
+    }
+  ]
+}
+

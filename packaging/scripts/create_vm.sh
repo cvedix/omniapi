@@ -9,7 +9,7 @@ VM_RAM="${2:-4096}"
 VM_HDD_SIZE="${3:-50000}"
 VM_CPUS="${4:-2}"
 ISO_PATH="${5:-}"
-SHARED_FOLDER="${6:-$HOME/Data/project/edge_ai_api}"
+SHARED_FOLDER="${6:-$HOME/Data/project/edgeos-api}"
 
 # Màu sắc cho output
 RED='\033[0;31m'
@@ -38,11 +38,11 @@ if [ -z "$ISO_PATH" ] || [ ! -f "$ISO_PATH" ]; then
     echo "  HDD_SIZE_MB    Dung lượng ổ cứng MB (mặc định: 50000 = 50GB)"
     echo "  CPUS           Số CPU cores (mặc định: 2)"
     echo "  ISO_PATH       Đường dẫn đến file ISO Ubuntu (bắt buộc)"
-    echo "  SHARED_FOLDER  Thư mục shared folder (mặc định: \$HOME/Data/project/edge_ai_api)"
+    echo "  SHARED_FOLDER  Thư mục shared folder (mặc định: \$HOME/Data/project/edgeos-api)"
     echo ""
     echo "Example:"
     echo "  $0 Ubuntu-Test 4096 50000 2 ~/Downloads/ubuntu-22.04.3-desktop-amd64.iso"
-    echo "  $0 Ubuntu-Test 4096 50000 2 ~/Downloads/ubuntu.iso ~/project/edge_ai_api"
+    echo "  $0 Ubuntu-Test 4096 50000 2 ~/Downloads/ubuntu.iso ~/project/edgeos-api"
     exit 1
 fi
 
@@ -124,7 +124,7 @@ VBoxManage storageattach "$VM_NAME" --storagectl "IDE Controller" \
 if [ -d "$SHARED_FOLDER" ]; then
     echo -e "${BLUE}📁 Đang cấu hình shared folder...${NC}"
     VBoxManage sharedfolder add "$VM_NAME" \
-        --name "edge_ai_api" \
+        --name "edgeos-api" \
         --hostpath "$SHARED_FOLDER" \
         --automount 2>/dev/null || true
     echo -e "${GREEN}✅ Shared folder đã được cấu hình: $SHARED_FOLDER${NC}"
@@ -132,7 +132,7 @@ fi
 
 # Port Forwarding cho API
 echo -e "${BLUE}🌐 Đang cấu hình port forwarding...${NC}"
-VBoxManage modifyvm "$VM_NAME" --natpf1 "edge-ai-api,tcp,,8080,,8080" 2>/dev/null || true
+VBoxManage modifyvm "$VM_NAME" --natpf1 "edgeos-api,tcp,,8080,,8080" 2>/dev/null || true
 echo -e "${GREEN}✅ Port forwarding: Host 8080 -> Guest 8080${NC}"
 
 echo ""
@@ -150,7 +150,7 @@ echo -e "${YELLOW}📌 Bước tiếp theo:${NC}"
 echo "   1. Khởi động VM: VBoxManage startvm '$VM_NAME' --type gui"
 echo "   2. Cài đặt Ubuntu từ ISO"
 echo "   3. Cài Guest Additions (Devices > Insert Guest Additions CD)"
-echo "   4. Copy file .deb từ shared folder: /media/sf_edge_ai_api/"
-echo "   5. Cài đặt package: sudo dpkg -i edge-ai-api-with-sdk-*.deb"
+echo "   4. Copy file .deb từ shared folder: /media/sf_edgeos-api/"
+echo "   5. Cài đặt package: sudo dpkg -i edgeos-api-with-sdk-*.deb"
 echo ""
 

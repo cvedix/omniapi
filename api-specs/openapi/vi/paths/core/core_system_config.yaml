@@ -1,0 +1,63 @@
+# API endpoint: /v1/core/system/config
+# Tag: Core
+
+/v1/core/system/config:
+  get:
+    summary: Lấy các thực thể cấu hình hệ thống
+    description: Trả về các thực thể cấu hình hệ thống với fieldId, displayName, type, value, group và availableValues
+    operationId: coreGetSystemConfigV1
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Các thực thể cấu hình hệ thống
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemConfigResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Cập nhật cấu hình hệ thống
+    description: Cập nhật các thực thể cấu hình hệ thống
+    operationId: corePutSystemConfigV1
+    tags:
+    - Core
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SystemConfigUpdateRequest'
+    responses:
+      '200':
+        description: Cấu hình đã được cập nhật thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: success
+                message:
+                  type: string
+                  example: Cấu hình hệ thống đã được cập nhật thành công
+      '406':
+        description: Not Acceptable - Cấu hình không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho system config
+    operationId: coreSystemConfigOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

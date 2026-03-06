@@ -1,0 +1,66 @@
+{
+  "name": "frame_fusion_demo_1",
+  "group": "demo",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH_0": "/opt/edgeos-api/test_video/infrared.mp4",
+      "FILE_PATH_1": "/opt/edgeos-api/test_video/rgb.mp4",
+      "SRC_CALI_POINTS": "133,111,338,110,15,330,14,214",
+      "DES_CALI_POINTS": "1219,365,1787,367,891,982,892,659"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_fusion_0",
+      "parameters": {
+        "file_path": "${FILE_PATH_0}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_fusion_1",
+      "parameters": {
+        "file_path": "${FILE_PATH_1}",
+        "channel": "1",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "frame_fusion",
+      "nodeName": "frame_fusion",
+      "parameters": {
+        "src_cali_points": "${SRC_CALI_POINTS}",
+        "des_cali_points": "${DES_CALI_POINTS}"
+      }
+    },
+    {
+      "nodeType": "split",
+      "nodeName": "split_fusion",
+      "parameters": {
+        "split_by_channel": "true"
+      }
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_fusion_0",
+      "parameters": {
+        "channel": "0"
+      }
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_fusion_1",
+      "parameters": {
+        "channel": "1"
+      }
+    }
+  ]
+}
+

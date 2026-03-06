@@ -2,6 +2,7 @@
 #include "core/timeout_constants.h"
 #include <chrono>
 #include <climits> // for PATH_MAX
+#include <cstdlib> // for setenv
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -65,7 +66,7 @@ void WorkerSupervisor::stop() {
 }
 
 bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
-                                   const Json::Value &config) {
+                                   const Json::Value &config, int gpu_device_id) {
   std::lock_guard<std::timed_mutex> lock(workers_mutex_);
 
   // Check if worker already exists
@@ -84,7 +85,7 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] SOLUTION:" << std::endl;
     std::cerr << "[Supervisor]   1. Build worker executable:" << std::endl;
-    std::cerr << "[Supervisor]      cd build && make edge_ai_worker" << std::endl;
+    std::cerr << "[Supervisor]      cd build && make edgeos_worker" << std::endl;
     std::cerr << "[Supervisor]   2. Or check if executable exists in PATH" << std::endl;
     std::cerr << "[Supervisor]   3. Run diagnostic script:" << std::endl;
     std::cerr << "[Supervisor]      ./scripts/diagnose_spawn_worker.sh" << std::endl;
@@ -122,6 +123,18 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   }
 
   if (pid == 0) {
+    // Child process - set CUDA_VISIBLE_DEVICES if GPU device ID is specified
+    if (gpu_device_id >= 0) {
+      std::string cuda_visible_devices = std::to_string(gpu_device_id);
+      if (setenv("CUDA_VISIBLE_DEVICES", cuda_visible_devices.c_str(), 1) != 0) {
+        std::cerr << "[Worker] Warning: Failed to set CUDA_VISIBLE_DEVICES=" 
+                  << cuda_visible_devices << std::endl;
+      } else {
+        std::cout << "[Worker] Set CUDA_VISIBLE_DEVICES=" << cuda_visible_devices 
+                  << " for instance " << instance_id << std::endl;
+      }
+    }
+    
     // Child process - exec worker
     // Arguments: worker_executable --instance-id <id> --socket <path> --config
     // <json>
@@ -165,7 +178,7 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
     std::cerr << "[Supervisor]      sudo mkdir -p " << socket_dir.string() 
               << " && sudo chmod 777 " << socket_dir.string() << std::endl;
     std::cerr << "[Supervisor]   5. Check CVEDIX SDK dependencies:" << std::endl;
-    std::cerr << "[Supervisor]      sudo systemctl restart edge-ai-api" << std::endl;
+    std::cerr << "[Supervisor]      sudo systemctl restart edgeos-api" << std::endl;
     std::cerr << "[Supervisor]   6. Run diagnostic script:" << std::endl;
     std::cerr << "[Supervisor]      ./scripts/diagnose_spawn_worker.sh" << std::endl;
     std::cerr << "[Supervisor] ========================================" << std::endl;

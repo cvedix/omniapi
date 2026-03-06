@@ -1,0 +1,90 @@
+# API endpoint: /v1/core/node
+# Tag: Node
+
+/v1/core/node:
+  get:
+    summary: Liệt kê tất cả node cấu hình sẵn
+    description: 'Trả về danh sách tất cả node cấu hình sẵn trong node pool. Có thể lọc theo trạng thái available và category.
+
+      '
+    operationId: listNodes
+    tags:
+    - Node
+    parameters:
+    - name: available
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - 'true'
+        - 'false'
+        - '1'
+        - '0'
+      description: Lọc chỉ hiển thị node khả dụng (không đang dùng)
+      example: 'true'
+    - name: category
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+        - source
+        - detector
+        - processor
+        - destination
+        - broker
+      description: Lọc node theo danh mục
+      example: source
+    responses:
+      '200':
+        description: Đã lấy danh sách node thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeListResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo node cấu hình sẵn mới
+    description: Tạo node cấu hình sẵn mới từ template với tham số chỉ định
+    operationId: createNode
+    tags:
+    - Node
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateNodeRequest'
+    responses:
+      '201':
+        description: Đã tạo node thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodeResponse'
+      '400':
+        description: Yêu cầu không hợp lệ (thiếu trường bắt buộc hoặc tham số không hợp lệ)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho nodes
+    operationId: listNodesOptions
+    tags:
+    - Node
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

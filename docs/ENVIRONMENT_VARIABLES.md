@@ -2,7 +2,7 @@
 
 ## Tổng Quan
 
-Dự án Edge AI API sử dụng biến môi trường để cấu hình server và các thành phần. C++ sử dụng `std::getenv()` để đọc biến môi trường từ hệ thống.
+Dự án edgeos-api sử dụng biến môi trường để cấu hình server và các thành phần. C++ sử dụng `std::getenv()` để đọc biến môi trường từ hệ thống.
 
 > **📖 Xem thêm:**
 > - [Unified Configuration Approach](CONFIG_UNIFIED_APPROACH.md) - **Cách tiếp cận thống nhất** giữa config.json và env vars
@@ -24,7 +24,7 @@ Ví dụ:
 ```bash
 export API_HOST=0.0.0.0
 export API_PORT=8080
-./build/edge_ai_api
+./build/edgeos-api
 ```
 
 ### Cách 2: Sử Dụng File .env với Script
@@ -46,12 +46,12 @@ Hoặc load thủ công:
 set -a
 source .env
 set +a
-./build/edge_ai_api
+./build/edgeos-api
 ```
 
 ### Cách 3: Sử Dụng systemd Service
 
-File `deploy/edge-ai-api.service` đã cấu hình sẵn:
+File `deploy/edgeos-api.service` đã cấu hình sẵn:
 ```ini
 Environment="API_HOST=0.0.0.0"
 Environment="API_PORT=8080"
@@ -64,7 +64,7 @@ Environment="API_PORT=8080"
 #### Server Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `CONFIG_FILE` | Đường dẫn đến file config.json | Tự động tìm: `./config.json` → `/opt/edge_ai_api/config/config.json` → `/etc/edge_ai_api/config.json` | `src/main.cpp` |
+| `CONFIG_FILE` | Đường dẫn đến file config.json | Tự động tìm: `./config.json` → `/opt/edgeos-api/config/config.json` → `/etc/edgeos-api/config.json` | `src/main.cpp` |
 | `API_HOST` | Địa chỉ host để bind server | Override từ `config.json["system"]["web_server"]["ip_address"]` | `src/config/system_config.cpp` |
 | `API_PORT` | Port của HTTP server | Override từ `config.json["system"]["web_server"]["port"]` | `src/config/system_config.cpp` |
 | `CLIENT_MAX_BODY_SIZE` | Kích thước body tối đa (bytes) | `1048576` (1MB) | `src/main.cpp` |
@@ -76,16 +76,16 @@ Environment="API_PORT=8080"
 #### Configuration File
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `CONFIG_FILE` | Đường dẫn tuyệt đối đến file config.json | Tự động tìm theo thứ tự:<br/>1. `./config.json` (thư mục hiện tại)<br/>2. `/opt/edge_ai_api/config/config.json`<br/>3. `/etc/edge_ai_api/config.json`<br/>4. Tạo mới `./config.json` | `src/main.cpp` |
+| `CONFIG_FILE` | Đường dẫn tuyệt đối đến file config.json | Tự động tìm theo thứ tự:<br/>1. `./config.json` (thư mục hiện tại)<br/>2. `/opt/edgeos-api/config/config.json`<br/>3. `/etc/edgeos-api/config.json`<br/>4. Tạo mới `./config.json` | `src/main.cpp` |
 
 **Ví dụ sử dụng CONFIG_FILE:**
 ```bash
 # Sử dụng đường dẫn tùy chỉnh
-export CONFIG_FILE="/opt/edge_ai_api/config/config.json"
-./build/edge_ai_api
+export CONFIG_FILE="/opt/edgeos-api/config/config.json"
+./build/edgeos-api
 
 # Hoặc trong systemd service
-Environment="CONFIG_FILE=/opt/edge_ai_api/config/config.json"
+Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 ```
 
 **Lưu ý:** Nếu file không tồn tại, hệ thống sẽ tự động tạo file config mặc định tại đường dẫn đó.
@@ -125,15 +125,21 @@ Environment="CONFIG_FILE=/opt/edge_ai_api/config/config.json"
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
 | `SOLUTIONS_DIR` | Thư mục lưu trữ custom solutions | `./solutions` | `src/main.cpp` |
-| `INSTANCES_DIR` | Thư mục lưu trữ instance configurations | `/opt/edge_ai_api/instances` | `src/main.cpp` |
+| `INSTANCES_DIR` | Thư mục lưu trữ instance configurations | `/opt/edgeos-api/instances` | `src/main.cpp` |
 | `MODELS_DIR` | Thư mục lưu trữ model files | `./models` | `src/main.cpp` |
 
 **Lưu ý về Storage Directories:**
-- **Default**: `/opt/edge_ai_api/instances` (tự động tạo nếu chưa tồn tại)
+- **Default**: `/opt/edgeos-api/instances` (tự động tạo nếu chưa tồn tại)
 - **Development**: Có thể override bằng biến môi trường `INSTANCES_DIR=./instances` để lưu ở project root
-- **Production**: Khuyến nghị sử dụng mặc định `/opt/edge_ai_api/instances` hoặc `/var/lib/edge_ai_api/instances`
+- **Production**: Khuyến nghị sử dụng mặc định `/opt/edgeos-api/instances` hoặc `/var/lib/edgeos-api/instances`
 - **⚠️ Không nên lưu trong `build/` directory** - Dữ liệu có thể bị mất khi clean build
 - Xem chi tiết: [Development Setup](DEVELOPMENT_SETUP.md) - Hướng dẫn tạo thư mục tự động với fallback
+
+#### Face / AI Runtime (Recognition)
+| Biến | Mô tả | Mặc định | File sử dụng |
+|------|-------|----------|--------------|
+| `FACE_DETECTOR_PATH` | Đường dẫn model detector face (YuNet ONNX) | (tìm theo thứ tự mặc định) | `src/api/recognition_handler.cpp` |
+| `FACE_RECOGNIZER_PATH` | Đường dẫn model recognizer face (ONNX) | (tìm theo thứ tự mặc định) | `src/api/recognition_handler.cpp` |
 
 #### CVEDIX SDK Configuration (Example)
 | Biến | Mô tả | Mặc định | File sử dụng |
@@ -150,19 +156,42 @@ Environment="CONFIG_FILE=/opt/edge_ai_api/config/config.json"
 | `GST_RTSP_PROTOCOLS` | GStreamer RTSP transport protocol (`tcp` hoặc `udp`) | `tcp` | `src/core/pipeline_builder.cpp` |
 | `RTSP_TRANSPORT` | Alternative name cho `GST_RTSP_PROTOCOLS` (`tcp` hoặc `udp`) | (auto-set to `tcp`) | `src/core/pipeline_builder.cpp` |
 
+#### Timeout Configuration
+| Biến | Mô tả | Mặc định | Min–Max | File sử dụng |
+|------|-------|----------|---------|--------------|
+| `SHUTDOWN_TIMEOUT_MS` | Thời gian chờ trước khi force exit khi shutdown (ms) | `500` | 100–5000 | `core/timeout_constants.h`, `main.cpp` |
+| `REGISTRY_MUTEX_TIMEOUT_MS` | Timeout khi lock registry (list/get instance) (ms) | `2000` | 100–30000 | `core/timeout_constants.h`, `instance_registry.cpp` |
+| `API_WRAPPER_TIMEOUT_MS` | Timeout cho API wrapper (getInstance, v.v.) (ms); nên ≥ registry + 500 | (registry + 500) | 500–60000 | `core/timeout_constants.h` |
+| `IPC_START_STOP_TIMEOUT_MS` | Timeout IPC cho start/stop instance (subprocess) (ms) | `10000` | 1000–60000 | `core/timeout_constants.h`, `subprocess_instance_manager.cpp` |
+| `IPC_API_TIMEOUT_MS` | Timeout IPC cho get statistics/frame (ms) | `5000` | 1000–30000 | `core/timeout_constants.h` |
+| `IPC_STATUS_TIMEOUT_MS` | Timeout IPC cho get status nhanh (ms) | `3000` | 500–15000 | `core/timeout_constants.h` |
+| `FRAME_CACHE_MUTEX_TIMEOUT_MS` | Timeout lock frame cache (ms) | `1000` | 100–10000 | `core/timeout_constants.h` |
+| `WORKER_STATE_MUTEX_TIMEOUT_MS` | Timeout lock worker state (ms) | `100` | 50–1000 | `core/timeout_constants.h` |
+
+Các timeout khác (RTSP stop, RTMP reconnect, destination finalize, v.v.) nằm trong `include/core/timeout_constants.h` và có thể cấu hình qua biến môi trường tương ứng (ví dụ `RTSP_STOP_TIMEOUT_MS`, `RTMP_SOURCE_STOP_TIMEOUT_MS`).
+
+#### Queue Monitor Configuration
+| Biến | Mô tả | Mặc định | File sử dụng |
+|------|-------|----------|--------------|
+| `EDGE_AI_QUEUE_MONITOR_ENABLED` | Bật thread giám sát queue/FPS; khi FPS=0 hoặc queue full vượt ngưỡng sẽ restart instance | `false` | `src/main.cpp` |
+
+Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa hai lần restart cho cùng instance; ngưỡng queue full và cửa sổ giám sát xem `QueueMonitor` trong code.
+
 #### Subprocess Worker Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `EDGE_AI_EXECUTION_MODE` | Execution mode: `in-process` hoặc `subprocess` | `in-process` | `src/main.cpp` |
-| `EDGE_AI_WORKER_PATH` | Đường dẫn đến worker executable | `edge_ai_worker` | `src/worker/worker_supervisor.cpp` |
-| `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/edge_ai_api/run` | `src/worker/unix_socket.cpp` |
+| `EDGE_AI_EXECUTION_MODE` | Execution mode: `in-process` (legacy/dev) hoặc `subprocess` (production) | `in-process` | `src/main.cpp` |
+| `EDGE_AI_WORKER_PATH` | Đường dẫn đến worker executable | `edgeos-worker` | `src/worker/worker_supervisor.cpp` |
+| `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/edgeos-api/run` | `src/worker/unix_socket.cpp` |
+| `EDGE_AI_MAX_RESTARTS` | Số lần restart worker tối đa (subprocess) | (trong code) | `src/worker/worker_supervisor.cpp` |
+| `EDGE_AI_HEALTH_CHECK_INTERVAL` | Khoảng kiểm tra health worker (ms) | (trong code) | `src/worker/worker_supervisor.cpp` |
 
 **Lưu ý về Socket Directory:**
-- **Default**: `/opt/edge_ai_api/run` (tự động tạo nếu chưa tồn tại)
-- **Fallback**: Nếu không thể tạo `/opt/edge_ai_api/run` (permission denied), sẽ tự động fallback về `/tmp`
-- **Production**: Khuyến nghị sử dụng `/opt/edge_ai_api/run` hoặc `/var/run/edge_ai` (nếu có quyền)
+- **Default**: `/opt/edgeos-api/run` (tự động tạo nếu chưa tồn tại)
+- **Fallback**: Nếu không thể tạo `/opt/edgeos-api/run` (permission denied), sẽ tự động fallback về `/tmp`
+- **Production**: Khuyến nghị sử dụng `/opt/edgeos-api/run` hoặc `/var/run/edgeos-api` (nếu có quyền)
 - **Development**: Có thể override bằng `EDGE_AI_SOCKET_DIR=/tmp` để test
-- Socket files sẽ có format: `{EDGE_AI_SOCKET_DIR}/edge_ai_worker_{instance_id}.sock`
+- Socket files sẽ có format: `{EDGE_AI_SOCKET_DIR}/edgeos_worker_{instance_id}.sock`
 
 **Lưu ý về RTSP Transport:**
 - **Mặc định sử dụng TCP**: Để tránh vấn đề firewall chặn UDP, hệ thống mặc định sử dụng TCP
@@ -194,16 +223,24 @@ export API_PORT=8080
 ```bash
 export API_HOST=0.0.0.0
 export API_PORT=80
-export SOLUTIONS_DIR=/var/lib/edge_ai_api/solutions
-export INSTANCES_DIR=/var/lib/edge_ai_api/instances
-export MODELS_DIR=/var/lib/edge_ai_api/models
-export LOG_DIR=/var/log/edge_ai_api
+export SOLUTIONS_DIR=/var/lib/edgeos-api/solutions
+export INSTANCES_DIR=/var/lib/edgeos-api/instances
+export MODELS_DIR=/var/lib/edgeos-api/models
+export LOG_DIR=/var/log/edgeos-api
 ```
 
 ### Custom Port
 ```bash
 export API_PORT=9000
 ```
+
+## Deployment / Operations (khuyến nghị)
+
+- **Production:** Dùng `EDGE_AI_EXECUTION_MODE=subprocess`, cấu hình `EDGE_AI_WORKER_PATH` và `EDGE_AI_SOCKET_DIR`. Xem [ARCHITECTURE.md](ARCHITECTURE.md#khi-nào-dùng-mode-nào).
+- **Timeout:** Điều chỉnh `IPC_*_TIMEOUT_MS`, `REGISTRY_MUTEX_TIMEOUT_MS` nếu hệ thống chậm.
+- **Queue monitor:** Bật `EDGE_AI_QUEUE_MONITOR_ENABLED=true` để tự restart instance khi FPS=0 hoặc queue đầy.
+- **Thread pool:** `THREAD_NUM=0` (auto) hoặc giá trị cố định cho Drogon.
+- **Log:** `LOG_LEVEL`, `LOG_DIR`; xem [LOGGING.md](LOGGING.md).
 
 ## Lưu Ý
 

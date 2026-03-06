@@ -1,5 +1,7 @@
 #include "api/recognition_handler.h"
 #include "config/system_config.h"
+#include "core/ai_runtime_facade.h"
+#include "core/inference_session.h"
 #include "core/logger.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
@@ -125,6 +127,12 @@ average_embeddings(const std::vector<std::vector<float>> &embeddings) {
   }
 
   return avg_embedding;
+}
+
+// AIRuntimeFacade for decode + infer (used by processFaceRecognition)
+static core::AIRuntimeFacade &getFaceRuntimeFacade() {
+  static core::AIRuntimeFacade facade;
+  return facade;
 }
 
 // Helper function: Face alignment using landmarks
@@ -463,8 +471,8 @@ static std::string resolveDatabasePath() {
     }
   }
 
-  // Priority 2: Production path (/opt/edge_ai_api/data/face_database.txt)
-  std::string production_path = "/opt/edge_ai_api/data/face_database.txt";
+  // Priority 2: Production path (/opt/edgeos-api/data/face_database.txt)
+  std::string production_path = "/opt/edgeos-api/data/face_database.txt";
   if (std::filesystem::exists(production_path)) {
     // Check if we have write permission by trying to open in write mode
     std::ofstream test_file(production_path, std::ios::out | std::ios::app);
@@ -521,11 +529,11 @@ static std::string resolveDatabasePath() {
     }
   }
 
-  // Priority 3: User directory (~/.local/share/edge_ai_api/face_database.txt)
+  // Priority 3: User directory (~/.local/share/edgeos-api/face_database.txt)
   const char *home = std::getenv("HOME");
   if (home) {
     std::string user_path =
-        std::string(home) + "/.local/share/edge_ai_api/face_database.txt";
+        std::string(home) + "/.local/share/edgeos-api/face_database.txt";
     try {
       std::filesystem::path filePath(user_path);
       if (filePath.has_parent_path()) {
@@ -550,7 +558,7 @@ static std::string resolveDatabasePath() {
     PLOG_INFO << "[FaceDatabase] Using last resort: " << last_resort
               << " (current directory)";
     PLOG_INFO << "[FaceDatabase] Note: To use production path, run: sudo mkdir "
-                 "-p /opt/edge_ai_api/data";
+                 "-p /opt/edgeos-api/data";
   }
   return last_resort;
 }
@@ -772,11 +780,16 @@ public:
 
     load_database();
 
-    // Find ONNX model
-    std::vector<std::string> model_paths = {
-        "/opt/edge_ai_api/models/face/face_recognition_sface_2021dec.onnx",
+    // Find ONNX model (env/config override: FACE_RECOGNIZER_PATH)
+    const char *env_recognizer = std::getenv("FACE_RECOGNIZER_PATH");
+    std::vector<std::string> model_paths;
+    if (env_recognizer && env_recognizer[0] != '\0') {
+      model_paths.push_back(env_recognizer);
+    }
+    model_paths.insert(model_paths.end(), {
+        "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx",
         "./models/face/face_recognition_sface_2021dec.onnx",
-        "../models/face/face_recognition_sface_2021dec.onnx"};
+        "../models/face/face_recognition_sface_2021dec.onnx"});
 
     bool found_onnx = false;
     for (const auto &path : model_paths) {
@@ -798,14 +811,19 @@ public:
       }
     }
 
-    // Find detector model (try both with and without _int8 suffix)
-    std::vector<std::string> detector_paths = {
-        "/opt/edge_ai_api/models/face/face_detection_yunet_2023mar.onnx",
-        "/opt/edge_ai_api/models/face/face_detection_yunet_2023mar_int8.onnx",
+    // Find detector model (env override: FACE_DETECTOR_PATH, then defaults)
+    const char *env_detector = std::getenv("FACE_DETECTOR_PATH");
+    std::vector<std::string> detector_paths;
+    if (env_detector && env_detector[0] != '\0') {
+      detector_paths.push_back(env_detector);
+    }
+    detector_paths.insert(detector_paths.end(), {
+        "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx",
+        "/opt/edgeos-api/models/face/face_detection_yunet_2023mar_int8.onnx",
         "./models/face/face_detection_yunet_2023mar.onnx",
         "./models/face/face_detection_yunet_2023mar_int8.onnx",
         "../models/face/face_detection_yunet_2023mar.onnx",
-        "../models/face/face_detection_yunet_2023mar_int8.onnx"};
+        "../models/face/face_detection_yunet_2023mar_int8.onnx"});
 
     bool found_detector = false;
     for (const auto &path : detector_paths) {
@@ -861,7 +879,7 @@ public:
       error_msg = "Face detector model not found. Please ensure "
                   "face_detection_yunet_2023mar.onnx or "
                   "face_detection_yunet_2023mar_int8.onnx exists in "
-                  "/opt/edge_ai_api/models/face/";
+                  "/opt/edgeos-api/models/face/";
       if (isApiLoggingEnabled()) {
         PLOG_ERROR << "[FaceDatabase] " << error_msg;
       }
@@ -946,7 +964,7 @@ public:
     if (onnx_model_path_.empty()) {
       error_msg = "Face recognition model not found. Please ensure "
                   "face_recognition_sface_2021dec.onnx exists in "
-                  "/opt/edge_ai_api/models/face/";
+                  "/opt/edgeos-api/models/face/";
       if (isApiLoggingEnabled()) {
         PLOG_ERROR << "[FaceDatabase] " << error_msg;
       }
@@ -2561,36 +2579,13 @@ Json::Value RecognitionHandler::processFaceRecognition(
   Json::Value result(Json::arrayValue);
 
   try {
-    // Decode image from memory
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[RecognitionHandler] Decoding image, size: "
-                 << imageData.size() << " bytes";
-    }
-
-    cv::Mat image = cv::imdecode(imageData, cv::IMREAD_COLOR);
-
-    if (image.empty()) {
-      // Return empty result if image cannot be decoded
-      if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[RecognitionHandler] Failed to decode image data";
-      }
-      return result;
-    }
-
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[RecognitionHandler] Decoded image: " << image.cols << "x"
-                 << image.rows << " pixels";
-    }
-
     if (!detectFaces) {
-      // If detect_faces is false, return empty result
       return result;
     }
 
-    // Get database instance (for model paths)
+    // Get database instance (for model paths and embeddings)
     FaceDatabase &db = get_database();
 
-    // Check if models are available
     std::string detector_path = db.get_detector_model_path();
     std::string onnx_path = db.get_onnx_model_path();
 
@@ -2598,7 +2593,6 @@ Json::Value RecognitionHandler::processFaceRecognition(
     std::map<std::string, std::vector<float>> database;
     FaceDatabaseHelper &dbHelper = get_db_helper();
     if (dbHelper.isEnabled()) {
-      // Load from database
       std::string dbError;
       if (!dbHelper.loadAllFaces(database, dbError)) {
         if (isApiLoggingEnabled()) {
@@ -2606,281 +2600,72 @@ Json::Value RecognitionHandler::processFaceRecognition(
               << "[RecognitionHandler] Failed to load faces from database: "
               << dbError << ", falling back to file";
         }
-        // Fallback to file
         database = db.get_database();
       }
     } else {
-      // Use file-based storage
       database = db.get_database();
     }
 
     if (detector_path.empty()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[RecognitionHandler] Face detector model not found. "
-                        "Checked paths:";
-        PLOG_WARNING << "[RecognitionHandler] - "
-                        "/home/cvedix/project/cvedix_data/models/face/"
-                        "face_detection_yunet_2023mar.onnx";
-        PLOG_WARNING << "[RecognitionHandler] - "
-                        "/home/cvedix/project/cvedix_data/models/face/"
-                        "face_detection_yunet_2023mar_int8.onnx";
+        PLOG_WARNING << "[RecognitionHandler] Face detector model not found.";
       }
       return result;
     }
 
-    if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[RecognitionHandler] Using detector model: "
-                << detector_path;
-    }
+    // AIRuntimeFacade: decode + infer (optional cache)
+    core::AIRuntimeRequest req;
+    req.payload = imageData;
+    req.codec = "";
+    req.model_key = "face";
+    req.options["detector_path"] = detector_path;
+    req.options["recognizer_path"] = onnx_path;
+    req.options["det_prob_threshold"] = detProbThreshold;
+    req.options["limit"] = limit;
+    req.options["extract_embedding"] = !onnx_path.empty();
 
-    // Note: onnx_path can be empty if recognition is not needed, but we still
-    // want to detect faces
-    if (isApiLoggingEnabled()) {
-      if (onnx_path.empty()) {
-        PLOG_DEBUG << "[RecognitionHandler] Face recognition model not found, "
-                      "will only detect faces";
-      } else {
-        PLOG_DEBUG << "[RecognitionHandler] Using detector: " << detector_path;
-        PLOG_DEBUG << "[RecognitionHandler] Using recognizer: " << onnx_path;
-      }
-    }
+    core::AIRuntimeResponse response = getFaceRuntimeFacade().request(req);
 
-    auto start_detector = std::chrono::steady_clock::now();
-
-    // Detect faces using YuNet
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG
-          << "[RecognitionHandler] Creating face detector with threshold: "
-          << detProbThreshold;
-    }
-
-    cv::Ptr<cv::FaceDetectorYN> face_detector;
-    try {
-      face_detector = cv::FaceDetectorYN::create(
-          detector_path, "", cv::Size(320, 320),
-          static_cast<float>(detProbThreshold), 0.3f, 5000,
-          cv::dnn::DNN_BACKEND_OPENCV, cv::dnn::DNN_TARGET_CPU);
-    } catch (const cv::Exception &e) {
+    if (!response.success) {
       if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[RecognitionHandler] Failed to create face detector: "
-                   << e.what();
-      }
-      return result;
-    } catch (const std::exception &e) {
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[RecognitionHandler] Failed to create face detector: "
-                   << e.what();
+        PLOG_WARNING << "[RecognitionHandler] AIRuntimeFacade request failed: "
+                     << response.error;
       }
       return result;
     }
 
-    if (face_detector.empty()) {
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR
-            << "[RecognitionHandler] Face detector creation returned empty";
-      }
+    if (!response.result.isMember("faces") || !response.result["faces"].isArray()) {
       return result;
     }
 
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[RecognitionHandler] Face detector created successfully";
-    }
+    const Json::Value &faces_array = response.result["faces"];
+    uint64_t detector_time = response.inference_ms;
 
-    face_detector->setInputSize(image.size());
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG
-          << "[RecognitionHandler] Running face detection on image size: "
-          << image.cols << "x" << image.rows;
-    }
-
-    cv::Mat faces;
-    try {
-      face_detector->detect(image, faces);
-    } catch (const cv::Exception &e) {
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[RecognitionHandler] Face detection exception: "
-                   << e.what();
-        PLOG_ERROR << "[RecognitionHandler] Error code: " << e.code
-                   << ", Error message: " << e.msg;
-      }
-      return result;
-    } catch (const std::exception &e) {
-      if (isApiLoggingEnabled()) {
-        PLOG_ERROR << "[RecognitionHandler] Face detection exception: "
-                   << e.what();
-      }
-      return result;
-    }
-
-    auto end_detector = std::chrono::steady_clock::now();
-    auto detector_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-                             end_detector - start_detector)
-                             .count();
-
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[RecognitionHandler] Face detection completed in "
-                 << detector_time << "ms";
-      PLOG_DEBUG << "[RecognitionHandler] Detection result: " << faces.rows
-                 << " faces, " << faces.cols << " columns";
-    }
-
-    if (faces.rows == 0 || faces.empty()) {
-      // No faces detected, return empty result
-      if (isApiLoggingEnabled()) {
-        PLOG_WARNING
-            << "[RecognitionHandler] No faces detected in image (size: "
-            << image.cols << "x" << image.rows
-            << ", threshold: " << detProbThreshold << ")";
-      }
-      return result;
-    }
-
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[RecognitionHandler] Detected " << faces.rows
-                 << " face(s) in image";
-    }
-
-    // Process each detected face
-    int num_faces = (limit > 0) ? std::min(limit, faces.rows) : faces.rows;
-
-    for (int i = 0; i < num_faces; i++) {
-      auto start_face = std::chrono::steady_clock::now();
+    for (Json::ArrayIndex i = 0; i < faces_array.size(); i++) {
+      const Json::Value &face_obj = faces_array[i];
       Json::Value faceResult;
+      faceResult["box"] = face_obj["box"];
+      faceResult["landmarks"] = face_obj["landmarks"];
 
-      // Extract face detection data
-      float x = faces.at<float>(i, 0);
-      float y = faces.at<float>(i, 1);
-      float w = faces.at<float>(i, 2);
-      float h = faces.at<float>(i, 3);
-      float score = (faces.cols > 14) ? faces.at<float>(i, 14) : 1.0f;
-
-      // Bounding box
-      Json::Value box;
-      box["probability"] = static_cast<double>(score);
-      box["x_min"] = static_cast<int>(x);
-      box["y_min"] = static_cast<int>(y);
-      box["x_max"] = static_cast<int>(x + w);
-      box["y_max"] = static_cast<int>(y + h);
-      faceResult["box"] = box;
-
-      // Landmarks (5 points: right eye, left eye, nose tip, right mouth corner,
-      // left mouth corner)
-      Json::Value landmarks(Json::arrayValue);
-      if (faces.cols >= 15) {
-        // YuNet format: (x, y, w, h, re_x, re_y, le_x, le_y, nt_x, nt_y, rcm_x,
-        // rcm_y, lcm_x, lcm_y, score)
-        float re_x = faces.at<float>(i, 4);
-        float re_y = faces.at<float>(i, 5);
-        float le_x = faces.at<float>(i, 6);
-        float le_y = faces.at<float>(i, 7);
-        float nt_x = faces.at<float>(i, 8);
-        float nt_y = faces.at<float>(i, 9);
-        float rcm_x = faces.at<float>(i, 10);
-        float rcm_y = faces.at<float>(i, 11);
-        float lcm_x = faces.at<float>(i, 12);
-        float lcm_y = faces.at<float>(i, 13);
-
-        Json::Value landmark1(Json::arrayValue);
-        landmark1.append(static_cast<int>(re_x));
-        landmark1.append(static_cast<int>(re_y));
-        landmarks.append(landmark1);
-
-        Json::Value landmark2(Json::arrayValue);
-        landmark2.append(static_cast<int>(le_x));
-        landmark2.append(static_cast<int>(le_y));
-        landmarks.append(landmark2);
-
-        Json::Value landmark3(Json::arrayValue);
-        landmark3.append(static_cast<int>(nt_x));
-        landmark3.append(static_cast<int>(nt_y));
-        landmarks.append(landmark3);
-
-        Json::Value landmark4(Json::arrayValue);
-        landmark4.append(static_cast<int>(rcm_x));
-        landmark4.append(static_cast<int>(rcm_y));
-        landmarks.append(landmark4);
-
-        Json::Value landmark5(Json::arrayValue);
-        landmark5.append(static_cast<int>(lcm_x));
-        landmark5.append(static_cast<int>(lcm_y));
-        landmarks.append(landmark5);
-      }
-      faceResult["landmarks"] = landmarks;
-
-      // Recognize face (compare with database)
-      x = std::max(0.0f, std::min(x, (float)(image.cols - 1)));
-      y = std::max(0.0f, std::min(y, (float)(image.rows - 1)));
-      w = std::max(1.0f, std::min(w, (float)(image.cols - x)));
-      h = std::max(1.0f, std::min(h, (float)(image.rows - y)));
-
-      cv::Mat aligned_face;
-      if (faces.cols >= 15) {
-        aligned_face = align_face_using_landmarks(image, faces, i);
-      } else {
-        cv::Mat face_roi =
-            image(cv::Rect((int)x, (int)y, (int)w, (int)h)).clone();
-        cv::resize(face_roi, aligned_face, cv::Size(112, 112));
-      }
-
-      // Extract embedding with data augmentation (original + flip) for better
-      // accuracy Similar to example_face_recognition.cpp
-      std::vector<std::vector<float>> embeddings;
-
-      // Only extract embedding if recognition model is available
       std::vector<float> face_embedding;
-      if (!onnx_path.empty()) {
-        // Original
-        std::vector<float> emb1 =
-            extract_embedding_from_image(aligned_face, onnx_path);
-        if (!emb1.empty())
-          embeddings.push_back(emb1);
-
-        // Horizontal flip
-        cv::Mat flipped;
-        cv::flip(aligned_face, flipped, 1);
-        std::vector<float> emb2 =
-            extract_embedding_from_image(flipped, onnx_path);
-        if (!emb2.empty())
-          embeddings.push_back(emb2);
-
-        // Average embeddings for more robust recognition
-        face_embedding = average_embeddings(embeddings);
+      if (face_obj.isMember("embedding") && face_obj["embedding"].isArray()) {
+        for (const auto &v : face_obj["embedding"])
+          face_embedding.push_back(static_cast<float>(v.asDouble()));
       }
 
-      // Compare with database (already loaded above)
       Json::Value subjects(Json::arrayValue);
-
-      if (isApiLoggingEnabled()) {
-        PLOG_DEBUG << "[RecognitionHandler] Processing face " << (i + 1) << "/"
-                   << num_faces;
-        PLOG_DEBUG << "[RecognitionHandler] Database size: " << database.size()
-                   << ", ONNX path empty: "
-                   << (onnx_path.empty() ? "yes" : "no");
-      }
-
-      if (!face_embedding.empty() && !onnx_path.empty() &&
-          database.size() > 0) {
-        if (isApiLoggingEnabled()) {
-          PLOG_DEBUG << "[RecognitionHandler] Comparing face embedding (size: "
-                     << face_embedding.size() << ") with database";
-        }
-
+      if (!face_embedding.empty() && !onnx_path.empty() && database.size() > 0) {
         std::vector<std::pair<std::string, float>> similarities;
         for (const auto &[name, db_embedding] : database) {
-          float similarity = cosine_similarity(face_embedding, db_embedding);
-          similarities.push_back({name, similarity});
+          float sim = cosine_similarity(face_embedding, db_embedding);
+          similarities.push_back({name, sim});
         }
-
-        // Sort by similarity (descending)
         std::sort(similarities.begin(), similarities.end(),
                   [](const std::pair<std::string, float> &a,
                      const std::pair<std::string, float> &b) {
                     return a.second > b.second;
                   });
 
-        // Take top N results.
-        // Backward compatible default: return top-N similarities even if low.
-        // If similarityThreshold is provided (>= 0.0), filter results.
         if (similarityThreshold >= 0.0) {
           for (const auto &pair : similarities) {
             if (pair.second < static_cast<float>(similarityThreshold))
@@ -2889,10 +2674,9 @@ Json::Value RecognitionHandler::processFaceRecognition(
             subject["subject"] = pair.first;
             subject["similarity"] = static_cast<double>(pair.second);
             subjects.append(subject);
-            if (subjects.size() >= static_cast<Json::ArrayIndex>(
-                                     std::max(0, predictionCount))) {
+            if (subjects.size() >=
+                static_cast<Json::ArrayIndex>(std::max(0, predictionCount)))
               break;
-            }
           }
         } else {
           int top_n =
@@ -2904,48 +2688,19 @@ Json::Value RecognitionHandler::processFaceRecognition(
             subjects.append(subject);
           }
         }
-
-        if (isApiLoggingEnabled()) {
-          PLOG_DEBUG << "[RecognitionHandler] Found " << subjects.size()
-                     << " matching subjects";
-        }
-      } else {
-        if (isApiLoggingEnabled()) {
-          if (face_embedding.empty()) {
-            PLOG_DEBUG << "[RecognitionHandler] Face embedding is empty, "
-                          "skipping recognition";
-          } else if (onnx_path.empty()) {
-            PLOG_DEBUG << "[RecognitionHandler] Recognition model not "
-                          "available, skipping recognition";
-          } else if (database.size() == 0) {
-            PLOG_DEBUG << "[RecognitionHandler] Database is empty, skipping "
-                          "recognition";
-          }
-        }
       }
       faceResult["subjects"] = subjects;
 
-      // Execution time for this face
-      auto end_face = std::chrono::steady_clock::now();
-      auto calculator_time =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end_face -
-                                                                start_face)
-              .count();
-
       Json::Value executionTime;
+      executionTime["decode"] = static_cast<double>(response.decode_ms);
       executionTime["detector"] = static_cast<double>(detector_time);
-      executionTime["calculator"] = static_cast<double>(calculator_time);
-      executionTime["age"] = 0.0;    // Not implemented yet
-      executionTime["gender"] = 0.0; // Not implemented yet
-      executionTime["mask"] = 0.0;   // Not implemented yet
+      executionTime["calculator"] = 0.0;
+      executionTime["age"] = 0.0;
+      executionTime["gender"] = 0.0;
+      executionTime["mask"] = 0.0;
       faceResult["execution_time"] = executionTime;
 
       result.append(faceResult);
-
-      if (isApiLoggingEnabled()) {
-        PLOG_DEBUG << "[RecognitionHandler] Added face result " << (i + 1)
-                   << " to response";
-      }
     }
 
     if (isApiLoggingEnabled()) {
@@ -4335,10 +4090,19 @@ void RecognitionHandler::renameSubject(
     std::function<void(const HttpResponsePtr &)> &&callback) {
   auto start_time = std::chrono::steady_clock::now();
 
+  std::string peerAddr = "unknown";
+  if (req) {
+    try {
+      peerAddr = req->getPeerAddr().toIpPort();
+    } catch (const std::exception &e) {
+      // Ignore errors getting peer address
+    }
+  }
+
   if (isApiLoggingEnabled()) {
     PLOG_INFO
         << "[API] PUT /v1/recognition/subjects/{subject} - Rename face subject";
-    PLOG_DEBUG << "[API] Request from: " << req->getPeerAddr().toIpPort();
+    PLOG_DEBUG << "[API] Request from: " << peerAddr;
   }
 
   try {
@@ -4453,7 +4217,24 @@ void RecognitionHandler::renameSubject(
     }
 
     // Record metrics and call callback
-    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+    try {
+      if (req) {
+        MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+      } else {
+        callback(resp);
+      }
+    } catch (const std::exception &e) {
+      if (isApiLoggingEnabled()) {
+        PLOG_ERROR << "[RecognitionHandler] Exception in MetricsInterceptor: " << e.what();
+      }
+      try {
+        callback(resp);
+      } catch (const std::exception &e_cb) {
+        if (isApiLoggingEnabled()) {
+          PLOG_ERROR << "[RecognitionHandler] Exception calling callback: " << e_cb.what();
+        }
+      }
+    }
 
   } catch (const std::exception &e) {
     auto end_time = std::chrono::steady_clock::now();
@@ -4465,10 +4246,18 @@ void RecognitionHandler::renameSubject(
     }
     auto errorResp =
         createErrorResponse(500, "Internal server error", e.what());
-    errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
-    errorResp->addHeader("Access-Control-Allow-Headers",
-                         "Content-Type, x-api-key");
-    callback(errorResp);
+    if (errorResp) {
+      errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
+      errorResp->addHeader("Access-Control-Allow-Headers",
+                           "Content-Type, x-api-key");
+      try {
+        callback(errorResp);
+      } catch (const std::exception &e_cb) {
+        if (isApiLoggingEnabled()) {
+          PLOG_ERROR << "[RecognitionHandler] Exception calling error callback: " << e_cb.what();
+        }
+      }
+    }
   } catch (...) {
     auto end_time = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -4480,10 +4269,18 @@ void RecognitionHandler::renameSubject(
     }
     auto errorResp = createErrorResponse(500, "Internal server error",
                                          "Unknown error occurred");
-    errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
-    errorResp->addHeader("Access-Control-Allow-Headers",
-                         "Content-Type, x-api-key");
-    callback(errorResp);
+    if (errorResp) {
+      errorResp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
+      errorResp->addHeader("Access-Control-Allow-Headers",
+                           "Content-Type, x-api-key");
+      try {
+        callback(errorResp);
+      } catch (const std::exception &e_cb) {
+        if (isApiLoggingEnabled()) {
+          PLOG_ERROR << "[RecognitionHandler] Exception calling unknown error callback: " << e_cb.what();
+        }
+      }
+    }
   }
 }
 

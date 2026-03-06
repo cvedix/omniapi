@@ -1,0 +1,66 @@
+# API endpoint: /v1/core/instance/{instanceId}/stop
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/stop:
+  post:
+    summary: Stop an instance
+    description: 'Stops the pipeline for an instance, halting all processing and releasing resources.
+
+
+      **Behavior:**
+
+      - If the instance is already stopped, the request will succeed without error
+
+      - The pipeline will be gracefully stopped and all resources will be released
+
+      - Processing will stop immediately
+
+      - Returns the updated instance information with `running: false`
+
+
+      **Note:** Stopping an instance may take a few seconds as the pipeline is cleaned up.
+
+
+      The instance configuration is preserved and can be started again using the start endpoint.
+
+      '
+    operationId: stopInstance
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID (UUID)
+    responses:
+      '200':
+        description: Instance stopped successfully
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/InstanceInfo'
+              - type: object
+                properties:
+                  message:
+                    type: string
+      '400':
+        description: Failed to stop instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

@@ -1,0 +1,53 @@
+# API endpoint: /v1/core/ai/batch
+# Tag: AI
+
+/v1/core/ai/batch:
+  post:
+    summary: Xử lý hàng loạt hình ảnh/khung hình
+    description: 'Xử lý nhiều hình ảnh/khung hình trong một lô qua pipeline xử lý AI.
+
+      Hiện tại trả về 501 Not Implemented.
+
+      '
+    operationId: processBatch
+    tags:
+    - AI
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              images:
+                type: array
+                description: Mảng các hình ảnh được mã hóa Base64
+                items:
+                  type: string
+              config:
+                type: string
+                description: Cấu hình xử lý (chuỗi JSON)
+    responses:
+      '200':
+        description: Công việc xử lý hàng loạt đã được gửi thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_ids:
+                  type: array
+                  items:
+                    type: string
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '501':
+        description: Chưa triển khai
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

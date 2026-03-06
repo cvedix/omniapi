@@ -8,8 +8,8 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/face.mp4",
-      "MODEL_PATH": "./cvedix_data/models/face/face_detection_yunet_2022mar.onnx",
-      "SFACE_MODEL_PATH": "./cvedix_data/models/face/face_recognition_sface_2021dec.onnx"
+      "MODEL_PATH": "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx",
+      "SFACE_MODEL_PATH": "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx"
     },
     "output": {
       "BROKE_FOR": "FACE",

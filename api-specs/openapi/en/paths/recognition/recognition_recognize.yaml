@@ -1,0 +1,145 @@
+# API endpoint: /v1/recognition/recognize
+# Tag: Recognition
+
+/v1/recognition/recognize:
+  post:
+    summary: Recognize faces from uploaded image
+    description: 'Recognizes faces from an uploaded image. The image can be provided as base64-encoded data
+
+      in a multipart/form-data request. Returns face detection results including bounding boxes,
+
+      landmarks, recognized subjects, and execution times.
+
+      '
+    operationId: recognizeFaces
+    tags:
+    - Recognition
+    parameters:
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 0
+      description: Maximum number of faces to recognize (0 = no limit). Recognizes the largest faces first.
+    - name: prediction_count
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 1
+      description: Number of predictions to return per face
+    - name: det_prob_threshold
+      in: query
+      required: false
+      schema:
+        type: number
+        format: float
+        default: 0.5
+      description: Detection probability threshold (0.0 to 1.0)
+    - name: threshold
+      in: query
+      required: false
+      schema:
+        type: number
+        format: float
+      description: Optional similarity threshold (0.0 to 1.0). If provided, subjects with similarity below this threshold
+        will be filtered out. If omitted, returns top-N similarities without filtering.
+    - name: face_plugins
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Face plugins to enable (comma-separated)
+    - name: status
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Status filter
+    - name: detect_faces
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: true
+      description: Whether to detect faces (true) or only recognize existing faces (false)
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+            - file
+            properties:
+              file:
+                type: string
+                format: binary
+                description: Image file as base64-encoded data or binary data
+    responses:
+      '200':
+        description: Face recognition results
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                result:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FaceRecognitionResult'
+            example:
+              result:
+              - box:
+                  probability: 1.0
+                  x_max: 1420
+                  y_max: 1368
+                  x_min: 548
+                  y_min: 295
+                landmarks:
+                - - 814
+                  - 713
+                - - 1104
+                  - 829
+                - - 832
+                  - 937
+                - - 704
+                  - 1030
+                - - 1017
+                  - 1133
+                subjects:
+                - similarity: 0.97858
+                  subject: subject1
+                execution_time:
+                  age: 28.0
+                  gender: 26.0
+                  detector: 117.0
+                  calculator: 45.0
+                  mask: 36.0
+      '400':
+        description: Invalid request (missing file, invalid image format, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Unauthorized (missing or invalid API key)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for face recognition
+    operationId: recognizeFacesOptions
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: CORS preflight response

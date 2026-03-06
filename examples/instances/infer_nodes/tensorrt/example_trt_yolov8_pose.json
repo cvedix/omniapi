@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/face2.mp4",
-      "MODEL_PATH": "./cvedix_data/models/trt/others/yolov8s-pose_v8.5.engine"
+      "MODEL_PATH": "/opt/edgeos-api/models/trt/others/yolov8s-pose_v8.5.engine"
     }
   }
 }

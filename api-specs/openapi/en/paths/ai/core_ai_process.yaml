@@ -1,0 +1,78 @@
+# API endpoint: /v1/core/ai/process
+# Tag: AI
+
+/v1/core/ai/process:
+  post:
+    summary: Process single image/frame
+    description: 'Processes a single image/frame through the AI processing pipeline.
+
+      Supports priority-based queuing and rate limiting.
+
+      '
+    operationId: processImage
+    tags:
+    - AI
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - image
+            properties:
+              image:
+                type: string
+                description: Base64-encoded image data
+                example: /9j/4AAQSkZJRg...
+              config:
+                type: string
+                description: Processing configuration (JSON string)
+                example: '{"model": "yolo", "threshold": 0.5}'
+              priority:
+                type: string
+                enum:
+                - low
+                - medium
+                - high
+                default: medium
+                description: Request priority
+    responses:
+      '200':
+        description: Processing job submitted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id:
+                  type: string
+                  description: Unique job identifier
+                  example: job_1234567890
+                status:
+                  type: string
+                  example: queued
+      '400':
+        description: Bad request (invalid JSON or missing required fields)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '429':
+        description: Rate limit exceeded
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '501':
+        description: Not implemented
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

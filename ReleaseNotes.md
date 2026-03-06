@@ -26,6 +26,121 @@
 
 ---
 
+## 🎯 Các Bài Toán & Tính Năng Được Hỗ Trợ
+
+API hỗ trợ các tính năng từ CVEDIX SDK với **43+ processing nodes**, bao gồm:
+
+### 👤 Nhận Diện & Phân Tích Khuôn Mặt
+
+- ✅ **Face Detection** - Phát hiện khuôn mặt (YuNet, YOLOv11, RKNN)
+- ✅ **Face Recognition** - Nhận diện khuôn mặt (InsightFace, TensorRT)
+- ✅ **Face Tracking** - Theo dõi khuôn mặt (SORT, ByteTrack, OCSort)
+- ✅ **Face Feature Encoding** - Trích xuất đặc trưng khuôn mặt (SFace)
+- ✅ **Face Swap** - Hoán đổi khuôn mặt
+- ✅ **Face Database Management** - Quản lý database khuôn mặt (MySQL/PostgreSQL)
+
+### 🚗 Phát Hiện & Phân Tích Phương Tiện
+
+- ✅ **Vehicle Detection** - Phát hiện phương tiện (TensorRT, YOLO)
+- ✅ **Vehicle Plate Detection** - Phát hiện biển số xe (YOLOv11, TensorRT)
+- ✅ **Vehicle Plate Recognition** - Nhận diện biển số xe
+- ✅ **Vehicle Tracking** - Theo dõi phương tiện
+- ✅ **Vehicle Feature Encoding** - Trích xuất đặc trưng xe (TensorRT)
+- ✅ **Vehicle Color Classification** - Phân loại màu xe (TensorRT)
+- ✅ **Vehicle Type Classification** - Phân loại loại xe (TensorRT)
+- ✅ **Vehicle Body Scan** - Quét thân xe
+- ✅ **Vehicle Clustering** - Phân nhóm xe dựa trên đặc trưng
+
+### 🎯 Phát Hiện Vật Thể & Phân Tích
+
+- ✅ **Object Detection** - Phát hiện vật thể (YOLO, YOLOv8, YOLOv11)
+- ✅ **Instance Segmentation** - Phân đoạn instance (Mask R-CNN, YOLOv8 Seg)
+- ✅ **Semantic Segmentation** - Phân đoạn ngữ nghĩa (ENet)
+- ✅ **Pose Estimation** - Ước lượng tư thế (OpenPose, YOLOv8 Pose)
+- ✅ **Image Classification** - Phân loại ảnh
+- ✅ **Text Detection** - Phát hiện văn bản (PaddleOCR)
+
+### 🚦 Phân Tích Hành Vi (Behavior Analysis)
+
+- ✅ **Crossline Detection** - Phát hiện vượt đường line (đếm đối tượng)
+- ✅ **Multi-line Crossline** - Nhiều đường crossline
+- ✅ **Traffic Jam Detection** - Phát hiện kẹt xe (BA Jam)
+- ✅ **Stop Detection** - Phát hiện dừng tại stop-line (BA Stop)
+- ✅ **Wrong Way Detection** - Phát hiện đi ngược chiều
+- ✅ **Obstacle Detection** - Phát hiện chướng ngại vật
+
+### 🔥 Phát Hiện An Toàn & Bất Thường
+
+- ✅ **Fire/Smoke Detection** - Phát hiện lửa/khói
+- ✅ **Video Restoration** - Khôi phục video chất lượng cao
+- ✅ **Lane Detection** - Phát hiện làn đường
+
+### 📹 Nguồn Video Đầu Vào (Source Nodes)
+
+- ✅ **RTSP Source** - Stream RTSP từ camera IP
+- ✅ **RTMP Source** - Stream RTMP
+- ✅ **File Source** - Video file (MP4, AVI, etc.)
+- ✅ **Image Source** - Ảnh đơn hoặc thư mục ảnh
+- ✅ **App Source** - Input từ ứng dụng
+- ✅ **UDP Source** - Stream UDP
+- ✅ **FFmpeg Source** - Nguồn đa dạng qua FFmpeg
+
+### 📤 Đầu Ra Video (Destination Nodes)
+
+- ✅ **RTSP Destination** - Stream RTSP output
+- ✅ **RTMP Destination** - Stream RTMP output
+- ✅ **File Destination** - Lưu video file
+- ✅ **Image Destination** - Lưu ảnh snapshot
+- ✅ **Screen Destination** - Hiển thị trên màn hình
+- ✅ **App Destination** - Output đến ứng dụng
+- ✅ **FFmpeg Destination** - Output đa dạng qua FFmpeg
+
+### 📡 Xuất Dữ Liệu (Broker Nodes)
+
+- ✅ **MQTT Broker** - Gửi events qua MQTT (JSON, XML)
+- ✅ **Kafka Broker** - Gửi events qua Apache Kafka
+- ✅ **Socket Broker** - Gửi qua TCP/UDP Socket (JSON, XML, BA, Plate, Embeddings)
+- ✅ **Console Broker** - In ra console (JSON)
+- ✅ **File Broker** - Lưu events vào file (XML)
+- ✅ **SSE Broker** - Server-Sent Events (real-time streaming)
+
+### 🔄 Xử Lý & Tối Ưu
+
+- ✅ **Object Tracking** - Theo dõi đối tượng (SORT, ByteTrack, OCSort)
+- ✅ **Frame Fusion** - Kết hợp frame từ nhiều nguồn
+- ✅ **Frame Synchronization** - Đồng bộ frame
+- ✅ **Frame Splitting** - Chia tách frame
+- ✅ **Frame Skipping** - Bỏ qua frame (tối ưu hiệu năng)
+- ✅ **Recording** - Ghi lại video/ảnh
+- ✅ **Clustering** - Phân nhóm đối tượng
+- ✅ **OSD (On-Screen Display)** - Vẽ overlay kết quả (Face, Plate, Pose, Segmentation, Lane, MLLM)
+
+### 🤖 AI Models & Hardware Support
+
+- ✅ **TensorRT** - NVIDIA GPU acceleration (YOLOv8, Vehicle, InsightFace)
+- ✅ **RKNN** - Rockchip NPU acceleration (YOLOv8, YOLOv11, Face)
+- ✅ **ONNX Runtime** - Cross-platform inference
+- ✅ **OpenCV DNN** - YOLO, Caffe, TensorFlow models
+- ✅ **PaddlePaddle** - OCR text detection
+
+### 🔧 Tính Năng Nâng Cao
+
+- ✅ **Multi-Channel Pipelines** - Xử lý nhiều nguồn đồng thời (1-1-1, 1-1-N, 1-N-1, N-N)
+- ✅ **Dynamic Pipeline** - Thay đổi pipeline trong runtime
+- ✅ **Multi-Detector** - Nhiều detector trong một pipeline
+- ✅ **Pipeline Interaction** - Tương tác với pipeline
+- ✅ **MLLM Analysis** - Phân tích đa phương thức với Large Language Model
+
+### 📊 Monitoring & Management
+
+- ✅ **Real-time Statistics** - Thống kê FPS, latency, throughput
+- ✅ **Health Monitoring** - Giám sát sức khỏe hệ thống
+- ✅ **Logging Management** - Quản lý log theo category
+- ✅ **Metrics Export** - Prometheus metrics
+- ✅ **Instance Persistence** - Tự động lưu và khôi phục instances
+
+---
+
 ## 🏗️ Kiến Trúc
 
 ![Architecture](asset/architecture.png)
@@ -164,7 +279,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 
 # 4. Chạy server
-./bin/edge_ai_api
+./bin/edgeos-api
 ```
 
 ### Build với Tests
@@ -173,7 +288,7 @@ make -j$(nproc)
 cd build
 cmake .. -DBUILD_TESTS=ON
 make -j$(nproc)
-./bin/edge_ai_api_tests
+./bin/edgeos-api_tests
 ```
 
 ### Kiểm Tra Build
@@ -281,8 +396,8 @@ cd packaging/scripts
 ### Cài Đặt Package
 
 Sau khi build, file `.deb` sẽ được tạo tại project root:
-- Package thông thường: `edge-ai-api-{VERSION}-amd64.deb`
-- ALL-IN-ONE package: `edge-ai-api-all-in-one-{VERSION}-amd64.deb`
+- Package thông thường: `edgeos-api-{VERSION}-amd64.deb`
+- ALL-IN-ONE package: `edgeos-api-all-in-one-{VERSION}-amd64.deb`
 
 #### Cài Đặt ALL-IN-ONE Package (Khuyến nghị)
 
@@ -365,7 +480,7 @@ sudo apt-get install -y \
 
 ```bash
 # Bước 1: Cài đặt package
-sudo dpkg -i edge-ai-api-all-in-one-*.deb
+sudo dpkg -i edgeos-api-all-in-one-*.deb
 
 # Trong quá trình cài đặt, nếu thiếu OpenCV 4.10, hệ thống sẽ hiển thị:
 # ==========================================
@@ -381,14 +496,14 @@ sudo dpkg -i edge-ai-api-all-in-one-*.deb
 sudo apt-get install -f
 
 # Bước 3: Nếu OpenCV cài đặt bị lỗi hoặc bị gián đoạn, chạy lại script cài đặt:
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
 
 # Bước 4: Khởi động service
-sudo systemctl start edge-ai-api
-sudo systemctl enable edge-ai-api  # Tự động chạy khi khởi động
+sudo systemctl start edgeos-api
+sudo systemctl enable edgeos-api  # Tự động chạy khi khởi động
 
 # Bước 5: Kiểm tra service
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Bước 6: Test API
 curl http://localhost:8080/v1/core/health
@@ -397,7 +512,7 @@ curl http://localhost:8080/v1/core/health
 **Lưu ý về OpenCV:**
 - Nếu package đã bundle OpenCV 4.10, quá trình cài đặt sẽ không yêu cầu cài thêm.
 - Nếu thiếu OpenCV 4.10, quá trình cài đặt sẽ tự động phát hiện và cho phép cài đặt tự động.
-- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh`
+- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/edgeos-api/scripts/build_opencv_safe.sh`
 
 #### Cài Đặt Package Thông Thường
 
@@ -432,17 +547,17 @@ sudo apt-get install -y \
     ffmpeg
 
 # 2. Cài đặt
-sudo dpkg -i edge-ai-api-*.deb
+sudo dpkg -i edgeos-api-*.deb
 
 # 3. Nếu có lỗi dependencies, chạy:
 sudo apt-get install -f
 
 # 4. Khởi động service
-sudo systemctl start edge-ai-api
-sudo systemctl enable edge-ai-api
+sudo systemctl start edgeos-api
+sudo systemctl enable edgeos-api
 
 # 5. Kiểm tra service
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 ```
 
 **Nếu chưa cài OpenCV 4.10, cài sau:**
@@ -456,37 +571,37 @@ sudo apt-get install -y \
     g++ \
     wget \
     ffmpeg
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
-sudo systemctl restart edge-ai-api
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
+sudo systemctl restart edgeos-api
 ```
 
 ### Verify Installation
 
 ```bash
 # Kiểm tra package status
-dpkg -l | grep edge-ai-api
+dpkg -l | grep edgeos-api
 
 # Kiểm tra libraries
-ls -la /opt/edge_ai_api/lib/
+ls -la /opt/edgeos-api/lib/
 
 # Kiểm tra GStreamer plugins (ALL-IN-ONE)
-ls -la /opt/edge_ai_api/lib/gstreamer-1.0/
+ls -la /opt/edgeos-api/lib/gstreamer-1.0/
 
 # Kiểm tra default fonts và models (ALL-IN-ONE)
-ls -la /opt/edge_ai_api/fonts/
-ls -la /opt/edge_ai_api/models/
+ls -la /opt/edgeos-api/fonts/
+ls -la /opt/edgeos-api/models/
 
 # Kiểm tra CVEDIX SDK
 ls -la /opt/cvedix/lib/
 
 # Test executable
-/usr/local/bin/edge_ai_api --help
+/usr/local/bin/edgeos-api --help
 
 # Kiểm tra service status
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Xem log
-sudo journalctl -u edge-ai-api -f
+sudo journalctl -u edgeos-api -f
 
 # Test API
 curl http://localhost:8080/v1/core/health
@@ -497,42 +612,42 @@ curl http://localhost:8080/v1/core/version
 
 Sau khi cài đặt package, các file sẽ được đặt tại:
 
-- **Executable**: `/usr/local/bin/edge_ai_api`
-- **Libraries**: `/opt/edge_ai_api/lib/` (bundled - tự chứa)
-- **GStreamer plugins**: `/opt/edge_ai_api/lib/gstreamer-1.0/` (ALL-IN-ONE)
-- **Config**: `/opt/edge_ai_api/config/`
-- **Data**: `/opt/edge_ai_api/` (instances, solutions, models, logs, etc.)
-- **Fonts**: `/opt/edge_ai_api/fonts/` (default fonts - ALL-IN-ONE)
-- **Models**: `/opt/edge_ai_api/models/` (default models - ALL-IN-ONE)
-- **Service**: `/etc/systemd/system/edge-ai-api.service`
+- **Executable**: `/usr/local/bin/edgeos-api`
+- **Libraries**: `/opt/edgeos-api/lib/` (bundled - tự chứa)
+- **GStreamer plugins**: `/opt/edgeos-api/lib/gstreamer-1.0/` (ALL-IN-ONE)
+- **Config**: `/opt/edgeos-api/config/`
+- **Data**: `/opt/edgeos-api/` (instances, solutions, models, logs, etc.)
+- **Fonts**: `/opt/edgeos-api/fonts/` (default fonts - ALL-IN-ONE)
+- **Models**: `/opt/edgeos-api/models/` (default models - ALL-IN-ONE)
+- **Service**: `/etc/systemd/system/edgeos-api.service`
 
 ### Quản Lý Service
 
 ```bash
 # Khởi động
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 
 # Dừng
-sudo systemctl stop edge-ai-api
+sudo systemctl stop edgeos-api
 
 # Khởi động lại
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 
 # Xem status
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Xem log
-sudo journalctl -u edge-ai-api -n 100
+sudo journalctl -u edgeos-api -n 100
 ```
 
 ### Gỡ Cài Đặt
 
 ```bash
 # Gỡ package
-sudo dpkg -r edge-ai-api
+sudo dpkg -r edgeos-api
 
 # Hoặc gỡ hoàn toàn (bao gồm config files)
-sudo dpkg -P edge-ai-api
+sudo dpkg -P edgeos-api
 ```
 
 ---
@@ -581,7 +696,7 @@ Xem đầy đủ: [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 | **Build từ source** | `./scripts/dev_setup.sh` | ❌ **KHÔNG** |
 | **Build .deb** | `./build_deb.sh` | ❌ **KHÔNG** |
 | **Cài đặt package** | `sudo dpkg -i *.deb` | ✅ **CÓ** |
-| **Khởi động service** | `sudo systemctl start edge-ai-api` | ✅ **CÓ** |
+| **Khởi động service** | `sudo systemctl start edgeos-api` | ✅ **CÓ** |
 
 ---
 
@@ -607,19 +722,19 @@ sudo apt-get install -y dpkg-dev debhelper
 
 Kiểm tra log:
 ```bash
-sudo journalctl -u edge-ai-api -n 50
+sudo journalctl -u edgeos-api -n 50
 ```
 
 Kiểm tra permissions:
 ```bash
-sudo chown -R edgeai:edgeai /opt/edge_ai_api
+sudo chown -R edgeai:edgeai /opt/edgeos-api
 ```
 
 ### Libraries không được tìm thấy
 
 Kiểm tra ldconfig:
 ```bash
-sudo ldconfig -v | grep edge-ai-api
+sudo ldconfig -v | grep edgeos-api
 ```
 
 Nếu không có, chạy lại:
@@ -804,6 +919,6 @@ Toàn bộ danh sách API, request/response schema và ví dụ `curl` để **t
 
 Nếu gặp vấn đề, vui lòng:
 1. Kiểm tra [Troubleshooting](#-troubleshooting) section
-2. Xem log: `sudo journalctl -u edge-ai-api -n 100`
+2. Xem log: `sudo journalctl -u edgeos-api -n 100`
 3. Liên hệ support team
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cvedix/nodes/ba/cvedix_ba_crossline_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/objects/shapes/cvedix_line.h>
 #include <cvedix/objects/shapes/cvedix_point.h>
 #include <drogon/HttpController.h>
@@ -201,7 +201,7 @@ private:
    * @param instanceId Instance ID
    * @return Shared pointer to ba_crossline_node if found, nullptr otherwise
    */
-  std::shared_ptr<cvedix_nodes::cvedix_ba_crossline_node>
+  std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node>
   findBACrosslineNode(const std::string &instanceId) const;
 
   /**
@@ -211,6 +211,14 @@ private:
    */
   std::map<int, cvedix_objects::cvedix_line>
   parseLinesFromJson(const Json::Value &linesArray) const;
+
+  /**
+   * @brief Parse lines from JSON array to map<int, vector<crossline_config>>
+   * @param linesArray JSON array of line objects
+   * @return Map of channel to vector of crossline_config, empty map if parse fails
+   */
+  std::map<int, std::vector<cvedix_nodes::crossline_config>>
+  parseLinesFromJsonWithConfigs(const Json::Value &linesArray) const;
 
   /**
    * @brief Update lines in running ba_crossline_node without restart

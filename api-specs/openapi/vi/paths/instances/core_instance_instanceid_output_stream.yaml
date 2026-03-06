@@ -1,0 +1,145 @@
+# API endpoint: /v1/core/instance/{instanceId}/output/stream
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/output/stream:
+  get:
+    summary: Lấy cấu hình stream output
+    description: 'Trả về cấu hình stream output hiện tại của instance. Endpoint lấy cấu hình stream output
+      gồm trạng thái bật/tắt và URI cấu hình. **Định dạng phản hồi:** `enabled` - stream output có bật hay không; `uri` - URI stream đã cấu hình (chuỗi rỗng nếu tắt). URI có thể theo định dạng: **RTMP** `rtmp://host:port/path/stream_key`, **RTSP** `rtsp://host:port/path/stream_key`, **HLS** `hls://host:port/path/stream_key`.'
+
+    operationId: getStreamOutput
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    responses:
+      '200':
+        description: Cấu hình đầu ra stream
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StreamOutputResponse'
+            examples:
+              enabled:
+                summary: Đã bật stream output
+                value:
+                  enabled: true
+                  uri: rtmp://localhost:1935/live/stream
+              disabled:
+                summary: Đã tắt stream output
+                value:
+                  enabled: false
+                  uri: ''
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Cấu hình stream/record output
+    description: 'Cấu hình stream hoặc record output cho instance. Cho phép bật hoặc tắt output
+      and set either a stream URI or a local path for recording.
+
+
+      **Chế độ Record (tham số `path`):** Khi `enabled` là `true` và có `path`, video lưu MP4 vào thư mục chỉ định. Đường dẫn phải tồn tại và có quyền ghi (sẽ tạo nếu chưa có). Dùng `rtmp_des_node` để đẩy dữ liệu. File lưu MP4 tại đường dẫn chỉ định.
+
+
+      **Chế độ Stream (tham số `uri`):** **RTMP** - phát RTMP (vd. MediaMTX, YouTube Live); **RTSP** - phát RTSP; **HLS** - phát HLS.
+
+
+      **Hành vi:**
+
+      - When `enabled` is `true`, either `path` (for record output) or `uri` (for stream output) field is required
+
+      - When `enabled` is `false`, output is disabled
+
+      - If the instance is currently running, it will be automatically restarted to apply the changes
+
+      - The stream output uses the `rtmp_des_node` in the pipeline
+
+
+      **MediaMTX Setup:**
+
+      - For local streaming, ensure MediaMTX is installed and running: https://github.com/bluenviron/mediamtx
+
+      - Endpoint RTMP MediaMTX mặc định: `rtmp://localhost:1935/live/stream`; endpoint RTSP: `rtsp://localhost:8554/live/stream`.'
+
+    operationId: configureStreamOutput
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConfigureStreamOutputRequest'
+          examples:
+            enableRecordOutput:
+              summary: Bật ghi đầu ra ra đường dẫn cục bộ
+              value:
+                enabled: true
+                path: /opt/edgeos-api/record
+            enableLocalRTMP:
+              summary: Bật stream RTMP cục bộ
+              value:
+                enabled: true
+                uri: rtmp://localhost:1935/live/stream
+            enableRemoteRTMP:
+              summary: Bật stream RTMP từ xa
+              value:
+                enabled: true
+                uri: rtmp://localhost:1935/live/stream
+            disableStream:
+              summary: Tắt stream/ghi đầu ra
+              value:
+                enabled: false
+    responses:
+      '204':
+        description: Đã cấu hình stream output thành công
+      '400':
+        description: Yêu cầu không hợp lệ (đầu vào sai hoặc thiếu trường bắt buộc)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho các endpoint stream output
+    operationId: streamOutputOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

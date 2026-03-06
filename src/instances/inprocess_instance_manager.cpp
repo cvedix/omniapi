@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <cctype>
 
+// Static member initialization
+InstanceStateManager InProcessInstanceManager::state_manager_;
+
 // Helper function to trim whitespace
 static std::string trim(const std::string &str) {
   if (str.empty())
@@ -41,6 +44,10 @@ static bool parseUpdateRequestFromJson(const Json::Value &json,
 
   if (json.isMember("frameRateLimit") && json["frameRateLimit"].isNumeric()) {
     req.frameRateLimit = json["frameRateLimit"].asInt();
+  }
+
+  if (json.isMember("configuredFps") && json["configuredFps"].isNumeric()) {
+    req.configuredFps = json["configuredFps"].asInt();
   }
 
   if (json.isMember("metadataMode") && json["metadataMode"].isBool()) {
@@ -293,4 +300,103 @@ void InProcessInstanceManager::loadPersistentInstances() {
 
 int InProcessInstanceManager::checkAndHandleRetryLimits() {
   return registry_.checkAndHandleRetryLimits();
+}
+
+bool InProcessInstanceManager::loadInstance(const std::string &instanceId) {
+  // Check if instance exists
+  auto optInfo = registry_.getInstance(instanceId);
+  if (!optInfo.has_value()) {
+    std::cerr << "[InProcessInstanceManager] Cannot load instance " << instanceId
+              << ": Instance not found" << std::endl;
+    return false;
+  }
+
+  InstanceInfo info = optInfo.value();
+  
+  // Check if already loaded - make operation idempotent
+  // If already loaded, check if state is initialized, if not, initialize it
+  if (info.loaded) {
+    // Check if state is actually initialized
+    if (state_manager_.hasState(instanceId)) {
+      std::cout << "[InProcessInstanceManager] Instance " << instanceId
+                << " is already loaded (idempotent operation)" << std::endl;
+      return true; // Already loaded - idempotent success
+    } else {
+      // Instance marked as loaded but state not initialized - fix it
+      std::cout << "[InProcessInstanceManager] Instance " << instanceId
+                << " marked as loaded but state not initialized, initializing..."
+                << std::endl;
+      state_manager_.initializeState(instanceId);
+      return true;
+    }
+  }
+
+  // Initialize state storage
+  state_manager_.initializeState(instanceId);
+
+  // Update loaded flag - we need to update the instance in registry
+  // Since InstanceRegistry doesn't expose a method to update loaded flag directly,
+  // we'll need to work with the instance info. For now, we'll mark it as loaded
+  // in our state manager and the actual loaded flag will be managed through
+  // the state manager's hasState method.
+  // Note: The loaded flag in InstanceInfo should ideally be updated, but since
+  // we don't have direct access, we'll rely on state_manager_ to track this.
+
+  std::cout << "[InProcessInstanceManager] Successfully loaded instance "
+            << instanceId << std::endl;
+  return true;
+}
+
+bool InProcessInstanceManager::unloadInstance(const std::string &instanceId) {
+  // Check if instance exists
+  auto optInfo = registry_.getInstance(instanceId);
+  if (!optInfo.has_value()) {
+    return false;
+  }
+
+  InstanceInfo info = optInfo.value();
+
+  // Check if loaded
+  if (!state_manager_.hasState(instanceId)) {
+    return false; // Not loaded
+  }
+
+  // Stop instance if running
+  if (info.running) {
+    registry_.stopInstance(instanceId);
+  }
+
+  // Clear state storage
+  state_manager_.clearState(instanceId);
+
+  return true;
+}
+
+Json::Value
+InProcessInstanceManager::getInstanceState(const std::string &instanceId) {
+  return state_manager_.getState(instanceId);
+}
+
+bool InProcessInstanceManager::setInstanceState(const std::string &instanceId,
+                                                const std::string &path,
+                                                const Json::Value &value) {
+  // Check if instance exists and is loaded
+  auto optInfo = registry_.getInstance(instanceId);
+  if (!optInfo.has_value()) {
+    return false;
+  }
+
+  InstanceInfo info = optInfo.value();
+  
+  // Instance must be loaded or running
+  if (!state_manager_.hasState(instanceId) && !info.running) {
+    return false;
+  }
+
+  // If not loaded but running, initialize state
+  if (!state_manager_.hasState(instanceId)) {
+    state_manager_.initializeState(instanceId);
+  }
+
+  return state_manager_.setState(instanceId, path, value);
 }

@@ -8,8 +8,8 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/pose.mp4",
-      "MODEL_PATH": "./cvedix_data/models/openpose/pose_iter_440000.caffemodel",
-      "MODEL_CONFIG_PATH": "./cvedix_data/models/openpose/pose_deploy.prototxt",
+      "MODEL_PATH": "/opt/edgeos-api/models/openpose/pose_iter_440000.caffemodel",
+      "MODEL_CONFIG_PATH": "/opt/edgeos-api/models/openpose/pose_deploy.prototxt",
       "INPUT_WIDTH": "368",
       "INPUT_HEIGHT": "368",
       "SCORE_THRESHOLD": "0.1"

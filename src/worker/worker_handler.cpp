@@ -10,13 +10,20 @@
 #include <cvedix/nodes/common/cvedix_node.h>
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_crossline_osd_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_jam_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
+#include <cvedix/objects/shapes/cvedix_line.h>
+#include <cvedix/objects/shapes/cvedix_point.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
+#include <cvedix/nodes/src/cvedix_app_src_node.h>
 #include <cvedix/nodes/src/cvedix_file_src_node.h>
+#include <cvedix/nodes/src/cvedix_image_src_node.h>
+#include <cvedix/nodes/src/cvedix_rtmp_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtsp_src_node.h>
+#include <cvedix/nodes/src/cvedix_udp_src_node.h>
 #include <cvedix/objects/cvedix_frame_meta.h>
 #include <cvedix/objects/cvedix_meta.h>
 #include <filesystem>
@@ -31,6 +38,43 @@
 // Base64 encoding table
 static const char base64_chars[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+// Base64 decode (returns empty vector on error)
+static std::vector<uint8_t> base64_decode(const std::string &encoded) {
+  std::vector<uint8_t> out;
+  if (encoded.empty()) return out;
+  std::string safe;
+  for (char c : encoded) {
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=')
+      safe += c;
+  }
+  size_t len = safe.size();
+  if (len == 0 || (len % 4) != 0) return out;
+  out.reserve((len / 4) * 3);
+  for (size_t i = 0; i < len; i += 4) {
+    auto idx = [&safe](size_t j) -> int {
+      char c = safe[j];
+      if (c >= 'A' && c <= 'Z') return c - 'A';
+      if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+      if (c >= '0' && c <= '9') return c - '0' + 52;
+      if (c == '+') return 62;
+      if (c == '/') return 63;
+      return -1;
+    };
+    if (safe[i] == '=' || safe[i + 1] == '=') break;
+    int n0 = idx(i), n1 = idx(i + 1), n2 = (safe[i + 2] == '=') ? -1 : idx(i + 2),
+        n3 = (safe[i + 3] == '=') ? -1 : idx(i + 3);
+    if (n0 < 0 || n1 < 0) break;
+    out.push_back(static_cast<uint8_t>((n0 << 2) | (n1 >> 4)));
+    if (n2 >= 0) {
+      out.push_back(static_cast<uint8_t>(((n1 & 15) << 4) | (n2 >> 2)));
+      if (n3 >= 0)
+        out.push_back(static_cast<uint8_t>(((n2 & 3) << 6) | n3));
+    }
+  }
+  return out;
+}
 
 namespace worker {
 
@@ -259,6 +303,14 @@ IPCMessage WorkerHandler::handleMessage(const IPCMessage &msg) {
     return handleStopInstance(msg);
   case MessageType::UPDATE_INSTANCE:
     return handleUpdateInstance(msg);
+  case MessageType::UPDATE_LINES:
+    return handleUpdateLines(msg);
+  case MessageType::UPDATE_JAMS:
+    return handleUpdateJams(msg);
+  case MessageType::UPDATE_STOPS:
+    return handleUpdateStops(msg);
+  case MessageType::PUSH_FRAME:
+    return handlePushFrame(msg);
   case MessageType::GET_INSTANCE_STATUS:
     return handleGetStatus(msg);
   case MessageType::GET_STATISTICS:
@@ -594,6 +646,313 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
   return response;
 }
 
+IPCMessage WorkerHandler::handleUpdateLines(const IPCMessage &msg) {
+  IPCMessage response;
+  response.type = MessageType::UPDATE_LINES_RESPONSE;
+
+  if (!msg.payload.isMember("lines")) {
+    response.payload = createErrorResponse("No lines provided",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  // Check if pipeline is running
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    std::cout << "[Worker:" << instance_id_
+              << "] Cannot update lines: pipeline not running" << std::endl;
+    response.payload = createErrorResponse("Pipeline not running",
+                                           ResponseStatus::ERROR);
+    return response;
+  }
+
+  // Find ba_crossline_node in pipeline
+  std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> baCrosslineNode = nullptr;
+  for (const auto &node : pipeline_nodes_) {
+    if (!node)
+      continue;
+
+    auto crosslineNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(node);
+    if (crosslineNode) {
+      baCrosslineNode = crosslineNode;
+      break;
+    }
+  }
+
+  if (!baCrosslineNode) {
+    std::cout << "[Worker:" << instance_id_
+              << "] ba_crossline_node not found in pipeline" << std::endl;
+    response.payload = createErrorResponse("ba_crossline_node not found",
+                                           ResponseStatus::NOT_FOUND);
+    return response;
+  }
+
+  // Parse lines from JSON
+  const Json::Value &linesArray = msg.payload["lines"];
+  if (!linesArray.isArray()) {
+    response.payload = createErrorResponse("Lines must be an array",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  // Convert JSON lines to map<int, cvedix_line>
+  std::map<int, cvedix_objects::cvedix_line> lines;
+  for (Json::ArrayIndex i = 0; i < linesArray.size(); ++i) {
+    const Json::Value &lineObj = linesArray[i];
+
+    // Check if line has coordinates
+    if (!lineObj.isMember("coordinates") || !lineObj["coordinates"].isArray()) {
+      std::cout << "[Worker:" << instance_id_ << "] Line at index " << i
+                << " missing or invalid 'coordinates' field, skipping" << std::endl;
+      continue;
+    }
+
+    const Json::Value &coordinates = lineObj["coordinates"];
+    if (coordinates.size() < 2) {
+      std::cout << "[Worker:" << instance_id_ << "] Line at index " << i
+                << " has less than 2 coordinates, skipping" << std::endl;
+      continue;
+    }
+
+    // Get first and last coordinates
+    const Json::Value &startCoord = coordinates[0];
+    const Json::Value &endCoord = coordinates[coordinates.size() - 1];
+
+    if (!startCoord.isMember("x") || !startCoord.isMember("y") ||
+        !endCoord.isMember("x") || !endCoord.isMember("y")) {
+      std::cout << "[Worker:" << instance_id_ << "] Line at index " << i
+                << " has invalid coordinate format, skipping" << std::endl;
+      continue;
+    }
+
+    if (!startCoord["x"].isNumeric() || !startCoord["y"].isNumeric() ||
+        !endCoord["x"].isNumeric() || !endCoord["y"].isNumeric()) {
+      std::cout << "[Worker:" << instance_id_ << "] Line at index " << i
+                << " has non-numeric coordinates, skipping" << std::endl;
+      continue;
+    }
+
+    // Convert to cvedix_line
+    int start_x = startCoord["x"].asInt();
+    int start_y = startCoord["y"].asInt();
+    int end_x = endCoord["x"].asInt();
+    int end_y = endCoord["y"].asInt();
+
+    cvedix_objects::cvedix_point start(start_x, start_y);
+    cvedix_objects::cvedix_point end(end_x, end_y);
+
+    // Use array index as channel (0, 1, 2, ...)
+    int channel = static_cast<int>(i);
+    lines[channel] = cvedix_objects::cvedix_line(start, end);
+  }
+
+  // Update lines via SDK API
+  try {
+    std::cout << "[Worker:" << instance_id_ << "] Updating " << lines.size()
+              << " line(s) via SDK set_lines() API" << std::endl;
+
+    bool success = baCrosslineNode->set_lines(lines);
+    if (success) {
+      std::cout << "[Worker:" << instance_id_
+                << "] ✓ Successfully updated lines via hot reload (no restart needed)"
+                << std::endl;
+      response.payload = createResponse(ResponseStatus::OK,
+                                        "Lines updated successfully (runtime)");
+      Json::Value data;
+      data["lines_count"] = static_cast<int>(lines.size());
+      response.payload["data"] = data;
+    } else {
+      std::cout << "[Worker:" << instance_id_
+                << "] Failed to update lines via SDK API" << std::endl;
+      response.payload = createErrorResponse("Failed to update lines via SDK API",
+                                              ResponseStatus::INTERNAL_ERROR);
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Exception updating lines: " << e.what() << std::endl;
+    response.payload = createErrorResponse("Exception updating lines: " +
+                                               std::string(e.what()),
+                                           ResponseStatus::INTERNAL_ERROR);
+  } catch (...) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Unknown exception updating lines" << std::endl;
+    response.payload = createErrorResponse("Unknown exception updating lines",
+                                           ResponseStatus::INTERNAL_ERROR);
+  }
+
+  return response;
+}
+
+IPCMessage WorkerHandler::handleUpdateJams(const IPCMessage &msg) {
+  IPCMessage response;
+  response.type = MessageType::UPDATE_JAMS_RESPONSE;
+
+  if (!msg.payload.isMember("jams")) {
+    response.payload = createErrorResponse("No jams provided",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    std::cout << "[Worker:" << instance_id_
+              << "] Cannot update jams: pipeline not running" << std::endl;
+    response.payload = createErrorResponse("Pipeline not running",
+                                           ResponseStatus::ERROR);
+    return response;
+  }
+
+  Json::Value oldConfig = config_;
+  if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+    config_["AdditionalParams"] = Json::Value(Json::objectValue);
+  }
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  config_["AdditionalParams"]["JamZones"] =
+      Json::writeString(wb, msg.payload["jams"]);
+
+  std::cout << "[Worker:" << instance_id_
+            << "] Updating jam zones via hot swap (config merge)" << std::endl;
+  if (hotSwapPipeline(config_)) {
+    std::cout << "[Worker:" << instance_id_
+              << "] ✓ Jam zones updated successfully (hot swap)" << std::endl;
+    response.payload = createResponse(ResponseStatus::OK,
+                                      "Jam zones updated successfully (runtime)");
+    Json::Value data;
+    data["jams_count"] = msg.payload["jams"].isArray() ?
+        static_cast<int>(msg.payload["jams"].size()) : 0;
+    response.payload["data"] = data;
+  } else {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to hot swap pipeline for jam zones update" << std::endl;
+    config_ = oldConfig;
+    response.payload = createErrorResponse("Failed to apply jam zones (hot swap failed)",
+                                           ResponseStatus::INTERNAL_ERROR);
+  }
+  return response;
+}
+
+IPCMessage WorkerHandler::handleUpdateStops(const IPCMessage &msg) {
+  IPCMessage response;
+  response.type = MessageType::UPDATE_STOPS_RESPONSE;
+
+  if (!msg.payload.isMember("stops")) {
+    response.payload = createErrorResponse("No stops provided",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    std::cout << "[Worker:" << instance_id_
+              << "] Cannot update stops: pipeline not running" << std::endl;
+    response.payload = createErrorResponse("Pipeline not running",
+                                           ResponseStatus::ERROR);
+    return response;
+  }
+
+  Json::Value oldConfig = config_;
+  if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+    config_["AdditionalParams"] = Json::Value(Json::objectValue);
+  }
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  config_["AdditionalParams"]["StopZones"] =
+      Json::writeString(wb, msg.payload["stops"]);
+
+  std::cout << "[Worker:" << instance_id_
+            << "] Updating stop zones via hot swap (config merge)" << std::endl;
+  if (hotSwapPipeline(config_)) {
+    std::cout << "[Worker:" << instance_id_
+              << "] ✓ Stop zones updated successfully (hot swap)" << std::endl;
+    response.payload = createResponse(ResponseStatus::OK,
+                                      "Stop zones updated successfully (runtime)");
+    Json::Value data;
+    data["stops_count"] = msg.payload["stops"].isArray() ?
+        static_cast<int>(msg.payload["stops"].size()) : 0;
+    response.payload["data"] = data;
+  } else {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to hot swap pipeline for stop zones update" << std::endl;
+    config_ = oldConfig;
+    response.payload = createErrorResponse("Failed to apply stop zones (hot swap failed)",
+                                           ResponseStatus::INTERNAL_ERROR);
+  }
+  return response;
+}
+
+IPCMessage WorkerHandler::handlePushFrame(const IPCMessage &msg) {
+  IPCMessage response;
+  response.type = MessageType::PUSH_FRAME_RESPONSE;
+
+  if (!msg.payload.isMember("frame_base64") || !msg.payload["frame_base64"].isString()) {
+    response.payload = createErrorResponse("No frame_base64 string in payload",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  std::string codec = "jpeg";
+  if (msg.payload.isMember("codec") && msg.payload["codec"].isString()) {
+    codec = msg.payload["codec"].asString();
+  }
+  std::transform(codec.begin(), codec.end(), codec.begin(), ::tolower);
+
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    response.payload = createErrorResponse("Pipeline not running",
+                                           ResponseStatus::ERROR);
+    return response;
+  }
+
+  std::string b64 = msg.payload["frame_base64"].asString();
+  std::vector<uint8_t> data = base64_decode(b64);
+  if (data.empty()) {
+    response.payload = createErrorResponse("Invalid base64 frame data",
+                                           ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  cv::Mat frame;
+  if (codec == "jpeg" || codec == "jpg" || codec == "png" || codec == "webp") {
+    frame = cv::imdecode(data, cv::IMREAD_COLOR);
+  } else {
+    std::cerr << "[Worker:" << instance_id_
+              << "] PUSH_FRAME: Only jpeg/png supported, got codec=" << codec
+              << std::endl;
+    response.payload = createErrorResponse(
+        "Only jpeg/png/webp codec supported for push frame in worker",
+        ResponseStatus::INVALID_REQUEST);
+    return response;
+  }
+
+  if (frame.empty()) {
+    response.payload = createErrorResponse("Failed to decode image",
+                                           ResponseStatus::INTERNAL_ERROR);
+    return response;
+  }
+
+  std::shared_ptr<cvedix_nodes::cvedix_app_src_node> appSrcNode;
+  for (const auto &node : pipeline_nodes_) {
+    if (!node) continue;
+    appSrcNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(node);
+    if (appSrcNode) break;
+  }
+
+  if (!appSrcNode) {
+    response.payload = createErrorResponse("No app_src node in pipeline",
+                                           ResponseStatus::NOT_FOUND);
+    return response;
+  }
+
+  try {
+    appSrcNode->push_frames(frame);
+    response.payload = createResponse(ResponseStatus::OK, "Frame pushed");
+  } catch (const std::exception &e) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] PUSH_FRAME push_frames exception: " << e.what() << std::endl;
+    response.payload = createErrorResponse(std::string("push_frames failed: ") + e.what(),
+                                           ResponseStatus::INTERNAL_ERROR);
+  }
+  return response;
+}
+
 IPCMessage WorkerHandler::handleGetStatus(const IPCMessage & /*msg*/) {
   IPCMessage response;
   response.type = MessageType::GET_INSTANCE_STATUS_RESPONSE;
@@ -674,8 +1033,17 @@ IPCMessage WorkerHandler::handleGetStatistics(const IPCMessage & /*msg*/) {
         auto rtspNode =
             std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtsp_src_node>(
                 sourceNode);
+        auto rtmpNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
+                sourceNode);
         auto fileNode =
             std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                sourceNode);
+        auto imageNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                sourceNode);
+        auto udpNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
                 sourceNode);
 
         // Use async with timeout to prevent blocking when source node is busy
@@ -723,6 +1091,42 @@ IPCMessage WorkerHandler::handleGetStatistics(const IPCMessage & /*msg*/) {
             // Timeout - use cached values or defaults
             // This prevents API from hanging when source node is busy
           }
+        } else if (rtmpNode) {
+          auto sourceInfoFuture = std::async(
+              std::launch::async,
+              [rtmpNode]() -> std::pair<int, std::pair<int, int>> {
+                try {
+                  int fps = rtmpNode->get_original_fps();
+                  int width = rtmpNode->get_original_width();
+                  int height = rtmpNode->get_original_height();
+                  return std::make_pair(fps, std::make_pair(width, height));
+                } catch (...) {
+                  return std::make_pair(0, std::make_pair(0, 0));
+                }
+              });
+
+          auto status = sourceInfoFuture.wait_for(source_info_timeout);
+          if (status == std::future_status::ready) {
+            try {
+              auto [fps_int, dimensions] = sourceInfoFuture.get();
+              auto [width, height] = dimensions;
+
+              if (fps_int > 0) {
+                source_fps = static_cast<double>(fps_int);
+              }
+
+              if (width > 0 && height > 0) {
+                source_res =
+                    std::to_string(width) + "x" + std::to_string(height);
+                {
+                  std::lock_guard<std::shared_mutex> lock(state_mutex_);
+                  source_resolution_ = source_res;
+                }
+              }
+            } catch (...) {
+              // Ignore exceptions from get()
+            }
+          }
         } else if (fileNode) {
           // File source inherits from cvedix_src_node, so it has
           // get_original_fps/width/height methods
@@ -763,7 +1167,58 @@ IPCMessage WorkerHandler::handleGetStatistics(const IPCMessage & /*msg*/) {
             }
           } else {
             // Timeout - use cached values or defaults
-            // This prevents API from hanging when source node is busy
+          }
+        } else if (imageNode) {
+          auto sourceInfoFuture = std::async(
+              std::launch::async,
+              [imageNode]() -> std::pair<int, std::pair<int, int>> {
+                try {
+                  int fps = imageNode->get_original_fps();
+                  int width = imageNode->get_original_width();
+                  int height = imageNode->get_original_height();
+                  return std::make_pair(fps, std::make_pair(width, height));
+                } catch (...) {
+                  return std::make_pair(0, std::make_pair(0, 0));
+                }
+              });
+          auto status = sourceInfoFuture.wait_for(source_info_timeout);
+          if (status == std::future_status::ready) {
+            try {
+              auto [fps_int, dimensions] = sourceInfoFuture.get();
+              auto [width, height] = dimensions;
+              if (fps_int > 0) source_fps = static_cast<double>(fps_int);
+              if (width > 0 && height > 0) {
+                source_res = std::to_string(width) + "x" + std::to_string(height);
+                std::lock_guard<std::shared_mutex> lock(state_mutex_);
+                source_resolution_ = source_res;
+              }
+            } catch (...) {}
+          }
+        } else if (udpNode) {
+          auto sourceInfoFuture = std::async(
+              std::launch::async,
+              [udpNode]() -> std::pair<int, std::pair<int, int>> {
+                try {
+                  int fps = udpNode->get_original_fps();
+                  int width = udpNode->get_original_width();
+                  int height = udpNode->get_original_height();
+                  return std::make_pair(fps, std::make_pair(width, height));
+                } catch (...) {
+                  return std::make_pair(0, std::make_pair(0, 0));
+                }
+              });
+          auto status = sourceInfoFuture.wait_for(source_info_timeout);
+          if (status == std::future_status::ready) {
+            try {
+              auto [fps_int, dimensions] = sourceInfoFuture.get();
+              auto [width, height] = dimensions;
+              if (fps_int > 0) source_fps = static_cast<double>(fps_int);
+              if (width > 0 && height > 0) {
+                source_res = std::to_string(width) + "x" + std::to_string(height);
+                std::lock_guard<std::shared_mutex> lock(state_mutex_);
+                source_resolution_ = source_res;
+              }
+            } catch (...) {}
           }
         }
       }
@@ -1106,24 +1561,80 @@ bool WorkerHandler::startPipeline() {
 
       rtspNode->start();
     } else {
-      // Try file source
-      auto fileNode =
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+      // Try RTMP source (subprocess: no monitor, stable like develop_doc sample)
+      auto rtmpNode =
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
               pipeline_nodes_[0]);
-      if (fileNode) {
-        std::cout << "[Worker:" << instance_id_ << "] Starting file source node"
-                  << std::endl;
+      if (rtmpNode) {
+        std::cout << "[Worker:" << instance_id_
+                  << "] Starting RTMP source node" << std::endl;
 
-        // Check shutdown flag before starting (which may block)
         if (shutdown_requested_.load()) {
           last_error_ = "Shutdown requested before starting source node";
           return false;
         }
 
-        fileNode->start();
+        rtmpNode->start();
       } else {
-        last_error_ = "No supported source node found in pipeline";
-        return false;
+        // Try file source
+        auto fileNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                pipeline_nodes_[0]);
+        if (fileNode) {
+          std::cout << "[Worker:" << instance_id_
+                    << "] Starting file source node" << std::endl;
+
+          if (shutdown_requested_.load()) {
+            last_error_ = "Shutdown requested before starting source node";
+            return false;
+          }
+
+          fileNode->start();
+        } else {
+          auto imageNode =
+              std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                  pipeline_nodes_[0]);
+          if (imageNode) {
+            std::cout << "[Worker:" << instance_id_
+                      << "] Starting image source node" << std::endl;
+            if (shutdown_requested_.load()) {
+              last_error_ = "Shutdown requested before starting source node";
+              return false;
+            }
+            imageNode->start();
+          } else {
+            auto udpNode =
+                std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
+                    pipeline_nodes_[0]);
+            if (udpNode) {
+              std::cout << "[Worker:" << instance_id_
+                        << "] Starting UDP source node" << std::endl;
+              if (shutdown_requested_.load()) {
+                last_error_ = "Shutdown requested before starting source node";
+                return false;
+              }
+              udpNode->start();
+            } else {
+              auto appSrcNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
+                      pipeline_nodes_[0]);
+              if (appSrcNode) {
+                std::cout << "[Worker:" << instance_id_
+                          << "] Starting app source node (push-based)"
+                          << std::endl;
+                if (shutdown_requested_.load()) {
+                  last_error_ = "Shutdown requested before starting source node";
+                  return false;
+                }
+                appSrcNode->start();
+              } else {
+                last_error_ = "No supported source node found in pipeline "
+                             "(rtsp, rtmp, file, image, udp, app_src)";
+                return false;
+              }
+            }
+          }
+        }
       }
     }
 
@@ -1337,32 +1848,70 @@ void WorkerHandler::stopPipeline() {
               stopFuture.get();
             }
           } else {
-            auto fileNode =
-                std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+            auto rtmpNode =
+                std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
                     node);
-            if (fileNode) {
-              // Use configurable timeout for file stop
-              auto stopTimeout =
-                  shutdown_requested_.load()
-                      ? TimeoutConstants::getRtspStopTimeoutDeletion()
-                      : TimeoutConstants::getRtspStopTimeout();
-
-              auto stopFuture = std::async(std::launch::async, [fileNode]() {
+            if (rtmpNode) {
+              try {
+                rtmpNode->stop();
+              } catch (...) {
+                // Ignore; detach_recursively below will clean up
+              }
+            } else {
+              auto imageNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                      node);
+              if (imageNode) {
                 try {
-                  fileNode->stop();
-                  return true;
-                } catch (...) {
-                  return false;
-                }
-              });
+                  imageNode->stop();
+                } catch (...) {}
+              } else {
+                auto udpNode =
+                    std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
+                        node);
+                if (udpNode) {
+                  try {
+                    udpNode->stop();
+                  } catch (...) {}
+                } else {
+                  auto appSrcNode =
+                      std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
+                          node);
+                  if (appSrcNode) {
+                    try {
+                      appSrcNode->stop();
+                    } catch (...) {}
+                  } else {
+              auto fileNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                      node);
+              if (fileNode) {
+                // Use configurable timeout for file stop
+                auto stopTimeout =
+                    shutdown_requested_.load()
+                        ? TimeoutConstants::getRtspStopTimeoutDeletion()
+                        : TimeoutConstants::getRtspStopTimeout();
 
-              auto stopStatus = stopFuture.wait_for(stopTimeout);
-              if (stopStatus == std::future_status::timeout) {
-                std::cerr << "[Worker:" << instance_id_ << "] Stop timeout ("
-                          << stopTimeout.count() << "ms), using detach..."
-                          << std::endl;
-              } else if (stopStatus == std::future_status::ready) {
-                stopFuture.get();
+                auto stopFuture = std::async(std::launch::async, [fileNode]() {
+                  try {
+                    fileNode->stop();
+                    return true;
+                  } catch (...) {
+                    return false;
+                  }
+                });
+
+                auto stopStatus = stopFuture.wait_for(stopTimeout);
+                if (stopStatus == std::future_status::timeout) {
+                  std::cerr << "[Worker:" << instance_id_
+                            << "] Stop timeout (" << stopTimeout.count()
+                            << "ms), using detach..." << std::endl;
+                } else if (stopStatus == std::future_status::ready) {
+                  stopFuture.get();
+                }
+              }
+                  }
+                }
               }
             }
           }
@@ -1495,9 +2044,9 @@ void WorkerHandler::setupFrameCaptureHook() {
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) !=
               nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(
               node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_jam_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(
               node) != nullptr;
@@ -2279,11 +2828,39 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
         if (rtspNode) {
           rtspNode->stop();
         } else {
-          auto fileNode =
-              std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+          auto rtmpNode =
+              std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
                   node);
-          if (fileNode) {
-            fileNode->stop();
+          if (rtmpNode) {
+            rtmpNode->stop();
+          } else {
+            auto imageNode =
+                std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
+                    node);
+            if (imageNode) {
+              imageNode->stop();
+            } else {
+              auto udpNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
+                      node);
+              if (udpNode) {
+                udpNode->stop();
+              } else {
+                auto appSrcNode =
+                    std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
+                        node);
+                if (appSrcNode) {
+                  appSrcNode->stop();
+                } else {
+                  auto fileNode =
+                      std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
+                          node);
+                  if (fileNode) {
+                    fileNode->stop();
+                  }
+                }
+              }
+            }
           }
         }
 
@@ -2452,7 +3029,7 @@ WorkerArgs WorkerArgs::parse(int argc, char *argv[]) {
       break;
     }
     case 'h':
-      args.error = "Usage: edge_ai_worker --instance-id <id> --socket <path> "
+      args.error = "Usage: edgeos-worker --instance-id <id> --socket <path> "
                    "[--config <json>]";
       return args;
     default:

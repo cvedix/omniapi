@@ -1,0 +1,46 @@
+{
+  "name": "image_destination_demo",
+  "group": "destination",
+  "solution": "custom",
+  "persistent": true,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/videos/test.mp4",
+      "RESIZE_RATIO": "1.0"
+    },
+    "output": {
+      "IMAGE_DES_PORT_OR_LOCATION": "./output_images/frame_%d.jpg",
+      "IMAGE_DES_INTERVAL": "30"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_image_des_demo",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "${RESIZE_RATIO}"
+      }
+    },
+    {
+      "nodeType": "osd",
+      "nodeName": "osd_image_des_demo",
+      "parameters": {
+        "font_path": ""
+      }
+    },
+    {
+      "nodeType": "image_des",
+      "nodeName": "image_des_demo",
+      "parameters": {
+        "channel": "0",
+        "port_or_location": "${IMAGE_DES_PORT_OR_LOCATION}",
+        "interval": "${IMAGE_DES_INTERVAL}"
+      }
+    }
+  ]
+}
+

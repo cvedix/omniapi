@@ -1,0 +1,98 @@
+# API endpoint: /v1/core/instance/batch/start
+# Tag: Instances
+
+/v1/core/instance/batch/start:
+  post:
+    summary: Khởi động nhiều instance đồng thời
+    description: 'Khởi động nhiều instance đồng thời. Các thao tác chạy song song để tối ưu
+      performance.
+
+
+      **Hành vi:** Mọi instance được start song song; mỗi instance start độc lập; kết quả trả về cho từng instance (thành công/thất bại); instance đã chạy được đánh dấu thành công. **Định dạng yêu cầu:** Gửi mảng instance ID trong trường `instanceIds`; mọi ID phải tồn tại trong hệ thống. **Phản hồi:** Trả về kết quả chi tiết từng instance; gồm tổng số, số thành công, số thất bại; mỗi kết quả có instance ID, trạng thái success, trạng thái running, thông báo lỗi (nếu có). **Lưu ý:** Khởi động nhiều instance cùng lúc có thể tốn tài nguyên; nên theo dõi hiệu năng khi start nhiều instance.'
+
+    operationId: batchStartInstances
+    tags:
+    - Instances
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - instanceIds
+            properties:
+              instanceIds:
+                type: array
+                items:
+                  type: string
+                description: Mảng định danh instance cần khởi động
+                example:
+                - instance-1
+                - instance-2
+                - instance-3
+    responses:
+      '200':
+        description: Đã hoàn thành thao tác khởi động hàng loạt
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                results:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      instanceId:
+                        type: string
+                      success:
+                        type: boolean
+                      status:
+                        type: string
+                      running:
+                        type: boolean
+                      error:
+                        type: string
+                total:
+                  type: integer
+                success:
+                  type: integer
+                failed:
+                  type: integer
+                message:
+                  type: string
+            example:
+              results:
+              - instanceId: instance-1
+                success: true
+                status: started
+                running: true
+              - instanceId: instance-2
+                success: false
+                status: failed
+                error: Could not start instance. Check if instance exists and has a pipeline.
+              total: 2
+              success: 1
+              failed: 1
+              message: Batch start operation completed
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho batch start
+    operationId: batchStartInstancesOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

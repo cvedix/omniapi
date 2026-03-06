@@ -1,0 +1,42 @@
+# API endpoint: /v1/core/ai/status
+# Tag: AI
+
+/v1/core/ai/status:
+  get:
+    summary: Get AI processing status
+    description: 'Returns the current status of the AI processing system including queue size,
+
+      queue max capacity, GPU availability, and other resource information.
+
+      '
+    operationId: getAIStatus
+    tags:
+    - AI
+    responses:
+      '200':
+        description: AI processing status
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                queue_size:
+                  type: integer
+                  format: int64
+                  description: Current number of items in processing queue
+                  example: 5
+                queue_max:
+                  type: integer
+                  format: int64
+                  description: Maximum queue capacity
+                  example: 100
+                gpu_total:
+                  type: integer
+                  format: int64
+                  description: Total number of GPUs available
+                  example: 2
+                gpu_available:
+                  type: integer
+                  format: int64
+                  description: Number of available GPUs
+                  example: 1

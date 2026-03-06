@@ -1,8 +1,116 @@
-# Edge AI API
+# edgeos-api
 
-REST API server cho CVEDIX Edge AI SDK, cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên.
+**Nền tảng Edge AI**: REST API + xử lý AI trực tiếp trên thiết bị biên. CVEDIX SDK (EdgeOS SDK) là tầng hỗ trợ — API điều khiển instances, nhận diện khuôn mặt, push frame và metrics qua một lớp thống nhất (AI Runtime).
 
 ![Edge AI Workflow](docs/image.png)
+
+---
+
+## 📌 Định vị sản phẩm
+
+| Thành phần | Vai trò |
+|------------|--------|
+| **Edge AI API** | Nền tảng: REST API + xử lý AI (decode, inference, cache) |
+| **AI Runtime / SDK Helper** | Lớp thống nhất: InferenceSession, AIRuntimeFacade, PipelineHelper |
+| **CVEDIX SDK** | Tay hỗ trợ: pipeline (source → detector → broker → destination) |
+
+Luồng: **API → AI Runtime → CVEDIX SDK**. Chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#api--ai-runtime--sdk).
+
+---
+
+## 🎯 Tính năng chính & Execution mode
+
+- **Instance** — Tạo, start/stop, cấu hình AI instances (pipeline).
+- **Solution** — Quản lý solution templates.
+- **Recognition** — Nhận diện khuôn mặt (REST), face database, register/list/delete.
+- **Lines / Jams / Stops** — Crossline, traffic jam, stop-line (SecuRT, BA).
+- **Push frame** — Đẩy frame (compressed/encoded) vào instance.
+- **Metrics** — Health, version, watchdog, system info, logs.
+
+**Execution mode:** `in-process` (legacy, dev) vs `subprocess` (production, crash isolation). Cấu hình: `EDGE_AI_EXECUTION_MODE=subprocess` hoặc `in-process`. Xem [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) và [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#khi-nào-dùng-mode-nào).
+
+---
+
+## 🏗️ Kiến Trúc
+
+![Architecture](asset/architecture.png)
+```
+[Client] → [REST API Server] → [Instance Manager] → [CVEDIX SDK]
+                    ↓
+              [AI Runtime] → decode / infer / cache
+                              
+```
+
+## 🎯 Các Bài Toán & Tính Năng Được Hỗ Trợ
+
+API hỗ trợ các tính năng từ CVEDIX SDK với **43+ processing nodes**, bao gồm:
+
+### 👤 Nhận Diện & Phân Tích Khuôn Mặt
+- ✅ **Face Detection** - Phát hiện khuôn mặt (YuNet, YOLOv11, RKNN)
+- ✅ **Face Recognition** - Nhận diện khuôn mặt (InsightFace, TensorRT)
+- ✅ **Face Tracking** - Theo dõi khuôn mặt (SORT, ByteTrack, OCSort)
+- ✅ **Face Feature Encoding** - Trích xuất đặc trưng khuôn mặt
+- ✅ **Face Swap** - Hoán đổi khuôn mặt
+- ✅ **Face Database Management** - Quản lý database khuôn mặt
+
+### 🚗 Phát Hiện & Phân Tích Phương Tiện
+- ✅ **Vehicle Detection** - Phát hiện phương tiện (TensorRT, YOLO)
+- ✅ **Vehicle Plate Detection & Recognition** - Phát hiện và nhận diện biển số xe
+- ✅ **Vehicle Tracking** - Theo dõi phương tiện
+- ✅ **Vehicle Classification** - Phân loại màu, loại xe (TensorRT)
+- ✅ **Vehicle Feature Encoding** - Trích xuất đặc trưng xe
+- ✅ **Vehicle Body Scan** - Quét thân xe
+- ✅ **Vehicle Clustering** - Phân nhóm xe
+
+### 🎯 Phát Hiện Vật Thể & Phân Tích
+- ✅ **Object Detection** - Phát hiện vật thể (YOLO, YOLOv8, YOLOv11)
+- ✅ **Instance Segmentation** - Phân đoạn instance (Mask R-CNN, YOLOv8)
+- ✅ **Semantic Segmentation** - Phân đoạn ngữ nghĩa (ENet)
+- ✅ **Pose Estimation** - Ước lượng tư thế (OpenPose, YOLOv8)
+- ✅ **Image Classification** - Phân loại ảnh
+- ✅ **Text Detection** - Phát hiện văn bản (PaddleOCR)
+
+### 🚦 Phân Tích Hành Vi (Behavior Analysis)
+- ✅ **Crossline Detection** - Phát hiện vượt đường line (đếm đối tượng)
+- ✅ **Multi-line Crossline** - Nhiều đường crossline
+- ✅ **Traffic Jam Detection** - Phát hiện kẹt xe
+- ✅ **Stop Detection** - Phát hiện dừng tại stop-line
+- ✅ **Wrong Way Detection** - Phát hiện đi ngược chiều
+- ✅ **Obstacle Detection** - Phát hiện chướng ngại vật
+
+### 🔥 Phát Hiện An Toàn & Bất Thường
+- ✅ **Fire/Smoke Detection** - Phát hiện lửa/khói
+- ✅ **Video Restoration** - Khôi phục video chất lượng cao
+- ✅ **Lane Detection** - Phát hiện làn đường
+
+### 📹 Nguồn Video & Đầu Ra
+- ✅ **Source**: RTSP, RTMP, File, Image, App, UDP, FFmpeg
+- ✅ **Destination**: RTSP, RTMP, File, Image, Screen, App, FFmpeg
+- ✅ **Broker**: MQTT, Kafka, Socket, Console, File, SSE
+
+### 🔄 Xử Lý & Tối Ưu
+- ✅ **Object Tracking** - SORT, ByteTrack, OCSort
+- ✅ **Frame Processing** - Fusion, Sync, Split, Skip
+- ✅ **Recording** - Ghi lại video/ảnh
+- ✅ **Clustering** - Phân nhóm đối tượng
+- ✅ **OSD** - Vẽ overlay kết quả
+
+### 🤖 AI Models & Hardware
+- ✅ **TensorRT** - NVIDIA GPU (YOLOv8, Vehicle, InsightFace)
+- ✅ **RKNN** - Rockchip NPU (YOLOv8, YOLOv11, Face)
+- ✅ **ONNX Runtime** - Cross-platform
+- ✅ **OpenCV DNN** - YOLO, Caffe, TensorFlow
+- ✅ **PaddlePaddle** - OCR
+
+### 🔧 Tính Năng Nâng Cao
+- ✅ **Multi-Channel Pipelines** - Xử lý nhiều nguồn đồng thời
+- ✅ **Dynamic Pipeline** - Thay đổi pipeline trong runtime
+- ✅ **Multi-Detector** - Nhiều detector trong một pipeline
+- ✅ **MLLM Analysis** - Phân tích đa phương thức
+
+Xem chi tiết: [ReleaseNotes.md](ReleaseNotes.md#-các-bài-toán--tính-năng-được-hỗ-trợ)
+
+---
 
 ## 🚀 Quick Start
 
@@ -38,7 +146,7 @@ cmake ..
 make -j$(nproc)
 
 # 3. Chạy server
-./bin/edge_ai_api
+./bin/edgeos-api
 ```
 
 ### Build và Cài Đặt Debian Package
@@ -59,9 +167,9 @@ make -j$(nproc)
 ./packaging/scripts/build_deb.sh
 
 # Cài đặt package
-sudo dpkg -i edge-ai-api-all-in-one-*.deb
+sudo dpkg -i edgeos-api-all-in-one-*.deb
 sudo apt-get install -f  # Nếu có lỗi dependencies
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 ```
 
 **Lưu ý:** Không cần `sudo` để build! Chỉ cần sudo khi **cài đặt** package.
@@ -93,7 +201,7 @@ nano .env  # Chỉnh sửa nếu cần
 ### Với Logging
 
 ```bash
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 ```
 
 ### Environment Variables
@@ -145,17 +253,18 @@ Xem đầy đủ: [docs/API.md](docs/API.md)
 
 ---
 
-## 🏗️ Kiến Trúc
+## 🏗️ Kiến Trúc (chi tiết)
 
 ```
 [Client] → [REST API Server] → [Instance Manager] → [CVEDIX SDK]
-                                      ↓
-                              [Data Broker] → [Output]
+                    ↓
+              [AI Runtime] → InferenceSession, AIRuntimeFacade, PipelineHelper
 ```
 
 **Thành phần:**
 - **REST API Server**: Drogon Framework HTTP server
-- **Instance Manager**: Quản lý vòng đời instances
+- **Instance Manager**: Quản lý vòng đời instances (in-process hoặc subprocess)
+- **AI Runtime**: Decode, inference, cache (Recognition, Push frame); SDK là tầng hỗ trợ
 - **CVEDIX SDK**: 43+ processing nodes (source, inference, tracker, broker, destination)
 - **Data Broker**: Message routing và output publishing
 
@@ -165,10 +274,10 @@ Xem đầy đủ: [docs/API.md](docs/API.md)
 
 ```bash
 # Development - full logging
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 
 # Production - minimal logging
-./build/bin/edge_ai_api --log-api
+./build/bin/edgeos-api --log-api
 ```
 
 **Logs API:**
@@ -189,12 +298,12 @@ sudo ./scripts/prod_setup.sh
 sudo ./deploy/deploy.sh
 
 # Kiểm tra service
-sudo systemctl status edge-ai-api
-sudo journalctl -u edge-ai-api -f
+sudo systemctl status edgeos-api
+sudo journalctl -u edgeos-api -f
 
 # Quản lý
-sudo systemctl restart edge-ai-api
-sudo systemctl stop edge-ai-api
+sudo systemctl restart edgeos-api
+sudo systemctl stop edgeos-api
 ```
 
 Xem chi tiết: [deploy/README.md](deploy/README.md)
@@ -234,6 +343,9 @@ Lần đầu build mất ~5-10 phút để download Drogon. Các lần sau nhanh
 | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | Env vars |
 | [docs/LOGGING.md](docs/LOGGING.md) | Logging guide |
 | [docs/DEFAULT_SOLUTIONS_REFERENCE.md](docs/DEFAULT_SOLUTIONS_REFERENCE.md) | Default solutions |
+| [docs/VISION_AI_PROCESSING_PLATFORM.md](docs/VISION_AI_PROCESSING_PLATFORM.md) | Vision: nền tảng Edge AI |
+| [docs/AI_RUNTIME_DESIGN.md](docs/AI_RUNTIME_DESIGN.md) | Thiết kế AI Runtime (InferenceSession, Facade) |
+| [task/edgeos-api/00_MASTER_PLAN.md](task/edgeos-api/00_MASTER_PLAN.md) | Master plan & trạng thái phases |
 | [deploy/README.md](deploy/README.md) | Production deployment guide |
 | [packaging/docs/BUILD_DEB.md](packaging/docs/BUILD_DEB.md) | Build Debian package guide |
 | [packaging/docs/BUILD_ALL_IN_ONE.md](packaging/docs/BUILD_ALL_IN_ONE.md) | Build ALL-IN-ONE package guide |

@@ -29,7 +29,7 @@ void VersionHandler::getVersion(
     response["build_time"] = BUILD_TIME;
     response["git_commit"] = GIT_COMMIT;
     response["api_version"] = "v1";
-    response["service"] = "edge_ai_api";
+    response["service"] = "edgeos-api";
 
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k200OK);

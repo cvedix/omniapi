@@ -2,6 +2,7 @@
 
 #include "instances/instance_manager.h"
 #include "instances/instance_registry.h"
+#include "instances/instance_state_manager.h"
 
 /**
  * @brief In-process Instance Manager (Adapter for InstanceRegistry)
@@ -58,6 +59,14 @@ public:
   void loadPersistentInstances() override;
   int checkAndHandleRetryLimits() override;
 
+  // ========== Instance State Management ==========
+
+  bool loadInstance(const std::string &instanceId) override;
+  bool unloadInstance(const std::string &instanceId) override;
+  Json::Value getInstanceState(const std::string &instanceId) override;
+  bool setInstanceState(const std::string &instanceId, const std::string &path,
+                        const Json::Value &value) override;
+
   // ========== Backend Info ==========
 
   std::string getBackendType() const override { return "in-process"; }
@@ -74,4 +83,5 @@ public:
 
 private:
   InstanceRegistry &registry_;
+  static InstanceStateManager state_manager_; // Shared state manager
 };

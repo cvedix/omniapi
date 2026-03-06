@@ -1,0 +1,58 @@
+{
+  "name": "yolov11_plate_detector_demo_1",
+  "group": "demo",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/test_video/plate.mp4",
+      "MODEL_PATH": "/opt/edgeos-api/models/onnx/plate/yolov11/license-plate-finetune-v1x.onnx",
+      "INPUT_WIDTH": "640",
+      "INPUT_HEIGHT": "640",
+      "NUM_CLASSES": "1",
+      "SCORE_THRESHOLD": "0.25",
+      "NMS_THRESHOLD": "0.45"
+    },
+    "output": {
+      "SAVE_DIR": "/tmp/output/yolov11_plate_detector"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_yolov11_plate",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "yolov11_plate_detector",
+      "nodeName": "yolov11_plate_detector",
+      "parameters": {
+        "model_path": "${MODEL_PATH}",
+        "input_width": "${INPUT_WIDTH}",
+        "input_height": "${INPUT_HEIGHT}",
+        "num_classes": "${NUM_CLASSES}",
+        "score_threshold": "${SCORE_THRESHOLD}",
+        "nms_threshold": "${NMS_THRESHOLD}"
+      }
+    },
+    {
+      "nodeType": "osd_v3",
+      "nodeName": "osd_yolov11_plate",
+      "parameters": {}
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_yolov11_plate",
+      "parameters": {
+        "channel": "0"
+      }
+    }
+  ]
+}
+

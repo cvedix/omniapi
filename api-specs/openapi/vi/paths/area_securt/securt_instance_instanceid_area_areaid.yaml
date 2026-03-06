@@ -1,0 +1,52 @@
+# API endpoint: /v1/securt/instance/{instanceId}/area/{areaId}
+# Tag: Area SecuRT
+
+/v1/securt/instance/{instanceId}/area/{areaId}:
+  delete:
+    summary: Xóa vùng theo ID
+    description: Xóa một vùng cụ thể theo ID
+    operationId: deleteArea
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    - name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh vùng (area ID)
+    responses:
+      '204':
+        description: Đã xóa vùng thành công
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy vùng hoặc instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho xóa vùng
+    operationId: deleteAreaOptions
+    tags:
+    - Area SecuRT
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

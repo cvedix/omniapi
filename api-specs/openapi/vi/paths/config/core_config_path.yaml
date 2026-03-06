@@ -1,0 +1,301 @@
+# API endpoint: /v1/core/config/{path}
+# Tag: Config
+
+/v1/core/config/{path}:
+  get:
+    summary: Lấy phần cấu hình (tham số đường dẫn)
+    description: 'Trả về một phần cụ thể của cấu hình hệ thống tại đường dẫn đã cho.
+
+
+      **Định dạng Đường dẫn:**
+
+      - Sử dụng dấu chấm `.` làm dấu phân cách (ví dụ: `system.max_running_instances`)
+
+      - Dấu gạch chéo `/` với mã hóa URL (`%2F`) KHÔNG được hỗ trợ do giới hạn định tuyến Drogon
+
+
+      **Khuyến nghị:** Sử dụng tham số truy vấn thay thế: `GET /v1/core/config?path=system/max_running_instances`
+
+
+      Ví dụ đường dẫn: `system.max_running_instances`, `system.web_server`, `gstreamer.decode_pipelines.auto`
+
+      '
+    operationId: getConfigSection
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'Đường dẫn cấu hình sử dụng dấu chấm làm dấu phân cách.
+
+        Ví dụ: `system.max_running_instances`, `system.web_server`, `gstreamer.decode_pipelines.auto`
+
+        Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số đường dẫn (sử dụng tham số truy vấn thay thế)
+
+        '
+      example: system.max_running_instances
+    responses:
+      '200':
+        description: Phần cấu hình
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Giá trị phần cấu hình (có thể là object, array hoặc primitive)
+              additionalProperties: true
+              example:
+                enabled: true
+                ip_address: 0.0.0.0
+                port: 8080
+      '400':
+        description: Yêu cầu không hợp lệ (đường dẫn trống)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy phần cấu hình
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  patch:
+    summary: Cập nhật phần cấu hình (tham số đường dẫn)
+    description: 'Cập nhật một phần cụ thể của cấu hình hệ thống tại đường dẫn đã cho.
+
+
+      **Định dạng Đường dẫn:**
+
+      - Sử dụng dấu chấm `.` làm dấu phân cách (ví dụ: `system.max_running_instances`)
+
+      - Dấu gạch chéo `/` với mã hóa URL (`%2F`) KHÔNG được hỗ trợ
+
+
+      **Khuyến nghị:** Sử dụng tham số truy vấn thay thế: `PATCH /v1/core/config?path=system/max_running_instances`
+
+
+      Chỉ các trường được cung cấp trong phần sẽ được cập nhật.
+
+      Cấu hình được lưu vào file cấu hình sau khi cập nhật.
+
+
+      **Tự động Khởi động lại:**
+
+      - Theo mặc định, máy chủ sẽ KHÔNG tự động khởi động lại sau khi thay đổi cấu hình
+
+      - Để bật khởi động lại tự động, đặt `auto_restart=true` làm tham số truy vấn hoặc trong body JSON
+
+      - Khi `auto_restart=true`, máy chủ sẽ khởi động lại sau 3 giây nếu cấu hình web server thay đổi
+
+      '
+    operationId: updateConfigSection
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'Đường dẫn cấu hình sử dụng dấu chấm làm dấu phân cách.
+
+        Ví dụ: `system.max_running_instances`, `system.web_server`. Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số đường dẫn (dùng tham số truy vấn thay thế).'
+
+      example: system.max_running_instances
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'Nếu đặt là `true`, máy chủ sẽ tự động khởi động lại sau khi cập nhật cấu hình.
+
+        Mặc định là `false` (không tự động khởi động lại).
+
+        Cũng có thể đặt trong body JSON như trường `auto_restart`.
+
+        '
+      example: false
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Giá trị phần cấu hình để cập nhật
+            additionalProperties: true
+            example:
+              port: 8080
+    responses:
+      '200':
+        description: Phần cấu hình đã được cập nhật thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Phần cấu hình đã được cập nhật thành công
+                path:
+                  type: string
+                  example: system/web_server
+                value:
+                  type: object
+                  description: Giá trị phần cấu hình đã được cập nhật
+                  additionalProperties: true
+                warning:
+                  type: string
+                  description: Thông báo cảnh báo nếu khởi động lại máy chủ được lên lịch (khi auto_restart=true)
+                  example: Máy chủ sẽ khởi động lại sau 3 giây (auto_restart được yêu cầu).
+                restart_scheduled:
+                  type: boolean
+                  description: True nếu khởi động lại máy chủ được lên lịch (khi auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
+                  example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi,
+                    hoặc đặt auto_restart=true để khởi động lại tự động.
+                restart_required:
+                  type: boolean
+                  description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
+                  example: false
+      '400':
+        description: Yêu cầu không hợp lệ hoặc xác thực thất bại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa phần cấu hình (tham số đường dẫn)
+    description: 'Xóa một phần cụ thể của cấu hình hệ thống tại đường dẫn đã cho.
+
+
+      **Định dạng Đường dẫn:**
+
+      - Sử dụng dấu chấm `.` làm dấu phân cách (ví dụ: `system.max_running_instances`)
+
+      - Dấu gạch chéo `/` với mã hóa URL (`%2F`) KHÔNG được hỗ trợ
+
+
+      **Khuyến nghị:** Sử dụng tham số truy vấn thay thế: `DELETE /v1/core/config?path=system/max_running_instances`
+
+
+      Cấu hình được lưu vào file cấu hình sau khi xóa.
+
+
+      **Tự động Khởi động lại:**
+
+      - Theo mặc định, máy chủ sẽ KHÔNG tự động khởi động lại sau khi xóa cấu hình
+
+      - Để bật khởi động lại tự động, đặt `auto_restart=true` làm tham số truy vấn
+
+      - Khi `auto_restart=true`, máy chủ sẽ khởi động lại sau 3 giây nếu cấu hình web server thay đổi
+
+      '
+    operationId: deleteConfigSection
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'Đường dẫn cấu hình sử dụng dấu chấm làm dấu phân cách.
+
+        Ví dụ: `system.max_running_instances`, `system.web_server`. Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số đường dẫn (dùng tham số truy vấn thay thế).'
+
+      example: system.max_running_instances
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'Nếu đặt là `true`, máy chủ sẽ tự động khởi động lại sau khi xóa cấu hình.
+
+        Mặc định là `false` (không khởi động lại tự động).
+
+        '
+      example: false
+    responses:
+      '200':
+        description: Phần cấu hình đã được xóa thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Phần cấu hình đã được xóa thành công
+                path:
+                  type: string
+                  example: system/web_server
+                warning:
+                  type: string
+                  description: Thông báo cảnh báo nếu khởi động lại máy chủ được lên lịch (khi auto_restart=true)
+                  example: Máy chủ sẽ khởi động lại sau 3 giây (auto_restart được yêu cầu).
+                restart_scheduled:
+                  type: boolean
+                  description: True nếu khởi động lại máy chủ được lên lịch (khi auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
+                  example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi,
+                    hoặc đặt auto_restart=true để khởi động lại tự động.
+                restart_required:
+                  type: boolean
+                  description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
+                  example: false
+      '400':
+        description: Yêu cầu không hợp lệ (đường dẫn trống)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy phần cấu hình
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho đường dẫn cấu hình
+    operationId: configPathOptions
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Đường dẫn cấu hình
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

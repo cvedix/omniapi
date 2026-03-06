@@ -1,0 +1,106 @@
+# API endpoint: /v1/securt/instance/{instanceId}/area/objectLeft
+# Tag: Area SecuRT
+
+/v1/securt/instance/{instanceId}/area/objectLeft:
+  post:
+    summary: Tạo vùng vật bỏ quên (object left area)
+    operationId: createObjectLeftArea
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectLeftAreaWrite'
+    responses:
+      '201':
+        description: Đã tạo vùng vật bỏ quên (object left area) thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                areaId:
+                  type: string
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Tạo vùng vật bỏ quên với ID (object left area with ID)
+    operationId: createObjectLeftAreaWithId
+    tags:
+    - Area SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+    - name: areaId
+      in: path
+      required: true
+      schema:
+        type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ObjectLeftAreaWrite'
+    responses:
+      '201':
+        description: Đã tạo vùng vật bỏ quên (object left area) thành công
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Vùng đã tồn tại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho vùng object left
+    operationId: createObjectLeftAreaOptions
+    tags:
+    - Area SecuRT
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

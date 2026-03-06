@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/vehicle.mp4",
-      "MODEL_PATH": "./cvedix_data/models/trt/vehicle/vehicle_v8.5.trt",
+      "MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_v8.5.trt",
       "BA_SOCKET_IP": "127.0.0.1",
       "BA_SOCKET_PORT": "8080"
     },

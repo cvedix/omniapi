@@ -1,0 +1,87 @@
+# API endpoint: /v1/core/instance/{instanceId}/push/encoded/{codecId}
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/push/encoded/{codecId}:
+  post:
+    summary: Đẩy frame đã encode vào instance
+    description: 'Đẩy một frame đã được encode (H.264/H.265) vào instance để xử lý. Frame sẽ được decode và xử lý bởi instance
+      pipeline.
+
+      **Codec được hỗ trợ:** - `h264`: H.264/AVC - `h265`: H.265/HEVC - `hevc`: Bí danh cho h265
+
+      **Định dạng Request:** - Content-Type: `multipart/form-data` - Field `frame`: Dữ liệu frame đã encode (binary) - Field
+      `timestamp`: Timestamp int64 (tùy chọn, mặc định là thời gian hiện tại)
+
+      Instance phải đang chạy để nhận frames. Frames được đưa vào hàng đợi và xử lý bất đồng bộ. '
+    operationId: corePostEncodedFrameV1
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance (UUID)
+    - name: codecId
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+        - h264
+        - h265
+        - hevc
+      description: Định danh codec (h264, h265, hoặc hevc)
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+            - frame
+            properties:
+              frame:
+                type: string
+                format: binary
+                description: Dữ liệu frame đã encode (H.264/H.265)
+              timestamp:
+                type: integer
+                format: int64
+                description: Timestamp frame tính bằng milliseconds (tùy chọn)
+    responses:
+      '204':
+        description: Frame đã được đẩy thành công
+      '400':
+        description: Yêu cầu không hợp lệ (codec không được hỗ trợ, dữ liệu frame không hợp lệ, hoặc thiếu trường bắt buộc)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Instance hiện không đang chạy
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ (lỗi decode, hàng đợi đầy, v.v.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho endpoint push encoded frame
+    operationId: pushEncodedFrameOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

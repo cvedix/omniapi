@@ -1,0 +1,64 @@
+{
+  "name": "split_demo_1",
+  "group": "demo",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/test_video/face.mp4",
+      "FACE_DETECTION_MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_split",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "yunet_face_detector",
+      "nodeName": "yunet_face_detector_split",
+      "parameters": {
+        "model_path": "${FACE_DETECTION_MODEL_PATH}",
+        "score_threshold": "0.6",
+        "nms_threshold": "0.5",
+        "top_k": "50"
+      }
+    },
+    {
+      "nodeType": "face_osd_v2",
+      "nodeName": "face_osd_split",
+      "parameters": {}
+    },
+    {
+      "nodeType": "split",
+      "nodeName": "split_node",
+      "parameters": {
+        "split_by_channel": "true",
+        "deep_copy": "false"
+      }
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_split_0",
+      "parameters": {
+        "channel": "0"
+      }
+    },
+    {
+      "nodeType": "rtmp_des",
+      "nodeName": "rtmp_des_split_0",
+      "parameters": {
+        "channel": "0",
+        "rtmp_url": "rtmp://localhost:1935/live/split_stream"
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,46 @@
+{
+  "name": "ffmpeg_source_demo",
+  "group": "source",
+  "solution": "custom",
+  "persistent": true,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FF_SRC_URI": "rtmp://localhost:1935/live/input_stream",
+      "RESIZE_RATIO": "1.0",
+      "FF_SRC_CODEC": "h264"
+    },
+    "output": {
+      "RTMP_URL": "rtmp://localhost:1935/live/output_stream"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "ff_src",
+      "nodeName": "ff_src_demo",
+      "parameters": {
+        "uri": "${FF_SRC_URI}",
+        "channel": "0",
+        "resize_ratio": "${RESIZE_RATIO}",
+        "codec": "${FF_SRC_CODEC}"
+      }
+    },
+    {
+      "nodeType": "osd",
+      "nodeName": "osd_ff_src_demo",
+      "parameters": {
+        "font_path": ""
+      }
+    },
+    {
+      "nodeType": "rtmp_des",
+      "nodeName": "rtmp_des_ff_src_demo",
+      "parameters": {
+        "channel": "0",
+        "rtmp_url": "${RTMP_URL}"
+      }
+    }
+  ]
+}
+

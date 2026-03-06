@@ -8,8 +8,8 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/plate.mp4",
-      "DET_MODEL_PATH": "./cvedix_data/models/trt/plate/det_v8.5.trt",
-      "REC_MODEL_PATH": "./cvedix_data/models/trt/plate/rec_v8.5.trt",
+      "DET_MODEL_PATH": "/opt/edgeos-api/models/trt/plate/det_v8.5.trt",
+      "REC_MODEL_PATH": "/opt/edgeos-api/models/trt/plate/rec_v8.5.trt",
       "PLATE_SOCKET_IP": "127.0.0.1",
       "PLATE_SOCKET_PORT": "8080",
       "PLATES_DIR": "plate_images",

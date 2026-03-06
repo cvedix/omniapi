@@ -1,0 +1,440 @@
+# API endpoint: /v1/core/solution/{solutionId}/instance-body
+# Tag: Solutions
+
+/v1/core/solution/{solutionId}/instance-body:
+  get:
+    summary: Get example instance creation body
+    description: 'Returns an example request body for creating an instance with this solution, along with detailed schema
+      metadata for UI flexibility.
+
+      This includes:
+
+      - **Standard Fields**: Common instance creation fields with default values
+
+      - **Additional Parameters**: Solution-specific parameters with example values based on parameter names
+
+      - **Schema**: Detailed metadata for all fields including types, validation rules, UI hints, descriptions, examples,
+      and categories
+
+
+      The response body can be used directly to create an instance via POST /v1/core/instance.
+
+      The schema field provides rich metadata for UI to dynamically render forms, validate inputs, and provide better user
+      experience.
+
+
+      **Minimal Mode** (`?minimal=true`):
+
+      - Returns only essential fields: `name`, `solution`, `group`, `autoStart`
+
+      - Only includes required additionalParams (parameters without default values)
+
+      - Excludes optional output parameters (MQTT, RTMP, Screen if not set)
+
+      - Simplified schema without flexibleInputOutput
+
+      - Use this mode for simple, user-friendly forms with minimal fields
+
+
+      **Full Mode** (default):
+
+      - Returns all available fields including advanced options
+
+      - Includes all additionalParams (input and output)
+
+      - Complete schema with flexibleInputOutput options
+
+      - Use this mode for advanced configuration or when user clicks "Advanced Options"
+
+      '
+    operationId: getSolutionInstanceBody
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Solution ID
+    - name: minimal
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If true, returns only essential fields for minimal UI form.
+
+        Returns only required parameters and common optional fields (name, solution, group, autoStart).
+
+        Recommended for initial form rendering to avoid overwhelming users with too many fields.
+
+        '
+    responses:
+      '200':
+        description: Example instance creation body
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Example request body that can be used directly to create an instance, plus detailed schema metadata
+              properties:
+                name:
+                  type: string
+                  description: Instance name
+                  example: example_instance
+                group:
+                  type: string
+                  description: Group name
+                  example: default
+                solution:
+                  type: string
+                  description: Solution ID
+                  example: face_detection
+                persistent:
+                  type: boolean
+                  description: Save instance to JSON file
+                  example: false
+                autoStart:
+                  type: boolean
+                  description: Automatically start instance when created
+                  example: false
+                frameRateLimit:
+                  type: integer
+                  description: Frame rate limit (FPS, 0 = unlimited)
+                  example: 0
+                detectionSensitivity:
+                  type: string
+                  enum:
+                  - Low
+                  - Medium
+                  - High
+                  - Normal
+                  - Slow
+                  description: Detection sensitivity level
+                  example: Low
+                detectorMode:
+                  type: string
+                  enum:
+                  - SmartDetection
+                  - FullRegionInference
+                  - MosaicInference
+                  description: Detector mode
+                  example: SmartDetection
+                metadataMode:
+                  type: boolean
+                  description: Enable metadata mode (output detection results as JSON)
+                  example: false
+                statisticsMode:
+                  type: boolean
+                  description: Enable statistics mode
+                  example: false
+                diagnosticsMode:
+                  type: boolean
+                  description: Enable diagnostics mode
+                  example: false
+                debugMode:
+                  type: boolean
+                  description: Enable debug mode
+                  example: false
+                additionalParams:
+                  type: object
+                  description: Solution-specific parameters organized by input/output
+                  properties:
+                    input:
+                      type: object
+                      description: Input parameters (e.g., RTSP_URL, FILE_PATH, MODEL_PATH)
+                      additionalProperties:
+                        type: string
+                      example:
+                        RTSP_URL: rtsp://example.com/stream
+                        MODEL_PATH: ./models/face/yunet.onnx
+                    output:
+                      type: object
+                      description: Output parameters (e.g., MQTT_BROKER_URL, RTMP_URL, ENABLE_SCREEN_DES)
+                      additionalProperties:
+                        type: string
+                      example:
+                        MQTT_BROKER_URL: localhost
+                        MQTT_PORT: '1883'
+                        MQTT_TOPIC: events
+                        ENABLE_SCREEN_DES: 'false'
+                schema:
+                  type: object
+                  description: Detailed schema metadata for UI flexibility
+                  properties:
+                    standardFields:
+                      type: object
+                      description: Schema metadata for standard instance creation fields
+                      additionalProperties:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          type:
+                            type: string
+                          required:
+                            type: boolean
+                          description:
+                            type: string
+                          default:
+                            description: Default value (type varies)
+                          pattern:
+                            type: string
+                          patternDescription:
+                            type: string
+                          minimum:
+                            type: number
+                          maximum:
+                            type: number
+                          enum:
+                            type: array
+                            items:
+                              type: string
+                          uiHints:
+                            type: object
+                            properties:
+                              inputType:
+                                type: string
+                              widget:
+                                type: string
+                          examples:
+                            type: array
+                            items:
+                              type: string
+                    additionalParams:
+                      type: object
+                      description: Schema metadata for additional parameters
+                      properties:
+                        input:
+                          type: object
+                          description: Schema for input parameters
+                          additionalProperties:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              type:
+                                type: string
+                              required:
+                                type: boolean
+                              description:
+                                type: string
+                              example:
+                                type: string
+                              default:
+                                description: Default value (type varies)
+                              uiHints:
+                                type: object
+                              validation:
+                                type: object
+                              examples:
+                                type: array
+                                items:
+                                  type: string
+                              category:
+                                type: string
+                              usedInNodes:
+                                type: array
+                                items:
+                                  type: string
+                        output:
+                          type: object
+                          description: Schema for output parameters
+                          additionalProperties:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              type:
+                                type: string
+                              required:
+                                type: boolean
+                              description:
+                                type: string
+                              example:
+                                type: string
+                              default:
+                                description: Default value (type varies)
+                              uiHints:
+                                type: object
+                              validation:
+                                type: object
+                              examples:
+                                type: array
+                                items:
+                                  type: string
+                              category:
+                                type: string
+                              usedInNodes:
+                                type: array
+                                items:
+                                  type: string
+                    flexibleInputOutput:
+                      type: object
+                      description: Schema for flexible input/output options that can be added to any instance
+                      properties:
+                        description:
+                          type: string
+                        input:
+                          type: object
+                          properties:
+                            description:
+                              type: string
+                            mutuallyExclusive:
+                              type: boolean
+                            parameters:
+                              type: object
+                              additionalProperties:
+                                type: object
+                        output:
+                          type: object
+                          properties:
+                            description:
+                              type: string
+                            mutuallyExclusive:
+                              type: boolean
+                            parameters:
+                              type: object
+                              additionalProperties:
+                                type: object
+            example:
+              name: example_instance
+              group: default
+              solution: face_detection
+              persistent: false
+              autoStart: false
+              frameRateLimit: 0
+              detectionSensitivity: Low
+              detectorMode: SmartDetection
+              metadataMode: false
+              statisticsMode: false
+              diagnosticsMode: false
+              debugMode: false
+              additionalParams:
+                input:
+                  RTSP_URL: rtsp://example.com/stream
+                  MODEL_PATH: ./models/face/yunet.onnx
+                output:
+                  MQTT_BROKER_URL: localhost
+                  MQTT_PORT: '1883'
+                  MQTT_TOPIC: events
+                  ENABLE_SCREEN_DES: 'false'
+              schema:
+                standardFields:
+                  name:
+                    name: name
+                    type: string
+                    required: true
+                    description: 'Instance name (pattern: ^[A-Za-z0-9 -_]+$)'
+                    pattern: ^[A-Za-z0-9 -_]+$
+                    uiHints:
+                      inputType: text
+                      widget: input
+                    examples:
+                    - my_instance
+                    - camera_01
+                  frameRateLimit:
+                    name: frameRateLimit
+                    type: integer
+                    required: false
+                    description: Frame rate limit (FPS, 0 = unlimited)
+                    default: 0
+                    minimum: 0
+                    uiHints:
+                      inputType: number
+                      widget: input
+                    examples:
+                    - '0'
+                    - '10'
+                    - '30'
+                additionalParams:
+                  input:
+                    RTSP_URL:
+                      name: RTSP_URL
+                      type: string
+                      required: true
+                      description: RTSP stream URL (e.g., rtsp://camera-ip:8554/stream)
+                      example: rtsp://example.com/stream
+                      uiHints:
+                        inputType: url
+                        widget: url-input
+                        placeholder: rtsp://camera-ip:8554/stream
+                      validation:
+                        pattern: ^(rtsp|rtmp|http|https|file|udp)://.+
+                        patternDescription: Must be a valid URL (rtsp://, rtmp://, http://, https://, file://, or udp://)
+                      examples:
+                      - rtsp://192.168.1.100:8554/stream1
+                      - rtsp://admin:password@camera-ip:554/stream
+                      category: connection
+                      usedInNodes:
+                      - rtsp_src
+                  output:
+                    MQTT_BROKER_URL:
+                      name: MQTT_BROKER_URL
+                      type: string
+                      required: false
+                      description: MQTT broker address (hostname or IP). Leave empty to disable MQTT output.
+                      example: localhost
+                      uiHints:
+                        inputType: text
+                        widget: input
+                        placeholder: localhost
+                      examples:
+                      - localhost
+                      - 192.168.1.100
+                      - mqtt.example.com
+                      category: output
+                flexibleInputOutput:
+                  description: Flexible input/output options that can be added to any instance
+                  input:
+                    description: Choose ONE input source. Pipeline builder auto-detects input type.
+                    mutuallyExclusive: true
+                    parameters:
+                      FILE_PATH:
+                        name: FILE_PATH
+                        type: string
+                        required: false
+                        description: Local video file path or URL (supports file://, rtsp://, rtmp://, http://, https://).
+                          Pipeline builder auto-detects input type.
+                        example: ./cvedix_data/test_video/example.mp4
+                        uiHints:
+                          inputType: file
+                          widget: file-picker
+                          placeholder: /path/to/video.mp4
+                        category: connection
+                  output:
+                    description: Add any combination of outputs. Pipeline builder auto-adds nodes.
+                    mutuallyExclusive: false
+                    parameters:
+                      MQTT_BROKER_URL:
+                        name: MQTT_BROKER_URL
+                        type: string
+                        required: false
+                        description: MQTT broker address (enables MQTT output). Leave empty to disable.
+                        example: localhost
+                        uiHints:
+                          inputType: text
+                          widget: input
+                          placeholder: localhost
+                        category: output
+      '404':
+        description: Solution not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for solution instance body
+    operationId: getSolutionInstanceBodyOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: CORS preflight response

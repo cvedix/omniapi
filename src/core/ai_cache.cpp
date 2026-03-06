@@ -1,7 +1,7 @@
 #include "core/ai_cache.h"
 #include <algorithm>
 #include <iomanip>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <sstream>
 
 AICache::AICache(size_t max_size, std::chrono::seconds default_ttl)
@@ -147,17 +147,30 @@ AICache::Stats AICache::getStats() const {
 
 std::string AICache::generateKey(const std::string &image_data,
                                  const std::string &config) {
-  // Generate SHA256 hash of image_data + config
+  // Generate SHA256 hash of image_data + config using EVP API (OpenSSL 3.0 compatible)
   std::string input = image_data + "|" + config;
 
-  unsigned char hash[SHA256_DIGEST_LENGTH];
-  SHA256_CTX sha256;
-  SHA256_Init(&sha256);
-  SHA256_Update(&sha256, input.c_str(), input.length());
-  SHA256_Final(hash, &sha256);
+  unsigned char hash[EVP_MAX_MD_SIZE];
+  unsigned int hash_len = 0;
+
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+  if (mdctx == nullptr) {
+    // Fallback: return a simple hash if EVP fails
+    return std::to_string(std::hash<std::string>{}(input));
+  }
+
+  if (EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr) != 1 ||
+      EVP_DigestUpdate(mdctx, input.c_str(), input.length()) != 1 ||
+      EVP_DigestFinal_ex(mdctx, hash, &hash_len) != 1) {
+    EVP_MD_CTX_free(mdctx);
+    // Fallback: return a simple hash if EVP fails
+    return std::to_string(std::hash<std::string>{}(input));
+  }
+
+  EVP_MD_CTX_free(mdctx);
 
   std::stringstream ss;
-  for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+  for (unsigned int i = 0; i < hash_len; i++) {
     ss << std::hex << std::setw(2) << std::setfill('0')
        << static_cast<int>(hash[i]);
   }

@@ -3,6 +3,7 @@
 #include "core/logger.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
+#include "core/pipeline_builder_destination_nodes.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
 #include "models/create_instance_request.h"
@@ -208,12 +209,27 @@ void CreateInstanceHandler::createInstance(
     // Build response
     Json::Value response = instanceInfoToJson(optInfo.value());
 
+    // Add async build status information
+    const auto &info = optInfo.value();
+    if (info.building) {
+      response["building"] = true;
+      response["status"] = "building";
+      response["message"] = "Pipeline is being built in background";
+    } else if (!info.buildError.empty()) {
+      response["building"] = false;
+      response["status"] = "error";
+      response["buildError"] = info.buildError;
+    } else {
+      response["building"] = false;
+      response["status"] = "ready";
+    }
+
     if (isApiLoggingEnabled()) {
-      const auto &info = optInfo.value();
       PLOG_INFO << "[API] POST /v1/core/instance - Success: Created instance "
                 << instanceId << " (" << info.displayName
-                << ", solution: " << info.solutionId << ") - "
-                << duration.count() << "ms";
+                << ", solution: " << info.solutionId
+                << ", building: " << (info.building ? "true" : "false")
+                << ") - " << duration.count() << "ms";
     }
 
     auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -402,6 +418,11 @@ bool CreateInstanceHandler::parseRequest(const Json::Value &json,
     req.recommendedFrameRate = json["recommendedFrameRate"].asInt();
   }
 
+  // FPS configuration (target frame processing rate)
+  if (json.isMember("fps") && json["fps"].isNumeric()) {
+    req.fps = json["fps"].asInt();
+  }
+
   // Additional parameters (e.g., RTSP_URL)
   // Helper function to trim whitespace (especially important for RTMP URLs)
   auto trim = [](const std::string &str) -> std::string {
@@ -578,8 +599,8 @@ std::string CreateInstanceHandler::convertPathToProduction(
   std::string result = path;
 
   // Convert absolute development paths to production paths
-  // Pattern: /home/cvedix/project/edge_ai_api/cvedix_data/... -> /opt/edge_ai_api/...
-  const std::string devPrefix = "/home/cvedix/project/edge_ai_api/cvedix_data/";
+  // Pattern: /home/cvedix/project/edgeos-api/cvedix_data/... -> /opt/edgeos-api/...
+  const std::string devPrefix = "/home/cvedix/project/edgeos-api/cvedix_data/";
   if (result.find(devPrefix) == 0) {
     // Extract path after cvedix_data/
     std::string relativePath = result.substr(devPrefix.length());
@@ -589,12 +610,12 @@ std::string CreateInstanceHandler::convertPathToProduction(
       relativePath = "videos/" + relativePath.substr(11);
     }
     
-    result = "/opt/edge_ai_api/" + relativePath;
+    result = "/opt/edgeos-api/" + relativePath;
     return result;
   }
 
   // Also handle other common development paths
-  const std::string devPrefix2 = "/home/cvedix/project/edge_ai_api/";
+  const std::string devPrefix2 = "/home/cvedix/project/edgeos-api/";
   if (result.find(devPrefix2) == 0) {
     std::string relativePath = result.substr(devPrefix2.length());
     
@@ -611,18 +632,18 @@ std::string CreateInstanceHandler::convertPathToProduction(
       relativePath = relativePath.substr(12);
     }
     
-    result = "/opt/edge_ai_api/" + relativePath;
+    result = "/opt/edgeos-api/" + relativePath;
     return result;
   }
 
-  // Convert ./cvedix_data/ paths to /opt/edge_ai_api/
+  // Convert ./cvedix_data/ paths to /opt/edgeos-api/
   if (result.find("./cvedix_data/") == 0) {
     result = result.substr(15); // Remove "./cvedix_data/"
     // Map test_video/ to videos/
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edge_ai_api/" + result;
+    result = "/opt/edgeos-api/" + result;
     return result;
   } else if (result.find("cvedix_data/") == 0) {
     result = result.substr(12); // Remove "cvedix_data/"
@@ -630,20 +651,20 @@ std::string CreateInstanceHandler::convertPathToProduction(
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edge_ai_api/" + result;
+    result = "/opt/edgeos-api/" + result;
     return result;
   }
 
   // Specific mappings
-  // Models: ./cvedix_data/models/ -> /opt/edge_ai_api/models/
+  // Models: ./cvedix_data/models/ -> /opt/edgeos-api/models/
   if (result.find("./models/") == 0) {
-    result = "/opt/edge_ai_api" + result.substr(1);
+    result = "/opt/edgeos-api" + result.substr(1);
     return result;
   }
 
-  // Videos: ./cvedix_data/test_video/ -> /opt/edge_ai_api/videos/
+  // Videos: ./cvedix_data/test_video/ -> /opt/edgeos-api/videos/
   if (result.find("./test_video/") == 0) {
-    result = "/opt/edge_ai_api/videos/" + result.substr(12);
+    result = "/opt/edgeos-api/videos/" + result.substr(12);
     return result;
   }
 
@@ -680,9 +701,30 @@ CreateInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   json["sensorModality"] = info.sensorModality;
   json["originator"]["address"] = info.originator.address;
 
+  // Async pipeline build status
+  json["building"] = info.building;
+  if (!info.buildError.empty()) {
+    json["buildError"] = info.buildError;
+  }
+  // Add status field for convenience
+  if (info.building) {
+    json["status"] = "building";
+  } else if (!info.buildError.empty()) {
+    json["status"] = "error";
+  } else {
+    json["status"] = "ready";
+  }
+
   // Add streaming URLs if available
   if (!info.rtmpUrl.empty()) {
     json["rtmpUrl"] = info.rtmpUrl;
+    
+    // Extract RTMP prefix (stream key without _0 suffix)
+    // RTMP node automatically adds _0 suffix, so we extract the original stream key
+    std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(info.rtmpUrl);
+    if (!streamKey.empty()) {
+      json["prefix"] = streamKey;
+    }
   }
   if (!info.rtspUrl.empty()) {
     json["rtspUrl"] = info.rtspUrl;

@@ -1,0 +1,22 @@
+{
+  "name": "ba_area_rtmp_demo",
+  "group": "demo",
+  "solution": "ba_area_enter_exit",
+  "autoStart": false,
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/videos/vehicle_count.mp4",
+      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "RESIZE_RATIO": "0.6"
+    },
+    "output": {
+      "ENABLE_SCREEN_DES": "false",
+      "RTMP_DES_URL": "rtmp://127.0.0.1/live/9000"
+    },
+    "Areas": "[{\"x\":50,\"y\":150,\"width\":200,\"height\":200},{\"x\":350,\"y\":160,\"width\":200,\"height\":200}]",
+    "AreaConfigs": "[{\"alertOnEnter\":true,\"alertOnExit\":true,\"name\":\"Entrance\",\"color\":[0,220,0]},{\"alertOnEnter\":true,\"alertOnExit\":true,\"name\":\"Restricted\",\"color\":[0,0,220]}]"
+  }
+}
+

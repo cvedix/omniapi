@@ -9,7 +9,7 @@
     "input": {
       "IMAGE_SRC_PORT_OR_LOCATION": "./cvedix_data/test_images/vehicle/%d.jpg",
       "RESIZE_RATIO": "0.4",
-      "MODEL_PATH": "./cvedix_data/models/trt/vehicle/vehicle_v8.5.trt",
+      "MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_v8.5.trt",
       "INTERVAL": "1",
       "CYCLE": "true"
     }

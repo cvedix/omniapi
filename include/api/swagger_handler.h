@@ -18,12 +18,13 @@ using namespace drogon;
  * - GET /swagger - Swagger UI interface (all versions)
  * - GET /v1/swagger - Swagger UI for API v1
  * - GET /v2/swagger - Swagger UI for API v2
- * - GET /v1/document - Scalar API documentation for API v1
  * - GET /openapi.yaml - OpenAPI specification file (all versions)
  * - GET /v1/openapi.yaml - OpenAPI specification for v1
  * - GET /v2/openapi.yaml - OpenAPI specification for v2
  * - GET /v1/openapi/{lang}/openapi.yaml - OpenAPI specification for v1 with language (en/vi)
  * - GET /v2/openapi/{lang}/openapi.yaml - OpenAPI specification for v2 with language (en/vi)
+ * - GET /v1/openapi/{lang}/openapi.json - OpenAPI specification for v1 with language (en/vi) in JSON format
+ * - GET /v2/openapi/{lang}/openapi.json - OpenAPI specification for v2 with language (en/vi) in JSON format
  */
 class SwaggerHandler : public drogon::HttpController<SwaggerHandler> {
 public:
@@ -31,22 +32,24 @@ public:
   ADD_METHOD_TO(SwaggerHandler::getSwaggerUI, "/swagger", Get);
   ADD_METHOD_TO(SwaggerHandler::getSwaggerUI, "/v1/swagger", Get);
   ADD_METHOD_TO(SwaggerHandler::getSwaggerUI, "/v2/swagger", Get);
-  ADD_METHOD_TO(SwaggerHandler::getScalarDocument, "/v1/document", Get);
   ADD_METHOD_TO(SwaggerHandler::getOpenAPISpec, "/openapi.yaml", Get);
   ADD_METHOD_TO(SwaggerHandler::getOpenAPISpec, "/v1/openapi.yaml", Get);
   ADD_METHOD_TO(SwaggerHandler::getOpenAPISpec, "/v2/openapi.yaml", Get);
   ADD_METHOD_TO(SwaggerHandler::getOpenAPISpecWithLang, "/v1/openapi/{lang}/openapi.yaml", Get);
   ADD_METHOD_TO(SwaggerHandler::getOpenAPISpecWithLang, "/v2/openapi/{lang}/openapi.yaml", Get);
+  ADD_METHOD_TO(SwaggerHandler::getOpenAPISpecWithLang, "/v1/openapi/{lang}/openapi.json", Get);
+  ADD_METHOD_TO(SwaggerHandler::getOpenAPISpecWithLang, "/v2/openapi/{lang}/openapi.json", Get);
   ADD_METHOD_TO(SwaggerHandler::getOpenAPISpec, "/api-docs", Get);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/swagger", Options);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v1/swagger", Options);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v2/swagger", Options);
-  ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v1/document", Options);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/openapi.yaml", Options);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v1/openapi.yaml", Options);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v2/openapi.yaml", Options);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v1/openapi/{lang}/openapi.yaml", Options);
   ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v2/openapi/{lang}/openapi.yaml", Options);
+  ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v1/openapi/{lang}/openapi.json", Options);
+  ADD_METHOD_TO(SwaggerHandler::handleOptions, "/v2/openapi/{lang}/openapi.json", Options);
   METHOD_LIST_END
 
   /**
@@ -54,12 +57,6 @@ public:
    */
   void getSwaggerUI(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
-
-  /**
-   * @brief Serve Scalar API documentation HTML page
-   */
-  void getScalarDocument(const HttpRequestPtr &req,
-                         std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
    * @brief Serve OpenAPI specification file
@@ -146,12 +143,6 @@ private:
                               const std::string &language = "") const;
 
   /**
-   * @brief Read Scalar HTML template file
-   * @return HTML content from api-specs/scalar/index.html
-   */
-  std::string readScalarHTMLFile() const;
-
-  /**
    * @brief Filter OpenAPI YAML to only include paths for specified version
    * @param yamlContent Original YAML content
    * @param version Version to filter (e.g., "v1", "v2")
@@ -170,6 +161,13 @@ private:
   std::string
   updateOpenAPIServerURLs(const std::string &yamlContent,
                           const std::string &requestHost = "") const;
+
+  /**
+   * @brief Convert YAML content to JSON format
+   * @param yamlContent YAML content to convert
+   * @return JSON content as string, or empty string on error
+   */
+  std::string yamlToJson(const std::string &yamlContent) const;
 
   // Cache for OpenAPI file content
   struct CacheEntry {

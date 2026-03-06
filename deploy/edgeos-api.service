@@ -1,0 +1,75 @@
+[Unit]
+Description=edgeos-api Server
+Documentation=https://github.com/cvedix/edgeos-api
+After=network.target
+
+[Service]
+Type=simple
+User=edgeai
+Group=edgeai
+WorkingDirectory=/opt/edgeos-api
+ExecStart=/usr/local/bin/edgeos-api
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+# CPUQuota removed - allow full CPU usage for better performance
+# CPUQuota=200%  # Was limiting to 2 cores, removed for better performance
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+# Use 'true' instead of 'strict' to allow network binding
+ProtectSystem=true
+ProtectHome=true
+# Allow network access (required for binding ports)
+PrivateNetwork=false
+ReadWritePaths=/opt/edgeos-api/logs /opt/edgeos-api/data /opt/edgeos-api/uploads /opt/edgeos-api/instances /opt/edgeos-api/record /opt/edgeos-api/models /opt/edgeos-api/videos /opt/edgeos-api/fonts /opt/edgeos-api/run
+
+# Watchdog settings (systemd built-in watchdog)
+# NOTE: Disabled because application has its own watchdog implementation
+# If you want to use systemd watchdog, implement sd_notify() in the application
+# WatchdogSec=30
+# NotifyAccess=all
+
+# Environment variables
+# Load from .env file if exists, otherwise use defaults
+EnvironmentFile=-/opt/edgeos-api/config/.env
+# Config file path - Auto-detection will use /opt/edgeos-api/config/config.json
+# Priority: CONFIG_FILE env var > auto-detection (./config.json > /opt/edgeos-api/config/config.json)
+Environment="API_HOST=0.0.0.0"
+Environment="API_PORT=8080"
+# Worker executable path (required for subprocess mode)
+# Default: edgeos-worker (will search in PATH)
+# Production: /usr/local/bin/edgeos-worker
+Environment="EDGE_AI_WORKER_PATH=/usr/local/bin/edgeos-worker"
+# Socket directory for IPC between main process and workers
+# Default: /opt/edgeos-api/run
+Environment="EDGE_AI_SOCKET_DIR=/opt/edgeos-api/run"
+# Execution mode: subprocess (isolated workers) or in-process (legacy)
+# Changed to in-process for production stability (same as develop mode)
+# Default: in-process (no worker spawning - more stable)
+Environment="EDGE_AI_EXECUTION_MODE=in-process"
+# Instances directory for storing instance configurations
+# Default: /opt/edgeos-api/instances
+Environment="INSTANCES_DIR=/opt/edgeos-api/instances"
+# Installation directory (required for finding api-specs/scalar files)
+# Default: /opt/edgeos-api
+Environment="EDGEOS_API_INSTALL_DIR=/opt/edgeos-api"
+# GStreamer plugin path (required for filesrc and other plugins)
+# Priority: 1) Bundled plugins in /opt/edgeos-api/lib/gstreamer-1.0 (all-in-one)
+#          2) Value from /opt/edgeos-api/config/.env (set by postinst)
+#          3) System default path (fallback)
+# NOTE: Do NOT hardcode here - let .env file or auto-detection handle it
+# The postinst script will set GST_PLUGIN_PATH in .env file automatically
+# If .env doesn't exist or doesn't have GST_PLUGIN_PATH, the application will auto-detect
+# Disable problematic VA plugins that cause crashes on systems with broken GPU drivers
+# Set rank to NONE to prevent GStreamer from loading VA plugins
+Environment="GST_PLUGIN_FEATURE_RANK=va:NONE,vaapi:NONE,vaapidecode:NONE,vaapipostproc:NONE"
+
+[Install]
+WantedBy=multi-user.target

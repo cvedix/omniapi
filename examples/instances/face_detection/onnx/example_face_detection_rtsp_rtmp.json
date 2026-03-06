@@ -1,0 +1,71 @@
+{
+  "name": "face_detection_rtsp_rtmp_output",
+  "group": "demo",
+  "solution": "face_detection",
+  "persistent": true,
+  "autoStart": false,
+  "detectionSensitivity": "Low",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/videos/face.mp4",
+      "MODEL_PATH": "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx",
+      "SFACE_MODEL_PATH": "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx",
+      "RESIZE_RATIO": "1.0"
+    },
+    "output": {
+      "RTMP_URL": "rtmp://localhost:1935/live/face_detection",
+      "RTSP_DES_PORT": "9000",
+      "RTSP_DES_NAME": "face_detection_stream"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_face_detection_rtsp_rtmp_output",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "yunet_face_detector",
+      "nodeName": "face_detector_face_detection_rtsp_rtmp_output",
+      "parameters": {
+        "model_path": "${MODEL_PATH}",
+        "score_threshold": "0.6",
+        "nms_threshold": "0.5",
+        "top_k": "50"
+      }
+    },
+    {
+      "nodeType": "osd",
+      "nodeName": "osd_face_detection_rtsp_rtmp_output",
+      "parameters": {
+        "font_path": ""
+      }
+    },
+    {
+      "nodeType": "rtmp_des",
+      "nodeName": "rtmp_des_face_detection_rtsp_rtmp_output",
+      "parameters": {
+        "channel": "0",
+        "rtmp_url": "${RTMP_URL}",
+        "osd": "true"
+      }
+    },
+    {
+      "nodeType": "rtsp_des",
+      "nodeName": "rtsp_des_face_detection_rtsp_rtmp_output",
+      "parameters": {
+        "channel": "0",
+        "rtsp_port": "9000",
+        "rtsp_name": "face_detection_stream",
+        "bitrate": "1024",
+        "osd": "true",
+        "encoder": "x264enc"
+      }
+    }
+  ]
+}
+

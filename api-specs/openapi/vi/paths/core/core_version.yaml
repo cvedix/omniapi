@@ -1,0 +1,23 @@
+# API endpoint: /v1/core/version
+# Tag: Core
+
+/v1/core/version:
+  get:
+    summary: Lấy thông tin phiên bản
+    description: Trả về thông tin phiên bản của dịch vụ API
+    operationId: getVersion
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Thông tin phiên bản
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionResponse'
+            example:
+              version: 1.0.0
+              build_time: Jan 01 2024 00:00:00
+              git_commit: abc123def456
+              api_version: v1
+              service: edgeos-api

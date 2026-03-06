@@ -213,6 +213,46 @@ private:
    */
   void registerBAStopMQTTDefaultSolution();
 
+  /**
+   * @brief Register ba_loitering solution
+   */
+  void registerBALoiteringSolution();
+
+  /**
+   * @brief Register ba_area_enter_exit solution
+   */
+  void registerBAAreaEnterExitSolution();
+
+  /**
+   * @brief Register ba_line_counting solution
+   */
+  void registerBALineCountingSolution();
+
+  /**
+   * @brief Register ba_crowding solution
+   */
+  void registerBACrowdingSolution();
+
+  /**
+   * @brief Register securt solution
+   */
+  void registerSecuRTSolution();
+
+  /**
+   * @brief Register fire/smoke detection solution
+   */
+  void registerFireSmokeDetectionSolution();
+
+  /**
+   * @brief Register obstacle detection solution
+   */
+  void registerObstacleDetectionSolution();
+
+  /**
+   * @brief Register wrong way detection solution
+   */
+  void registerWrongWayDetectionSolution();
+
 #ifdef CVEDIX_WITH_RKNN
   /**
    * @brief Register RKNN YOLOv11 detection solution

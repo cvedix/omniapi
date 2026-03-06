@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
-project(edge_ai_api VERSION 2026.0.1.44)
+project(edgeos_api VERSION 2026.0.1.50)
+
+# EdgeOS SDK root: use libs from SDK instead of system for better adaptation
+set(EDGEOS_SDK_ROOT "/opt/edgeos-sdk" CACHE PATH "EdgeOS SDK installation root")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -127,6 +130,51 @@ else()
     message(STATUS "✓ Found system Jsoncpp")
 endif()
 
+# Check for yaml-cpp - try to download if not found
+find_package(yaml-cpp QUIET)
+if(NOT yaml-cpp_FOUND)
+    if(AUTO_DOWNLOAD_DEPENDENCIES)
+        message(STATUS "yaml-cpp not found. Attempting to download using FetchContent...")
+        if(NOT FetchContent_Declare)
+            include(FetchContent)
+        endif()
+
+        FetchContent_Declare(
+            yaml-cpp
+            GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+            GIT_TAG        yaml-cpp-0.7.0
+            GIT_SHALLOW    TRUE
+        )
+
+        # Set yaml-cpp build options
+        set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+        set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+
+        FetchContent_MakeAvailable(yaml-cpp)
+
+        # Ensure yaml-cpp is built with -fPIC
+        if(TARGET yaml-cpp)
+            set_target_properties(yaml-cpp PROPERTIES
+                POSITION_INDEPENDENT_CODE ON
+            )
+        endif()
+
+        set(YAML_CPP_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/_deps/yaml-cpp-src/include" CACHE PATH "yaml-cpp include directories" FORCE)
+        set(yaml-cpp_FOUND TRUE CACHE BOOL "yaml-cpp found" FORCE)
+
+        message(STATUS "✓ yaml-cpp downloaded and configured successfully")
+        message(STATUS "  Include: ${YAML_CPP_INCLUDE_DIRS}")
+    else()
+        message(STATUS "yaml-cpp not found. JSON endpoint will not work.\n"
+                       "To install: sudo apt-get install libyaml-cpp-dev\n"
+                       "Or enable auto-download: cmake .. -DAUTO_DOWNLOAD_DEPENDENCIES=ON")
+    endif()
+else()
+    message(STATUS "✓ Found system yaml-cpp")
+endif()
+
 # ============================================
 # Drogon HTTP Framework
 # ============================================
@@ -160,8 +208,12 @@ if(DROGON_USE_FETCHCONTENT)
     # UUID is optional for Drogon, but FindUUID.cmake may fail if not found
     # We'll let Drogon handle it - it should work without UUID
 
-    # Make Drogon available (dependencies should be ready now)
+    # Workaround: Drogon v1.9.0 has a broken try_compile for std::filesystem (check_has_std_filesystem_path.cc
+    # is missing "#include <filesystem>"), which triggers "partial implementation" even with GCC 13. Force C++20
+    # for Drogon so it skips that check; our project keeps CXX_STANDARD 17.
+    set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ standard for Drogon" FORCE)
     FetchContent_MakeAvailable(drogon)
+    set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard" FORCE)
 
     message(STATUS "✓ Drogon fetched and built successfully")
 else()
@@ -175,11 +227,27 @@ else()
 endif()
 
 # ============================================
-# OpenCV (required for CVEDIX SDK)
+# OpenCV (required for CVEDIX SDK) - prefer EdgeOS SDK libs
 # ============================================
+# Prefer CUDA from EdgeOS SDK if present
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/cuda")
+    list(APPEND CMAKE_PREFIX_PATH "${EDGEOS_SDK_ROOT}")
+endif()
+if(EXISTS "/usr/local/cuda-12.8/bin/nvcc")
+    set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda-12.8" CACHE PATH "CUDA 12.8 toolkit" FORCE)
+    set(CMAKE_CUDA_COMPILER "/usr/local/cuda-12.8/bin/nvcc" CACHE FILEPATH "NVCC 12.8" FORCE)
+    message(STATUS "Using CUDA 12.8 at ${CUDA_TOOLKIT_ROOT_DIR}")
+endif()
+# Prefer OpenCV from EdgeOS SDK
+set(OPENCV_USE_SDK FALSE)
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/opencv")
+    list(INSERT CMAKE_LIBRARY_PATH 0 "${EDGEOS_SDK_ROOT}/lib/opencv")
+    list(INSERT CMAKE_INCLUDE_PATH 0 "${EDGEOS_SDK_ROOT}/include")
+    set(OPENCV_USE_SDK TRUE)
+    message(STATUS "✓ Using OpenCV from EdgeOS SDK: ${EDGEOS_SDK_ROOT}/lib/opencv")
+endif()
 find_package(OpenCV QUIET)
 if(NOT OpenCV_FOUND)
-    # Try to find using pkg-config
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(OpenCV QUIET opencv4)
@@ -194,7 +262,7 @@ endif()
 if(NOT OpenCV_FOUND)
     message(WARNING
         "OpenCV not found. CVEDIX SDK features may not work.\n"
-        "To install: sudo apt-get install libopencv-dev")
+        "To install: sudo apt-get install libopencv-dev or use EdgeOS SDK at ${EDGEOS_SDK_ROOT}")
 else()
     message(STATUS "✓ Found OpenCV")
     message(STATUS "  Version: ${OpenCV_VERSION}")
@@ -255,18 +323,27 @@ set(SOURCES
     src/api/watchdog_handler.cpp
     src/api/endpoints_handler.cpp
     src/api/swagger_handler.cpp
+    src/api/scalar_handler.cpp
+    src/api/hls_handler.cpp
     src/api/create_instance_handler.cpp
     src/api/quick_instance_handler.cpp
     src/api/instance_handler.cpp
+    src/api/instance_fps_handler.cpp
     src/api/solution_handler.cpp
     src/api/group_handler.cpp
     src/api/config_handler.cpp
+    src/api/system_handler.cpp
     src/api/lines_handler.cpp
     src/api/jams_handler.cpp
     src/api/stops_handler.cpp
+    src/api/securt_handler.cpp
+    src/api/securt_line_handler.cpp
+    src/api/area_handler.cpp
     src/api/node_handler.cpp
+    src/api/onvif_handler.cpp
     src/api/recognition_handler.cpp
     src/api/system_info_handler.cpp
+    src/api/license_handler.cpp
     src/api/log_handler.cpp
     src/models/model_upload_handler.cpp
     src/videos/video_upload_handler.cpp
@@ -276,13 +353,23 @@ set(SOURCES
     src/core/endpoint_monitor.cpp
     src/core/request_middleware.cpp
     src/core/metrics_interceptor.cpp
+    src/core/event_queue.cpp
+    src/core/frame_input_queue.cpp
+    src/core/codec_manager.cpp
+    src/core/frame_decoder.cpp
+    src/core/frame_processor.cpp
     src/core/cors_filter.cpp
     src/core/cors_helper.cpp
     src/core/ai_processor.cpp
     src/core/ai_watchdog.cpp
+    src/core/inference_session.cpp
+    src/core/ai_runtime_facade.cpp
+    src/core/pipeline_helper.cpp
     src/core/backpressure_controller.cpp
     src/core/adaptive_queue_size_manager.cpp
     src/instances/instance_registry.cpp
+    src/instances/instance_registry_rtmp_monitor.cpp
+    src/instances/instance_state_manager.cpp
     src/instances/queue_monitor.cpp
     src/instances/inprocess_instance_manager.cpp
     src/instances/subprocess_instance_manager.cpp
@@ -290,6 +377,13 @@ set(SOURCES
     src/solutions/solution_registry.cpp
     src/groups/group_registry.cpp
     src/core/pipeline_builder.cpp
+    src/core/pipeline_builder_source_nodes.cpp
+    src/core/pipeline_builder_destination_nodes.cpp
+    src/core/pipeline_builder_detector_nodes.cpp
+    src/core/pipeline_builder_broker_nodes.cpp
+    src/core/pipeline_builder_behavior_analysis_nodes.cpp
+    src/core/pipeline_builder_other_nodes.cpp
+    src/core/rtmp_lastframe_fallback_proxy_node.cpp
     src/core/cvedix_validator.cpp
     src/utils/cvedix_mqtt_client_impl.cpp
     src/utils/gstreamer_checker.cpp
@@ -302,18 +396,34 @@ set(SOURCES
     src/core/node_storage.cpp
     src/core/node_template_registry.cpp
     src/config/system_config.cpp
+    src/core/system_config_manager.cpp
+    src/core/preferences_manager.cpp
+    src/core/decoder_detector.cpp
     src/core/uuid_generator.cpp
     src/core/platform_detector.cpp
     src/core/log_manager.cpp
+    src/core/onvif_camera_registry.cpp
+    src/core/onvif_credentials_manager.cpp
+    src/core/onvif_discovery.cpp
+    src/core/onvif_stream_manager.cpp
+    src/core/onvif_soap_builder.cpp
+    src/core/onvif_xml_parser.cpp
+    src/core/onvif_http_client.cpp
+    src/core/onvif_digest_auth.cpp
+    src/core/onvif_camera_whitelist.cpp
+    src/core/onvif_camera_handler_factory.cpp
+    src/core/onvif_camera_handlers/onvif_generic_handler.cpp
+    src/core/onvif_camera_handlers/onvif_tapo_handler.cpp
     src/models/create_instance_request.cpp
     src/models/update_instance_request.cpp
     src/models/solution_config.cpp
     src/models/group_info.cpp
     src/api/group_handler.cpp
     # Infrastructure components (available but not used in main yet)
-    # src/core/resource_manager.cpp
+    src/core/resource_manager.cpp
+    src/core/shutdown_flag.cpp
     # src/core/rate_limiter.cpp
-    # src/core/ai_cache.cpp
+    src/core/ai_cache.cpp
     # src/core/priority_queue.cpp
     # src/core/circuit_breaker.cpp
     src/core/performance_monitor.cpp
@@ -324,26 +434,37 @@ set(SOURCES
 )
 
 # ============================================
-# Create executable
+# Create executable (edgeos-api)
 # ============================================
-add_executable(edge_ai_api ${SOURCES})
+add_executable(edgeos_api ${SOURCES})
+set_target_properties(edgeos_api PROPERTIES RUNTIME_OUTPUT_NAME edgeos-api)
 
 # Set compile options for this target (modern CMake way)
-target_compile_options(edge_ai_api PRIVATE -Wall -Wextra)
+target_compile_options(edgeos_api PRIVATE -Wall -Wextra)
 
-# Set RPATH configuration
-# Use RPATH (not RUNPATH) so it works even without LD_LIBRARY_PATH
-# This ensures the executable can find libraries at runtime
-set_target_properties(edge_ai_api PROPERTIES
-    # Use BUILD_RPATH when running from build directory
+# Link and RPATH: prefer EdgeOS SDK libs (cvedix, opencv, cuda, cudnn, tensorrt)
+set(EDGEOS_SDK_LIB_DIRS "${EDGEOS_SDK_ROOT}/lib/cvedix")
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/opencv")
+    list(APPEND EDGEOS_SDK_LIB_DIRS "${EDGEOS_SDK_ROOT}/lib/opencv")
+endif()
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/cuda")
+    list(APPEND EDGEOS_SDK_LIB_DIRS "${EDGEOS_SDK_ROOT}/lib/cuda")
+endif()
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/cudnn")
+    list(APPEND EDGEOS_SDK_LIB_DIRS "${EDGEOS_SDK_ROOT}/lib/cudnn")
+endif()
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/tensorrt")
+    list(APPEND EDGEOS_SDK_LIB_DIRS "${EDGEOS_SDK_ROOT}/lib/tensorrt")
+endif()
+link_directories(${EDGEOS_SDK_LIB_DIRS})
+
+# Set RPATH configuration (SDK libs + build dir)
+set_target_properties(edgeos_api PROPERTIES
     BUILD_WITH_INSTALL_RPATH FALSE
     BUILD_RPATH_USE_ORIGIN TRUE
-    # RPATH for build directory (Drogon libraries in build/lib)
-    BUILD_RPATH "${CMAKE_BINARY_DIR}/lib;/usr/local/lib"
-    # RPATH for installed executable
-    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;/usr/local/lib"
+    BUILD_RPATH "${CMAKE_BINARY_DIR}/lib;${EDGEOS_SDK_LIB_DIRS};/usr/local/lib"
+    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${EDGEOS_SDK_ROOT}/lib/cvedix;${EDGEOS_SDK_ROOT}/lib/opencv;/usr/local/lib"
     INSTALL_RPATH_USE_LINK_PATH TRUE
-    # Force use of RPATH instead of RUNPATH
     LINK_FLAGS "-Wl,--disable-new-dtags"
 )
 
@@ -352,9 +473,9 @@ set_target_properties(edge_ai_api PROPERTIES
 # ============================================
 # Link Drogon - try Drogon::Drogon first, fallback to drogon
 if(TARGET Drogon::Drogon)
-    target_link_libraries(edge_ai_api PRIVATE Drogon::Drogon)
+    target_link_libraries(edgeos_api PRIVATE Drogon::Drogon)
 elseif(TARGET drogon)
-    target_link_libraries(edge_ai_api PRIVATE drogon)
+    target_link_libraries(edgeos_api PRIVATE drogon)
 else()
     message(FATAL_ERROR "Drogon target not found. Cannot link.")
 endif()
@@ -398,8 +519,8 @@ endif()
 if(CEREAL_INCLUDE_DIR)
     message(STATUS "✓ Found Cereal: ${CEREAL_INCLUDE_DIR}")
 
-    # CVEDIX SDK expects cereal at ../../../third_party/cereal relative to /opt/cvedix/include/cvedix/nodes/broker/cereal_archive/
-    # This means it looks for /opt/cvedix/include/cvedix/third_party/cereal/cereal.hpp
+    # CVEDIX SDK expects cereal at ../../../third_party/cereal relative to ${EDGEOS_SDK_ROOT}/include/cvedix/nodes/broker/cereal_archive/
+    # This means it looks for ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cereal/cereal.hpp
     # Create the exact directory structure CVEDIX SDK expects in build directory
     set(CVEDIX_THIRD_PARTY_DIR "${CMAKE_BINARY_DIR}/cvedix_third_party")
     set(CVEDIX_CEREAL_DIR "${CVEDIX_THIRD_PARTY_DIR}/cereal")
@@ -422,23 +543,23 @@ if(CEREAL_INCLUDE_DIR)
     endif()
 
     # Check if system symlink exists (required for CVEDIX SDK)
-    # Check both /usr/include/cvedix and /opt/cvedix/include/cvedix locations
+    # Check both /usr/include/cvedix and ${EDGEOS_SDK_ROOT}/include/cvedix locations
     set(CEREAL_SYMLINK_FOUND FALSE)
     if(EXISTS "/usr/include/cvedix/third_party/cereal")
         message(STATUS "✓ Cereal symlink found at /usr/include/cvedix/third_party/cereal")
         set(CEREAL_SYMLINK_FOUND TRUE)
-    elseif(EXISTS "/opt/cvedix/include/cvedix/third_party/cereal")
-        message(STATUS "✓ Cereal symlink found at /opt/cvedix/include/cvedix/third_party/cereal")
+    elseif(EXISTS "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cereal")
+        message(STATUS "✓ Cereal symlink found at ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cereal")
         set(CEREAL_SYMLINK_FOUND TRUE)
     endif()
 
     if(NOT CEREAL_SYMLINK_FOUND)
         message(WARNING "")
         message(WARNING "⚠ CVEDIX SDK requires cereal symlink")
-        if(EXISTS "/opt/cvedix/include/cvedix")
-            message(WARNING "  For /opt/cvedix installation:")
-            message(WARNING "    sudo mkdir -p /opt/cvedix/include/cvedix/third_party")
-            message(WARNING "    sudo ln -sf ${CEREAL_INCLUDE_DIR}/cereal /opt/cvedix/include/cvedix/third_party/cereal")
+        if(EXISTS "${EDGEOS_SDK_ROOT}/include/cvedix")
+            message(WARNING "  For ${EDGEOS_SDK_ROOT} installation:")
+            message(WARNING "    sudo mkdir -p ${EDGEOS_SDK_ROOT}/include/cvedix/third_party")
+            message(WARNING "    sudo ln -sf ${CEREAL_INCLUDE_DIR}/cereal ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cereal")
         else()
             message(WARNING "  For /usr/include installation:")
             message(WARNING "    Run: sudo bash ${CMAKE_SOURCE_DIR}/scripts/dev_setup.sh --skip-deps --skip-build")
@@ -458,7 +579,7 @@ endif()
 # cpp-base64 (required by CVEDIX SDK)
 # ============================================
 # CVEDIX SDK expects cpp_base64 at ../../../third_party/cpp_base64 relative to its headers
-# This means it looks for /opt/cvedix/include/cvedix/third_party/cpp_base64/base64.h
+# This means it looks for ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64/base64.h
 message(STATUS "Checking for cpp-base64 library...")
 
 # Try to find cpp-base64 in system
@@ -466,7 +587,7 @@ find_path(CPP_BASE64_INCLUDE_DIR base64.h
     PATHS
         /usr/include
         /usr/local/include
-        /opt/cvedix/include/cvedix/third_party/cpp_base64
+        ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64
         ${CMAKE_BINARY_DIR}/_deps/cpp-base64-src
 )
 
@@ -494,8 +615,8 @@ endif()
 if(CPP_BASE64_INCLUDE_DIR)
     message(STATUS "✓ Found cpp-base64: ${CPP_BASE64_INCLUDE_DIR}")
 
-    # CVEDIX SDK expects cpp_base64 at ../../../third_party/cpp_base64 relative to /opt/cvedix/include/cvedix/nodes/broker/
-    # This means it looks for /opt/cvedix/include/cvedix/third_party/cpp_base64/base64.h
+    # CVEDIX SDK expects cpp_base64 at ../../../third_party/cpp_base64 relative to ${EDGEOS_SDK_ROOT}/include/cvedix/nodes/broker/
+    # This means it looks for ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64/base64.h
     # Create the exact directory structure CVEDIX SDK expects in build directory
     set(CVEDIX_THIRD_PARTY_DIR "${CMAKE_BINARY_DIR}/cvedix_third_party")
     set(CVEDIX_CPP_BASE64_DIR "${CVEDIX_THIRD_PARTY_DIR}/cpp_base64")
@@ -518,23 +639,23 @@ if(CPP_BASE64_INCLUDE_DIR)
     endif()
 
     # Check if system symlink exists (required for CVEDIX SDK)
-    # Check both /usr/include/cvedix and /opt/cvedix/include/cvedix locations
+    # Check both /usr/include/cvedix and ${EDGEOS_SDK_ROOT}/include/cvedix locations
     set(CPP_BASE64_SYMLINK_FOUND FALSE)
     if(EXISTS "/usr/include/cvedix/third_party/cpp_base64/base64.h")
         message(STATUS "✓ cpp-base64 symlink found at /usr/include/cvedix/third_party/cpp_base64")
         set(CPP_BASE64_SYMLINK_FOUND TRUE)
-    elseif(EXISTS "/opt/cvedix/include/cvedix/third_party/cpp_base64/base64.h")
-        message(STATUS "✓ cpp-base64 symlink found at /opt/cvedix/include/cvedix/third_party/cpp_base64")
+    elseif(EXISTS "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64/base64.h")
+        message(STATUS "✓ cpp-base64 symlink found at ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64")
         set(CPP_BASE64_SYMLINK_FOUND TRUE)
     endif()
 
     if(NOT CPP_BASE64_SYMLINK_FOUND)
         message(WARNING "")
         message(WARNING "⚠ CVEDIX SDK requires cpp-base64 symlink")
-        if(EXISTS "/opt/cvedix/include/cvedix")
-            message(WARNING "  For /opt/cvedix installation:")
-            message(WARNING "    sudo mkdir -p /opt/cvedix/include/cvedix/third_party/cpp_base64")
-            message(WARNING "    sudo ln -sf ${CPP_BASE64_INCLUDE_DIR}/base64.h /opt/cvedix/include/cvedix/third_party/cpp_base64/base64.h")
+        if(EXISTS "${EDGEOS_SDK_ROOT}/include/cvedix")
+            message(WARNING "  For ${EDGEOS_SDK_ROOT} installation:")
+            message(WARNING "    sudo mkdir -p ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64")
+            message(WARNING "    sudo ln -sf ${CPP_BASE64_INCLUDE_DIR}/base64.h ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64/base64.h")
         else()
             message(WARNING "  For /usr/include installation:")
             message(WARNING "    sudo mkdir -p /usr/include/cvedix/third_party/cpp_base64")
@@ -557,8 +678,8 @@ endif()
 #   - Headers: /usr/include/cvedix/
 #   - Libraries: /usr/lib/ (or /usr/lib64/)
 #
-# CVEDIX SDK may also be installed in /opt/cvedix/ (non-standard location)
-# We check both locations and add /opt/cvedix to CMAKE_PREFIX_PATH if it exists
+# CVEDIX SDK may also be installed in ${EDGEOS_SDK_ROOT}/ (non-standard location)
+# We check both locations and add ${EDGEOS_SDK_ROOT} to CMAKE_PREFIX_PATH if it exists
 #
 # Workaround: Define check_required_components if not available
 # (needed for cvedix-config.cmake which uses this function)
@@ -586,19 +707,19 @@ if(NOT COMMAND check_required_components)
     endfunction()
 endif()
 
-# Check if CVEDIX SDK is installed in /opt/cvedix (standard location for this project)
-if(EXISTS "/opt/cvedix/lib/cmake/cvedix/cvedix-config.cmake")
-    message(STATUS "Found CVEDIX SDK in /opt/cvedix, adding to CMAKE_PREFIX_PATH")
-    list(APPEND CMAKE_PREFIX_PATH "/opt/cvedix")
-    message(STATUS "✓ Added /opt/cvedix to CMAKE_PREFIX_PATH")
+# Check if CVEDIX SDK is installed in ${EDGEOS_SDK_ROOT} (standard location for this project)
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/cvedix/libcvedix_core.so")
+    message(STATUS "Found CVEDIX SDK in ${EDGEOS_SDK_ROOT}, adding to CMAKE_PREFIX_PATH")
+    list(APPEND CMAKE_PREFIX_PATH "${EDGEOS_SDK_ROOT}")
+    message(STATUS "✓ Added ${EDGEOS_SDK_ROOT} to CMAKE_PREFIX_PATH")
 
     # Create symlink structure for CVEDIX SDK third_party dependencies
     # CVEDIX SDK headers use relative paths like ../../third_party/cpp_base64/base64.h
-    # We need to create the structure in /opt/cvedix/include/cvedix/third_party/
-    if(CPP_BASE64_INCLUDE_DIR AND NOT EXISTS "/opt/cvedix/include/cvedix/third_party/cpp_base64/base64.h")
+    # We need to create the structure in ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/
+    if(CPP_BASE64_INCLUDE_DIR AND NOT EXISTS "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64/base64.h")
         message(STATUS "Creating cpp_base64 symlink structure for CVEDIX SDK...")
         execute_process(
-            COMMAND ${CMAKE_COMMAND} -E make_directory "/opt/cvedix/include/cvedix/third_party/cpp_base64"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64"
             RESULT_VARIABLE MKDIR_RESULT
             ERROR_VARIABLE MKDIR_ERROR
             OUTPUT_QUIET
@@ -607,13 +728,13 @@ if(EXISTS "/opt/cvedix/lib/cmake/cvedix/cvedix-config.cmake")
             execute_process(
                 COMMAND ${CMAKE_COMMAND} -E create_symlink
                 "${CPP_BASE64_INCLUDE_DIR}/base64.h"
-                "/opt/cvedix/include/cvedix/third_party/cpp_base64/base64.h"
+                "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64/base64.h"
                 RESULT_VARIABLE SYMLINK_RESULT
                 ERROR_VARIABLE SYMLINK_ERROR
                 OUTPUT_QUIET
             )
             if(SYMLINK_RESULT EQUAL 0)
-                message(STATUS "✓ Created cpp_base64 symlink in /opt/cvedix/include/cvedix/third_party/cpp_base64/")
+                message(STATUS "✓ Created cpp_base64 symlink in ${EDGEOS_SDK_ROOT}/include/cvedix/third_party/cpp_base64/")
             else()
                 message(WARNING "⚠ Could not create cpp_base64 symlink (may need sudo):")
                 message(WARNING "  Error: ${SYMLINK_ERROR}")
@@ -627,16 +748,16 @@ if(EXISTS "/opt/cvedix/lib/cmake/cvedix/cvedix-config.cmake")
     endif()
 endif()
 
-# Fix tinyexpr library path before find_package
-# CVEDIX SDK expects libtinyexpr.so in /usr/lib but it may be in /opt/cvedix/lib
+# Fix tinyexpr library path before manual SDK setup
+# CVEDIX SDK expects libtinyexpr.so in /usr/lib but it may be in ${EDGEOS_SDK_ROOT}/lib/cvedix
 # Create symlink in build directory to work around this issue
-if(EXISTS "/opt/cvedix/lib/libtinyexpr.so" AND NOT EXISTS "/usr/lib/libtinyexpr.so")
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/cvedix/libtinyexpr.so" AND NOT EXISTS "/usr/lib/libtinyexpr.so")
     # Create a symlink in build directory
     set(TINYEXPR_BUILD_LIB "${CMAKE_BINARY_DIR}/libtinyexpr.so")
     if(NOT EXISTS "${TINYEXPR_BUILD_LIB}")
         execute_process(
             COMMAND ${CMAKE_COMMAND} -E create_symlink
-            "/opt/cvedix/lib/libtinyexpr.so"
+            "${EDGEOS_SDK_ROOT}/lib/cvedix/libtinyexpr.so"
             "${TINYEXPR_BUILD_LIB}"
             RESULT_VARIABLE SYMLINK_RESULT
             ERROR_VARIABLE SYMLINK_ERROR
@@ -651,7 +772,7 @@ if(EXISTS "/opt/cvedix/lib/libtinyexpr.so" AND NOT EXISTS "/usr/lib/libtinyexpr.
     # Also try to create symlink in /usr/lib (may require sudo, but try anyway)
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E create_symlink
-        "/opt/cvedix/lib/libtinyexpr.so"
+        "${EDGEOS_SDK_ROOT}/lib/cvedix/libtinyexpr.so"
         "/usr/lib/libtinyexpr.so"
         RESULT_VARIABLE SYMLINK_USR_RESULT
         ERROR_VARIABLE SYMLINK_USR_ERROR
@@ -666,11 +787,31 @@ if(EXISTS "/opt/cvedix/lib/libtinyexpr.so" AND NOT EXISTS "/usr/lib/libtinyexpr.
     endif()
 endif()
 
-find_package(cvedix REQUIRED)
+# Manual CVEDIX SDK setup (since CMake config file doesn't exist)
+# Check if CVEDIX SDK is installed in ${EDGEOS_SDK_ROOT}
+set(EDGEOS_SDK_FOUND FALSE)
+if(EXISTS "${EDGEOS_SDK_ROOT}/lib/cvedix/libcvedix_core.so")
+    set(EDGEOS_SDK_FOUND TRUE)
+    message(STATUS "✓ Found CVEDIX SDK in ${EDGEOS_SDK_ROOT}")
+    
+    # Create imported target for CVEDIX SDK
+    if(NOT TARGET cvedix::cvedix_instance_sdk)
+        add_library(cvedix::cvedix_instance_sdk SHARED IMPORTED)
+        set_target_properties(cvedix::cvedix_instance_sdk PROPERTIES
+            IMPORTED_LOCATION "${EDGEOS_SDK_ROOT}/lib/cvedix/libcvedix_core.so"
+            INTERFACE_INCLUDE_DIRECTORIES "${EDGEOS_SDK_ROOT}/include"
+        )
+        message(STATUS "✓ Created imported target cvedix::cvedix_instance_sdk")
+    endif()
+else()
+    message(FATAL_ERROR
+        "CVEDIX SDK not found at ${EDGEOS_SDK_ROOT}/lib/cvedix/libcvedix_core.so\n"
+        "Please install EdgeOS SDK at ${EDGEOS_SDK_ROOT} to continue.")
+endif()
 
-# Add all include directories for edge_ai_api target (modern CMake way)
+# Add all include directories for edgeos_api target (modern CMake way)
 # Base project include directory
-target_include_directories(edge_ai_api PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(edgeos_api PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
 
 # OpenCV include directories
 if(OpenCV_FOUND)
@@ -678,24 +819,24 @@ if(OpenCV_FOUND)
         # Modern CMake way - targets handle includes automatically
         # But we may still need to add include dirs for pkg-config path
         if(OpenCV_INCLUDE_DIRS)
-            target_include_directories(edge_ai_api PRIVATE ${OpenCV_INCLUDE_DIRS})
+            target_include_directories(edgeos_api PRIVATE ${OpenCV_INCLUDE_DIRS})
         endif()
     else()
         # Fallback to pkg-config libraries
         if(OpenCV_INCLUDE_DIRS)
-            target_include_directories(edge_ai_api PRIVATE ${OpenCV_INCLUDE_DIRS})
+            target_include_directories(edgeos_api PRIVATE ${OpenCV_INCLUDE_DIRS})
         endif()
     endif()
 endif()
 
 # Plog include directory
 if(PLOG_INCLUDE_DIR)
-    target_include_directories(edge_ai_api PRIVATE ${PLOG_INCLUDE_DIR})
+    target_include_directories(edgeos_api PRIVATE ${PLOG_INCLUDE_DIR})
 endif()
 
-# CVEDIX SDK include directory (if installed in /opt/cvedix)
-if(EXISTS "/opt/cvedix/include")
-    target_include_directories(edge_ai_api PRIVATE "/opt/cvedix/include")
+# CVEDIX SDK include directory (when SDK is found)
+if(EDGEOS_SDK_FOUND)
+    target_include_directories(edgeos_api PRIVATE "${EDGEOS_SDK_ROOT}/include")
 endif()
 
 # Add cereal and cpp-base64 include paths for CVEDIX SDK
@@ -704,15 +845,15 @@ endif()
 # We've created the structure in build directory, now add it to include paths
 if(CEREAL_INCLUDE_DIR)
     # Add build directory so compiler can resolve cvedix_third_party/cereal
-    target_include_directories(edge_ai_api PRIVATE "${CMAKE_BINARY_DIR}")
-    target_include_directories(edge_ai_api PRIVATE "${CEREAL_INCLUDE_DIR}")
+    target_include_directories(edgeos_api PRIVATE "${CMAKE_BINARY_DIR}")
+    target_include_directories(edgeos_api PRIVATE "${CEREAL_INCLUDE_DIR}")
     message(STATUS "✓ Added cereal include paths for CVEDIX SDK")
 endif()
 
 if(CPP_BASE64_INCLUDE_DIR)
     # Add build directory so compiler can resolve cvedix_third_party/cpp_base64
     # CMAKE_BINARY_DIR is already added above for cereal, so we don't need to add it again
-    target_include_directories(edge_ai_api PRIVATE "${CPP_BASE64_INCLUDE_DIR}")
+    target_include_directories(edgeos_api PRIVATE "${CPP_BASE64_INCLUDE_DIR}")
     message(STATUS "✓ Added cpp-base64 include paths for CVEDIX SDK")
 endif()
 
@@ -778,7 +919,7 @@ else()
     message(STATUS "  This is normal for systems without CUDA/GPU support")
 endif()
 
-target_link_libraries(edge_ai_api PRIVATE cvedix::cvedix_instance_sdk)
+target_link_libraries(edgeos_api PRIVATE cvedix::cvedix_instance_sdk)
 message(STATUS "✓ CVEDIX SDK linked: cvedix::cvedix_instance_sdk")
 
 # Handle OpenCV CUDA libraries - filter them out if not available
@@ -834,6 +975,7 @@ if(OpenCV_FOUND)
             opencv_videoio
             opencv_highgui
             opencv_dnn
+            opencv_objdetect
         )
 
         # Conditionally add CUDA libraries if available
@@ -849,7 +991,7 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Linking OpenCV without CUDA support")
         endif()
 
-        target_link_libraries(edge_ai_api PRIVATE ${OPENCV_BASE_LIBS})
+        target_link_libraries(edgeos_api PRIVATE ${OPENCV_BASE_LIBS})
     else()
         # Fallback to pkg-config libraries
         set(OPENCV_LIBS ${OpenCV_LIBRARIES})
@@ -863,9 +1005,9 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Using OpenCV libraries from pkg-config (with CUDA)")
         endif()
 
-        target_link_libraries(edge_ai_api PRIVATE ${OPENCV_LIBS})
+        target_link_libraries(edgeos_api PRIVATE ${OPENCV_LIBS})
     endif()
-    message(STATUS "✓ OpenCV linked to edge_ai_api")
+    message(STATUS "✓ OpenCV linked to edgeos_api")
 endif()
 
 # Use linker flags to handle missing libraries gracefully
@@ -873,12 +1015,12 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     if(OPENCV_CUDA_AVAILABLE)
         # With CUDA available, use --as-needed to only link what's needed
-        target_link_options(edge_ai_api PRIVATE
+        target_link_options(edgeos_api PRIVATE
             -Wl,--as-needed
         )
     else()
         # Without CUDA, allow missing shared library dependencies as fallback
-        target_link_options(edge_ai_api PRIVATE
+        target_link_options(edgeos_api PRIVATE
             -Wl,--as-needed
             -Wl,--allow-shlib-undefined
         )
@@ -893,7 +1035,7 @@ endif()
 # Copy from OpenCV 4.6 if available (temporary workaround)
 if(EXISTS "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0")
     set(FREETYPE_410_PATH "${CMAKE_BINARY_DIR}/lib/libopencv_freetype.so.410")
-    add_custom_command(TARGET edge_ai_api POST_BUILD
+    add_custom_command(TARGET edgeos_api POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/lib"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0"
@@ -910,16 +1052,16 @@ endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/hwinfo/CMakeLists.txt")
     message(STATUS "Adding hwinfo submodule...")
     add_subdirectory(third_party/hwinfo)
-    target_link_libraries(edge_ai_api PRIVATE lfreist-hwinfo::hwinfo)
-    message(STATUS "✓ hwinfo linked to edge_ai_api")
+    target_link_libraries(edgeos_api PRIVATE lfreist-hwinfo::hwinfo)
+    message(STATUS "✓ hwinfo linked to edgeos_api")
     # Add system_info_handler if hwinfo is available
-    target_sources(edge_ai_api PRIVATE src/api/system_info_handler.cpp)
+    target_sources(edgeos_api PRIVATE src/api/system_info_handler.cpp)
     # Define macro to enable SystemInfoHandler in main.cpp
-    target_compile_definitions(edge_ai_api PRIVATE ENABLE_SYSTEM_INFO_HANDLER)
+    target_compile_definitions(edgeos_api PRIVATE ENABLE_SYSTEM_INFO_HANDLER)
     message(STATUS "✓ system_info_handler enabled (hwinfo available)")
 
     # Enable metrics handler - always enabled
-    target_compile_definitions(edge_ai_api PRIVATE ENABLE_METRICS_HANDLER)
+    target_compile_definitions(edgeos_api PRIVATE ENABLE_METRICS_HANDLER)
     message(STATUS "✓ metrics_handler enabled")
 elseif(AUTO_DOWNLOAD_DEPENDENCIES)
     # Use FetchContent to download hwinfo automatically
@@ -939,16 +1081,16 @@ elseif(AUTO_DOWNLOAD_DEPENDENCIES)
 
     FetchContent_MakeAvailable(hwinfo)
 
-    target_link_libraries(edge_ai_api PRIVATE lfreist-hwinfo::hwinfo)
-    message(STATUS "✓ hwinfo downloaded and linked to edge_ai_api")
+    target_link_libraries(edgeos_api PRIVATE lfreist-hwinfo::hwinfo)
+    message(STATUS "✓ hwinfo downloaded and linked to edgeos_api")
     # Add system_info_handler if hwinfo is available
-    target_sources(edge_ai_api PRIVATE src/api/system_info_handler.cpp)
+    target_sources(edgeos_api PRIVATE src/api/system_info_handler.cpp)
     # Define macro to enable SystemInfoHandler in main.cpp
-    target_compile_definitions(edge_ai_api PRIVATE ENABLE_SYSTEM_INFO_HANDLER)
+    target_compile_definitions(edgeos_api PRIVATE ENABLE_SYSTEM_INFO_HANDLER)
     message(STATUS "✓ system_info_handler enabled (hwinfo available)")
 
     # Enable metrics handler - always enabled
-    target_compile_definitions(edge_ai_api PRIVATE ENABLE_METRICS_HANDLER)
+    target_compile_definitions(edgeos_api PRIVATE ENABLE_METRICS_HANDLER)
     message(STATUS "✓ metrics_handler enabled")
 else()
     message(WARNING "hwinfo not found. System info endpoints will not work.")
@@ -957,15 +1099,15 @@ else()
     message(WARNING "  2. Enable auto-download: cmake -DAUTO_DOWNLOAD_DEPENDENCIES=ON ..")
 
     # Enable metrics handler even if hwinfo is not available
-    target_compile_definitions(edge_ai_api PRIVATE ENABLE_METRICS_HANDLER)
+    target_compile_definitions(edgeos_api PRIVATE ENABLE_METRICS_HANDLER)
     message(STATUS "✓ metrics_handler enabled")
 endif()
 
 # Additional libraries (if needed)
-# target_link_libraries(edge_ai_api PRIVATE
-#     OpenSSL::SSL      # Uncomment when using cache
-#     OpenSSL::Crypto   # Uncomment when using cache
-# )
+# OpenSSL::Crypto is required for ai_cache SHA256 hashing
+if(OpenSSL_FOUND)
+    target_link_libraries(edgeos_api PRIVATE OpenSSL::Crypto)
+endif()
 
 # ============================================
 # Git commit information
@@ -1000,7 +1142,7 @@ find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(GSTREAMER QUIET gstreamer-1.0)
     if(GSTREAMER_FOUND)
-        target_compile_definitions(edge_ai_api PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_compile_definitions(edgeos_api PRIVATE CVEDIX_WITH_GSTREAMER)
         message(STATUS "✓ GStreamer support enabled (CVEDIX_WITH_GSTREAMER)")
     else()
         message(WARNING "⚠ GStreamer not found. RTSP/RTMP/Image/UDP source nodes will not be available.")
@@ -1016,7 +1158,7 @@ else()
             /usr/local/lib
     )
     if(GSTREAMER_LIBRARY)
-        target_compile_definitions(edge_ai_api PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_compile_definitions(edgeos_api PRIVATE CVEDIX_WITH_GSTREAMER)
         message(STATUS "✓ GStreamer support enabled (CVEDIX_WITH_GSTREAMER)")
     else()
         message(WARNING "⚠ GStreamer not found. RTSP/RTMP/Image/UDP source nodes will not be available.")
@@ -1028,7 +1170,7 @@ endif()
 option(CVEDIX_WITH_MQTT "Enable MQTT support (requires CVEDIX SDK built with MQTT)" ON)
 
 if(CVEDIX_WITH_MQTT)
-    target_compile_definitions(edge_ai_api PRIVATE CVEDIX_WITH_MQTT)
+    target_compile_definitions(edgeos_api PRIVATE CVEDIX_WITH_MQTT)
     message(STATUS "✓ MQTT support enabled (CVEDIX_WITH_MQTT)")
 
     # cvedix_mqtt_client uses libmosquitto, need to link it
@@ -1038,11 +1180,11 @@ if(CVEDIX_WITH_MQTT)
             /usr/lib
             /usr/lib/x86_64-linux-gnu
             /usr/local/lib
-            /opt/cvedix/lib
+            ${EDGEOS_SDK_ROOT}/lib/cvedix
     )
 
     if(MOSQUITTO_LIBRARY)
-        target_link_libraries(edge_ai_api PRIVATE ${MOSQUITTO_LIBRARY})
+        target_link_libraries(edgeos_api PRIVATE ${MOSQUITTO_LIBRARY})
         message(STATUS "✓ Linked mosquitto library: ${MOSQUITTO_LIBRARY}")
     else()
         # Try pkg-config
@@ -1050,8 +1192,8 @@ if(CVEDIX_WITH_MQTT)
         if(PkgConfig_FOUND)
             pkg_check_modules(MOSQUITTO QUIET mosquitto)
             if(MOSQUITTO_FOUND)
-                target_link_libraries(edge_ai_api PRIVATE ${MOSQUITTO_LIBRARIES})
-                target_include_directories(edge_ai_api PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
+                target_link_libraries(edgeos_api PRIVATE ${MOSQUITTO_LIBRARIES})
+                target_include_directories(edgeos_api PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
                 message(STATUS "✓ Linked mosquitto library via pkg-config: ${MOSQUITTO_LIBRARIES}")
             else()
                 message(WARNING "⚠ mosquitto library not found. MQTT features may not work.")
@@ -1069,7 +1211,7 @@ endif()
 # ============================================
 # Compile definitions
 # ============================================
-target_compile_definitions(edge_ai_api PRIVATE
+target_compile_definitions(edgeos_api PRIVATE
     PROJECT_VERSION="${PROJECT_VERSION}"
     BUILD_TIME="${BUILD_TIME}"
     GIT_COMMIT="${GIT_COMMIT}"
@@ -1085,7 +1227,7 @@ set(WORKER_IPC_SOURCES
 )
 
 # Add worker sources to main executable
-target_sources(edge_ai_api PRIVATE ${WORKER_IPC_SOURCES})
+target_sources(edgeos_api PRIVATE ${WORKER_IPC_SOURCES})
 
 # ============================================
 # Edge AI Core Library (shared between main and worker)
@@ -1094,6 +1236,16 @@ target_sources(edge_ai_api PRIVATE ${WORKER_IPC_SOURCES})
 # the main server and worker processes
 set(CORE_LIB_SOURCES
     src/core/pipeline_builder.cpp
+    src/core/pipeline_builder_model_resolver.cpp
+    src/core/pipeline_builder_request_utils.cpp
+    src/core/pipeline_builder_source_nodes.cpp
+    src/core/pipeline_builder_destination_nodes.cpp
+    src/core/rtmp_lastframe_fallback_proxy_node.cpp
+    src/core/pipeline_builder_detector_nodes.cpp
+    src/core/pipeline_builder_broker_nodes.cpp
+    src/core/pipeline_builder_behavior_analysis_nodes.cpp
+    src/core/pipeline_builder_other_nodes.cpp
+    src/core/securt_pipeline_integration.cpp
     src/core/cvedix_validator.cpp
     src/solutions/solution_registry.cpp
     src/solutions/solution_storage.cpp
@@ -1106,92 +1258,163 @@ set(CORE_LIB_SOURCES
     src/utils/mp4_finalizer.cpp
     src/utils/mp4_directory_watcher.cpp
     src/config/system_config.cpp
+    src/core/securt_instance_registry.cpp
+    src/core/securt_statistics_collector.cpp
+    src/core/securt_instance_manager.cpp
+    src/core/securt_line_storage.cpp
+    src/core/securt_line_manager.cpp
+    src/core/securt_feature_manager.cpp
+    src/core/exclusion_area_manager.cpp
+    src/core/analytics_entities_manager.cpp
+    src/core/area_storage.cpp
+    src/core/area_manager.cpp
 )
 
-add_library(edge_ai_core SHARED ${CORE_LIB_SOURCES})
+add_library(edgeos_core SHARED ${CORE_LIB_SOURCES})
 
-target_include_directories(edge_ai_core PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(edgeos_core PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
 
 # Link dependencies to core library
 if(TARGET jsoncpp_lib)
-    target_link_libraries(edge_ai_core PUBLIC jsoncpp_lib)
+    target_link_libraries(edgeos_core PUBLIC jsoncpp_lib)
 elseif(JSONCPP_LIBRARIES)
-    target_link_libraries(edge_ai_core PUBLIC ${JSONCPP_LIBRARIES})
-    target_include_directories(edge_ai_core PUBLIC ${JSONCPP_INCLUDE_DIRS})
+    target_link_libraries(edgeos_core PUBLIC ${JSONCPP_LIBRARIES})
+    target_include_directories(edgeos_core PUBLIC ${JSONCPP_INCLUDE_DIRS})
 endif()
 
-target_link_libraries(edge_ai_core PUBLIC cvedix::cvedix_instance_sdk)
+target_link_libraries(edgeos_core PUBLIC cvedix::cvedix_instance_sdk)
 
 if(OpenCV_FOUND)
     if(TARGET opencv_core)
-        target_link_libraries(edge_ai_core PUBLIC ${OPENCV_BASE_LIBS})
+        target_link_libraries(edgeos_core PUBLIC ${OPENCV_BASE_LIBS})
     else()
-        target_link_libraries(edge_ai_core PUBLIC ${OPENCV_LIBS})
+        target_link_libraries(edgeos_core PUBLIC ${OPENCV_LIBS})
     endif()
     if(OpenCV_INCLUDE_DIRS)
-        target_include_directories(edge_ai_core PUBLIC ${OpenCV_INCLUDE_DIRS})
+        target_include_directories(edgeos_core PUBLIC ${OpenCV_INCLUDE_DIRS})
     endif()
 endif()
 
-if(EXISTS "/opt/cvedix/include")
-    target_include_directories(edge_ai_core PUBLIC "/opt/cvedix/include")
+# CVEDIX SDK include directory (when SDK is found) - required for pipeline_builder and broker nodes
+if(EDGEOS_SDK_FOUND)
+    target_include_directories(edgeos_core PUBLIC "${EDGEOS_SDK_ROOT}/include")
+    # Add ASIO include path (required for SSE broker node)
+    if(EXISTS "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/asio/include")
+        target_include_directories(edgeos_core PUBLIC "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/asio/include")
+    endif()
 endif()
 
 if(PLOG_INCLUDE_DIR)
-    target_include_directories(edge_ai_core PUBLIC ${PLOG_INCLUDE_DIR})
+    target_include_directories(edgeos_core PUBLIC ${PLOG_INCLUDE_DIR})
 endif()
 
 if(CEREAL_INCLUDE_DIR)
-    target_include_directories(edge_ai_core PUBLIC "${CMAKE_BINARY_DIR}")
-    target_include_directories(edge_ai_core PUBLIC "${CEREAL_INCLUDE_DIR}")
+    target_include_directories(edgeos_core PUBLIC "${CMAKE_BINARY_DIR}")
+    target_include_directories(edgeos_core PUBLIC "${CEREAL_INCLUDE_DIR}")
 endif()
 
 if(CPP_BASE64_INCLUDE_DIR)
-    target_include_directories(edge_ai_core PUBLIC "${CPP_BASE64_INCLUDE_DIR}")
+    target_include_directories(edgeos_core PUBLIC "${CPP_BASE64_INCLUDE_DIR}")
 endif()
 
 if(GSTREAMER_FOUND OR GSTREAMER_LIBRARY)
-    target_compile_definitions(edge_ai_core PUBLIC CVEDIX_WITH_GSTREAMER)
+    target_compile_definitions(edgeos_core PUBLIC CVEDIX_WITH_GSTREAMER)
+    # Add GStreamer include directories and libraries
+    if(GSTREAMER_FOUND)
+        target_include_directories(edgeos_core PUBLIC ${GSTREAMER_INCLUDE_DIRS})
+        target_link_libraries(edgeos_core PUBLIC ${GSTREAMER_LIBRARIES})
+    else()
+        # Fallback: try to find GStreamer headers manually
+        find_path(GSTREAMER_INCLUDE_DIR
+            NAMES gst/gst.h
+            PATHS
+                /usr/include/gstreamer-1.0
+                /usr/local/include/gstreamer-1.0
+                ${EDGEOS_SDK_ROOT}/include/gstreamer-1.0
+        )
+        if(GSTREAMER_INCLUDE_DIR)
+            target_include_directories(edgeos_core PUBLIC ${GSTREAMER_INCLUDE_DIR})
+        endif()
+        if(GSTREAMER_LIBRARY)
+            target_link_libraries(edgeos_core PUBLIC ${GSTREAMER_LIBRARY})
+        endif()
+    endif()
+endif()
+
+# Check for Eigen library (required by BYTETracker)
+find_path(EIGEN3_INCLUDE_DIR
+    NAMES Eigen/Core
+    PATHS
+        /usr/include/eigen3
+        /usr/local/include/eigen3
+        ${EDGEOS_SDK_ROOT}/include/eigen3
+        /usr/include
+        /usr/local/include
+)
+if(EIGEN3_INCLUDE_DIR)
+    target_include_directories(edgeos_core PUBLIC ${EIGEN3_INCLUDE_DIR})
+    message(STATUS "✓ Found Eigen3: ${EIGEN3_INCLUDE_DIR}")
+else()
+    message(WARNING "⚠ Eigen3 not found. BYTETracker may not compile.")
+    message(WARNING "  To install: sudo apt-get install libeigen3-dev")
 endif()
 
 if(CVEDIX_WITH_MQTT)
-    target_compile_definitions(edge_ai_core PUBLIC CVEDIX_WITH_MQTT)
+    target_compile_definitions(edgeos_core PUBLIC CVEDIX_WITH_MQTT)
     if(MOSQUITTO_LIBRARY)
-        target_link_libraries(edge_ai_core PUBLIC ${MOSQUITTO_LIBRARY})
+        target_link_libraries(edgeos_core PUBLIC ${MOSQUITTO_LIBRARY})
     elseif(MOSQUITTO_FOUND)
-        target_link_libraries(edge_ai_core PUBLIC ${MOSQUITTO_LIBRARIES})
+        target_link_libraries(edgeos_core PUBLIC ${MOSQUITTO_LIBRARIES})
     endif()
 endif()
 
 message(STATUS "✓ Edge AI Core library configured")
 
+# Link edgeos_core to edgeos_api
+target_link_libraries(edgeos_api PRIVATE edgeos_core)
+
+# Link yaml-cpp if available
+if(TARGET yaml-cpp)
+    target_link_libraries(edgeos_api PRIVATE yaml-cpp)
+    target_include_directories(edgeos_api PRIVATE ${YAML_CPP_INCLUDE_DIRS})
+    target_compile_definitions(edgeos_api PRIVATE YAML_CPP_FOUND)
+    message(STATUS "✓ yaml-cpp linked to edgeos_api")
+elseif(yaml-cpp_FOUND)
+    target_link_libraries(edgeos_api PRIVATE yaml-cpp)
+    target_compile_definitions(edgeos_api PRIVATE YAML_CPP_FOUND)
+    message(STATUS "✓ yaml-cpp linked to edgeos_api")
+endif()
+
+message(STATUS "✓ edgeos_api linked to edgeos_core")
+
 # ============================================
 # Edge AI Worker executable (subprocess)
 # ============================================
 set(WORKER_SOURCES
-    src/worker/edge_ai_worker.cpp
+    src/worker/edgeos_worker.cpp
     src/worker/worker_handler.cpp
     src/worker/config_file_watcher.cpp
     src/worker/ipc_protocol.cpp
     src/worker/unix_socket.cpp
 )
 
-add_executable(edge_ai_worker ${WORKER_SOURCES})
+add_executable(edgeos_worker ${WORKER_SOURCES})
+set_target_properties(edgeos_worker PROPERTIES RUNTIME_OUTPUT_NAME edgeos-worker)
 
-target_compile_options(edge_ai_worker PRIVATE -Wall -Wextra)
+target_compile_options(edgeos_worker PRIVATE -Wall -Wextra)
 
 # Link core library (includes all dependencies)
-target_link_libraries(edge_ai_worker PRIVATE edge_ai_core)
+target_link_libraries(edgeos_worker PRIVATE edgeos_core)
 
 # Link pthread for threading
-target_link_libraries(edge_ai_worker PRIVATE pthread)
+target_link_libraries(edgeos_worker PRIVATE pthread)
 
-# Set RPATH for worker
-set_target_properties(edge_ai_worker PROPERTIES
+# Set RPATH for worker (SDK libs)
+set_target_properties(edgeos_worker PROPERTIES
     BUILD_WITH_INSTALL_RPATH FALSE
     BUILD_RPATH_USE_ORIGIN TRUE
-    BUILD_RPATH "${CMAKE_BINARY_DIR}/lib;${CMAKE_BINARY_DIR};/usr/local/lib;/opt/cvedix/lib"
-    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;/usr/local/lib;/opt/cvedix/lib"
+    BUILD_RPATH "${CMAKE_BINARY_DIR}/lib;${CMAKE_BINARY_DIR};${EDGEOS_SDK_LIB_DIRS};/usr/local/lib"
+    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${EDGEOS_SDK_ROOT}/lib/cvedix;${EDGEOS_SDK_ROOT}/lib/opencv;/usr/local/lib"
     INSTALL_RPATH_USE_LINK_PATH TRUE
 )
 
@@ -1200,7 +1423,7 @@ message(STATUS "✓ Edge AI Worker executable configured")
 # ============================================
 # Install target (optional)
 # ============================================
-install(TARGETS edge_ai_api edge_ai_worker edge_ai_core
+install(TARGETS edgeos_api edgeos_worker edgeos_core
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
 )

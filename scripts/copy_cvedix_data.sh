@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================
-# Copy cvedix_data to /opt/edge_ai_api/
+# Copy cvedix_data to /opt/edgeos-api/
 # ============================================
 #
 # This script copies the contents of cvedix_data directory
-# to /opt/edge_ai_api/ directory.
+# to /opt/edgeos-api/ directory.
 #
 # Usage:
 #   ./scripts/copy_cvedix_data.sh
@@ -26,7 +26,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Source and destination paths
 SOURCE_DIR="${PROJECT_ROOT}/cvedix_data"
-DEST_DIR="/opt/edge_ai_api"
+DEST_DIR="/opt/edgeos-api"
 
 # Function to print colored messages
 print_info() {

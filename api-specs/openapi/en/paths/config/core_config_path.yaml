@@ -1,0 +1,307 @@
+# API endpoint: /v1/core/config/{path}
+# Tag: Config
+
+/v1/core/config/{path}:
+  get:
+    summary: Get configuration section (path parameter)
+    description: 'Returns a specific section of the system configuration at the given path.
+
+
+      **Path Format:**
+
+      - Use dots `.` as separators (e.g., `system.max_running_instances`)
+
+      - Forward slashes `/` with URL encoding (`%2F`) are NOT supported due to Drogon routing limitations
+
+
+      **Recommended:** Use query parameter instead: `GET /v1/core/config?path=system/max_running_instances`
+
+
+      Example paths: `system.max_running_instances`, `system.web_server`, `gstreamer.decode_pipelines.auto`
+
+      '
+    operationId: getConfigSection
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'Configuration path using dots as separators.
+
+        Examples: `system.max_running_instances`, `system.web_server`, `gstreamer.decode_pipelines.auto`
+
+        Note: Forward slashes are NOT supported in path parameter (use query parameter instead)
+
+        '
+      example: system.max_running_instances
+    responses:
+      '200':
+        description: Configuration section
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Configuration section value (can be object, array, or primitive)
+              additionalProperties: true
+              example:
+                enabled: true
+                ip_address: 0.0.0.0
+                port: 8080
+      '400':
+        description: Invalid request (empty path)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Configuration section not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  patch:
+    summary: Update configuration section (path parameter)
+    description: 'Updates a specific section of the system configuration at the given path.
+
+
+      **Path Format:**
+
+      - Use dots `.` as separators (e.g., `system.max_running_instances`)
+
+      - Forward slashes `/` with URL encoding (`%2F`) are NOT supported
+
+
+      **Recommended:** Use query parameter instead: `PATCH /v1/core/config?path=system/max_running_instances`
+
+
+      Only the provided fields in the section will be updated.
+
+      The configuration is saved to the config file after update.
+
+
+      **Auto Restart:**
+
+      - By default, the server will NOT automatically restart after configuration changes
+
+      - To enable automatic restart, set `auto_restart=true` as a query parameter or in the JSON body
+
+      - When `auto_restart=true`, the server will restart after 3 seconds if web server config changed
+
+      '
+    operationId: updateConfigSection
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'Configuration path using dots as separators.
+
+        Examples: `system.max_running_instances`, `system.web_server`
+
+        Note: Forward slashes are NOT supported in path parameter (use query parameter instead)
+
+        '
+      example: system.max_running_instances
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If set to `true`, the server will automatically restart after configuration update.
+
+        Default is `false` (no automatic restart).
+
+        Can also be set in the JSON body as `auto_restart` field.
+
+        '
+      example: false
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Configuration section value to update
+            additionalProperties: true
+            example:
+              port: 8080
+    responses:
+      '200':
+        description: Configuration section updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Configuration section updated successfully
+                path:
+                  type: string
+                  example: system/web_server
+                value:
+                  type: object
+                  description: Updated configuration section value
+                  additionalProperties: true
+                warning:
+                  type: string
+                  description: Warning message if server restart is scheduled (when auto_restart=true)
+                  example: Server will restart in 3 seconds (auto_restart requested).
+                restart_scheduled:
+                  type: boolean
+                  description: True if server restart is scheduled (when auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Info message if restart is required but auto_restart was not set
+                  example: Web server port/host changed. Please restart server manually to apply changes, or set auto_restart=true
+                    to restart automatically.
+                restart_required:
+                  type: boolean
+                  description: True if restart is required but auto_restart was not set
+                  example: false
+      '400':
+        description: Invalid request or validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete configuration section (path parameter)
+    description: 'Deletes a specific section of the system configuration at the given path.
+
+
+      **Path Format:**
+
+      - Use dots `.` as separators (e.g., `system.max_running_instances`)
+
+      - Forward slashes `/` with URL encoding (`%2F`) are NOT supported
+
+
+      **Recommended:** Use query parameter instead: `DELETE /v1/core/config?path=system/max_running_instances`
+
+
+      The configuration is saved to the config file after deletion.
+
+
+      **Auto Restart:**
+
+      - By default, the server will NOT automatically restart after configuration deletion
+
+      - To enable automatic restart, set `auto_restart=true` as a query parameter
+
+      - When `auto_restart=true`, the server will restart after 3 seconds if web server config changed
+
+      '
+    operationId: deleteConfigSection
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'Configuration path using dots as separators.
+
+        Examples: `system.max_running_instances`, `system.web_server`
+
+        Note: Forward slashes are NOT supported in path parameter (use query parameter instead)
+
+        '
+      example: system.max_running_instances
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'If set to `true`, the server will automatically restart after configuration deletion.
+
+        Default is `false` (no automatic restart).
+
+        '
+      example: false
+    responses:
+      '200':
+        description: Configuration section deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Configuration section deleted successfully
+                path:
+                  type: string
+                  example: system/web_server
+                warning:
+                  type: string
+                  description: Warning message if server restart is scheduled (when auto_restart=true)
+                  example: Server will restart in 3 seconds (auto_restart requested).
+                restart_scheduled:
+                  type: boolean
+                  description: True if server restart is scheduled (when auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Info message if restart is required but auto_restart was not set
+                  example: Web server port/host changed. Please restart server manually to apply changes, or set auto_restart=true
+                    to restart automatically.
+                restart_required:
+                  type: boolean
+                  description: True if restart is required but auto_restart was not set
+                  example: false
+      '400':
+        description: Invalid request (empty path)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Configuration section not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for config path
+    operationId: configPathOptions
+    tags:
+    - Config
+    parameters:
+    - name: path
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Configuration path
+    responses:
+      '200':
+        description: CORS preflight response

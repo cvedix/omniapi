@@ -1,0 +1,17 @@
+{
+  "name": "ba_crowding_file_demo",
+  "group": "demo",
+  "solution": "ba_crowding",
+  "autoStart": false,
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "./cvedix_data/test_video/jam.mp4",
+      "WEIGHTS_PATH": "./cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+      "CONFIG_PATH": "./cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg",
+      "LABELS_PATH": "./cvedix_data/models/det_cls/yolov3_tiny_5classes.txt",
+      "RESIZE_RATIO": "1.0"
+    },
+    "CrowdingZones": "[{\"channel\":0,\"coordinates\":[{\"x\":20,\"y\":360},{\"x\":400,\"y\":250},{\"x\":700,\"y\":250},{\"x\":700,\"y\":700},{\"x\":30,\"y\":700}],\"threshold\":3,\"alarm_seconds\":2.0,\"name\":\"Lobby Area\"}]",
+    "CROWDING_CHECK_INTERVAL": "30"
+  }
+}

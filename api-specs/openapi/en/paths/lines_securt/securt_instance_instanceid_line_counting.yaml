@@ -1,0 +1,61 @@
+# API endpoint: /v1/securt/instance/{instanceId}/line/counting
+# Tag: Lines SecuRT
+
+/v1/securt/instance/{instanceId}/line/counting:
+  post:
+    summary: Create counting line
+    description: Creates a new counting line for a SecuRT instance
+    operationId: createCountingLine
+    tags:
+    - Lines SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Instance ID
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CountingLineWrite'
+    responses:
+      '201':
+        description: Counting line created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lineId:
+                  type: string
+                  description: Created line ID
+                  example: '{lineId}'
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Instance not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for counting line
+    operationId: createCountingLineOptions
+    tags:
+    - Lines SecuRT
+    responses:
+      '200':
+        description: CORS preflight response

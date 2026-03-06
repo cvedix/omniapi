@@ -35,7 +35,7 @@ void LogManager::init(const std::string &base_dir, int max_disk_usage_percent,
   std::lock_guard<std::mutex> lock(cleanup_mutex_);
 
   // Get base directory from environment or use provided/default
-  // Default: /var/lib/edge_ai_api/logs (auto-created if needed)
+  // Default: /var/lib/edgeos-api/logs (auto-created if needed)
   base_dir_ = base_dir.empty() ? EnvConfig::resolveDataDir("LOG_DIR", "logs")
                                : base_dir;
 

@@ -1,0 +1,15 @@
+{
+  "name": "Custom Polygon Area",
+  "coordinates": [
+    {"x": 100, "y": 200},
+    {"x": 300, "y": 180},
+    {"x": 400, "y": 250},
+    {"x": 350, "y": 400},
+    {"x": 150, "y": 380}
+  ],
+  "classes": ["Person", "Vehicle", "Animal"],
+  "color": [255, 165, 0, 255],
+  "alertOnEnter": true,
+  "alertOnExit": true
+}
+

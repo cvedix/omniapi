@@ -1,0 +1,52 @@
+{
+  "name": "trt_yolov11_plate_detector_demo_1",
+  "group": "demo",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/test_video/plate.mp4",
+      "MODEL_PATH": "/opt/edgeos-api/models/tensorrt/license-plate-finetune-v1n.engine",
+      "CONF_THRESHOLD": "0.25",
+      "NMS_THRESHOLD": "0.45"
+    },
+    "output": {
+      "SAVE_DIR": "/tmp/output/trt_yolov11_plate_detector"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_trt_yolov11_plate",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "trt_yolov11_plate_detector",
+      "nodeName": "trt_yolov11_plate_detector",
+      "parameters": {
+        "model_path": "${MODEL_PATH}",
+        "conf_threshold": "${CONF_THRESHOLD}",
+        "nms_threshold": "${NMS_THRESHOLD}"
+      }
+    },
+    {
+      "nodeType": "osd_v3",
+      "nodeName": "osd_trt_yolov11_plate",
+      "parameters": {}
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_trt_yolov11_plate",
+      "parameters": {
+        "channel": "0"
+      }
+    }
+  ]
+}
+

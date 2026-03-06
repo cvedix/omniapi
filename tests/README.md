@@ -1,24 +1,49 @@
-# Unit Tests - Edge AI API
+# Tests Directory - Edge AI API
 
-## Tổng quan
+Thư mục này chứa tất cả các tests cho Edge AI API, được tổ chức thành 2 phần chính:
 
-Bộ unit tests cho Edge AI API sử dụng Google Test framework. Tests được thiết kế để chạy tự động sau mỗi lần build hoặc merge code để đảm bảo không có regression.
+## Cấu Trúc
 
-**Tổng số tests:** 15 tests từ 5 test suites
-- HealthHandler: 3 tests
-- VersionHandler: 4 tests
-- SwaggerHandler: 6 tests
-- WatchdogHandler: 1 test
-- EndpointsHandler: 1 test
+```
+tests/
+├── manual/          # Tài liệu và hướng dẫn test thủ công
+│   ├── ONVIF/       # Manual tests cho tính năng ONVIF
+│   ├── Recognition/ # Manual tests cho tính năng Recognition
+│   ├── Instance_Management/
+│   ├── Core_API/
+│   ├── Solutions/
+│   ├── Groups/
+│   ├── Nodes/
+│   ├── Analytics/
+│   └── Config/
+│
+├── unit/            # Unit tests tự động (Google Test)
+│   ├── ONVIF/       # Unit tests cho tính năng ONVIF
+│   ├── Recognition/ # Unit tests cho tính năng Recognition
+│   ├── Instance_Management/
+│   ├── Core_API/
+│   ├── Solutions/
+│   ├── Groups/
+│   ├── Nodes/
+│   ├── Analytics/
+│   ├── Config/
+│   └── test_main.cpp
+│
+├── CMakeLists.txt   # Cấu hình build cho unit tests
+└── README.md        # File này
+```
 
-## Cấu trúc Tests
+## Manual Tests
 
-- `test_main.cpp` - Entry point cho tests
-- `test_health_handler.cpp` - Tests cho HealthHandler
-- `test_version_handler.cpp` - Tests cho VersionHandler
-- `test_swagger_handler.cpp` - Tests cho SwaggerHandler (bao gồm validation, security)
-- `test_watchdog_handler.cpp` - Tests cho WatchdogHandler
-- `test_endpoints_handler.cpp` - Tests cho EndpointsHandler
+Thư mục `manual/` chứa các tài liệu hướng dẫn test thủ công cho từng tính năng lớn. Mỗi tính năng có thư mục riêng với các file markdown mô tả cách test.
+
+Xem chi tiết tại: [manual/README.md](manual/README.md)
+
+## Unit Tests
+
+Thư mục `unit/` chứa các unit tests tự động sử dụng Google Test framework. Tests được tổ chức theo từng tính năng lớn để dễ quản lý và maintain.
+
+Xem chi tiết tại: [unit/README.md](unit/README.md)
 
 ## Build và Chạy Tests
 
@@ -30,7 +55,7 @@ cmake .. -DBUILD_TESTS=ON
 make -j$(nproc)
 ```
 
-**Lưu ý:** Test executable sẽ được tạo tại `build/bin/edge_ai_api_tests` (không phải `build/tests/`)
+**Lưu ý:** Test executable sẽ được tạo tại `build/bin/edgeos-api_tests`
 
 ### Chạy tests
 
@@ -43,53 +68,61 @@ make -j$(nproc)
 ./scripts/run_tests.sh build
 ```
 
-**Cách 2: Chạy trực tiếp từ build/bin**
+**Cách 2: Chạy trực tiếp**
 ```bash
 cd build
-./bin/edge_ai_api_tests
+./bin/edgeos-api_tests
 ```
 
-**Cách 3: Từ project root**
-```bash
-./build/bin/edge_ai_api_tests
-```
-
-**Cách 4: Sử dụng CTest**
+**Cách 3: Sử dụng CTest**
 ```bash
 cd build
 ctest
 ```
 
-## Test Coverage
+## Tổng Quan Tests
 
-### HealthHandler Tests
-- ✅ Returns valid JSON
-- ✅ Status values validation
-- ✅ Timestamp format validation
-- ✅ Required fields presence
+**Tổng số unit tests:** 15+ tests từ nhiều test suites
 
-### VersionHandler Tests
-- ✅ Returns valid JSON
-- ✅ Field types validation
-- ✅ Service name validation
-- ✅ API version format validation
+### Core API Tests
+- HealthHandler: 3 tests
+- VersionHandler: 4 tests
+- SwaggerHandler: 6 tests
+- WatchdogHandler: 1 test
+- EndpointsHandler: 1 test
+- ConfigHandler: tests
+- SystemInfoHandler: tests
+- MetricsHandler: tests
 
-### SwaggerHandler Tests
-- ✅ Version format validation (v1, v2, etc.)
-- ✅ Path sanitization (prevent path traversal)
-- ✅ Swagger UI endpoint
-- ✅ Version-specific Swagger UI
-- ✅ Invalid version format handling
-- ✅ Extract version from path via requests
+### Instance Management Tests
+- InstanceStorage: tests
+- InstanceUpdate: tests
+- InstanceStatusSummary: tests
+- InstanceGetConfig: tests
+- InstanceConfigureStream: tests
+- CreateInstanceHandler: tests
 
-### WatchdogHandler Tests
-- ✅ Returns valid JSON
-- ✅ Required fields presence
+### Recognition Tests
+- RecognitionHandler: tests
 
-### EndpointsHandler Tests
-- ✅ Returns valid JSON
-- ✅ Endpoints array structure
-- ✅ Total endpoints count
+### Solutions Tests
+- SolutionHandler: tests
+
+### Groups Tests
+- GroupHandler: tests
+
+### Nodes Tests
+- NodeHandler: tests
+- NodePoolHandler: tests
+
+### Analytics Tests
+- LinesHandler: tests
+- JamsHandler: tests
+- StopsHandler: tests
+- BA Jam Detection: tests
+- BA Jam Pipeline: tests
+- SecuRT Handler: tests
+- Area Handler: tests
 
 ## Best Practices
 
@@ -97,14 +130,16 @@ ctest
 2. **Tests độc lập** - Mỗi test không phụ thuộc vào test khác
 3. **Cleanup trong TearDown** - Đảm bảo không có side effects
 4. **Test cả success và failure cases** - Đảm bảo error handling đúng
+5. **Tổ chức theo tính năng** - Dễ tìm và quản lý tests
 
 ## Thêm Tests Mới
 
 Khi thêm API handler mới:
 
-1. Tạo file `test_<handler_name>.cpp` trong thư mục `tests/`
-2. Thêm file vào `tests/CMakeLists.txt` trong `TEST_SOURCES`
-3. Viết tests cho:
+1. Xác định tính năng lớn mà handler thuộc về
+2. Tạo file `test_<handler_name>.cpp` trong thư mục `unit/<Feature>/`
+3. Thêm file vào `CMakeLists.txt` trong `TEST_SOURCES` với đường dẫn đầy đủ
+4. Viết tests cho:
    - Valid requests
    - Invalid requests
    - Edge cases
@@ -121,18 +156,7 @@ Tests có thể được tích hợp vào CI/CD pipeline:
     mkdir build && cd build
     cmake .. -DBUILD_TESTS=ON
     make -j$(nproc)
-    ./bin/edge_ai_api_tests
-```
-
-Hoặc sử dụng script:
-```yaml
-- name: Build and Test
-  run: |
-    mkdir build && cd build
-    cmake .. -DBUILD_TESTS=ON
-    make -j$(nproc)
-    cd ..
-    ./scripts/run_tests.sh build
+    ./bin/edgeos-api_tests
 ```
 
 ## Troubleshooting
@@ -145,10 +169,10 @@ Hoặc sử dụng script:
 
 ### Tests fail
 - Kiểm tra log output để xem test nào fail
-- Đảm bảo các dependencies (watchdog, health monitor) được setup đúng trong SetUp()
+- Đảm bảo các dependencies được setup đúng trong SetUp()
 - Xem chi tiết lỗi trong test output
 
 ### Không tìm thấy test executable
-- Test executable nằm tại `build/bin/edge_ai_api_tests` (không phải `build/tests/`)
+- Test executable nằm tại `build/bin/edgeos-api_tests`
 - Sử dụng script `./scripts/run_tests.sh` để tự động tìm đúng vị trí
-- Hoặc chạy trực tiếp: `./build/bin/edge_ai_api_tests`
+- Hoặc chạy trực tiếp: `./build/bin/edgeos-api_tests`

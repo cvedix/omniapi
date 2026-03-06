@@ -20,7 +20,11 @@ examples/instances/
 - **ba_crossline/** - Behavior analysis crossline solutions
 - **ba_jam/** - Behavior analysis jam (vehicle stopped) solutions
 - **ba_stop/** - Behavior analysis stop line solutions
+- **ba_crowding/** - Behavior analysis crowding detection
 - **mask_rcnn/** - Mask R-CNN segmentation solutions
+- **fire_smoke_detection/** - Fire/smoke detection (YOLO)
+- **obstacle_detection/** - Obstacle detection on road (YOLO)
+- **wrong_way_detection/** - Wrong-way vehicle detection (YOLO + tracking)
 - **infer_nodes/** - Các inference nodes riêng lẻ
 - **other_solutions/** - Các solutions khác
 
@@ -62,6 +66,14 @@ mask_rcnn/
     ├── test_file_source.json
     ├── example_mask_rcnn_rtmp.json
     └── README.md
+```
+
+### Fire/Smoke, Obstacle, Wrong-Way Detection (YOLO)
+```
+fire_smoke_detection/   obstacle_detection/   wrong_way_detection/
+└── yolo/               └── yolo/              └── yolo/
+    ├── example_*.json      ├── example_*.json     ├── example_*.json
+    └── README.md           └── README.md          └── README.md
 ```
 
 ### Inference Nodes theo Model Type
@@ -146,6 +158,15 @@ infer_nodes/
 - RTMP streaming (tùy chọn)
 
 **Xem:** [ba_stop/README.md](./ba_stop/README.md)
+
+### Object Detection (fire_smoke_detection, obstacle_detection, wrong_way_detection)
+
+**Solutions:**
+- `fire_smoke_detection`: Phát hiện lửa/khói (YOLO)
+- `obstacle_detection`: Phát hiện chướng ngại vật trên đường (YOLO)
+- `wrong_way_detection`: Phát hiện xe đi ngược chiều (YOLO + SORT tracking)
+
+**Ví dụ:** [fire_smoke_detection/yolo/](./fire_smoke_detection/yolo/), [obstacle_detection/yolo/](./obstacle_detection/yolo/), [wrong_way_detection/yolo/](./wrong_way_detection/yolo/)
 
 ## RTMP/MQTT Integration
 

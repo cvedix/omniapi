@@ -81,14 +81,14 @@ update_version_files() {
     
     # Update CMakeLists.txt
     if [ -f "$cmake_file" ]; then
-        sed -i "s/project(edge_ai_api VERSION [0-9.]*)/project(edge_ai_api VERSION $new_version)/" "$cmake_file"
+        sed -i "s/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION $new_version)/" "$cmake_file"
         echo -e "${GREEN}✓${NC} Updated CMakeLists.txt"
     fi
     
     # Update debian/changelog
     if [ -f "$changelog_file" ]; then
         # Update first line of changelog
-        sed -i "1s/edge-ai-api ([0-9.]*)/edge-ai-api ($new_version)/" "$changelog_file"
+        sed -i "1s/edgeos-api ([0-9.]*)/edgeos-api ($new_version)/" "$changelog_file"
         echo -e "${GREEN}✓${NC} Updated debian/changelog"
     fi
 }
@@ -202,7 +202,11 @@ if [ -d "$BUILD_LIB_DIR" ]; then
 fi
 
 # Copy CVEDIX SDK libraries if available
-if [ -d "/opt/cvedix/lib" ]; then
+# Check both old and new SDK locations for compatibility
+if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
+    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+elif [ -d "/opt/cvedix/lib" ]; then
     cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
     cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
 fi
@@ -358,8 +362,13 @@ bundle_libraries() {
     fi
 
     # Copy CVEDIX SDK libraries if available
-    if [ -d "/opt/cvedix/lib" ]; then
-        echo "  Copying CVEDIX SDK libraries..."
+    # Check both old and new SDK locations for compatibility
+    if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
+        echo "  Copying CVEDIX SDK libraries from /opt/cvedix-ai-runtime/lib/cvedix..."
+        cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_DIR/" 2>/dev/null || true
+        cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_DIR/" 2>/dev/null || true
+    elif [ -d "/opt/cvedix/lib" ]; then
+        echo "  Copying CVEDIX SDK libraries from /opt/cvedix/lib..."
         cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_DIR/" 2>/dev/null || true
         cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_DIR/" 2>/dev/null || true
     fi
@@ -573,8 +582,8 @@ echo ""
 if [ "$CLEAN_BUILD" = true ]; then
     echo -e "${BLUE}[2/5]${NC} Cleaning build directory..."
     rm -rf build
-    rm -rf debian/edge-ai-api
-    rm -f ../edge-ai-api_*.deb ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo
+    rm -rf debian/edgeos-api
+    rm -f ../edgeos-api_*.deb ../edgeos-api_*.changes ../edgeos-api_*.buildinfo
     echo -e "${GREEN}✓${NC} Cleaned"
     echo ""
 fi
@@ -614,9 +623,9 @@ fi
 # Check if executable exists - check multiple possible locations
 EXECUTABLE=""
 EXECUTABLE_PATHS=(
-    "build/bin/edge_ai_api"
-    "build/edge_ai_api"
-    "build/edge_ai_api/edge_ai_api"
+    "build/bin/edgeos-api"
+    "build/edgeos-api"
+    "build/edgeos-api/edgeos-api"
 )
 
 for path in "${EXECUTABLE_PATHS[@]}"; do
@@ -644,7 +653,7 @@ echo "Found executable: $EXECUTABLE"
 # ============================================
 echo -e "${BLUE}[4/5]${NC} Updating changelog..."
 if [ -f "debian/changelog" ]; then
-    sed -i "s/edge-ai-api (.*) unstable/edge-ai-api ($VERSION) unstable/" debian/changelog
+    sed -i "s/edgeos-api (.*) unstable/edgeos-api ($VERSION) unstable/" debian/changelog
     echo -e "${GREEN}✓${NC} Changelog updated"
 else
     echo -e "${YELLOW}⚠${NC}  debian/changelog not found, skipping..."
@@ -656,6 +665,15 @@ echo ""
 # ============================================
 # Note: Library bundling is handled by debian/rules during install phase
 echo -e "${BLUE}[5/5]${NC} Building Debian package..."
+
+# Use TMPDIR on /home/cvedix/Data (larger partition) to avoid disk space issues
+# This ensures all build tools (strip, dh_strip, etc.) use the larger partition
+export TMPDIR="${TMPDIR:-/home/cvedix/Data/tmp}"
+export TEMP="$TMPDIR"
+export TMP="$TMPDIR"
+mkdir -p "$TMPDIR"
+echo "Using TMPDIR: $TMPDIR (available space: $(df -h "$TMPDIR" | tail -1 | awk '{print $4}'))"
+
 export DEB_BUILD_OPTIONS="parallel=$(nproc)"
 
 # Build package (dpkg-buildpackage expects to be run from project root)
@@ -663,11 +681,11 @@ echo "Running dpkg-buildpackage..."
 dpkg-buildpackage -b -us -uc
 
 # Find the generated .deb file
-DEB_FILE=$(find .. -maxdepth 1 -name "edge-ai-api_${VERSION}_${ARCH}.deb" -o -name "edge-ai-api_*.deb" 2>/dev/null | head -1)
+DEB_FILE=$(find .. -maxdepth 1 -name "edgeos-api_${VERSION}_${ARCH}.deb" -o -name "edgeos-api_*.deb" 2>/dev/null | head -1)
 
 if [ -z "$DEB_FILE" ]; then
     # Try to find any .deb file in parent directory
-    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edge-ai-api | head -1)
+    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edgeos-api | head -1)
 fi
 
 if [ -z "$DEB_FILE" ]; then
@@ -678,7 +696,7 @@ fi
 
 # Get absolute path and move to project root with proper name
 DEB_FILE=$(readlink -f "$DEB_FILE")
-FINAL_NAME="edge-ai-api-${VERSION}-${ARCH}.deb"
+FINAL_NAME="edgeos-api-${VERSION}-${ARCH}.deb"
 
 if [ "$(basename "$DEB_FILE")" != "$FINAL_NAME" ]; then
     mv "$DEB_FILE" "$PROJECT_ROOT/$FINAL_NAME"
@@ -692,8 +710,8 @@ else
 fi
 
 # Clean up temporary files
-rm -rf debian/edge-ai-api
-rm -f ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo 2>/dev/null || true
+rm -rf debian/edgeos-api
+rm -f ../edgeos-api_*.changes ../edgeos-api_*.buildinfo 2>/dev/null || true
 
 # Generate version manifest
 if [ -f "$PROJECT_ROOT/packaging/scripts/generate_version_manifest.sh" ] && [ -f "$EXECUTABLE" ]; then
@@ -729,13 +747,13 @@ echo "3. If there are dependency issues:"
 echo "   sudo apt-get install -f"
 echo ""
 echo "4. Verify installation:"
-echo "   sudo /opt/edge_ai_api/scripts/validate_installation.sh --verbose"
+echo "   sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose"
 echo ""
 echo "5. Start the service:"
-echo "   sudo systemctl start edge-ai-api"
+echo "   sudo systemctl start edgeos-api"
 echo ""
 echo "6. Check status:"
-echo "   sudo systemctl status edge-ai-api"
+echo "   sudo systemctl status edgeos-api"
 echo ""
 echo "=========================================="
 echo "Reproducibility"

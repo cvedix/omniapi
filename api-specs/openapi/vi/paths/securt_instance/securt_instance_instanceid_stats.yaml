@@ -1,0 +1,58 @@
+# API endpoint: /v1/securt/instance/{instanceId}/stats
+# Tag: SecuRT Instance
+
+/v1/securt/instance/{instanceId}/stats:
+  get:
+    summary: Lấy thống kê instance SecuRT
+    description: Trả về thống kê của instance SecuRT gồm frame rate, độ trễ, số frame đã xử lý, số track, và
+      running status.
+    operationId: getSecuRTInstanceStats
+    tags:
+    - SecuRT Instance
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    responses:
+      '200':
+        description: Đã lấy thống kê thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecuRTInstanceStats'
+            example:
+              startTime: 1704067200000
+              frameRate: 30.5
+              latency: 33.2
+              framesProcessed: 91500
+              trackCount: 5
+              isRunning: true
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho stats
+    operationId: getSecuRTInstanceStatsOptions
+    tags:
+    - SecuRT Instance
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

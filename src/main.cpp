@@ -1,14 +1,18 @@
 #include "api/create_instance_handler.h"
 #include "api/health_handler.h"
 #include "api/instance_handler.h"
+#include "api/instance_fps_handler.h"
 #include "api/quick_instance_handler.h"
 #include "api/swagger_handler.h"
+#include "api/scalar_handler.h"
+#include "api/hls_handler.h"
 #include "api/version_handler.h"
 #include "api/watchdog_handler.h"
 #include <drogon/drogon.h>
 #ifdef ENABLE_SYSTEM_INFO_HANDLER
 #include "api/system_info_handler.h"
 #endif
+#include "api/license_handler.h"
 #include "api/ai_websocket.h"
 #include "api/config_handler.h"
 #include "api/endpoints_handler.h"
@@ -17,16 +21,32 @@
 #include "api/lines_handler.h"
 #include "api/log_handler.h"
 #include "api/node_handler.h"
+#include "api/onvif_handler.h"
 #include "api/recognition_handler.h"
 #include "api/solution_handler.h"
 #include "api/stops_handler.h"
+#include "api/securt_handler.h"
+#include "api/securt_line_handler.h"
+#include "api/area_handler.h"
+#include "api/system_handler.h"
+#include "core/exclusion_area_manager.h"
+#include "core/securt_feature_manager.h"
+#include "core/securt_instance_manager.h"
+#include "core/securt_line_manager.h"
+#include "core/analytics_entities_manager.h"
+#include "core/area_storage.h"
+#include "core/area_manager.h"
 #ifdef ENABLE_METRICS_HANDLER
 #include "api/metrics_handler.h"
 #endif
 #include "config/system_config.h"
+#include "core/system_config_manager.h"
+#include "core/preferences_manager.h"
+#include "core/decoder_detector.h"
 #include "core/categorized_logger.h"
 #include "core/cors_filter.h"
 #include "core/env_config.h"
+#include "core/shutdown_flag.h"
 #include "core/health_monitor.h"
 #include "core/logger.h"
 #include "core/logging_flags.h"
@@ -41,6 +61,7 @@
 #include "groups/group_registry.h"
 #include "groups/group_storage.h"
 #include "instances/inprocess_instance_manager.h"
+#include "instances/instance_manager.h"
 #include "instances/instance_manager_factory.h"
 #include "instances/instance_registry.h"
 #include "instances/instance_storage.h"
@@ -97,8 +118,11 @@ static std::atomic<bool> g_shutdown_requested{false};
 static std::unique_ptr<Watchdog> g_watchdog;
 static std::unique_ptr<HealthMonitor> g_health_monitor;
 
-// Global instance registry pointer for error recovery
+// Global instance registry pointer for error recovery (in-process only)
 static InstanceRegistry *g_instance_registry = nullptr;
+
+// Global instance manager pointer for recovery/shutdown (in-process + subprocess)
+static IInstanceManager *g_instance_manager = nullptr;
 
 // Flag to prevent multiple handlers from stopping instances simultaneously
 static std::atomic<bool> g_cleanup_in_progress{false};
@@ -172,7 +196,8 @@ void segfaultHandler(int /*signal*/) // Parameter name commented to avoid
               << std::endl;
     std::cerr << "[CRITICAL] Too many segmentation faults (" << count
               << ") - forcing exit to prevent infinite crash loop" << std::endl;
-    std::cerr << "[CRITICAL] This indicates RTSP stream is completely unstable"
+    std::cerr << "[CRITICAL] This may be caused by GStreamer/RTSP/RTMP pipeline "
+                 "under load (e.g. queue full, stream lost)"
               << std::endl;
     std::cerr
         << "[CRITICAL] Process will exit immediately to prevent system hang"
@@ -186,30 +211,24 @@ void segfaultHandler(int /*signal*/) // Parameter name commented to avoid
     g_force_exit.store(true, std::memory_order_relaxed);
 
     // Try to stop all instances quickly (with timeout)
-    // FIX: Capture g_instance_registry pointer value to avoid use-after-free
-    InstanceRegistry *registry_ptr =
-        g_instance_registry;             // Capture pointer value
+    // Use instance manager so subprocess workers are stopped too
     auto force_exit_ref = &g_force_exit; // Capture address of atomic (safe)
-    if (registry_ptr) {
-      std::thread([registry_ptr, force_exit_ref]() {
+    IInstanceManager *mgr_ptr = g_instance_manager;
+    if (mgr_ptr) {
+      std::thread([mgr_ptr, force_exit_ref]() {
         try {
-          auto instances = registry_ptr->listInstances();
+          auto instances = mgr_ptr->listInstances();
           for (const auto &instanceId : instances) {
             if (force_exit_ref->load(std::memory_order_relaxed))
               break;
             try {
-              auto optInfo = registry_ptr->getInstance(instanceId);
+              auto optInfo = mgr_ptr->getInstance(instanceId);
               if (optInfo.has_value() && optInfo.value().running) {
-                // Use async with very short timeout (100ms) - just try to stop,
-                // don't wait FIX: Capture registry_ptr by value
-                InstanceRegistry *reg_ptr = registry_ptr;
-                // ✅ Store future to avoid unused-result warning (we don't wait
-                // for it)
                 auto future =
-                    std::async(std::launch::async, [reg_ptr, instanceId]() {
+                    std::async(std::launch::async, [mgr_ptr, instanceId]() {
                       try {
-                        if (reg_ptr) {
-                          reg_ptr->stopInstance(instanceId);
+                        if (mgr_ptr) {
+                          mgr_ptr->stopInstance(instanceId);
                         }
                       } catch (...) {
                         // Ignore errors
@@ -245,7 +264,7 @@ void segfaultHandler(int /*signal*/) // Parameter name commented to avoid
     std::cerr << "[CRITICAL] Segmentation fault (SIGSEGV) detected! (count: "
               << count << ")" << std::endl;
     std::cerr << "[CRITICAL] This is likely caused by GStreamer pipeline crash "
-                 "when RTSP stream is lost"
+                 "(e.g. RTSP/RTMP stream lost or queue full)"
               << std::endl;
     std::cerr << "[CRITICAL] Monitoring thread will attempt to reconnect "
                  "automatically"
@@ -315,6 +334,7 @@ void signalHandler(int signal) {
                 << std::endl;
       g_shutdown = true;
       g_shutdown_requested = true;
+      ShutdownFlag::setRequested(); // Let long-running handlers abort quickly
       g_shutdown_request_time = std::chrono::steady_clock::now();
 
       // CRITICAL: Release signal handling lock IMMEDIATELY after setting
@@ -488,17 +508,31 @@ void signalHandler(int signal) {
         }
       }).detach();
 
-      // CRITICAL: Immediately try to force-stop RTSP nodes to break retry loops
-      // This runs synchronously in signal handler context (but in separate
-      // thread) to be as fast as possible RTSP retry loops run in SDK threads
-      // and cannot be stopped gracefully, so we must force detach
+      // CRITICAL: Stop all instances via instance manager (in-process + subprocess)
+      // Then force-detach RTSP nodes (in-process only) to break retry loops
       std::thread([]() {
-        // Run immediately without delay - this is critical to break retry loops
+        IInstanceManager *mgr = g_instance_manager;
+        if (mgr) {
+          try {
+            auto instances = mgr->listInstances();
+            for (const auto &instanceId : instances) {
+              if (g_force_exit.load())
+                break;
+              try {
+                mgr->stopInstance(instanceId);
+              } catch (...) {
+                // Ignore errors - continue with other instances
+              }
+            }
+          } catch (...) {
+            // Ignore errors - timeout thread will force exit anyway
+          }
+        }
+        // In-process only: force-detach RTSP nodes to break retry loops
         if (g_instance_registry) {
           try {
             std::cerr << "[SHUTDOWN] Force-detaching RTSP nodes immediately..."
                       << std::endl;
-            // Get all running instances and immediately detach RTSP nodes
             auto instances = g_instance_registry->listInstances();
             for (const auto &instanceId : instances) {
               if (g_force_exit.load())
@@ -506,8 +540,6 @@ void signalHandler(int signal) {
               try {
                 auto optInfo = g_instance_registry->getInstance(instanceId);
                 if (optInfo.has_value() && optInfo.value().running) {
-                  // Get nodes from registry and immediately detach RTSP source
-                  // nodes
                   auto nodes =
                       g_instance_registry->getInstanceNodes(instanceId);
                   if (!nodes.empty() && nodes[0]) {
@@ -518,8 +550,6 @@ void signalHandler(int signal) {
                                    "instance: "
                                 << instanceId << std::endl;
                       try {
-                        // Force detach immediately - this should break retry
-                        // loop
                         rtspNode->detach_recursively();
                         std::cerr
                             << "[SHUTDOWN] ✓ RTSP node detached for instance: "
@@ -529,17 +559,14 @@ void signalHandler(int signal) {
                             << "[SHUTDOWN] ⚠ Exception detaching RTSP node: "
                             << e.what() << std::endl;
                       } catch (...) {
-                        // Ignore errors - just try to break the retry loop
                       }
                     }
                   }
                 }
               } catch (...) {
-                // Ignore errors - continue with other instances
               }
             }
           } catch (...) {
-            // Ignore errors - timeout thread will force exit anyway
           }
         }
       }).detach();
@@ -676,14 +703,15 @@ void signalHandler(int signal) {
     // simultaneously
     bool expected = false;
     if (g_cleanup_in_progress.compare_exchange_strong(expected, true)) {
-      if (g_instance_registry) {
+      IInstanceManager *mgr = g_instance_manager;
+      if (mgr) {
         try {
-          // Get all instances and stop them
+          // Get all instances and stop them via instance manager (in-process + subprocess)
           // listInstances() has timeout protection - may return empty if mutex
           // is locked
           std::vector<std::string> instances;
           try {
-            instances = g_instance_registry->listInstances();
+            instances = mgr->listInstances();
           } catch (const std::exception &e) {
             std::cerr << "[RECOVERY] Error listing instances: " << e.what()
                       << std::endl;
@@ -731,11 +759,12 @@ void signalHandler(int signal) {
 
                 // Use async with timeout to prevent deadlock if stopInstance()
                 // is blocked
+                IInstanceManager *stop_mgr = g_instance_manager;
                 auto future =
-                    std::async(std::launch::async, [instanceId]() -> bool {
+                    std::async(std::launch::async, [stop_mgr, instanceId]() -> bool {
                       try {
-                        if (g_instance_registry) {
-                          g_instance_registry->stopInstance(instanceId);
+                        if (stop_mgr) {
+                          stop_mgr->stopInstance(instanceId);
                           return true;
                         }
                         return false;
@@ -787,7 +816,7 @@ void signalHandler(int signal) {
                        "use faster hardware"
                     << std::endl;
         } catch (...) {
-          std::cerr << "[RECOVERY] Error accessing instance registry"
+          std::cerr << "[RECOVERY] Error accessing instance manager"
                     << std::endl;
         }
       }
@@ -858,18 +887,19 @@ void terminateHandler() {
               << std::endl;
     std::cerr << "[RECOVERY] Exception: " << error_msg << std::endl;
 
-    // Try to stop all instances before aborting
+    // Try to stop all instances before aborting via instance manager
     // NOTE: Use atomic flag to prevent deadlock if SIGABRT handler is also
     // trying to stop instances
     bool expected = false;
     if (g_cleanup_in_progress.compare_exchange_strong(expected, true)) {
-      if (g_instance_registry) {
+      IInstanceManager *mgr = g_instance_manager;
+      if (mgr) {
         try {
           // Get list of instances (this acquires lock briefly)
           // If this fails due to deadlock, skip cleanup to avoid crash
           std::vector<std::string> instances;
           try {
-            instances = g_instance_registry->listInstances();
+            instances = mgr->listInstances();
           } catch (const std::exception &e) {
             std::cerr
                 << "[RECOVERY] Cannot list instances (possible deadlock): "
@@ -893,15 +923,12 @@ void terminateHandler() {
               std::cerr << "[RECOVERY] Stopping instance " << instanceId
                         << " due to shape mismatch..." << std::endl;
 
-              // Use async with timeout to prevent deadlock if stopInstance() is
-              // blocked FIX: Capture g_instance_registry pointer value to avoid
-              // use-after-free
-              InstanceRegistry *reg_ptr = g_instance_registry;
+              IInstanceManager *stop_mgr = mgr;
               auto future = std::async(std::launch::async,
-                                       [reg_ptr, instanceId]() -> bool {
+                                       [stop_mgr, instanceId]() -> bool {
                                          try {
-                                           if (reg_ptr) {
-                                             reg_ptr->stopInstance(instanceId);
+                                           if (stop_mgr) {
+                                             stop_mgr->stopInstance(instanceId);
                                              return true;
                                            }
                                            return false;
@@ -1005,18 +1032,19 @@ void terminateHandler() {
                    // corrupted state)
   }
 
-  // For other exceptions, try to stop instances gracefully
+  // For other exceptions, try to stop instances gracefully via instance manager
   // BUT: Be very careful to avoid deadlock - if we're already in stopInstance,
   // don't call it again
   bool expected = false;
   if (g_cleanup_in_progress.compare_exchange_strong(expected, true)) {
-    if (g_instance_registry) {
+    IInstanceManager *mgr = g_instance_manager;
+    if (mgr) {
       try {
         // Use a timeout or non-blocking approach to avoid deadlock
         // If listInstances() fails (e.g., due to deadlock), just skip cleanup
         std::vector<std::string> instances;
         try {
-          instances = g_instance_registry->listInstances();
+          instances = mgr->listInstances();
         } catch (const std::exception &e) {
           std::cerr << "[CRITICAL] Cannot list instances (possible deadlock): "
                     << e.what() << std::endl;
@@ -1034,13 +1062,12 @@ void terminateHandler() {
         // Use async with timeout to prevent blocking if stopInstance() is stuck
         for (const auto &instanceId : instances) {
           try {
-            // Use async with timeout to prevent deadlock if stopInstance() is
-            // blocked
+            IInstanceManager *stop_mgr = mgr;
             auto future =
-                std::async(std::launch::async, [instanceId]() -> bool {
+                std::async(std::launch::async, [stop_mgr, instanceId]() -> bool {
                   try {
-                    if (g_instance_registry) {
-                      g_instance_registry->stopInstance(instanceId);
+                    if (stop_mgr) {
+                      stop_mgr->stopInstance(instanceId);
                       return true;
                     }
                     return false;
@@ -1746,8 +1773,8 @@ static void setupGStreamerPluginPath(bool enable_find_search = false) {
   // Method 1: Check for bundled plugins FIRST (ALL-IN-ONE package)
   // This is the most reliable for all-in-one packages
   std::vector<std::string> bundled_paths = {
-      "/opt/edge_ai_api/lib/gstreamer-1.0",
-      "/usr/local/edge_ai_api/lib/gstreamer-1.0"};
+      "/opt/edgeos-api/lib/gstreamer-1.0",
+      "/usr/local/edgeos-api/lib/gstreamer-1.0"};
   
   for (const auto &path : bundled_paths) {
     if (std::filesystem::exists(path) && std::filesystem::is_directory(path) &&
@@ -2030,9 +2057,10 @@ int main(int argc, char *argv[]) {
     // SystemConfig)
     auto webServerConfig = systemConfig.getWebServerConfig();
     std::string host = webServerConfig.ipAddress;
-    uint16_t port = webServerConfig.port;
+    int port = static_cast<int>(webServerConfig.port); // Use int for port retry logic
+    int original_port = port; // Store original for comparison
 
-    PLOG_INFO << "Server will listen on: " << host << ":" << port;
+    PLOG_INFO << "Server will attempt to listen on: " << host << ":" << port;
     PLOG_INFO << "Available endpoints:";
     PLOG_INFO << "  GET /v1/core/health  - Health check";
     PLOG_INFO << "  GET /v1/core/version - Version information";
@@ -2072,11 +2100,14 @@ int main(int argc, char *argv[]) {
     static VersionHandler versionHandler;
     static WatchdogHandler watchdogHandler;
     static SwaggerHandler swaggerHandler;
+    static ScalarHandler scalarHandler;
+    static HlsHandler hlsHandler;
     static EndpointsHandler endpointsHandler;
     static LogHandler logHandler;
 #ifdef ENABLE_SYSTEM_INFO_HANDLER
     static SystemInfoHandler systemInfoHandler;
 #endif
+    static LicenseHandler licenseHandler;
 #ifdef ENABLE_METRICS_HANDLER
     static MetricsHandler metricsHandler;
 #endif
@@ -2086,7 +2117,7 @@ int main(int argc, char *argv[]) {
     static PipelineBuilder pipelineBuilder;
 
     // Initialize instance storage with configurable directory
-    // Priority: 1. INSTANCES_DIR env var, 2. /opt/edge_ai_api/instances (with
+    // Priority: 1. INSTANCES_DIR env var, 2. /opt/edgeos-api/instances (with
     // auto-fallback)
     std::string instancesDir;
     const char *env_instances_dir = std::getenv("INSTANCES_DIR");
@@ -2095,9 +2126,9 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using INSTANCES_DIR from environment: "
                 << instancesDir << std::endl;
     } else {
-      // Try /opt/edge_ai_api/instances first, fallback to user directory if
+      // Try /opt/edgeos-api/instances first, fallback to user directory if
       // needed
-      instancesDir = "/opt/edge_ai_api/instances";
+      instancesDir = "/opt/edgeos-api/instances";
       std::cerr << "[Main] Attempting to use: " << instancesDir << std::endl;
     }
 
@@ -2135,7 +2166,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/instances";
+                  std::string(home) + "/.local/share/edgeos-api/instances";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2145,11 +2176,11 @@ int main(int argc, char *argv[]) {
                 std::cerr << "[Main] ✓ Using fallback directory: "
                           << instancesDir << std::endl;
                 std::cerr
-                    << "[Main] ℹ Note: To use /opt/edge_ai_api/instances, "
+                    << "[Main] ℹ Note: To use /opt/edgeos-api/instances, "
                        "create parent directory:"
                     << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2261,7 +2292,7 @@ int main(int argc, char *argv[]) {
       } else {
         // Default: try absolute path first, then fallback to just executable name
         // This allows supervisor's findWorkerExecutable() to search in PATH
-        worker_executable = "edge_ai_worker";
+        worker_executable = "edgeos-worker";
         std::cerr << "[Main] Using default worker executable: " << worker_executable
                   << " (set EDGE_AI_WORKER_PATH to override)" << std::endl;
       }
@@ -2283,6 +2314,9 @@ int main(int argc, char *argv[]) {
           << "[Main] In-process instance manager initialized (legacy mode)";
     }
 
+    // Set global pointer for recovery/shutdown (SIGABRT, terminate, shutdown)
+    g_instance_manager = instanceManager.get();
+
     // Initialize default solutions (face_detection, etc.)
     solutionRegistry.initializeDefaultSolutions();
 
@@ -2292,7 +2326,7 @@ int main(int argc, char *argv[]) {
     PLOG_INFO << "[Main] Node pool manager initialized with default templates";
 
     // Initialize node storage and load persisted nodes
-    // Priority: 1. NODES_DIR env var, 2. /opt/edge_ai_api/nodes (with
+    // Priority: 1. NODES_DIR env var, 2. /opt/edgeos-api/nodes (with
     // auto-fallback)
     std::string nodesDir;
     const char *env_nodes_dir = std::getenv("NODES_DIR");
@@ -2301,8 +2335,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using NODES_DIR from environment: " << nodesDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/nodes first, fallback to user directory if needed
-      nodesDir = "/opt/edge_ai_api/nodes";
+      // Try /opt/edgeos-api/nodes first, fallback to user directory if needed
+      nodesDir = "/opt/edgeos-api/nodes";
       std::cerr << "[Main] Attempting to use: " << nodesDir << std::endl;
     }
 
@@ -2341,7 +2375,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/nodes";
+                  std::string(home) + "/.local/share/edgeos-api/nodes";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2350,11 +2384,11 @@ int main(int argc, char *argv[]) {
                 nodes_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << nodesDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/nodes, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/nodes, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2472,7 +2506,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Initialize solution storage and load custom solutions
-    // Default: /opt/edge_ai_api/solutions (auto-created if needed, with
+    // Default: /opt/edgeos-api/solutions (auto-created if needed, with
     // fallback)
     std::string solutionsDir =
         EnvConfig::resolveDataDir("SOLUTIONS_DIR", "solutions");
@@ -2524,13 +2558,14 @@ int main(int argc, char *argv[]) {
     QuickInstanceHandler::setInstanceManager(instanceManager.get());
     QuickInstanceHandler::setSolutionRegistry(&solutionRegistry);
     InstanceHandler::setInstanceManager(instanceManager.get());
+    InstanceFpsHandler::setInstanceManager(instanceManager.get());
 
     // Register solution registry and storage with solution handler
     SolutionHandler::setSolutionRegistry(&solutionRegistry);
     SolutionHandler::setSolutionStorage(&solutionStorage);
 
     // Initialize group registry and storage
-    // Default: /var/lib/edge_ai_api/groups (auto-created if needed)
+    // Default: /var/lib/edgeos-api/groups (auto-created if needed)
     std::string groupsDir = EnvConfig::resolveDataDir("GROUPS_DIR", "groups");
     PLOG_INFO << "[Main] Groups directory: " << groupsDir;
     static GroupStorage groupStorage(groupsDir);
@@ -2589,21 +2624,57 @@ int main(int argc, char *argv[]) {
     // Register instance manager with WebSocket controller
     AIWebSocketController::setInstanceManager(instanceManager.get());
 
+    // Initialize SecuRT instance manager and analytics entities manager
+    static SecuRTInstanceManager securtInstanceManager(instanceManager.get());
+    static AnalyticsEntitiesManager analyticsEntitiesManager;
+    static SecuRTLineManager securtLineManager;
+
+    // Initialize Area storage and manager
+    static AreaStorage areaStorage;
+    static AreaManager areaManager(&areaStorage, &securtInstanceManager);
+
+    // Initialize SecuRT feature managers
+    static SecuRTFeatureManager securtFeatureManager;
+    static ExclusionAreaManager exclusionAreaManager;
+
+    // Register SecuRT managers with handlers
+    SecuRTHandler::setInstanceManager(&securtInstanceManager);
+    SecuRTHandler::setAnalyticsEntitiesManager(&analyticsEntitiesManager);
+    SecuRTHandler::setFeatureManager(&securtFeatureManager);
+    SecuRTHandler::setExclusionAreaManager(&exclusionAreaManager);
+    SecuRTHandler::setCoreInstanceManager(instanceManager.get());
+    SecuRTLineHandler::setInstanceManager(&securtInstanceManager);
+    SecuRTLineHandler::setLineManager(&securtLineManager);
+    analyticsEntitiesManager.setLineManager(&securtLineManager);
+
+    // Register Area manager with handler and analytics entities manager
+    AreaHandler::setAreaManager(&areaManager);
+    AnalyticsEntitiesManager::setAreaManager(&areaManager);
+
+    // Register Area and Line managers with PipelineBuilder for SecuRT integration
+    PipelineBuilder::setAreaManager(&areaManager);
+    PipelineBuilder::setLineManager(&securtLineManager);
+
     // CRITICAL: Create handler instances AFTER dependencies are set
     // This ensures handlers are ready when Drogon registers routes
     // Handlers created here depend on dependencies set above
     static CreateInstanceHandler createInstanceHandler;
     static QuickInstanceHandler quickInstanceHandler;
     static InstanceHandler instanceHandler;
+    static InstanceFpsHandler instanceFpsHandler;
     static SolutionHandler solutionHandler;
     static GroupHandler groupHandler;
     static NodeHandler nodeHandler;
+    static ONVIFHandler onvifHandler;
     static LinesHandler linesHandler;
     static JamsHandler jamsHandler;
     static StopsHandler stopsHandler;
+    static SecuRTHandler securtHandler;
+    static SecuRTLineHandler securtLineHandler;
+    static AreaHandler areaHandler;
 
     // Initialize model upload handler with configurable directory
-    // Priority: 1. MODELS_DIR env var, 2. /opt/edge_ai_api/models (with
+    // Priority: 1. MODELS_DIR env var, 2. /opt/edgeos-api/models (with
     // auto-fallback)
     std::string modelsDir;
     const char *env_models_dir = std::getenv("MODELS_DIR");
@@ -2612,8 +2683,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using MODELS_DIR from environment: " << modelsDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/models first, fallback to user directory if needed
-      modelsDir = "/opt/edge_ai_api/models";
+      // Try /opt/edgeos-api/models first, fallback to user directory if needed
+      modelsDir = "/opt/edgeos-api/models";
       std::cerr << "[Main] Attempting to use: " << modelsDir << std::endl;
     }
 
@@ -2652,7 +2723,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/models";
+                  std::string(home) + "/.local/share/edgeos-api/models";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2661,11 +2732,11 @@ int main(int argc, char *argv[]) {
                 models_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << modelsDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/models, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/models, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2738,7 +2809,7 @@ int main(int argc, char *argv[]) {
     static ModelUploadHandler modelUploadHandler;
 
     // Initialize video upload handler with configurable directory
-    // Priority: 1. VIDEOS_DIR env var, 2. /opt/edge_ai_api/videos (with
+    // Priority: 1. VIDEOS_DIR env var, 2. /opt/edgeos-api/videos (with
     // auto-fallback)
     std::string videosDir;
     const char *env_videos_dir = std::getenv("VIDEOS_DIR");
@@ -2747,8 +2818,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using VIDEOS_DIR from environment: " << videosDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/videos first, fallback to user directory if needed
-      videosDir = "/opt/edge_ai_api/videos";
+      // Try /opt/edgeos-api/videos first, fallback to user directory if needed
+      videosDir = "/opt/edgeos-api/videos";
       std::cerr << "[Main] Attempting to use: " << videosDir << std::endl;
     }
 
@@ -2787,7 +2858,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/videos";
+                  std::string(home) + "/.local/share/edgeos-api/videos";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2796,11 +2867,11 @@ int main(int argc, char *argv[]) {
                 videos_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << videosDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/videos, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/videos, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -2874,7 +2945,7 @@ int main(int argc, char *argv[]) {
     static RecognitionHandler recognitionHandler;
 
     // Initialize font upload handler with configurable directory
-    // Priority: 1. FONTS_DIR env var, 2. /opt/edge_ai_api/fonts (with
+    // Priority: 1. FONTS_DIR env var, 2. /opt/edgeos-api/fonts (with
     // auto-fallback)
     std::string fontsDir;
     const char *env_fonts_dir = std::getenv("FONTS_DIR");
@@ -2883,8 +2954,8 @@ int main(int argc, char *argv[]) {
       std::cerr << "[Main] Using FONTS_DIR from environment: " << fontsDir
                 << std::endl;
     } else {
-      // Try /opt/edge_ai_api/fonts first, fallback to user directory if needed
-      fontsDir = "/opt/edge_ai_api/fonts";
+      // Try /opt/edgeos-api/fonts first, fallback to user directory if needed
+      fontsDir = "/opt/edgeos-api/fonts";
       std::cerr << "[Main] Attempting to use: " << fontsDir << std::endl;
     }
 
@@ -2923,7 +2994,7 @@ int main(int argc, char *argv[]) {
             const char *home = std::getenv("HOME");
             if (home) {
               std::string fallback_path =
-                  std::string(home) + "/.local/share/edge_ai_api/fonts";
+                  std::string(home) + "/.local/share/edgeos-api/fonts";
               std::cerr << "[Main] Auto-fallback: Trying user directory: "
                         << fallback_path << std::endl;
               try {
@@ -2932,11 +3003,11 @@ int main(int argc, char *argv[]) {
                 fonts_directory_ready = true;
                 std::cerr << "[Main] ✓ Using fallback directory: " << fontsDir
                           << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edge_ai_api/fonts, "
+                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/fonts, "
                              "create parent directory:"
                           << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edge_ai_api && "
-                             "sudo chown $USER:$USER /opt/edge_ai_api"
+                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
+                             "sudo chown $USER:$USER /opt/edgeos-api"
                           << std::endl;
               } catch (const std::exception &fallback_e) {
                 std::cerr << "[Main] ⚠ Fallback also failed: "
@@ -3089,6 +3160,19 @@ int main(int argc, char *argv[]) {
     // Create config handler instance to register endpoints
     static ConfigHandler configHandler;
 
+    // Initialize system managers
+    auto &systemConfigManager = SystemConfigManager::getInstance();
+    systemConfigManager.loadConfig();
+
+    auto &preferencesManager = PreferencesManager::getInstance();
+    preferencesManager.loadPreferences();
+
+    auto &decoderDetector = DecoderDetector::getInstance();
+    decoderDetector.detectDecoders();
+
+    // Register system handler
+    static SystemHandler systemHandler;
+
     PLOG_INFO << "[Main] Instance management initialized";
     PLOG_INFO << "  POST /v1/core/instance - Create new instance";
     PLOG_INFO << "  GET /v1/core/instance - List all instances";
@@ -3168,13 +3252,11 @@ int main(int argc, char *argv[]) {
     // etc.) are available but not initialized here since AI processing
     // endpoints are not needed yet. They can be enabled later when needed.
 
-    // Initialize watchdog and health monitor from environment variables
-    uint32_t watchdog_check_interval =
-        EnvConfig::getUInt32("WATCHDOG_CHECK_INTERVAL_MS", 5000);
-    uint32_t watchdog_timeout =
-        EnvConfig::getUInt32("WATCHDOG_TIMEOUT_MS", 30000);
-    uint32_t health_monitor_interval =
-        EnvConfig::getUInt32("HEALTH_MONITOR_INTERVAL_MS", 1000);
+    // Initialize watchdog and health monitor from config.json (with env var fallback)
+    auto monitoringConfig = systemConfig.getMonitoringConfig();
+    uint32_t watchdog_check_interval = monitoringConfig.watchdogCheckIntervalMs;
+    uint32_t watchdog_timeout = monitoringConfig.watchdogTimeoutMs;
+    uint32_t health_monitor_interval = monitoringConfig.healthMonitorIntervalMs;
 
     g_watchdog =
         std::make_unique<Watchdog>(watchdog_check_interval, watchdog_timeout);
@@ -3236,251 +3318,140 @@ int main(int argc, char *argv[]) {
     retryMonitorThread.detach(); // Detach so it runs independently
     PLOG_INFO << "[Main] Retry limit monitoring thread started";
 
-    // TEMPORARILY DISABLED: Queue monitoring thread
-    // This thread monitors instance FPS and queue status to proactively prevent
-    // deadlock When FPS drops to 0 or queue warnings are excessive,
-    // automatically restart instance
-    /*
-    std::thread queueMonitorThread([&instanceRegistry]() {
-        #ifdef __GLIBC__
+    // Queue monitoring thread (optional, enable via EDGE_AI_QUEUE_MONITOR_ENABLED=true)
+    // Monitors instance FPS and queue status; restarts instance when FPS=0 or queue full
+    if (EnvConfig::getBool("EDGE_AI_QUEUE_MONITOR_ENABLED", false)) {
+      IInstanceManager *queueMgr = g_instance_manager;
+      std::thread queueMonitorThread([queueMgr]() {
+#ifdef __GLIBC__
         pthread_setname_np(pthread_self(), "queue-monitor");
-        #endif
+#endif
+        PLOG_INFO << "[QueueMonitor] Thread started - monitoring queue status and FPS (reason: EDGE_AI_QUEUE_MONITOR_ENABLED=true)";
 
-        PLOG_INFO << "[QueueMonitor] Thread started - monitoring queue status
-    and FPS";
-
-        auto& queueMonitor = QueueMonitor::getInstance();
+        auto &queueMonitor = QueueMonitor::getInstance();
         queueMonitor.startMonitoring();
         queueMonitor.setAutoClearThreshold(20.0);  // 20 warnings per second
-    (reduced for faster response) queueMonitor.setMonitoringWindow(3);  // 3
-    seconds window (reduced for faster response)
+        queueMonitor.setMonitoringWindow(3);       // 3 seconds window
 
-        // Track FPS history for each instance
         std::map<std::string, std::vector<double>> fps_history;
         std::map<std::string, int> zero_fps_count;
-        std::map<std::string, std::chrono::steady_clock::time_point>
-    last_restart_time;
+        std::map<std::string, std::chrono::steady_clock::time_point> last_restart_time;
 
-        while (!g_shutdown && !g_force_exit.load()) {
-            try {
-                // Check queue status every 1 second (very aggressive to detect
-    issues immediately)
-                // This is critical to prevent deadlock when queue fills up
-    quickly std::this_thread::sleep_for(std::chrono::seconds(1));
+        const int GRACE_PERIOD_SECONDS = 15;  // Skip FPS checks for new instances
+        const int RESTART_COOLDOWN_SECONDS = 30;  // Prevent restart loops
 
-                if (g_shutdown || g_force_exit.load()) {
-                    break;
+        while (!g_shutdown && !g_force_exit.load() && queueMgr) {
+          try {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (g_shutdown || g_force_exit.load())
+              break;
+
+            auto instances = queueMgr->listInstances();
+            for (const auto &instanceId : instances) {
+              auto optInfo = queueMgr->getInstance(instanceId);
+              if (!optInfo.has_value() || !optInfo.value().running)
+                continue;
+
+              const auto &info = optInfo.value();
+              double current_fps = info.fps;
+              auto now = std::chrono::steady_clock::now();
+              auto time_since_start = std::chrono::duration_cast<std::chrono::seconds>(now - info.startTime).count();
+
+              if (current_fps == 0.0 && info.hasReceivedData)
+                queueMonitor.recordQueueFullWarning(instanceId, "fps_zero_detected");
+
+              if (time_since_start < GRACE_PERIOD_SECONDS)
+                continue;
+
+              auto last_restart_it = last_restart_time.find(instanceId);
+              if (last_restart_it != last_restart_time.end()) {
+                auto time_since_restart = std::chrono::duration_cast<std::chrono::seconds>(now - last_restart_it->second).count();
+                if (time_since_restart < RESTART_COOLDOWN_SECONDS)
+                  continue;
+              }
+
+              auto &history = fps_history[instanceId];
+              history.push_back(current_fps);
+              if (history.size() > 6)
+                history.erase(history.begin());
+
+              bool should_restart = false;
+              std::string reason;
+
+              if (current_fps == 0.0) {
+                zero_fps_count[instanceId]++;
+                queueMonitor.recordQueueFullWarning(instanceId, "fps_zero_indicator");
+                if (zero_fps_count[instanceId] >= 2 && info.hasReceivedData) {
+                  should_restart = true;
+                  reason = "FPS = 0 for 2+ seconds (possible queue full - restarting immediately)";
                 }
+              } else {
+                zero_fps_count[instanceId] = 0;
+              }
 
-                // Get all running instances
-                auto instances = instanceManager->listInstances();
-                for (const auto& instanceId : instances) {
-                    auto optInfo = instanceManager->getInstance(instanceId);
-                    if (!optInfo.has_value() || !optInfo.value().running) {
-                        continue;
-                    }
-
-                    const auto& info = optInfo.value();
-                    double current_fps = info.fps;
-
-                    // CRITICAL: Manually record queue full warnings if FPS = 0
-                    // This helps detect issues even if warnings aren't being
-    recorded elsewhere
-                    // FPS = 0 usually indicates queue is full and processing is
-    blocked if (current_fps == 0.0 && info.hasReceivedData) {
-                        // Instance was working but now FPS = 0 - likely queue
-    full queueMonitor.recordQueueFullWarning(instanceId, "fps_zero_detected");
-                    }
-
-                    // Calculate time since instance started
-                    auto now = std::chrono::steady_clock::now();
-                    auto time_since_start =
-    std::chrono::duration_cast<std::chrono::seconds>( now -
-    info.startTime).count();
-
-                    // Grace period: Skip FPS checks for instances that just
-    started (15 seconds)
-                    // This prevents false positives when instance is still
-    initializing const int GRACE_PERIOD_SECONDS = 15; if (time_since_start <
-    GRACE_PERIOD_SECONDS) {
-                        // Instance is still in grace period - skip FPS checks
-                        continue;
-                    }
-
-                    // Prevent restart loops: Don't restart if we just restarted
-    this instance recently (30 seconds) auto last_restart_it =
-    last_restart_time.find(instanceId); if (last_restart_it !=
-    last_restart_time.end()) { auto time_since_restart =
-    std::chrono::duration_cast<std::chrono::seconds>( now -
-    last_restart_it->second).count(); if (time_since_restart < 30) {
-                            // Just restarted recently - skip to prevent restart
-    loop continue;
-                        }
-                    }
-
-                    // Track FPS history (keep last 6 readings = 60 seconds)
-                    auto& history = fps_history[instanceId];
-                    history.push_back(current_fps);
-                    if (history.size() > 6) {
-                        history.erase(history.begin());
-                    }
-
-                    // Detect queue full issues:
-                    // 1. FPS = 0 for extended period (9+ seconds = 3 checks)
-    while instance is running
-                    // 2. Excessive queue full warnings
-                    bool should_restart = false;
-                    std::string reason;
-
-                    if (current_fps == 0.0) {
-                        zero_fps_count[instanceId]++;
-                        // Record warning when FPS = 0 (indicates possible queue
-    full)
-                        // Extract node name from instance (use first node as
-    indicator) queueMonitor.recordQueueFullWarning(instanceId,
-    "fps_zero_indicator");
-
-                        // If FPS = 0 for 2 checks (2 seconds with 1s interval),
-    restart
-                        // Very aggressive to prevent deadlock - queue full can
-    cause FPS = 0 quickly
-                        // Also check if instance has received data (indicates
-    it was working before) if (zero_fps_count[instanceId] >= 2 &&
-    info.hasReceivedData) { should_restart = true; reason = "FPS = 0 for 2+
-    seconds (possible queue full - restarting immediately)";
-                        }
-                    } else {
-                        zero_fps_count[instanceId] = 0;  // Reset counter if FPS
-    > 0
-                    }
-
-                    // Check queue full warnings - restart immediately if too
-    many warnings
-                    // This is critical to prevent deadlock when queue is full
-                    auto stats = queueMonitor.getStats(instanceId);
-                    if (stats && stats->warning_count.load() > 0) {
-                        // EXTREMELY aggressive: restart if 1 warning to prevent
-    deadlock
-                        // Queue full at json_mqtt_broker or yolo_detector
-    indicates processing/MQTT is too slow
-                        // Need to restart IMMEDIATELY before deadlock occurs
-                        // With 1-second check interval, 1 warning = immediate
-    restart if (stats->warning_count.load() >= 1) { should_restart = true;
-                            reason = "Queue full warning detected (" +
-                                    std::to_string(stats->warning_count.load())
-    + " warnings) - restarting IMMEDIATELY to prevent deadlock";
-                        }
-                    }
-
-                    // Also check shouldClearQueue for additional validation
-                    if (!should_restart &&
-    queueMonitor.shouldClearQueue(instanceId)) { if (stats &&
-    stats->warning_count.load() >= 10) {  // Reduced from 20 to 10 for faster
-    response should_restart = true; reason = "Queue clearing recommended (" +
-                                    std::to_string(stats->warning_count.load())
-    + " warnings)";
-                        }
-                    }
-
-                    // CRITICAL: If we detect any queue full warnings at all,
-    record them immediately
-                    // This helps detect issues even if warnings aren't being
-    recorded elsewhere
-                    // Check if there are any recent warnings (within last 5
-    seconds) if (stats && stats->warning_count.load() > 0) { auto
-    time_since_last_warning = std::chrono::duration_cast<std::chrono::seconds>(
-                            now - stats->last_warning_time).count();
-                        // If warnings are very recent (within 5 seconds), this
-    is a critical situation if (time_since_last_warning < 5 &&
-    stats->warning_count.load() >= 2) {
-                            // Very recent warnings indicate active queue full
-    issue
-                            // Restart immediately to prevent deadlock
-                            if (!should_restart) {
-                                should_restart = true;
-                                reason = "Active queue full warnings detected ("
-    + std::to_string(stats->warning_count.load()) + " warnings in last 5s) -
-    restarting IMMEDIATELY";
-                            }
-                        }
-                    }
-
-                    // Restart instance if needed
-                    if (should_restart) {
-                        PLOG_WARNING << "[QueueMonitor] Instance " << instanceId
-                                   << " needs restart: " << reason;
-
-                        try {
-                            PLOG_INFO << "[QueueMonitor] Restarting instance "
-    << instanceId
-                                     << " to clear queue and prevent deadlock";
-
-                            // Stop instance with timeout protection
-                            try {
-                                instanceManager->stopInstance(instanceId);
-                            } catch (const std::exception& e) {
-                                PLOG_ERROR << "[QueueMonitor] Error stopping
-    instance "
-                                          << instanceId << ": " << e.what();
-                                // Continue anyway - instance might already be
-    stopped } catch (...) { PLOG_ERROR << "[QueueMonitor] Unknown error stopping
-    instance " << instanceId;
-                                // Continue anyway
-                            }
-
-                            // Wait longer to ensure cleanup completes
-                            std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    // Increased delay
-
-                            // Start instance with timeout protection
-                            try {
-                                instanceManager->startInstance(instanceId);
-
-                                // Record restart time to prevent restart loops
-                                last_restart_time[instanceId] =
-    std::chrono::steady_clock::now();
-
-                                // Clear stats after restart
-                                queueMonitor.clearStats(instanceId);
-                                zero_fps_count[instanceId] = 0;
-                                fps_history[instanceId].clear();
-
-                                PLOG_INFO << "[QueueMonitor] Instance " <<
-    instanceId
-                                         << " restarted successfully";
-                            } catch (const std::exception& e) {
-                                PLOG_ERROR << "[QueueMonitor] Failed to start
-    instance "
-                                          << instanceId << ": " << e.what();
-                                // Don't record restart time if start failed
-                            } catch (...) {
-                                PLOG_ERROR << "[QueueMonitor] Unknown error
-    starting instance " << instanceId;
-                            }
-                        } catch (const std::exception& e) {
-                            PLOG_ERROR << "[QueueMonitor] Failed to restart
-    instance "
-                                      << instanceId << ": " << e.what();
-                        } catch (...) {
-                            PLOG_ERROR << "[QueueMonitor] Unknown error during
-    restart of instance " << instanceId;
-                        }
-                    }
+              auto stats = queueMonitor.getStats(instanceId);
+              if (stats && stats->warning_count.load() >= 1) {
+                should_restart = true;
+                reason = "Queue full warning detected (" + std::to_string(stats->warning_count.load()) + " warnings) - restarting IMMEDIATELY to prevent deadlock";
+              }
+              if (!should_restart && queueMonitor.shouldClearQueue(instanceId) && stats && stats->warning_count.load() >= 10) {
+                should_restart = true;
+                reason = "Queue clearing recommended (" + std::to_string(stats->warning_count.load()) + " warnings)";
+              }
+              if (stats && stats->warning_count.load() > 0) {
+                auto time_since_last_warning = std::chrono::duration_cast<std::chrono::seconds>(now - stats->last_warning_time).count();
+                if (time_since_last_warning < 5 && stats->warning_count.load() >= 2 && !should_restart) {
+                  should_restart = true;
+                  reason = "Active queue full warnings detected (" + std::to_string(stats->warning_count.load()) + " warnings in last 5s) - restarting IMMEDIATELY";
                 }
-            } catch (const std::exception& e) {
-                PLOG_WARNING << "[QueueMonitor] Error: " << e.what();
-            } catch (...) {
-                PLOG_WARNING << "[QueueMonitor] Unknown error";
+              }
+
+              if (should_restart) {
+                PLOG_WARNING << "[QueueMonitor] Instance " << instanceId << " needs restart: " << reason;
+                try {
+                  PLOG_INFO << "[QueueMonitor] Restarting instance " << instanceId << " to clear queue and prevent deadlock";
+                  try {
+                    queueMgr->stopInstance(instanceId);
+                  } catch (const std::exception &e) {
+                    PLOG_ERROR << "[QueueMonitor] Error stopping instance " << instanceId << ": " << e.what();
+                  } catch (...) {
+                    PLOG_ERROR << "[QueueMonitor] Unknown error stopping instance " << instanceId;
+                  }
+                  std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+                  try {
+                    queueMgr->startInstance(instanceId, true);
+                    last_restart_time[instanceId] = std::chrono::steady_clock::now();
+                    queueMonitor.clearStats(instanceId);
+                    zero_fps_count[instanceId] = 0;
+                    fps_history[instanceId].clear();
+                    PLOG_INFO << "[QueueMonitor] Instance " << instanceId << " restarted successfully";
+                  } catch (const std::exception &e) {
+                    PLOG_ERROR << "[QueueMonitor] Failed to start instance " << instanceId << ": " << e.what();
+                  } catch (...) {
+                    PLOG_ERROR << "[QueueMonitor] Unknown error starting instance " << instanceId;
+                  }
+                } catch (const std::exception &e) {
+                  PLOG_ERROR << "[QueueMonitor] Failed to restart instance " << instanceId << ": " << e.what();
+                } catch (...) {
+                  PLOG_ERROR << "[QueueMonitor] Unknown error during restart of instance " << instanceId;
+                }
+              }
             }
+          } catch (const std::exception &e) {
+            PLOG_WARNING << "[QueueMonitor] Error: " << e.what();
+          } catch (...) {
+            PLOG_WARNING << "[QueueMonitor] Unknown error";
+          }
         }
 
         queueMonitor.stopMonitoring();
         PLOG_INFO << "[QueueMonitor] Thread stopped";
-    });
-    queueMonitorThread.detach(); // Detach so it runs independently
-    PLOG_INFO << "[Main] Queue monitoring thread started";
-    */
-    PLOG_INFO << "[Main] Queue monitoring thread DISABLED (temporarily)";
+      });
+      queueMonitorThread.detach();
+      PLOG_INFO << "[Main] Queue monitoring thread started (EDGE_AI_QUEUE_MONITOR_ENABLED=true)";
+    } else {
+      PLOG_INFO << "[Main] Queue monitoring thread disabled (set EDGE_AI_QUEUE_MONITOR_ENABLED=true to enable)";
+    }
 
     // CRITICAL: Start shutdown watchdog thread
     // This thread monitors shutdown state and forces exit if shutdown is stuck
@@ -3503,9 +3474,8 @@ int main(int argc, char *argv[]) {
           // API requests)
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-          // If shutdown was requested but process is still running after 300ms,
-          // force exit Reduced from 500ms to 300ms to handle blocked API
-          // requests faster
+          // If shutdown was requested but process is still running after 150ms,
+          // force exit (develop: fast exit when Ctrl+C during blocked createInstance).
           if (g_shutdown_requested.load() && !g_force_exit.load()) {
             auto now = std::chrono::steady_clock::now();
             auto elapsed =
@@ -3513,8 +3483,8 @@ int main(int argc, char *argv[]) {
                     now - g_shutdown_request_time)
                     .count();
 
-            if (elapsed > 300) {
-              // Shutdown requested but process still running after 300ms
+            if (elapsed > 150) {
+              // Shutdown requested but process still running after 150ms
               // This could be due to:
               // 1. RTSP retry loops blocking shutdown
               // 2. Blocked API requests in main event loop
@@ -3582,25 +3552,26 @@ int main(int argc, char *argv[]) {
     shutdownWatchdogThread.detach(); // Detach so it runs independently
     PLOG_INFO << "[Main] Shutdown watchdog thread started";
 
-    // Set HTTP server configuration from environment variables
-    // Default: 500MB for video uploads (can be overridden via
-    // CLIENT_MAX_BODY_SIZE env var)
-    size_t max_body_size = EnvConfig::getSizeT(
-        "CLIENT_MAX_BODY_SIZE", 500 * 1024 * 1024); // Default: 500MB
-    size_t max_memory_body_size = EnvConfig::getSizeT(
-        "CLIENT_MAX_MEMORY_BODY_SIZE", 100 * 1024 * 1024); // Default: 100MB
-    int thread_num =
-        EnvConfig::getInt("THREAD_NUM", 0, 0, 256); // 0 = auto-detect
-    std::string log_level_str = EnvConfig::getString("LOG_LEVEL", "INFO");
+    // Set HTTP server configuration from config.json (with env var fallback)
+    // Priority: config.json > Environment Variables > Defaults
+    // Note: webServerConfig was already loaded at line 2049, reuse it
+    auto performanceConfig = systemConfig.getPerformanceConfig();
+    auto loggingConfig = systemConfig.getLoggingConfig();
+    
+    // Get full web server config with all settings (reload to get new fields)
+    auto fullWebServerConfig = systemConfig.getWebServerConfig();
 
-    // Performance optimization settings
-    size_t keepalive_requests = EnvConfig::getSizeT("KEEPALIVE_REQUESTS", 100);
-    size_t keepalive_timeout = EnvConfig::getSizeT("KEEPALIVE_TIMEOUT", 60);
-    bool enable_reuse_port = EnvConfig::getBool("ENABLE_REUSE_PORT", true);
+    size_t max_body_size = fullWebServerConfig.maxBodySize;
+    size_t max_memory_body_size = fullWebServerConfig.maxMemoryBodySize;
+    size_t keepalive_requests = fullWebServerConfig.keepaliveRequests;
+    size_t keepalive_timeout = fullWebServerConfig.keepaliveTimeout;
+    bool enable_reuse_port = fullWebServerConfig.reusePort;
+
+    int thread_num = performanceConfig.threadNum;
 
     // Parse log level
     trantor::Logger::LogLevel log_level = trantor::Logger::kInfo;
-    std::string log_upper = log_level_str;
+    std::string log_upper = loggingConfig.logLevel;
     std::transform(log_upper.begin(), log_upper.end(), log_upper.begin(),
                    ::toupper);
     if (log_upper == "TRACE")
@@ -3614,25 +3585,20 @@ int main(int argc, char *argv[]) {
     else if (log_upper == "ERROR")
       log_level = trantor::Logger::kError;
 
-    // Use hardware_concurrency if thread_num is 0
-    // For AI workloads, recommend 2-4x CPU cores for I/O-bound operations
-    // IMPORTANT: Each API request runs on a separate thread from the pool
-    // This ensures RTSP retry loops don't block other API requests
-    unsigned int actual_thread_num =
-        (thread_num == 0) ? std::thread::hardware_concurrency() : thread_num;
-
-    // Optimize thread count for AI workloads if auto-detected
-    // Use more threads to handle concurrent requests and prevent blocking
-    // RTSP retry loops run in SDK threads and won't block API thread pool
-    if (thread_num == 0) {
-      // For AI server with RTSP/file sources, use at least 16 threads
-      // This ensures API requests are not blocked by instance operations
-      actual_thread_num = std::max(actual_thread_num, 16U);
-      // Cap at reasonable maximum to avoid too many threads
-      actual_thread_num = std::min(actual_thread_num, 64U);
+    // When thread_num is 0: use a percentage of CPU cores (default 90%) so the
+    // system does not use 100% capacity, leaving headroom for OS and other work.
+    unsigned int hw = std::thread::hardware_concurrency();
+    unsigned int actual_thread_num = 0;
+    if (thread_num != 0) {
+      actual_thread_num = static_cast<unsigned int>(thread_num);
+    } else {
+      int percent = EnvConfig::getInt("THREAD_USE_PERCENT", 90, 1, 100);
+      actual_thread_num = std::max(1u, (hw * static_cast<unsigned int>(percent)) / 100u);
     }
 
-    PLOG_INFO << "[Performance] Thread pool size: " << actual_thread_num;
+    PLOG_INFO << "[Performance] Thread pool size: " << actual_thread_num
+              << (thread_num == 0 ? " (auto from " + std::to_string(hw) + " cores)"
+                                  : "");
     PLOG_INFO << "[Performance] Keep-alive: " << keepalive_requests
               << " requests, " << keepalive_timeout << "s timeout";
     PLOG_INFO << "[Performance] Max body size: "
@@ -3681,8 +3647,12 @@ int main(int argc, char *argv[]) {
     // So we check port availability manually first
     // Note: When SO_REUSEPORT is enabled, multiple sockets can bind to the same
     // port So we need to handle both cases
+    // Improved: Check if port is actually available by trying to bind
+    // This works even when SO_REUSEPORT is enabled (we check without it first)
     auto isPortAvailable = [enable_reuse_port](const std::string &host,
                                                int port) -> bool {
+      // First, try without SO_REUSEPORT to check if port is truly available
+      // This catches cases where port is already bound by another process
       int sock = socket(AF_INET, SOCK_STREAM, 0);
       if (sock < 0)
         return false;
@@ -3691,14 +3661,9 @@ int main(int argc, char *argv[]) {
       int opt = 1;
       setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-      // If SO_REUSEPORT is enabled, also set it for port availability check
-      // This allows checking if port is available when SO_REUSEPORT will be
-      // used
-      if (enable_reuse_port) {
-#ifdef SO_REUSEPORT
-        setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
-#endif
-      }
+      // Don't set SO_REUSEPORT for the check - we want to know if port is
+      // available for a new process
+      // Only if SO_REUSEPORT is enabled AND we can bind, then it's available
 
       struct sockaddr_in addr;
       memset(&addr, 0, sizeof(addr));
@@ -3713,25 +3678,58 @@ int main(int argc, char *argv[]) {
 
       int result = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
       close(sock);
-      return result == 0;
+      
+      // If bind failed, port is in use
+      if (result != 0) {
+        return false;
+      }
+      
+      // If SO_REUSEPORT is enabled, we also need to check with SO_REUSEPORT
+      // because multiple processes can bind to the same port
+      if (enable_reuse_port) {
+#ifdef SO_REUSEPORT
+        int sock2 = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock2 >= 0) {
+          setsockopt(sock2, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+          setsockopt(sock2, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+          
+          int result2 = bind(sock2, (struct sockaddr *)&addr, sizeof(addr));
+          close(sock2);
+          // If we can bind with SO_REUSEPORT, port is available
+          return result2 == 0;
+        }
+#endif
+      }
+      
+      return true;
     };
 
     int max_port_retries = 10;
-    int original_port = port;
+    bool port_changed = false;
 
+    // Try to find available port with retry mechanism
     for (int retry = 0; retry < max_port_retries; ++retry) {
       if (isPortAvailable(host, port)) {
         if (retry > 0) {
+          port_changed = true;
+          std::cerr << "[Server] ⚠️  Port " << original_port
+                    << " is already in use, automatically switched to port "
+                    << port << std::endl;
           PLOG_WARNING << "[Server] Original port " << original_port
                        << " was in use, using port " << port << " instead";
         }
         break;
       }
+      std::cerr << "[Server] ⚠️  Port " << port
+                << " is in use, trying port " << (port + 1) << "..." << std::endl;
       PLOG_WARNING << "[Server] Port " << port << " is in use, trying port "
                    << (port + 1);
       ++port;
 
       if (retry == max_port_retries - 1) {
+        std::cerr << "[Server] ❌ Error: Could not find available port after "
+                  << max_port_retries << " retries (tried ports " << original_port
+                  << "-" << port << ")" << std::endl;
         PLOG_ERROR << "[Error] Could not find available port after "
                    << max_port_retries << " retries (tried ports "
                    << original_port << "-" << port << ")";
@@ -3743,11 +3741,58 @@ int main(int argc, char *argv[]) {
     // Note: Drogon framework handles SO_REUSEPORT internally based on thread
     // pool We just need to call addListener once - Drogon will create multiple
     // listeners if needed for load balancing when using multiple threads
-    app.addListener(host, port, false, "", "");
+    // Wrap in try-catch to handle potential binding errors
+    bool listener_added = false;
+    for (int retry = 0; retry < max_port_retries; ++retry) {
+      try {
+        // Ensure port is within valid range and convert to uint16_t
+        if (port < 1 || port > 65535) {
+          throw std::runtime_error("Port out of valid range (1-65535)");
+        }
+        app.addListener(host, static_cast<uint16_t>(port), false, "", "");
+        listener_added = true;
+        break;
+      } catch (const std::exception &e) {
+        // If addListener fails, try next port
+        std::cerr << "[Server] ⚠️  Failed to bind to port " << port
+                  << ": " << e.what() << std::endl;
+        PLOG_WARNING << "[Server] Failed to bind to port " << port << ": "
+                    << e.what();
+        
+        if (retry < max_port_retries - 1) {
+          ++port;
+          port_changed = true;
+          std::cerr << "[Server] ⚠️  Trying port " << port << "..." << std::endl;
+          PLOG_WARNING << "[Server] Trying port " << port;
+        } else {
+          std::cerr << "[Server] ❌ Error: Could not bind to any port after "
+                    << max_port_retries << " attempts" << std::endl;
+          PLOG_ERROR << "[Error] Could not bind to any port after "
+                     << max_port_retries << " attempts";
+          throw;
+        }
+      }
+    }
 
+    if (!listener_added) {
+      throw std::runtime_error("Failed to add listener to any available port");
+    }
+
+    // Display final port information
+    if (port_changed) {
+      std::cerr << "[Server] ✅ Server will use port " << port
+                << " (original port " << original_port << " was in use)"
+                << std::endl;
+    }
     PLOG_INFO << "[Server] Starting HTTP server on " << host << ":" << port;
     PLOG_INFO << "[Server] Access http://" << host << ":" << port
               << "/v1/swagger to view all APIs";
+    PLOG_INFO << "[Server] Access http://" << host << ":" << port
+              << "/v1/document to view API documentation";
+    if (host == "0.0.0.0" || host.empty()) {
+      PLOG_INFO << "[Server] From this machine use: http://127.0.0.1:" << port
+                << "/v1/swagger and http://127.0.0.1:" << port << "/v1/document";
+    }
 
     // Initialize current server config for auto-reload detection
     systemConfig.initializeCurrentServerConfig(webServerConfig);
@@ -3757,14 +3802,17 @@ int main(int argc, char *argv[]) {
     // thread to avoid blocking if instances fail to start, hang, or crash
     auto *loop = app.getLoop();
     if (loop) {
-      loop->runAfter(2.0, [&instanceManager]() {
+      // Capture pointer to static variable to avoid warning about capturing
+      // non-automatic storage duration variable
+      IInstanceManager *instanceManagerPtr = instanceManager.get();
+      loop->runAfter(2.0, [instanceManagerPtr]() {
         PLOG_INFO << "[Main] Server is ready - starting auto-start process in "
                      "separate thread";
         // Start auto-start in a separate thread to avoid blocking the event
         // loop Even if instances fail, hang, or crash, the main program
         // continues running
-        std::thread autoStartThread([&instanceManager]() {
-          autoStartInstances(instanceManager.get());
+        std::thread autoStartThread([instanceManagerPtr]() {
+          autoStartInstances(instanceManagerPtr);
         });
         autoStartThread.detach(); // Detach so it runs independently
       });

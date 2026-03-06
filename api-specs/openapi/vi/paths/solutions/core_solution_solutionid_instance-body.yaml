@@ -1,0 +1,437 @@
+# API endpoint: /v1/core/solution/{solutionId}/instance-body
+# Tag: Solutions
+
+/v1/core/solution/{solutionId}/instance-body:
+  get:
+    summary: Lấy body mẫu tạo instance
+    description: 'Trả về body yêu cầu mẫu để tạo instance với solution này, kèm metadata schema chi tiết
+      cho UI linh hoạt.
+
+      Bao gồm:
+
+      - **Trường chuẩn**: Các trường tạo instance chung với giá trị mặc định
+
+      - **Tham số bổ sung**: Tham số theo solution với giá trị mẫu theo tên tham số
+
+      - **Schema**: Metadata chi tiết cho mọi trường (kiểu, quy tắc validation, gợi ý UI, mô tả, ví dụ, danh mục)
+
+
+      Body phản hồi có thể dùng trực tiếp để tạo instance qua POST /v1/core/instance.
+
+      Trường schema cung cấp metadata phong phú để UI render form động, kiểm tra đầu vào và trải nghiệm người dùng tốt hơn.
+
+
+      **Chế độ tối thiểu** (`?minimal=true`):
+
+      - Chỉ trả về các trường cần thiết: `name`, `solution`, `group`, `autoStart`
+
+      - Chỉ gồm additionalParams bắt buộc (tham số không có giá trị mặc định)
+
+      - Loại trừ tham số đầu ra tùy chọn (MQTT, RTMP, Screen nếu chưa đặt)
+
+      - Schema đơn giản, không có flexibleInputOutput
+
+      - Dùng cho form đơn giản, thân thiện với ít trường
+
+
+      **Chế độ đầy đủ** (mặc định):
+
+      - Trả về tất cả trường có sẵn kèm tùy chọn nâng cao
+
+      - Gồm mọi additionalParams (input và output)
+
+      - Schema đầy đủ với tùy chọn flexibleInputOutput
+
+      - Dùng khi cấu hình nâng cao hoặc người dùng chọn "Tùy chọn nâng cao"
+
+      '
+    operationId: getSolutionInstanceBody
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh solution
+    - name: minimal
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'Nếu true, chỉ trả về các trường cần thiết cho form UI tối thiểu.
+
+        Chỉ gồm tham số bắt buộc và các trường tùy chọn chung (name, solution, group, autoStart).
+
+        Nên dùng khi render form lần đầu để tránh quá nhiều trường.
+
+        '
+    responses:
+      '200':
+        description: Body mẫu tạo instance
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Body yêu cầu mẫu dùng trực tiếp để tạo instance, kèm metadata schema chi tiết
+              properties:
+                name:
+                  type: string
+                  description: Tên instance
+                  example: example_instance
+                group:
+                  type: string
+                  description: Tên nhóm
+                  example: default
+                solution:
+                  type: string
+                  description: Định danh solution
+                  example: face_detection
+                persistent:
+                  type: boolean
+                  description: Lưu instance ra file JSON
+                  example: false
+                autoStart:
+                  type: boolean
+                  description: Tự động khởi động instance khi tạo
+                  example: false
+                frameRateLimit:
+                  type: integer
+                  description: Giới hạn frame rate (FPS, 0 = không giới hạn)
+                  example: 0
+                detectionSensitivity:
+                  type: string
+                  enum:
+                  - Low
+                  - Medium
+                  - High
+                  - Normal
+                  - Slow
+                  description: Mức độ nhạy phát hiện
+                  example: Low
+                detectorMode:
+                  type: string
+                  enum:
+                  - SmartDetection
+                  - FullRegionInference
+                  - MosaicInference
+                  description: Chế độ detector
+                  example: SmartDetection
+                metadataMode:
+                  type: boolean
+                  description: Bật chế độ metadata (xuất kết quả phát hiện dạng JSON)
+                  example: false
+                statisticsMode:
+                  type: boolean
+                  description: Bật chế độ thống kê
+                  example: false
+                diagnosticsMode:
+                  type: boolean
+                  description: Bật chế độ chẩn đoán
+                  example: false
+                debugMode:
+                  type: boolean
+                  description: Bật chế độ debug
+                  example: false
+                additionalParams:
+                  type: object
+                  description: Tham số theo solution, nhóm theo input/output
+                  properties:
+                    input:
+                      type: object
+                      description: Tham số đầu vào (vd. RTSP_URL, FILE_PATH, MODEL_PATH)
+                      additionalProperties:
+                        type: string
+                      example:
+                        RTSP_URL: rtsp://example.com/stream
+                        MODEL_PATH: ./models/face/yunet.onnx
+                    output:
+                      type: object
+                      description: Tham số đầu ra (vd. MQTT_BROKER_URL, RTMP_URL, ENABLE_SCREEN_DES)
+                      additionalProperties:
+                        type: string
+                      example:
+                        MQTT_BROKER_URL: localhost
+                        MQTT_PORT: '1883'
+                        MQTT_TOPIC: events
+                        ENABLE_SCREEN_DES: 'false'
+                schema:
+                  type: object
+                  description: Metadata schema chi tiết cho UI linh hoạt
+                  properties:
+                    standardFields:
+                      type: object
+                      description: Metadata schema cho các trường tạo instance chuẩn
+                      additionalProperties:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          type:
+                            type: string
+                          required:
+                            type: boolean
+                          description:
+                            type: string
+                          default:
+                            description: Giá trị mặc định (kiểu thay đổi)
+                          pattern:
+                            type: string
+                          patternDescription:
+                            type: string
+                          minimum:
+                            type: number
+                          maximum:
+                            type: number
+                          enum:
+                            type: array
+                            items:
+                              type: string
+                          uiHints:
+                            type: object
+                            properties:
+                              inputType:
+                                type: string
+                              widget:
+                                type: string
+                          examples:
+                            type: array
+                            items:
+                              type: string
+                    additionalParams:
+                      type: object
+                      description: Metadata schema cho tham số bổ sung
+                      properties:
+                        input:
+                          type: object
+                          description: Schema cho tham số đầu vào
+                          additionalProperties:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              type:
+                                type: string
+                              required:
+                                type: boolean
+                              description:
+                                type: string
+                              example:
+                                type: string
+                              default:
+                                description: Giá trị mặc định (kiểu thay đổi)
+                              uiHints:
+                                type: object
+                              validation:
+                                type: object
+                              examples:
+                                type: array
+                                items:
+                                  type: string
+                              category:
+                                type: string
+                              usedInNodes:
+                                type: array
+                                items:
+                                  type: string
+                        output:
+                          type: object
+                          description: Schema cho tham số đầu ra
+                          additionalProperties:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              type:
+                                type: string
+                              required:
+                                type: boolean
+                              description:
+                                type: string
+                              example:
+                                type: string
+                              default:
+                                description: Giá trị mặc định (kiểu thay đổi)
+                              uiHints:
+                                type: object
+                              validation:
+                                type: object
+                              examples:
+                                type: array
+                                items:
+                                  type: string
+                              category:
+                                type: string
+                              usedInNodes:
+                                type: array
+                                items:
+                                  type: string
+                    flexibleInputOutput:
+                      type: object
+                      description: Schema cho tùy chọn input/output linh hoạt có thể thêm vào bất kỳ instance nào
+                      properties:
+                        description:
+                          type: string
+                        input:
+                          type: object
+                          properties:
+                            description:
+                              type: string
+                            mutuallyExclusive:
+                              type: boolean
+                            parameters:
+                              type: object
+                              additionalProperties:
+                                type: object
+                        output:
+                          type: object
+                          properties:
+                            description:
+                              type: string
+                            mutuallyExclusive:
+                              type: boolean
+                            parameters:
+                              type: object
+                              additionalProperties:
+                                type: object
+            example:
+              name: example_instance
+              group: default
+              solution: face_detection
+              persistent: false
+              autoStart: false
+              frameRateLimit: 0
+              detectionSensitivity: Low
+              detectorMode: SmartDetection
+              metadataMode: false
+              statisticsMode: false
+              diagnosticsMode: false
+              debugMode: false
+              additionalParams:
+                input:
+                  RTSP_URL: rtsp://example.com/stream
+                  MODEL_PATH: ./models/face/yunet.onnx
+                output:
+                  MQTT_BROKER_URL: localhost
+                  MQTT_PORT: '1883'
+                  MQTT_TOPIC: events
+                  ENABLE_SCREEN_DES: 'false'
+              schema:
+                standardFields:
+                  name:
+                    name: name
+                    type: string
+                    required: true
+                    description: 'Tên instance (pattern: ^[A-Za-z0-9 -_]+$)'
+                    pattern: ^[A-Za-z0-9 -_]+$
+                    uiHints:
+                      inputType: text
+                      widget: input
+                    examples:
+                    - my_instance
+                    - camera_01
+                  frameRateLimit:
+                    name: frameRateLimit
+                    type: integer
+                    required: false
+                    description: Giới hạn frame rate (FPS, 0 = không giới hạn)
+                    default: 0
+                    minimum: 0
+                    uiHints:
+                      inputType: number
+                      widget: input
+                    examples:
+                    - '0'
+                    - '10'
+                    - '30'
+                additionalParams:
+                  input:
+                    RTSP_URL:
+                      name: RTSP_URL
+                      type: string
+                      required: true
+                      description: URL stream RTSP (vd. rtsp://camera-ip:8554/stream)
+                      example: rtsp://example.com/stream
+                      uiHints:
+                        inputType: url
+                        widget: url-input
+                        placeholder: rtsp://camera-ip:8554/stream
+                      validation:
+                        pattern: ^(rtsp|rtmp|http|https|file|udp)://.+
+                        patternDescription: Must be a valid URL (rtsp://, rtmp://, http://, https://, file://, or udp://)
+                      examples:
+                      - rtsp://192.168.1.100:8554/stream1
+                      - rtsp://admin:password@camera-ip:554/stream
+                      category: connection
+                      usedInNodes:
+                      - rtsp_src
+                  output:
+                    MQTT_BROKER_URL:
+                      name: MQTT_BROKER_URL
+                      type: string
+                      required: false
+                      description: Địa chỉ broker MQTT (hostname hoặc IP). Để trống để tắt đầu ra MQTT.
+                      example: localhost
+                      uiHints:
+                        inputType: text
+                        widget: input
+                        placeholder: localhost
+                      examples:
+                      - localhost
+                      - 192.168.1.100
+                      - mqtt.example.com
+                      category: output
+                flexibleInputOutput:
+                  description: Tùy chọn input/output linh hoạt có thể thêm vào bất kỳ instance nào
+                  input:
+                    description: Chọn MỘT nguồn đầu vào. Pipeline builder tự nhận loại input.
+                    mutuallyExclusive: true
+                    parameters:
+                      FILE_PATH:
+                        name: FILE_PATH
+                        type: string
+                        required: false
+                        description: Đường dẫn file video hoặc URL (hỗ trợ file://, rtsp://, rtmp://, http://, https://). Pipeline builder tự nhận loại input.
+                        example: ./cvedix_data/test_video/example.mp4
+                        uiHints:
+                          inputType: file
+                          widget: file-picker
+                          placeholder: /path/to/video.mp4
+                        category: connection
+                  output:
+                    description: Thêm bất kỳ tổ hợp đầu ra nào. Pipeline builder tự thêm node.
+                    mutuallyExclusive: false
+                    parameters:
+                      MQTT_BROKER_URL:
+                        name: MQTT_BROKER_URL
+                        type: string
+                        required: false
+                        description: Địa chỉ broker MQTT (bật đầu ra MQTT). Để trống để tắt.
+                        example: localhost
+                        uiHints:
+                          inputType: text
+                          widget: input
+                          placeholder: localhost
+                        category: output
+      '404':
+        description: Không tìm thấy solution
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho solution instance body
+    operationId: getSolutionInstanceBodyOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

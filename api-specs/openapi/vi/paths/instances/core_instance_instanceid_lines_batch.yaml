@@ -1,0 +1,102 @@
+# API endpoint: /v1/core/instance/{instanceId}/lines/batch
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/lines/batch:
+  post:
+    summary: Cập nhật hàng loạt đường vượt (crossing lines)
+    description: 'Cập nhật nhiều đường vượt (crossing lines) cho instance ba_crossline trong một yêu cầu.
+
+      Endpoint cho phép cập nhật nhiều đường vượt cùng lúc, hiệu quả hơn cập nhật từng cái. Instance sẽ được khởi động lại tự động để áp dụng thay đổi nếu đang chạy.'
+    operationId: batchUpdateLines
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance (UUID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+              - id
+              - coordinates
+              properties:
+                id:
+                  type: string
+                  description: Định danh đường (line ID)
+                name:
+                  type: string
+                  description: Tên đường (line)
+                coordinates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      x:
+                        type: number
+                      y:
+                        type: number
+                  minItems: 2
+                  description: Tọa độ đường (ít nhất 2 điểm)
+                direction:
+                  type: string
+                  enum:
+                  - bidirectional
+                  - forward
+                  - backward
+                  description: Hướng vượt
+            example:
+            - id: line1
+              name: Main Line
+              coordinates:
+              - x: 0
+                y: 50
+              - x: 100
+                y: 50
+              direction: bidirectional
+    responses:
+      '200':
+        description: Đã cập nhật đường thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updated:
+                  type: integer
+                  description: Số đường đã cập nhật
+                  example: 2
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho cập nhật hàng loạt lines
+    operationId: batchUpdateLinesOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

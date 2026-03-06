@@ -1,0 +1,96 @@
+# API endpoint: /v1/core/config/reset
+# Tag: Config
+
+/v1/core/config/reset:
+  post:
+    summary: Đặt lại cấu hình về mặc định
+    description: 'Đặt lại toàn bộ cấu hình hệ thống về giá trị mặc định.
+
+      Tất cả cấu hình hiện có sẽ được thay thế bằng giá trị mặc định.
+
+      Cấu hình được lưu vào file cấu hình sau khi đặt lại.
+
+
+      **Cảnh báo:** Thao tác này sẽ thay thế tất cả cấu hình bằng giá trị mặc định.
+
+      Hãy cân nhắc sao lưu cấu hình của bạn trước khi đặt lại.
+
+
+      **Tự động Khởi động lại:**
+
+      - Theo mặc định, máy chủ sẽ KHÔNG tự động khởi động lại sau khi đặt lại cấu hình
+
+      - Để bật khởi động lại tự động, đặt `auto_restart=true` làm tham số truy vấn hoặc trong body JSON
+
+      - Khi `auto_restart=true`, máy chủ sẽ khởi động lại sau 3 giây nếu cấu hình web server thay đổi
+
+      '
+    operationId: resetConfig
+    tags:
+    - Config
+    parameters:
+    - name: auto_restart
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: 'Nếu đặt là `true`, máy chủ sẽ tự động khởi động lại sau khi đặt lại cấu hình.
+
+        Mặc định là `false` (không tự động khởi động lại).
+
+        Cũng có thể đặt trong body JSON như trường `auto_restart`.
+
+        '
+      example: false
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            description: Body JSON tùy chọn. Có thể bao gồm trường `auto_restart` (boolean) để kích hoạt khởi động lại máy
+              chủ.
+            properties:
+              auto_restart:
+                type: boolean
+                description: Nếu true, máy chủ sẽ khởi động lại sau khi đặt lại
+                example: false
+    responses:
+      '200':
+        description: Cấu hình đã được đặt lại thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Cấu hình đã được đặt lại về mặc định thành công
+                config:
+                  type: object
+                  description: Đối tượng cấu hình mặc định
+                  additionalProperties: true
+                warning:
+                  type: string
+                  description: Thông báo cảnh báo nếu khởi động lại máy chủ được lên lịch (khi auto_restart=true)
+                  example: Máy chủ sẽ khởi động lại sau 3 giây (auto_restart được yêu cầu).
+                restart_scheduled:
+                  type: boolean
+                  description: True nếu khởi động lại máy chủ được lên lịch (khi auto_restart=true)
+                  example: true
+                info:
+                  type: string
+                  description: Thông báo thông tin nếu cần khởi động lại nhưng auto_restart chưa được đặt
+                  example: Cổng/máy chủ web server đã thay đổi. Vui lòng khởi động lại máy chủ thủ công để áp dụng thay đổi,
+                    hoặc đặt auto_restart=true để khởi động lại tự động.
+                restart_required:
+                  type: boolean
+                  description: True nếu cần khởi động lại nhưng auto_restart chưa được đặt
+                  example: false
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

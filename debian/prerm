@@ -1,9 +1,9 @@
 #!/bin/bash
-# prerm script for edge-ai-api
+# prerm script for edgeos-api
 
 set -e
 
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 
 # Stop service before removal
 if systemctl is-active --quiet "${SERVICE_NAME}.service" 2>/dev/null; then

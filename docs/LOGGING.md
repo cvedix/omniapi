@@ -1,10 +1,10 @@
 # Logging Documentation
 
-Tài liệu này mô tả các tính năng logging của Edge AI API Server, bao gồm cách sử dụng, cấu hình và phân tích hệ thống logging.
+Tài liệu này mô tả các tính năng logging của edgeos-api Server, bao gồm cách sử dụng, cấu hình và phân tích hệ thống logging.
 
 ## 📋 Tổng Quan
 
-Edge AI API Server cung cấp các tính năng logging chi tiết để giúp bạn theo dõi và debug hệ thống. Các tính năng logging có thể được bật/tắt thông qua command-line arguments khi khởi động server.
+edgeos-api Server cung cấp các tính năng logging chi tiết để giúp bạn theo dõi và debug hệ thống. Các tính năng logging có thể được bật/tắt thông qua command-line arguments khi khởi động server.
 
 **✅ Kết Luận Quan Trọng:** Hệ thống logging đã được thiết kế với nhiều cơ chế bảo vệ để **ngăn chặn tràn bộ nhớ**:
 - ✅ Log rotation (50MB/file, daily rotation)
@@ -48,7 +48,7 @@ Log tất cả các request và response của REST API.
 
 **Cách sử dụng:**
 ```bash
-./build/bin/edge_ai_api --log-api
+./build/bin/edgeos-api --log-api
 ```
 
 ---
@@ -82,7 +82,7 @@ Log các sự kiện liên quan đến vòng đời của instance (start, stop,
 
 **Cách sử dụng:**
 ```bash
-./build/bin/edge_ai_api --log-instance
+./build/bin/edgeos-api --log-instance
 ```
 
 ---
@@ -119,7 +119,7 @@ Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detec
 
 **Cách sử dụng:**
 ```bash
-./build/bin/edge_ai_api --log-sdk-output
+./build/bin/edgeos-api --log-sdk-output
 ```
 
 ---
@@ -136,7 +136,7 @@ Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detec
 
 **Ví dụ log:**
 ```
-[INFO] Edge AI API Server starting...
+[INFO] edgeos-api Server starting...
 [INFO] Server will listen on: 0.0.0.0:8080
 [ERROR] Failed to start instance: abc-123
 ```
@@ -151,13 +151,13 @@ Bạn có thể kết hợp nhiều logging flags cùng lúc:
 
 ```bash
 # Log tất cả
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 
 # Hoặc dùng --debug-* prefix
-./build/bin/edge_ai_api --debug-api --debug-instance --debug-sdk-output
+./build/bin/edgeos-api --debug-api --debug-instance --debug-sdk-output
 
 # Chỉ log API và instance execution
-./build/bin/edge_ai_api --log-api --log-instance
+./build/bin/edgeos-api --log-api --log-instance
 ```
 
 > **Lưu ý về đường dẫn executable:**
@@ -234,7 +234,7 @@ tail -f ./logs/api/2025-12-04.log | grep "abc-123"
 
 ### 2. Sử dụng REST API (khuyến nghị)
 
-Edge AI API Server cung cấp các endpoints để truy cập logs qua REST API với nhiều tính năng filtering và querying:
+edgeos-api Server cung cấp các endpoints để truy cập logs qua REST API với nhiều tính năng filtering và querying:
 
 ```bash
 # List tất cả log files theo category
@@ -271,7 +271,7 @@ Logging level có thể được cấu hình qua biến môi trường `LOG_LEVE
 
 ```bash
 export LOG_LEVEL=DEBUG  # TRACE, DEBUG, INFO, WARN, ERROR
-./build/bin/edge_ai_api --log-api
+./build/bin/edgeos-api --log-api
 ```
 
 **Các mức log:**
@@ -286,8 +286,8 @@ export LOG_LEVEL=DEBUG  # TRACE, DEBUG, INFO, WARN, ERROR
 Thay đổi thư mục lưu log:
 
 ```bash
-export LOG_DIR=/var/log/edge_ai_api
-./build/bin/edge_ai_api --log-api
+export LOG_DIR=/var/log/edgeos-api
+./build/bin/edgeos-api --log-api
 ```
 
 ### Log Retention và Cleanup
@@ -307,11 +307,11 @@ export LOG_DIR=/var/log/edge_ai_api
 
 **Ví dụ cấu hình đầy đủ:**
 ```bash
-export LOG_DIR=/var/log/edge_ai_api
+export LOG_DIR=/var/log/edgeos-api
 export LOG_RETENTION_DAYS=60
 export LOG_MAX_DISK_USAGE_PERCENT=90
 export LOG_CLEANUP_INTERVAL_HOURS=24
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 ```
 
 ### Cấu Hình Bảo Vệ
@@ -376,7 +376,7 @@ export LOG_CLEANUP_INTERVAL_HOURS=24
 
 ```bash
 # Development với đầy đủ logging
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 
 # Giữ logs lâu hơn
 export LOG_RETENTION_DAYS=30
@@ -387,10 +387,10 @@ export LOG_MAX_DISK_USAGE_PERCENT=90
 
 ```bash
 # Production - chỉ log API và instance execution
-./build/bin/edge_ai_api --log-api --log-instance
+./build/bin/edgeos-api --log-api --log-instance
 
 # Hoặc không log gì cả nếu không cần thiết (chỉ general logs)
-./build/bin/edge_ai_api
+./build/bin/edgeos-api
 
 # Cấu hình cleanup tích cực
 export LOG_RETENTION_DAYS=7        # Giữ 7 ngày
@@ -402,7 +402,7 @@ export LOG_CLEANUP_INTERVAL_HOURS=12  # Kiểm tra mỗi 12 giờ
 
 ```bash
 # Debug một vấn đề cụ thể - bật tất cả logging
-./build/bin/edge_ai_api --log-api --log-instance --log-sdk-output
+./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
 
 # Sau đó filter logs để tìm vấn đề
 tail -f ./logs/general/$(date +%Y-%m-%d).log | grep -E "ERROR|WARNING|Exception"
@@ -446,7 +446,7 @@ curl http://localhost:8080/v1/core/log
 
 1. Kiểm tra logging flags đã được bật chưa:
    ```bash
-   ./build/bin/edge_ai_api --help
+   ./build/bin/edgeos-api --help
    ```
 
 2. Kiểm tra log directory có tồn tại và có quyền ghi:
@@ -464,7 +464,7 @@ curl http://localhost:8080/v1/core/log
 1. Chỉ bật logging cần thiết:
    ```bash
    # Chỉ log API
-   ./build/bin/edge_ai_api --log-api
+   ./build/bin/edgeos-api --log-api
    ```
 
 2. Tăng LOG_LEVEL để giảm số lượng logs:

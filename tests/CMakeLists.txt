@@ -17,56 +17,83 @@ FetchContent_MakeAvailable(googletest)
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
 
-# Test sources
+# Test sources - organized by feature in unit/ subdirectories
 set(TEST_SOURCES
-    test_health_handler.cpp
-    test_version_handler.cpp
-    test_swagger_handler.cpp
-    test_watchdog_handler.cpp
-    test_endpoints_handler.cpp
-    test_instance_storage.cpp
-    test_instance_update.cpp
-    test_instance_status_summary.cpp
-    test_instance_get_config.cpp
-    test_instance_configure_stream.cpp
-    test_solution_handler.cpp
-    test_recognition_handler.cpp
-    test_config_handler.cpp
-    test_system_info_handler.cpp
-    test_metrics_handler.cpp
-    test_node_handler.cpp
-    test_group_handler.cpp
-    test_create_instance_handler.cpp
-    test_lines_handler.cpp
-    test_jams_handler.cpp
-    test_stops_handler.cpp
-    test_ba_jam_detection_params.cpp
-    test_ba_jam_pipeline.cpp
-    # test_ai_handler.cpp  # Commented out: requires C++20 for counting_semaphore, but project uses C++17
-    test_main.cpp
+    # Core API tests
+    unit/Core_API/test_health_handler.cpp
+    unit/Core_API/test_version_handler.cpp
+    unit/Core_API/test_swagger_handler.cpp
+    unit/Core_API/test_watchdog_handler.cpp
+    unit/Core_API/test_endpoints_handler.cpp
+    unit/Core_API/test_config_handler.cpp
+    unit/Core_API/test_system_info_handler.cpp
+    unit/Core_API/test_system_handler.cpp
+    unit/Core_API/test_system_config_manager.cpp
+    unit/Core_API/test_preferences_manager.cpp
+    unit/Core_API/test_decoder_detector.cpp
+    unit/Core_API/test_inference_session.cpp
+    unit/Core_API/test_ai_processor.cpp
+    unit/Core_API/test_metrics_handler.cpp
+    
+    # Instance Management tests
+    unit/Instance_Management/test_instance_storage.cpp
+    unit/Instance_Management/test_instance_update.cpp
+    unit/Instance_Management/test_instance_status_summary.cpp
+    unit/Instance_Management/test_instance_get_config.cpp
+    unit/Instance_Management/test_instance_configure_stream.cpp
+    unit/Instance_Management/test_create_instance_handler.cpp
+    unit/Instance_Management/test_instance_fps_handler.cpp
+    
+    # Recognition tests
+    unit/Recognition/test_recognition_handler.cpp
+    
+    # Solutions tests
+    unit/Solutions/test_solution_handler.cpp
+    
+    # Groups tests
+    unit/Groups/test_group_handler.cpp
+    
+    # Nodes tests
+    unit/Nodes/test_node_handler.cpp
+    # unit/Nodes/test_node_pool_handler.cpp  # Commented out: node_pool_handler.cpp implementation missing
+    
+    # Analytics tests
+    unit/Analytics/test_lines_handler.cpp
+    unit/Analytics/test_jams_handler.cpp
+    unit/Analytics/test_stops_handler.cpp
+    unit/Analytics/test_ba_jam_detection_params.cpp
+    unit/Analytics/test_ba_jam_pipeline.cpp
+    unit/Analytics/test_securt_handler.cpp
+    unit/Analytics/test_area_handler.cpp
+    # unit/Analytics/test_ai_handler.cpp  # Commented out: requires C++20 for counting_semaphore, but project uses C++17
+    
+    # Main test entry point
+    unit/test_main.cpp
 )
 
 # Create test executable
-add_executable(edge_ai_api_tests ${TEST_SOURCES})
+add_executable(edgeos_api_tests ${TEST_SOURCES})
 
 # Link libraries
-target_link_libraries(edge_ai_api_tests PRIVATE
-    gtest_main
+# Note: We use gtest (not gtest_main) because we have our own main() in test_main.cpp
+# This allows us to add custom signal handlers and test event listeners
+target_link_libraries(edgeos_api_tests PRIVATE
     gtest
 )
 
 # Link Drogon (same as main project)
 if(TARGET Drogon::Drogon)
-    target_link_libraries(edge_ai_api_tests PRIVATE Drogon::Drogon)
+    target_link_libraries(edgeos_api_tests PRIVATE Drogon::Drogon)
 elseif(TARGET drogon)
-    target_link_libraries(edge_ai_api_tests PRIVATE drogon)
+    target_link_libraries(edgeos_api_tests PRIVATE drogon)
 endif()
 
 # Link source files (we need to compile them for tests)
-target_sources(edge_ai_api_tests PRIVATE
+target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/api/health_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/version_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/swagger_handler.cpp
+    ${CMAKE_SOURCE_DIR}/src/api/scalar_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/watchdog_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/endpoints_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/solution_handler.cpp
@@ -74,23 +101,57 @@ target_sources(edge_ai_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/api/recognition_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/config_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/system_info_handler.cpp
+    ${CMAKE_SOURCE_DIR}/src/api/system_handler.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/system_config_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/preferences_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/decoder_detector.cpp
     ${CMAKE_SOURCE_DIR}/src/api/metrics_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/node_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/group_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/create_instance_handler.cpp
+    ${CMAKE_SOURCE_DIR}/src/api/instance_fps_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/lines_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/jams_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/stops_handler.cpp
+    ${CMAKE_SOURCE_DIR}/src/api/securt_handler.cpp
+    ${CMAKE_SOURCE_DIR}/src/api/area_handler.cpp
     # ${CMAKE_SOURCE_DIR}/src/api/ai_handler.cpp  # Commented out: requires C++20 for counting_semaphore, but project uses C++17
     ${CMAKE_SOURCE_DIR}/src/core/watchdog.cpp
     ${CMAKE_SOURCE_DIR}/src/core/health_monitor.cpp
     ${CMAKE_SOURCE_DIR}/src/core/endpoint_monitor.cpp
     ${CMAKE_SOURCE_DIR}/src/core/request_middleware.cpp
     ${CMAKE_SOURCE_DIR}/src/core/metrics_interceptor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/event_queue.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/frame_input_queue.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/codec_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/frame_decoder.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/frame_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/inference_session.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_runtime_facade.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_helper.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_cache.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_storage.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_rtmp_monitor.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_state_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/inprocess_instance_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/subprocess_instance_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_manager_factory.cpp
+    ${CMAKE_SOURCE_DIR}/src/worker/worker_supervisor.cpp
+    ${CMAKE_SOURCE_DIR}/src/worker/unix_socket.cpp
+    ${CMAKE_SOURCE_DIR}/src/worker/ipc_protocol.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_model_resolver.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_request_utils.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_source_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_destination_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/rtmp_lastframe_fallback_proxy_node.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_detector_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_broker_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_behavior_analysis_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_other_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/securt_pipeline_integration.cpp
     ${CMAKE_SOURCE_DIR}/src/core/cvedix_validator.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/cvedix_mqtt_client_impl.cpp
     ${CMAKE_SOURCE_DIR}/src/utils/mp4_finalizer.cpp
@@ -117,14 +178,25 @@ target_sources(edge_ai_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/ai_cache.cpp
     ${CMAKE_SOURCE_DIR}/src/core/rate_limiter.cpp
     ${CMAKE_SOURCE_DIR}/src/core/resource_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/shutdown_flag.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/securt_instance_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/securt_instance_registry.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/securt_statistics_collector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/securt_line_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/securt_line_storage.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/securt_feature_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/exclusion_area_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/area_manager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/area_storage.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/analytics_entities_manager.cpp
 )
 
 # Link jsoncpp if available
 if(TARGET jsoncpp_lib)
-    target_link_libraries(edge_ai_api_tests PRIVATE jsoncpp_lib)
+    target_link_libraries(edgeos_api_tests PRIVATE jsoncpp_lib)
 elseif(Jsoncpp_FOUND)
-    target_link_libraries(edge_ai_api_tests PRIVATE ${JSONCPP_LIBRARIES})
-    target_include_directories(edge_ai_api_tests PRIVATE ${JSONCPP_INCLUDE_DIRS})
+    target_link_libraries(edgeos_api_tests PRIVATE ${JSONCPP_LIBRARIES})
+    target_include_directories(edgeos_api_tests PRIVATE ${JSONCPP_INCLUDE_DIRS})
 endif()
 
 # ============================================
@@ -164,7 +236,7 @@ endforeach()
 
 # Link CVEDIX SDK (required for instance_registry and pipeline_builder)
 if(TARGET cvedix::cvedix_instance_sdk)
-    target_link_libraries(edge_ai_api_tests PRIVATE cvedix::cvedix_instance_sdk)
+    target_link_libraries(edgeos_api_tests PRIVATE cvedix::cvedix_instance_sdk)
     message(STATUS "✓ CVEDIX SDK linked to tests")
 
     # Handle OpenCV CUDA libraries - filter them out if not available
@@ -204,11 +276,11 @@ if(TARGET cvedix::cvedix_instance_sdk)
     # Use linker flags based on CUDA availability
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         if(OPENCV_CUDA_AVAILABLE)
-            target_link_options(edge_ai_api_tests PRIVATE
+            target_link_options(edgeos_api_tests PRIVATE
                 -Wl,--as-needed
             )
         else()
-            target_link_options(edge_ai_api_tests PRIVATE
+            target_link_options(edgeos_api_tests PRIVATE
                 -Wl,--as-needed
                 -Wl,--allow-shlib-undefined
             )
@@ -225,11 +297,11 @@ if(CVEDIX_WITH_MQTT)
             /usr/lib
             /usr/lib/x86_64-linux-gnu
             /usr/local/lib
-            /opt/cvedix/lib
+            ${EDGEOS_SDK_ROOT}/lib/cvedix
     )
 
     if(MOSQUITTO_LIBRARY)
-        target_link_libraries(edge_ai_api_tests PRIVATE ${MOSQUITTO_LIBRARY})
+        target_link_libraries(edgeos_api_tests PRIVATE ${MOSQUITTO_LIBRARY})
         message(STATUS "✓ Linked mosquitto library to tests: ${MOSQUITTO_LIBRARY}")
     else()
         # Try pkg-config
@@ -237,8 +309,8 @@ if(CVEDIX_WITH_MQTT)
         if(PkgConfig_FOUND)
             pkg_check_modules(MOSQUITTO QUIET mosquitto)
             if(MOSQUITTO_FOUND)
-                target_link_libraries(edge_ai_api_tests PRIVATE ${MOSQUITTO_LIBRARIES})
-                target_include_directories(edge_ai_api_tests PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
+                target_link_libraries(edgeos_api_tests PRIVATE ${MOSQUITTO_LIBRARIES})
+                target_include_directories(edgeos_api_tests PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
                 message(STATUS "✓ Linked mosquitto library to tests via pkg-config: ${MOSQUITTO_LIBRARIES}")
             endif()
         endif()
@@ -249,6 +321,7 @@ endif()
 if(OpenCV_FOUND)
     if(TARGET opencv_core)
         # CVEDIX SDK requires opencv_dnn module (for cv::dnn::Net)
+        # opencv_objdetect is required for cv::FaceDetectorYN
         set(OPENCV_BASE_LIBS
             opencv_core
             opencv_imgproc
@@ -256,6 +329,7 @@ if(OpenCV_FOUND)
             opencv_videoio
             opencv_highgui
             opencv_dnn
+            opencv_objdetect
         )
 
         # Conditionally add CUDA libraries if available
@@ -270,7 +344,7 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Linking OpenCV without CUDA support for tests")
         endif()
 
-        target_link_libraries(edge_ai_api_tests PRIVATE ${OPENCV_BASE_LIBS})
+        target_link_libraries(edgeos_api_tests PRIVATE ${OPENCV_BASE_LIBS})
     else()
         # Fallback to pkg-config libraries
         set(OPENCV_LIBS ${OpenCV_LIBRARIES})
@@ -283,7 +357,7 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Using OpenCV libraries from pkg-config for tests (with CUDA)")
         endif()
 
-        target_link_libraries(edge_ai_api_tests PRIVATE ${OPENCV_LIBS})
+        target_link_libraries(edgeos_api_tests PRIVATE ${OPENCV_LIBS})
     endif()
     message(STATUS "✓ OpenCV linked to tests")
 endif()
@@ -291,35 +365,42 @@ endif()
 # Add include directories for cereal and CVEDIX (same as main project)
 # Note: CEREAL_INCLUDE_DIR is set in parent CMakeLists.txt
 if(DEFINED CEREAL_INCLUDE_DIR AND CEREAL_INCLUDE_DIR)
-    target_include_directories(edge_ai_api_tests PRIVATE "${CMAKE_BINARY_DIR}")
-    target_include_directories(edge_ai_api_tests PRIVATE "${CEREAL_INCLUDE_DIR}")
+    target_include_directories(edgeos_api_tests PRIVATE "${CMAKE_BINARY_DIR}")
+    target_include_directories(edgeos_api_tests PRIVATE "${CEREAL_INCLUDE_DIR}")
+endif()
+
+# Add CVEDIX SDK include directories (required for broker nodes with ASIO)
+if(EXISTS "${EDGEOS_SDK_ROOT}/include")
+    target_include_directories(edgeos_api_tests PRIVATE "${EDGEOS_SDK_ROOT}/include")
+    # Add ASIO include path (required for SSE broker node)
+    target_include_directories(edgeos_api_tests PRIVATE "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/asio/include")
 endif()
 
 # Add Plog include directory (same as main project)
 if(DEFINED PLOG_INCLUDE_DIR AND PLOG_INCLUDE_DIR)
-    target_include_directories(edge_ai_api_tests PRIVATE ${PLOG_INCLUDE_DIR})
+    target_include_directories(edgeos_api_tests PRIVATE ${PLOG_INCLUDE_DIR})
 endif()
 
 # Add hwinfo include directory (from FetchContent or submodule)
 # hwinfo is typically in build/_deps/hwinfo-src/include or via target
 if(EXISTS "${CMAKE_BINARY_DIR}/_deps/hwinfo-src/include")
-    target_include_directories(edge_ai_api_tests PRIVATE "${CMAKE_BINARY_DIR}/_deps/hwinfo-src/include")
+    target_include_directories(edgeos_api_tests PRIVATE "${CMAKE_BINARY_DIR}/_deps/hwinfo-src/include")
 elseif(TARGET lfreist-hwinfo::hwinfo)
     # If hwinfo target exists, get its include directories
     get_target_property(HWINFO_INCLUDE_DIRS lfreist-hwinfo::hwinfo INTERFACE_INCLUDE_DIRECTORIES)
     if(HWINFO_INCLUDE_DIRS)
-        target_include_directories(edge_ai_api_tests PRIVATE ${HWINFO_INCLUDE_DIRS})
+        target_include_directories(edgeos_api_tests PRIVATE ${HWINFO_INCLUDE_DIRS})
     endif()
 endif()
 
 # Link stdc++fs for std::experimental::filesystem (if needed)
 # Some systems require explicit linking for filesystem library
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
-    target_link_libraries(edge_ai_api_tests PRIVATE stdc++fs)
+    target_link_libraries(edgeos_api_tests PRIVATE stdc++fs)
 endif()
 
 # Set compile definitions (same as main project)
-target_compile_definitions(edge_ai_api_tests PRIVATE
+target_compile_definitions(edgeos_api_tests PRIVATE
     PROJECT_VERSION="${PROJECT_VERSION}"
     BUILD_TIME="Test Build"
     GIT_COMMIT="test"
@@ -331,7 +412,9 @@ find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(GSTREAMER QUIET gstreamer-1.0)
     if(GSTREAMER_FOUND)
-        target_compile_definitions(edge_ai_api_tests PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_compile_definitions(edgeos_api_tests PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_include_directories(edgeos_api_tests PRIVATE ${GSTREAMER_INCLUDE_DIRS})
+        target_link_libraries(edgeos_api_tests PRIVATE ${GSTREAMER_LIBRARIES})
     endif()
 else()
     find_library(GSTREAMER_LIBRARY
@@ -342,30 +425,61 @@ else()
             /usr/local/lib
     )
     if(GSTREAMER_LIBRARY)
-        target_compile_definitions(edge_ai_api_tests PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_compile_definitions(edgeos_api_tests PRIVATE CVEDIX_WITH_GSTREAMER)
+        # Fallback: try to find GStreamer headers manually
+        find_path(GSTREAMER_INCLUDE_DIR
+            NAMES gst/gst.h
+            PATHS
+                /usr/include/gstreamer-1.0
+                /usr/local/include/gstreamer-1.0
+                ${EDGEOS_SDK_ROOT}/include/gstreamer-1.0
+        )
+        if(GSTREAMER_INCLUDE_DIR)
+            target_include_directories(edgeos_api_tests PRIVATE ${GSTREAMER_INCLUDE_DIR})
+        endif()
+        target_link_libraries(edgeos_api_tests PRIVATE ${GSTREAMER_LIBRARY})
+    endif()
+endif()
+
+# Add Eigen include directory (required by BYTETracker)
+if(DEFINED EIGEN3_INCLUDE_DIR AND EIGEN3_INCLUDE_DIR)
+    target_include_directories(edgeos_api_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
+else()
+    # Try to find Eigen if not already found
+    find_path(EIGEN3_INCLUDE_DIR
+        NAMES Eigen/Core
+        PATHS
+            /usr/include/eigen3
+            /usr/local/include/eigen3
+            ${EDGEOS_SDK_ROOT}/include/eigen3
+            /usr/include
+            /usr/local/include
+    )
+    if(EIGEN3_INCLUDE_DIR)
+        target_include_directories(edgeos_api_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
     endif()
 endif()
 
 # Add MQTT support if enabled
 if(CVEDIX_WITH_MQTT)
-    target_compile_definitions(edge_ai_api_tests PRIVATE CVEDIX_WITH_MQTT)
+    target_compile_definitions(edgeos_api_tests PRIVATE CVEDIX_WITH_MQTT)
 endif()
 
 # Link OpenSSL Crypto (required for ai_cache SHA256)
 find_package(OpenSSL QUIET)
 if(OpenSSL_FOUND)
-    target_link_libraries(edge_ai_api_tests PRIVATE OpenSSL::Crypto)
+    target_link_libraries(edgeos_api_tests PRIVATE OpenSSL::Crypto)
 endif()
 
 # Link hwinfo (required for system_info_handler)
 if(TARGET lfreist-hwinfo::hwinfo)
-    target_link_libraries(edge_ai_api_tests PRIVATE lfreist-hwinfo::hwinfo)
+    target_link_libraries(edgeos_api_tests PRIVATE lfreist-hwinfo::hwinfo)
 endif()
 
 # Enable testing
 enable_testing()
-add_test(NAME edge_ai_api_tests COMMAND edge_ai_api_tests)
+add_test(NAME edgeos_api_tests COMMAND edgeos_api_tests)
 # Set LD_LIBRARY_PATH for test to find OpenCV libraries
-set_tests_properties(edge_ai_api_tests PROPERTIES
-    ENVIRONMENT "LD_LIBRARY_PATH=/opt/edge_ai_api/lib:/usr/local/lib:$<TARGET_FILE_DIR:edge_ai_api_tests>/../lib:$ENV{LD_LIBRARY_PATH}"
+set_tests_properties(edgeos_api_tests PROPERTIES
+    ENVIRONMENT "LD_LIBRARY_PATH=/opt/edgeos-sdk/lib/cvedix:/opt/edgeos-sdk/lib/opencv:/usr/local/lib:$<TARGET_FILE_DIR:edgeos_api_tests>/../lib:$ENV{LD_LIBRARY_PATH}"
 )

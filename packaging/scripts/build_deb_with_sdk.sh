@@ -3,7 +3,7 @@
 # Build Debian Package with SDK Bundled
 # ============================================
 #
-# Script này build package edge-ai-api và đóng gói kèm CVEDIX SDK runtime
+# Script này build package edgeos-api và đóng gói kèm CVEDIX SDK runtime
 # để user không cần cài SDK trước vẫn có thể cài đặt và chạy được.
 #
 # Usage:
@@ -90,14 +90,14 @@ update_version_files() {
     
     # Update CMakeLists.txt
     if [ -f "$cmake_file" ]; then
-        sed -i "s/project(edge_ai_api VERSION [0-9.]*)/project(edge_ai_api VERSION $new_version)/" "$cmake_file"
+        sed -i "s/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION $new_version)/" "$cmake_file"
         echo -e "${GREEN}✓${NC} Updated CMakeLists.txt"
     fi
     
     # Update debian/changelog
     if [ -f "$changelog_file" ]; then
         # Update first line of changelog
-        sed -i "1s/edge-ai-api ([0-9.]*)/edge-ai-api ($new_version)/" "$changelog_file"
+        sed -i "1s/edgeos-api ([0-9.]*)/edgeos-api ($new_version)/" "$changelog_file"
         echo -e "${GREEN}✓${NC} Updated debian/changelog"
     fi
 }
@@ -139,7 +139,11 @@ if [ -d "$BUILD_LIB_DIR" ]; then
 fi
 
 # Copy CVEDIX SDK libraries if available (from extracted SDK)
-if [ -d "/opt/cvedix/lib" ]; then
+# Check both old and new SDK locations for compatibility
+if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
+    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+elif [ -d "/opt/cvedix/lib" ]; then
     cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
     cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
 fi
@@ -235,13 +239,13 @@ collect_libs() {
 echo "Collecting libraries from main executable..."
 collect_libs "$EXEC_PATH"
 
-WORKER_PATH=$(dirname "$EXEC_PATH")/edge_ai_worker
+WORKER_PATH=$(dirname "$EXEC_PATH")/edgeos-worker
 if [ -f "$WORKER_PATH" ]; then
-    echo "Collecting libraries from edge_ai_worker..."
+    echo "Collecting libraries from edgeos-worker..."
     collect_libs "$WORKER_PATH"
 fi
 
-CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedge_ai_core.so*
+CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedgeos_core.so*
 if ls $CORE_LIB_PATH 1> /dev/null 2>&1; then
     for core_lib in $CORE_LIB_PATH; do
         if [ -f "$core_lib" ]; then
@@ -769,8 +773,8 @@ fi
 if [ "$CLEAN_BUILD" = true ]; then
     echo -e "${BLUE}[3/6]${NC} Cleaning build directory..."
     rm -rf build
-    rm -rf debian/edge-ai-api
-    rm -f ../edge-ai-api_*.deb ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo
+    rm -rf debian/edgeos-api
+    rm -f ../edgeos-api_*.deb ../edgeos-api_*.changes ../edgeos-api_*.buildinfo
     echo -e "${GREEN}✓${NC} Cleaned"
     echo ""
 fi
@@ -810,9 +814,9 @@ fi
 # Check if executable exists
 EXECUTABLE=""
 EXECUTABLE_PATHS=(
-    "build/bin/edge_ai_api"
-    "build/edge_ai_api"
-    "build/edge_ai_api/edge_ai_api"
+    "build/bin/edgeos-api"
+    "build/edgeos-api"
+    "build/edgeos-api/edgeos-api"
 )
 
 for path in "${EXECUTABLE_PATHS[@]}"; do
@@ -864,7 +868,7 @@ if ! grep -q "SDK_EXTRACT_DIR = \$(CURDIR)/debian/sdk_extract" "$RULES_FILE"; th
 \
 # SDK configuration\
 SDK_EXTRACT_DIR = $(CURDIR)/debian/sdk_extract\
-CVEDIX_INSTALL_DIR = /opt/cvedix' "$RULES_FILE"
+CVEDIX_INSTALL_DIR = /opt/cvedix-ai-runtime' "$RULES_FILE"
 fi
 
 # Verify SDK bundling section exists
@@ -905,12 +909,13 @@ if ! grep -q "# Setup CVEDIX SDK library path" "$POSTINST_FILE"; then
 
 # Setup CVEDIX SDK library path (SDK is bundled in this package)
 echo "Setting up CVEDIX SDK library path..."
-if [ -d "/opt/cvedix/lib" ]; then
-    echo "/opt/cvedix/lib" > /etc/ld.so.conf.d/cvedix.conf
-    echo "  ✓ Added /opt/cvedix/lib to library search path"
+CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+if [ -d "$CVEDIX_LIB_DIR" ]; then
+    echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/cvedix.conf
+    echo "  ✓ Added $CVEDIX_LIB_DIR to library search path"
     ldconfig 2>&1 | grep -v "is not a symbolic link" || true
 else
-    echo "  ⚠  Warning: /opt/cvedix/lib not found (SDK may not be properly installed)"
+    echo "  ⚠  Warning: $CVEDIX_LIB_DIR not found (SDK may not be properly installed)"
 fi
 
 # Check OpenCV installation (bundled or system)
@@ -1017,7 +1022,7 @@ SDK_DEPENDS=$(dpkg-deb -f "$SDK_DEB_FILE" Depends 2>/dev/null || echo "")
 # Update control file to include SDK runtime dependencies
 # We'll add OpenCV and GStreamer as dependencies based on SDK requirements
 cat > "$CONTROL_FILE" <<CONTROL_EOF
-Source: edge-ai-api
+Source: edgeos-api
 Section: net
 Priority: optional
 Maintainer: CVEDIX <support@cvedix.com>
@@ -1061,9 +1066,9 @@ Build-Depends: debhelper (>= 13),
                python3-dev,
                python3-numpy
 Standards-Version: 4.6.0
-Homepage: https://github.com/cvedix/edge_ai_api
+Homepage: https://github.com/cvedix/edgeos-api
 
-Package: edge-ai-api
+Package: edgeos-api
 Architecture: amd64
 Depends: ${misc:Depends},
          libc6,
@@ -1126,7 +1131,7 @@ echo ""
 echo -e "${BLUE}[9/9]${NC} Updating changelog..."
 if [ -f "debian/changelog" ]; then
     # Add note about SDK bundling
-    sed -i "s/edge-ai-api (.*) unstable/edge-ai-api ($VERSION) unstable/" debian/changelog
+    sed -i "s/edgeos-api (.*) unstable/edgeos-api ($VERSION) unstable/" debian/changelog
     # Add entry about SDK bundling if not already present
     if ! grep -q "CVEDIX SDK bundled" debian/changelog; then
         sed -i "1a\\
@@ -1144,6 +1149,15 @@ echo ""
 # Step 10: Build Debian Package
 # ============================================
 echo -e "${BLUE}[10/10]${NC} Building Debian package..."
+
+# Use TMPDIR on /home/cvedix/Data (larger partition) to avoid disk space issues
+# This ensures all build tools (strip, dh_strip, etc.) use the larger partition
+export TMPDIR="${TMPDIR:-/home/cvedix/Data/tmp}"
+export TEMP="$TMPDIR"
+export TMP="$TMPDIR"
+mkdir -p "$TMPDIR"
+echo "Using TMPDIR: $TMPDIR (available space: $(df -h "$TMPDIR" | tail -1 | awk '{print $4}'))"
+
 export DEB_BUILD_OPTIONS="parallel=$(nproc)"
 
 # Build package
@@ -1151,10 +1165,10 @@ echo "Running dpkg-buildpackage..."
 dpkg-buildpackage -b -us -uc
 
 # Find the generated .deb file
-DEB_FILE=$(find .. -maxdepth 1 -name "edge-ai-api_${VERSION}_${ARCH}.deb" -o -name "edge-ai-api_*.deb" 2>/dev/null | head -1)
+DEB_FILE=$(find .. -maxdepth 1 -name "edgeos-api_${VERSION}_${ARCH}.deb" -o -name "edgeos-api_*.deb" 2>/dev/null | head -1)
 
 if [ -z "$DEB_FILE" ]; then
-    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edge-ai-api | head -1)
+    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edgeos-api | head -1)
 fi
 
 if [ -z "$DEB_FILE" ]; then
@@ -1165,7 +1179,7 @@ fi
 
 # Get absolute path and move to project root with proper name
 DEB_FILE=$(readlink -f "$DEB_FILE")
-FINAL_NAME="edge-ai-api-with-sdk-${VERSION}-${ARCH}.deb"
+FINAL_NAME="edgeos-api-with-sdk-${VERSION}-${ARCH}.deb"
 
 if [ "$(basename "$DEB_FILE")" != "$FINAL_NAME" ]; then
     mv "$DEB_FILE" "$PROJECT_ROOT/$FINAL_NAME"
@@ -1178,10 +1192,10 @@ else
 fi
 
 # Clean up temporary files
-rm -rf debian/edge-ai-api
+rm -rf debian/edgeos-api
 rm -rf debian/sdk_extract
 rm -f debian/opencv_lib_path.txt
-rm -f ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo 2>/dev/null || true
+rm -f ../edgeos-api_*.changes ../edgeos-api_*.buildinfo 2>/dev/null || true
 
 # Restore original files (cleanup will be handled by trap)
 # Files will be restored automatically on exit via cleanup function
@@ -1222,13 +1236,13 @@ echo "2. If there are dependency issues:"
 echo "   sudo apt-get install -f"
 echo ""
 echo "3. Verify installation:"
-echo "   sudo /opt/edge_ai_api/scripts/validate_installation.sh --verbose"
+echo "   sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose"
 echo ""
 echo "4. Start the service:"
-echo "   sudo systemctl start edge-ai-api"
+echo "   sudo systemctl start edgeos-api"
 echo ""
 echo "5. Check status:"
-echo "   sudo systemctl status edge-ai-api"
+echo "   sudo systemctl status edgeos-api"
 echo ""
 echo "=========================================="
 echo "Note"

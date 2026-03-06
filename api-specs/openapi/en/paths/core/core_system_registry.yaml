@@ -1,0 +1,54 @@
+# API endpoint: /v1/core/system/registry
+# Tag: Core
+
+/v1/core/system/registry:
+  get:
+    summary: Get registry key value
+    description: Returns registry key value from the system
+    operationId: coreGetRegistryKeyValueV1
+    tags:
+    - Core
+    parameters:
+    - name: key
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Registry key path
+      example: test
+    responses:
+      '200':
+        description: Registry key value
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              example:
+                test:
+                  value_bool: true
+                  value_float: 3.14
+                  value_int: 42
+                  value_string: hello
+                system:
+                  version: 1.0.0
+      '404':
+        description: Registry key not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for system registry
+    operationId: coreSystemRegistryOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: CORS preflight response

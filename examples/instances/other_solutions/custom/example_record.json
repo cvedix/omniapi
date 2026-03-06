@@ -1,0 +1,78 @@
+{
+  "name": "record_demo_1",
+  "group": "demo",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/test_video/face.mp4",
+      "FACE_DETECTION_MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx",
+      "FACE_RECOGNITION_MODEL_PATH": "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx",
+      "IMAGE_DIR": "/tmp/record/images",
+      "VIDEO_DIR": "/tmp/record/videos"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_record",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "0.6"
+      }
+    },
+    {
+      "nodeType": "yunet_face_detector",
+      "nodeName": "yunet_face_detector_record",
+      "parameters": {
+        "model_path": "${FACE_DETECTION_MODEL_PATH}",
+        "score_threshold": "0.6",
+        "nms_threshold": "0.5",
+        "top_k": "50"
+      }
+    },
+    {
+      "nodeType": "sface_feature_encoder",
+      "nodeName": "sface_encoder_record",
+      "parameters": {
+        "model_path": "${FACE_RECOGNITION_MODEL_PATH}"
+      }
+    },
+    {
+      "nodeType": "sort_track",
+      "nodeName": "sort_track_record",
+      "parameters": {}
+    },
+    {
+      "nodeType": "face_osd_v2",
+      "nodeName": "face_osd_record",
+      "parameters": {}
+    },
+    {
+      "nodeType": "record",
+      "nodeName": "recorder",
+      "parameters": {
+        "image_dir": "${IMAGE_DIR}",
+        "video_dir": "${VIDEO_DIR}"
+      }
+    },
+    {
+      "nodeType": "split",
+      "nodeName": "split_record",
+      "parameters": {
+        "split_by_channel": "true"
+      }
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_record",
+      "parameters": {
+        "channel": "0"
+      }
+    }
+  ]
+}
+

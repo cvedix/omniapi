@@ -1,0 +1,113 @@
+# API endpoint: /v1/core/model/upload
+# Tag: Models
+
+/v1/core/model/upload:
+  post:
+    summary: Tải lên file mô hình
+    description: 'Tải lên file mô hình (ONNX, weights, v.v.) lên máy chủ.
+
+      File sẽ được lưu trong thư mục models. Bạn có thể chỉ định thư mục con
+
+      bằng tham số truy vấn `directory` (ví dụ: `projects/myproject/models`).
+
+      Nếu thư mục không tồn tại, nó sẽ được tạo tự động.
+
+      Nếu không chỉ định thư mục, file sẽ được lưu trong thư mục models gốc.
+
+      '
+    operationId: uploadModel
+    tags:
+    - Models
+    parameters:
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con để lưu file mô hình. Dùng dấu gạch chéo để phân tách cấp thư mục (ví dụ: "projects/myproject/models", "detection/yolov8", "classification/resnet50"). Thư mục sẽ được tạo tự động nếu chưa tồn tại. Nếu không chỉ định, file sẽ được lưu tại thư mục models gốc.'
+
+      example: projects/myproject/models
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              files:
+                type: array
+                items:
+                  type: string
+                  format: binary
+                description: File mô hình để tải lên. Chọn nhiều file để tải lên cùng lúc (.onnx, .rknn, .weights, .cfg, .pt,
+                  .pth, .pb, .tflite)
+              file:
+                type: string
+                format: binary
+                description: Một file mô hình để tải lên (thay thế cho mảng files)
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+            description: File mô hình dưới dạng dữ liệu nhị phân
+    responses:
+      '201':
+        description: File mô hình đã được tải lên thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                count:
+                  type: integer
+                  description: Số lượng file đã tải lên thành công
+                files:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                      originalFilename:
+                        type: string
+                      path:
+                        type: string
+                      size:
+                        type: integer
+                      url:
+                        type: string
+                warnings:
+                  type: array
+                  items:
+                    type: string
+                  description: Cảnh báo cho các file tải lên thất bại
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: File đã tồn tại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho tải lên mô hình
+    operationId: uploadModelOptions
+    tags:
+    - Models
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

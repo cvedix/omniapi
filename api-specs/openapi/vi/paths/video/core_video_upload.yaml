@@ -1,0 +1,65 @@
+# API endpoint: /v1/core/video/upload
+# Tag: Video
+
+/v1/core/video/upload:
+  post:
+    summary: Tải lên file video
+    description: 'Tải file video (MP4, AVI, MKV, v.v.) lên máy chủ. File được lưu trong thư mục videos. Có thể chỉ định thư mục con qua tham số query `directory` (ví dụ: `projects/myproject/videos`). Thư mục sẽ được tạo tự động nếu chưa tồn tại. Nếu không chỉ định, file lưu tại thư mục videos gốc.
+
+      '
+    operationId: uploadVideo
+    tags:
+    - Video
+    parameters:
+    - name: directory
+      in: query
+      required: false
+      schema:
+        type: string
+      description: 'Đường dẫn thư mục con nơi file video sẽ được lưu.
+
+        Sử dụng dấu gạch chéo để phân tách các cấp thư mục (ví dụ: "projects/myproject/videos", "users/user123", "category1/subcategory").
+
+        Thư mục sẽ được tạo tự động nếu không tồn tại.
+
+        Nếu không được chỉ định, file sẽ được lưu trong thư mục videos gốc.
+
+        '
+      example: projects/myproject/videos
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              files:
+                type: array
+                items:
+                  type: string
+                  format: binary
+                description: File video để tải lên. Chọn nhiều file để tải lên cùng lúc (.mp4, .avi, .mkv, .mov, .flv, .wmv,
+                  .webm, v.v.)
+              file:
+                type: string
+                format: binary
+                description: Một file video để tải lên (thay thế cho mảng files)
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+            description: File video dưới dạng dữ liệu nhị phân
+    responses:
+      '201':
+        description: File video đã được tải lên thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                count:
+                  type: integer

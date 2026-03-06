@@ -1,0 +1,137 @@
+# API endpoint: /v1/core/solution/{solutionId}
+# Tag: Solutions
+
+/v1/core/solution/{solutionId}:
+  get:
+    summary: Lấy chi tiết solution
+    description: Trả về thông tin chi tiết của một solution, gồm cấu hình pipeline đầy đủ.
+    operationId: getSolution
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh solution
+    responses:
+      '200':
+        description: Chi tiết solution
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolutionConfig'
+      '404':
+        description: Không tìm thấy solution
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Cập nhật solution
+    description: Cập nhật cấu hình solution tùy chỉnh. Solution mặc định không thể cập nhật.
+    operationId: updateSolution
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh solution
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpdateSolutionRequest'
+    responses:
+      '200':
+        description: Đã cập nhật solution thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolutionConfig'
+      '400':
+        description: Yêu cầu không hợp lệ (validation thất bại)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Không thể cập nhật solution mặc định
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy solution
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa solution
+    description: Xóa solution tùy chỉnh. Solution mặc định không thể xóa.
+    operationId: deleteSolution
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh solution
+    responses:
+      '200':
+        description: Đã xóa solution thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                solutionId:
+                  type: string
+      '403':
+        description: Không thể xóa solution mặc định
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy solution
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho solution
+    operationId: getSolutionOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

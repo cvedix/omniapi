@@ -1,0 +1,271 @@
+# API endpoint: /v1/recognition/face-database/connection
+# Tag: Recognition
+
+/v1/recognition/face-database/connection:
+  post:
+    summary: Configure face database connection
+    description: "Configures the face database connection for MySQL or PostgreSQL. This endpoint allows you to configure\n\
+      a database connection to store face recognition data instead of using the default `face_database.txt` file.\n\n**Database\
+      \ Support:**\n- MySQL (default port: 3306)\n- PostgreSQL (default port: 5432)\n\n**Database Schema:**\nThe system expects\
+      \ two tables in the database:\n\n1. **face_libraries** table:\n   - `id` (primary key, auto-increment)\n   - `image_id`\
+      \ (varchar 36) - Unique identifier for each face image\n   - `subject` (varchar 255) - Subject/name of the person\n\
+      \   - `base64_image` (longtext) - Base64-encoded face image\n   - `embedding` (text) - Face embedding vector (comma-separated\
+      \ floats)\n   - `created_at` (timestamp) - Creation timestamp\n   - `machine_id` (varchar 255) - Machine identifier\n\
+      \   - `mac_address` (varchar 255) - MAC address\n\n2. **face_log** table:\n   - `id` (primary key, auto-increment)\n\
+      \   - `request_type` (varchar 50) - Type of request (recognize, register, etc.)\n   - `timestamp` (datetime) - Request\
+      \ timestamp\n   - `client_ip` (varchar 45) - Client IP address\n   - `request_body` (longtext) - Request body JSON\n\
+      \   - `response_body` (longtext) - Response body JSON\n   - `response_code` (int) - HTTP response code\n   - `notes`\
+      \ (text) - Additional notes\n   - `mac_address` (varchar 255) - MAC address\n   - `machine_id` (varchar 255) - Machine\
+      \ identifier\n\n**Behavior:**\n- If database connection is configured and enabled, the system will use the database\
+      \ instead of `face_database.txt`\n- If `enabled: false` is sent, the database connection is disabled and the system\
+      \ falls back to `face_database.txt`\n- Configuration is persisted in `config.json` under the `face_database` section\n\
+      - The configuration takes effect immediately after being saved\n\n**Note:** The database tables must be created manually\
+      \ before using this endpoint. The endpoint only configures\nthe connection parameters, it does not create the database\
+      \ schema.\n"
+    operationId: configureFaceDatabaseConnection
+    tags:
+    - Recognition
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/FaceDatabaseConnectionConfig'
+            - type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: Set to false to disable database connection and use default face_database.txt file
+                  example: false
+          examples:
+            mysql:
+              summary: MySQL configuration example
+              value:
+                type: mysql
+                host: localhost
+                port: 3306
+                database: face_db
+                username: face_user
+                password: secure_password
+                charset: utf8mb4
+            postgresql:
+              summary: PostgreSQL configuration example
+              value:
+                type: postgresql
+                host: localhost
+                port: 5432
+                database: face_db
+                username: face_user
+                password: secure_password
+            disable:
+              summary: Disable database connection
+              value:
+                enabled: false
+    responses:
+      '200':
+        description: Database connection configured successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Success message
+                  example: Face database connection configured successfully
+                config:
+                  $ref: '#/components/schemas/FaceDatabaseConnectionConfig'
+                note:
+                  type: string
+                  description: Additional information
+                  example: Database connection will be used instead of face_database.txt file
+            examples:
+              success:
+                summary: Configuration successful
+                value:
+                  message: Face database connection configured successfully
+                  config:
+                    type: mysql
+                    host: localhost
+                    port: 3306
+                    database: face_db
+                    username: face_user
+                    charset: utf8mb4
+                  note: Database connection will be used instead of face_database.txt file
+              disabled:
+                summary: Database disabled
+                value:
+                  message: Database connection disabled. Using default face_database.txt file
+                  enabled: false
+                  default_file: /opt/edgeos-api/data/face_database.txt
+      '400':
+        description: Bad request (missing required fields, invalid database type, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+            examples:
+              missingType:
+                summary: Missing type field
+                value:
+                  error: Bad request
+                  message: Field 'type' (mysql/postgresql) is required
+              invalidType:
+                summary: Invalid database type
+                value:
+                  error: Bad request
+                  message: Field 'type' must be either 'mysql' or 'postgresql'
+              missingHost:
+                summary: Missing host field
+                value:
+                  error: Bad request
+                  message: Field 'host' is required
+      '500':
+        description: Server error (failed to save configuration, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  get:
+    summary: Get face database connection configuration
+    description: 'Retrieves the current face database connection configuration. If no database is configured or
+
+      the database connection is disabled, returns information about the default `face_database.txt` file.
+
+
+      **Response:**
+
+      - If database is configured: Returns the connection configuration details
+
+      - If database is not configured: Returns `enabled: false` and the path to the default file
+
+      '
+    operationId: getFaceDatabaseConnection
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Configuration retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: Whether database connection is enabled
+                  example: true
+                config:
+                  $ref: '#/components/schemas/FaceDatabaseConnectionConfig'
+                  description: Database connection configuration (only present if enabled is true)
+                message:
+                  type: string
+                  description: Status message
+                  example: Database connection is configured and enabled
+                default_file:
+                  type: string
+                  description: Path to default face_database.txt file (only present if enabled is false)
+                  example: /opt/edgeos-api/data/face_database.txt
+            examples:
+              enabled:
+                summary: Database enabled
+                value:
+                  enabled: true
+                  config:
+                    type: mysql
+                    host: localhost
+                    port: 3306
+                    database: face_db
+                    username: face_user
+                    charset: utf8mb4
+                  message: Database connection is configured and enabled
+              disabled:
+                summary: Database disabled
+                value:
+                  enabled: false
+                  message: No database connection configured. Using default face_database.txt file
+                  default_file: /opt/edgeos-api/data/face_database.txt
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Delete face database connection configuration
+    description: 'Deletes the face database connection configuration. After deletion, the system will fall back to using
+
+      the default `face_database.txt` file for storing face recognition data.
+
+
+      **Behavior:**
+
+      - Removes the database connection configuration from `config.json`
+
+      - Sets `enabled` to `false` in the configuration
+
+      - System immediately switches to using `face_database.txt` file
+
+      - If no database configuration exists, returns a success response indicating no configuration was found
+
+
+      **Note:** This operation does not delete any data from the database itself. It only removes the connection
+
+      configuration. To delete data from the database, use the face deletion endpoints.
+
+      '
+    operationId: deleteFaceDatabaseConnection
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Database connection configuration deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Success message
+                  example: Database connection configuration deleted successfully. System will now use default face_database.txt
+                    file
+                enabled:
+                  type: boolean
+                  description: Whether database connection is enabled (always false after deletion)
+                  example: false
+                default_file:
+                  type: string
+                  description: Path to default face_database.txt file
+                  example: /opt/edgeos-api/data/face_database.txt
+            examples:
+              deleted:
+                summary: Configuration deleted successfully
+                value:
+                  message: Database connection configuration deleted successfully. System will now use default face_database.txt
+                    file
+                  enabled: false
+                  default_file: /opt/edgeos-api/data/face_database.txt
+              notFound:
+                summary: No configuration to delete
+                value:
+                  message: No database connection configured to delete
+                  enabled: false
+                  default_file: /opt/edgeos-api/data/face_database.txt
+      '500':
+        description: Server error (failed to update configuration, etc.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for face database connection
+    operationId: faceDatabaseConnectionOptions
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: CORS preflight response

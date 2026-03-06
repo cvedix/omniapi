@@ -63,14 +63,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy file .deb vào container
-COPY edge-ai-api-with-sdk-2026.0.1.21-amd64.deb /tmp/
+COPY edgeos-api-with-sdk-2026.0.1.21-amd64.deb /tmp/
 
 # Cài đặt package
 # Trong Docker build, systemd không có sẵn nên cần bỏ qua lỗi post-installation
 # Strategy: Unpack package, verify files, skip configure để tránh systemd errors
-RUN dpkg --force-depends --unpack /tmp/edge-ai-api-with-sdk-2026.0.1.21-amd64.deb && \
+RUN dpkg --force-depends --unpack /tmp/edgeos-api-with-sdk-2026.0.1.21-amd64.deb && \
     # Kiểm tra files ngay sau khi unpack (trước khi configure)
-    if [ ! -f /usr/local/bin/edge_ai_api ] || [ ! -f /usr/local/bin/edge_ai_worker ]; then \
+    if [ ! -f /usr/local/bin/edgeos-api ] || [ ! -f /usr/local/bin/edgeos-worker ]; then \
         echo "ERROR: Package files not found after unpack"; \
         exit 1; \
     fi && \
@@ -79,12 +79,12 @@ RUN dpkg --force-depends --unpack /tmp/edge-ai-api-with-sdk-2026.0.1.21-amd64.de
     apt-get update && \
     apt-get install -f -y --no-install-recommends && \
     # Kiểm tra lại files sau khi fix dependencies
-    if [ ! -f /usr/local/bin/edge_ai_api ] || [ ! -f /usr/local/bin/edge_ai_worker ]; then \
+    if [ ! -f /usr/local/bin/edgeos-api ] || [ ! -f /usr/local/bin/edgeos-worker ]; then \
         echo "ERROR: Package files missing after dependency fix"; \
         exit 1; \
     fi && \
     # Mark package as installed manually (bypass configure)
-    echo "edge-ai-api hold" | dpkg --set-selections || true && \
+    echo "edgeos-api hold" | dpkg --set-selections || true && \
     echo "✓ Package installed successfully (systemd configure step skipped)"
 
 # Expose port cho API
@@ -94,21 +94,21 @@ EXPOSE 8080
 RUN echo '#!/bin/bash\n\
 echo "=== Edge AI API Test Container ==="\n\
 echo "Package đã được cài đặt tại:"\n\
-ls -la /usr/local/bin/edge_ai_api 2>/dev/null || echo "Executable không tìm thấy"\n\
+ls -la /usr/local/bin/edgeos-api 2>/dev/null || echo "Executable không tìm thấy"\n\
 echo ""\n\
 echo "Service files:"\n\
-ls -la /etc/systemd/system/edge-ai-api.service 2>/dev/null || echo "Service file không tìm thấy"\n\
+ls -la /etc/systemd/system/edgeos-api.service 2>/dev/null || echo "Service file không tìm thấy"\n\
 echo ""\n\
 echo "Config files:"\n\
-ls -la /opt/edge_ai_api/ 2>/dev/null || echo "Config directory không tìm thấy"\n\
+ls -la /opt/edgeos-api/ 2>/dev/null || echo "Config directory không tìm thấy"\n\
 echo ""\n\
 echo "Để test service, chạy:"\n\
-echo "  systemctl start edge-ai-api"\n\
-echo "  systemctl status edge-ai-api"\n\
+echo "  systemctl start edgeos-api"\n\
+echo "  systemctl status edgeos-api"\n\
 echo "  curl http://localhost:8080/v1/core/health"\n\
 echo ""\n\
 echo "Hoặc chạy trực tiếp:"\n\
-echo "  /usr/local/bin/edge_ai_api"\n\
+echo "  /usr/local/bin/edgeos-api"\n\
 echo ""\n\
 bash\n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh

@@ -1,0 +1,150 @@
+# API endpoint: /v1/core/instance/{instanceId}/jams/{jamId}
+# Tag: Area Core
+
+/v1/core/instance/{instanceId}/jams/{jamId}:
+  get:
+    summary: Lấy một vùng kẹt xe (jam zone) theo ID
+    description: 'Trả về một vùng kẹt xe (jam zone) theo ID cho instance ba_jam.
+
+      '
+    operationId: getJam
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    - name: jamId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của vùng kẹt xe cần lấy
+      example: '{jamId}'
+    responses:
+      '200':
+        description: Đã lấy vùng kẹt xe thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JamZone'
+      '404':
+        description: Không tìm thấy instance hoặc vùng
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Cập nhật một vùng kẹt xe (jam zone) theo ID
+    description: 'Cập nhật vùng kẹt xe (jam zone) theo ID. Hỗ trợ cập nhật một phần.
+
+      '
+    operationId: updateJam
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    - name: jamId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của vùng kẹt xe cần cập nhật
+      example: '{jamId}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateJamRequest'
+    responses:
+      '200':
+        description: Đã cập nhật vùng kẹt xe thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Đã cập nhật vùng thành công
+      '400':
+        description: Yêu cầu không hợp lệ (ROI hoặc tham số sai)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance hoặc vùng
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  delete:
+    summary: Xóa một vùng kẹt xe (jam zone) theo ID
+    description: 'Xóa một vùng kẹt xe (jam zone) theo ID.
+
+      '
+    operationId: deleteJam
+    tags:
+    - Area Core
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance
+      example: '{instanceId}'
+    - name: jamId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của vùng kẹt xe cần xóa
+      example: '{jamId}'
+    responses:
+      '200':
+        description: Đã xóa vùng kẹt xe thành công
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Đã xóa vùng thành công
+      '404':
+        description: Không tìm thấy instance hoặc vùng
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'

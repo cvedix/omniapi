@@ -1,0 +1,75 @@
+{
+  "name": "ba_crossline_rtsp_rtsp_output",
+  "group": "demo",
+  "solution": "ba_crossline",
+  "persistent": true,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "RTSP_URL": "rtsp://localhost:8554/stream",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov8n.onnx",
+      "RESIZE_RATIO": "0.6"
+    },
+    "output": {
+      "RTSP_DES_PORT": "9000",
+      "RTSP_DES_NAME": "crossline_detection_stream"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "rtsp_src",
+      "nodeName": "rtsp_src_ba_crossline_rtsp_rtsp_output",
+      "parameters": {
+        "rtsp_url": "${RTSP_URL}",
+        "channel": "0",
+        "resize_ratio": "0.6"
+      }
+    },
+    {
+      "nodeType": "yolo_detector",
+      "nodeName": "yolo_detector_ba_crossline_rtsp_rtsp_output",
+      "parameters": {
+        "model_path": "${MODEL_PATH}",
+        "score_threshold": "0.5",
+        "nms_threshold": "0.4"
+      }
+    },
+    {
+      "nodeType": "sort_tracker",
+      "nodeName": "sort_tracker_ba_crossline_rtsp_rtsp_output",
+      "parameters": {}
+    },
+    {
+      "nodeType": "ba_crossline",
+      "nodeName": "ba_crossline_ba_crossline_rtsp_rtsp_output",
+      "parameters": {
+        "line_channel": "0",
+        "line_start_x": "0",
+        "line_start_y": "250",
+        "line_end_x": "700",
+        "line_end_y": "220"
+      }
+    },
+    {
+      "nodeType": "osd",
+      "nodeName": "osd_ba_crossline_rtsp_rtsp_output",
+      "parameters": {
+        "font_path": ""
+      }
+    },
+    {
+      "nodeType": "rtsp_des",
+      "nodeName": "rtsp_des_ba_crossline_rtsp_rtsp_output",
+      "parameters": {
+        "channel": "0",
+        "rtsp_port": "9000",
+        "rtsp_name": "crossline_detection_stream",
+        "bitrate": "1024",
+        "osd": "true",
+        "encoder": "x264enc"
+      }
+    }
+  ]
+}
+

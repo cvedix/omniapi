@@ -91,7 +91,7 @@ curl -X POST http://localhost:8080/v1/core/instance \
     "solutionId": "test_face_detection",
     "additionalParams": {
       "FILE_PATH": "./cvedix_data/test_video/face.mp4",
-      "MODEL_PATH": "./models/yunet.onnx"
+      "MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx"
     }
   }'
 ```
@@ -105,9 +105,9 @@ curl -X POST http://localhost:8080/v1/core/instance \
     "solution": "test_mask_rcnn_detection",
     "additionalParams": {
       "FILE_PATH": "./cvedix_data/test_video/mask_rcnn.mp4",
-      "MODEL_PATH": "./cvedix_data/models/mask_rcnn/frozen_inference_graph.pb",
-      "MODEL_CONFIG_PATH": "./cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt",
-      "LABELS_PATH": "./cvedix_data/models/coco_80classes.txt",
+      "MODEL_PATH": "/opt/edgeos-api/models/mask_rcnn/frozen_inference_graph.pb",
+      "MODEL_CONFIG_PATH": "/opt/edgeos-api/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt",
+      "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
       "INPUT_WIDTH": "416",
       "INPUT_HEIGHT": "416",
       "SCORE_THRESHOLD": "0.5"
@@ -125,9 +125,9 @@ curl -X POST http://localhost:8080/v1/core/instance \
     "additionalParams": {
       "FILE_PATH": "./cvedix_data/test_video/mask_rcnn.mp4",
       "RTMP_URL": "rtmp://localhost:1935/live/mask_rcnn",
-      "MODEL_PATH": "./cvedix_data/models/mask_rcnn/frozen_inference_graph.pb",
-      "MODEL_CONFIG_PATH": "./cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt",
-      "LABELS_PATH": "./cvedix_data/models/coco_80classes.txt",
+      "MODEL_PATH": "/opt/edgeos-api/models/mask_rcnn/frozen_inference_graph.pb",
+      "MODEL_CONFIG_PATH": "/opt/edgeos-api/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt",
+      "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
       "INPUT_WIDTH": "416",
       "INPUT_HEIGHT": "416",
       "SCORE_THRESHOLD": "0.5"

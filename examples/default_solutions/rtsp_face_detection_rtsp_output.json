@@ -1,0 +1,53 @@
+{
+    "solutionId": "rtsp_face_detection_rtsp_output",
+    "solutionName": "RTSP Face Detection with RTSP Output",
+    "solutionType": "face_detection",
+    "isDefault": false,
+    "pipeline": [
+        {
+            "nodeType": "rtsp_src",
+            "nodeName": "rtsp_src_{instanceId}",
+            "parameters": {
+                "rtsp_url": "${RTSP_URL}",
+                "channel": "0",
+                "resize_ratio": "1.0"
+            }
+        },
+        {
+            "nodeType": "yunet_face_detector",
+            "nodeName": "face_detector_{instanceId}",
+            "parameters": {
+                "model_path": "${MODEL_PATH}",
+                "score_threshold": "${detectionSensitivity}",
+                "nms_threshold": "0.5",
+                "top_k": "50"
+            }
+        },
+        {
+            "nodeType": "osd",
+            "nodeName": "osd_{instanceId}",
+            "parameters": {
+                "font_path": ""
+            }
+        },
+        {
+            "nodeType": "rtsp_des",
+            "nodeName": "rtsp_des_{instanceId}",
+            "parameters": {
+                "channel": "0",
+                "rtsp_port": "9000",
+                "rtsp_name": "face_detection_stream",
+                "bitrate": "1024",
+                "osd": "true",
+                "encoder": "x264enc"
+            }
+        }
+    ],
+    "defaults": {
+        "detectorMode": "SmartDetection",
+        "detectionSensitivity": "0.6",
+        "sensorModality": "RGB",
+        "RTSP_URL": "rtsp://localhost/stream"
+    }
+}
+

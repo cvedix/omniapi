@@ -1,0 +1,57 @@
+{
+  "name": "sync_demo_1",
+  "group": "demo",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH_0": "/opt/edgeos-api/test_video/video1.mp4",
+      "FILE_PATH_1": "/opt/edgeos-api/test_video/video2.mp4",
+      "SYNC_MODE": "timestamp",
+      "SYNC_THRESHOLD": "100"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_sync_0",
+      "parameters": {
+        "file_path": "${FILE_PATH_0}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_sync_1",
+      "parameters": {
+        "file_path": "${FILE_PATH_1}",
+        "channel": "1",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "sync",
+      "nodeName": "sync_node",
+      "parameters": {
+        "mode": "${SYNC_MODE}",
+        "threshold": "${SYNC_THRESHOLD}"
+      }
+    },
+    {
+      "nodeType": "osd_v3",
+      "nodeName": "osd_sync",
+      "parameters": {}
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_sync",
+      "parameters": {
+        "channel": "0"
+      }
+    }
+  ]
+}
+

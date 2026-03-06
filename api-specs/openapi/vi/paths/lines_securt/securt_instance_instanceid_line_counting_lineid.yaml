@@ -1,0 +1,64 @@
+# API endpoint: /v1/securt/instance/{instanceId}/line/counting/{lineId}
+# Tag: Lines SecuRT
+
+/v1/securt/instance/{instanceId}/line/counting/{lineId}:
+  put:
+    summary: Tạo counting line với ID
+    description: Tạo đường đếm (counting line) với ID chỉ định cho instance SecuRT
+    operationId: createCountingLineWithId
+    tags:
+    - Lines SecuRT
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh instance
+    - name: lineId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh đường (line ID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CountingLineWrite'
+    responses:
+      '201':
+        description: Đã tạo đường đếm thành công
+      '400':
+        description: Yêu cầu không hợp lệ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Đường đã tồn tại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho counting line với ID
+    operationId: createCountingLineWithIdOptions
+    tags:
+    - Lines SecuRT
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

@@ -1,0 +1,114 @@
+# API endpoint: /v1/recognition/faces/{image_id}
+# Tag: Recognition
+
+/v1/recognition/faces/{image_id}:
+  delete:
+    summary: Xóa face subject theo ID hoặc tên subject
+    description: 'Xóa face subject theo image ID hoặc tên subject.
+
+
+      - Nếu định danh là **image_id**, chỉ khuôn mặt tương ứng bị xóa.
+
+      - Nếu định danh là **tên subject**, mọi khuôn mặt gắn với subject đó sẽ bị xóa. Endpoint tự nhận định danh là image_id hay tên subject. Nếu không tìm thấy khuôn mặt với định danh đã cho, trả về lỗi 404.'
+
+    operationId: deleteFaceSubject
+    tags:
+    - Recognition
+    parameters:
+    - name: image_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 'UUID của face subject cần xóa, hoặc tên subject. Endpoint sẽ tự nhận loại định danh.'
+
+      example: '{subject}'
+    responses:
+      '200':
+        description: Đã xóa face subject thành công
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+                required:
+                - image_id
+                - subject
+                properties:
+                  image_id:
+                    type: string
+                    description: UUID của face subject đã xóa
+                    example: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                  subject:
+                    type: string
+                    description: Tên người gắn với khuôn mặt đã xóa
+                    example: subject1
+              - type: object
+                required:
+                - subject
+                - deleted_count
+                - image_ids
+                properties:
+                  subject:
+                    type: string
+                    description: Tên subject đã bị xóa
+                    example: subject1
+                  deleted_count:
+                    type: integer
+                    description: Số khuôn mặt đã xóa cho subject này
+                    example: 3
+                  image_ids:
+                    type: array
+                    items:
+                      type: string
+                    description: Danh sách image ID đã xóa
+                    example:
+                    - 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                    - 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
+            examples:
+              single_face:
+                summary: Đã xóa một khuôn mặt
+                value:
+                  image_id: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                  subject: subject1
+              multiple_faces:
+                summary: Đã xóa tất cả khuôn mặt của subject
+                value:
+                  subject: subject1
+                  deleted_count: 3
+                  image_ids:
+                  - 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
+                  - 7c246g6c-b476-5633-c2g2-5d0bd3ee1839
+                  - 8d357h7d-c587-6744-d3h3-6e1ce4ff2950
+      '400':
+        description: Yêu cầu không hợp lệ (thiếu image_id, v.v.)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Chưa xác thực (thiếu hoặc API key không hợp lệ)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy face subject
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho xóa face subject
+    operationId: deleteFaceSubjectOptions
+    tags:
+    - Recognition
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

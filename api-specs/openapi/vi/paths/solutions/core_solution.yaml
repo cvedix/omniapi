@@ -1,0 +1,111 @@
+# API endpoint: /v1/core/solution
+# Tag: Solutions
+
+/v1/core/solution:
+  get:
+    summary: Liệt kê tất cả solution
+    description: Trả về danh sách tất cả solution kèm thông tin tóm tắt (loại solution, số node pipeline).
+    operationId: listSolutions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: Danh sách solution
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                solutions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SolutionSummary'
+                total:
+                  type: integer
+                  description: Tổng số solution
+                default:
+                  type: integer
+                  description: Số solution mặc định
+                custom:
+                  type: integer
+                  description: Số solution tùy chỉnh
+            example:
+              total: 2
+              default: 1
+              custom: 1
+              solutions:
+              - solutionId: face_detection
+                solutionName: Face Detection
+                solutionType: face_detection
+                isDefault: true
+                pipelineNodeCount: 3
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  post:
+    summary: Tạo solution mới
+    description: Tạo cấu hình solution tùy chỉnh mới. Solution tùy chỉnh có thể sửa và xóa, khác với solution mặc định.
+    operationId: createSolution
+    tags:
+    - Solutions
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateSolutionRequest'
+          example:
+            solutionId: custom_face_detection
+            solutionName: Custom Face Detection
+            solutionType: face_detection
+            pipeline:
+            - nodeType: rtsp_src
+              nodeName: source_{instanceId}
+              parameters:
+                url: rtsp://localhost/stream
+            - nodeType: yunet_face_detector
+              nodeName: detector_{instanceId}
+              parameters:
+                model_path: models/face/yunet.onnx
+            - nodeType: file_des
+              nodeName: output_{instanceId}
+              parameters:
+                output_path: /tmp/output
+            defaults:
+              RTSP_URL: rtsp://localhost/stream
+    responses:
+      '201':
+        description: Đã tạo solution thành công
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolutionConfig'
+      '400':
+        description: Yêu cầu không hợp lệ (validation thất bại)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: Solution đã tồn tại
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho solutions
+    operationId: listSolutionsOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

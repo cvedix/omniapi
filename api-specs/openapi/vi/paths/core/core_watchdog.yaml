@@ -1,0 +1,23 @@
+# API endpoint: /v1/core/watchdog
+# Tag: Core
+
+/v1/core/watchdog:
+  get:
+    summary: Lấy trạng thái watchdog
+    description: 'Trả về thống kê watchdog và giám sát sức khỏe bao gồm kiểm tra sức khỏe instance,
+
+      số lần khởi động lại và thông tin giám sát.
+
+      '
+    operationId: getWatchdogStatus
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Thông tin trạng thái watchdog
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Thống kê watchdog và giám sát sức khỏe
+              additionalProperties: true

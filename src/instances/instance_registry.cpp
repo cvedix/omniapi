@@ -4,18 +4,23 @@
 #include "core/cvedix_validator.h"
 #include "core/logger.h"
 #include "core/logging_flags.h"
+#include "core/resource_manager.h"
+#include "core/shutdown_flag.h"
 #include "core/timeout_constants.h"
 #include "core/uuid_generator.h"
+#include "core/pipeline_builder_destination_nodes.h"
 #include "models/update_instance_request.h"
 #include "utils/gstreamer_checker.h"
 #include "utils/mp4_directory_watcher.h"
 #include "utils/mp4_finalizer.h"
+#include <drogon/drogon.h>
+#include <drogon/HttpClient.h>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstring> // For strerror
-#include <cvedix/cvedix_version.h>
+// #include <cvedix/cvedix_version.h>  // File not available in cvedix-ai-runtime SDK
 #include <cvedix/nodes/broker/cvedix_json_console_broker_node.h>
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
@@ -23,14 +28,17 @@
 #include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_crossline_osd_node.h>
-#include <cvedix/nodes/osd/cvedix_ba_jam_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
+#include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_face_osd_node_v2.h>
 #include <cvedix/nodes/osd/cvedix_osd_node_v3.h>
+#include <cvedix/nodes/src/cvedix_app_src_node.h>
 #include <cvedix/nodes/src/cvedix_file_src_node.h>
+#include <cvedix/nodes/src/cvedix_image_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtmp_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtsp_src_node.h>
+#include <cvedix/nodes/src/cvedix_udp_src_node.h>
 #include <cvedix/objects/cvedix_frame_meta.h>
 #include <cvedix/objects/cvedix_meta.h>
 #include <fcntl.h>
@@ -62,15 +70,31 @@ InstanceRegistry::InstanceRegistry(SolutionRegistry &solutionRegistry,
                                    PipelineBuilder &pipelineBuilder,
                                    InstanceStorage &instanceStorage)
     : solution_registry_(solutionRegistry), pipeline_builder_(pipelineBuilder),
-      instance_storage_(instanceStorage) {}
+      instance_storage_(instanceStorage) {
+  // Initialize ResourceManager for GPU allocation
+  // Default: allow up to 4 concurrent instances per GPU
+  auto &resourceManager = ResourceManager::getInstance();
+  resourceManager.initialize(4);
+  
+  std::cout << "[InstanceRegistry] Initialized with GPU resource management" << std::endl;
+}
 
 std::string InstanceRegistry::createInstance(const CreateInstanceRequest &req) {
   // CRITICAL: Release lock before building pipeline and auto-starting
   // This allows multiple instances to be created concurrently without blocking
   // each other
 
+  std::cerr << "[InstanceRegistry] ========================================" << std::endl;
+  std::cerr << "[InstanceRegistry] createInstance() called - starting..." << std::endl;
+  std::cerr << "[InstanceRegistry] Solution: " << (req.solution.empty() ? "<none>" : req.solution) << std::endl;
+
   // Generate instance ID (no lock needed)
   std::string instanceId = UUIDGenerator::generateUUID();
+  std::cerr << "[InstanceRegistry] Generated instance ID: " << instanceId << std::endl;
+
+  if (ShutdownFlag::isRequested()) {
+    throw std::runtime_error("Server is shutting down");
+  }
 
   // Get solution config if specified (no lock needed)
   SolutionConfig *solution = nullptr;
@@ -112,7 +136,7 @@ std::string InstanceRegistry::createInstance(const CreateInstanceRequest &req) {
         
         // Extract RTMP stream key if RTMP URL is configured
         if (!info.rtmpUrl.empty()) {
-          std::string streamKey = pipeline_builder_.extractRTMPStreamKey(info.rtmpUrl);
+          std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(info.rtmpUrl);
           if (!streamKey.empty()) {
             existingRTMPStreamKeys.insert(streamKey);
           }
@@ -121,7 +145,7 @@ std::string InstanceRegistry::createInstance(const CreateInstanceRequest &req) {
         // Also check additionalParams for RTMP_URL
         auto rtmpIt = info.additionalParams.find("RTMP_URL");
         if (rtmpIt != info.additionalParams.end() && !rtmpIt->second.empty()) {
-          std::string streamKey = pipeline_builder_.extractRTMPStreamKey(rtmpIt->second);
+          std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(rtmpIt->second);
           if (!streamKey.empty()) {
             existingRTMPStreamKeys.insert(streamKey);
           }
@@ -130,7 +154,7 @@ std::string InstanceRegistry::createInstance(const CreateInstanceRequest &req) {
         // Check RTMP_DES_URL as well
         auto rtmpDesIt = info.additionalParams.find("RTMP_DES_URL");
         if (rtmpDesIt != info.additionalParams.end() && !rtmpDesIt->second.empty()) {
-          std::string streamKey = pipeline_builder_.extractRTMPStreamKey(rtmpDesIt->second);
+          std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(rtmpDesIt->second);
           if (!streamKey.empty()) {
             existingRTMPStreamKeys.insert(streamKey);
           }
@@ -139,417 +163,137 @@ std::string InstanceRegistry::createInstance(const CreateInstanceRequest &req) {
     }
   }
 
-  // Build pipeline if solution is provided (do this OUTSIDE lock - can take
-  // time) ✅ Use RAII: pipeline will automatically cleanup if exception occurs
-  // If pipeline_builder throws exception, pipeline vector will be empty and
-  // nodes will be destroyed
-  std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipeline;
-  if (solution) {
-    try {
-      pipeline = pipeline_builder_.buildPipeline(*solution, req, instanceId, existingRTMPStreamKeys);
-      // ✅ Pipeline build succeeded - nodes are now owned by pipeline vector
-      // If exception occurs after this point, pipeline will be destroyed
-      // automatically
-    } catch (const std::bad_alloc &e) {
-      std::cerr << "[InstanceRegistry] Memory allocation error building "
-                   "pipeline for instance "
-                << instanceId << ": " << e.what() << std::endl;
-      // ✅ Pipeline vector is empty, no cleanup needed
-      throw std::runtime_error(
-          "Memory allocation error while building pipeline: " +
-          std::string(e.what()));
-    } catch (const std::invalid_argument &e) {
-      std::cerr << "[InstanceRegistry] Invalid argument building pipeline for "
-                   "instance "
-                << instanceId << ": " << e.what() << std::endl;
-      // ✅ Pipeline vector is empty, no cleanup needed
-      throw std::invalid_argument("Invalid argument while building pipeline: " +
-                                  std::string(e.what()));
-    } catch (const std::runtime_error &e) {
-      std::cerr
-          << "[InstanceRegistry] Runtime error building pipeline for instance "
-          << instanceId << ": " << e.what() << std::endl;
-      // ✅ Pipeline vector is empty, no cleanup needed
-      throw std::runtime_error("Runtime error while building pipeline: " +
-                               std::string(e.what()));
-    } catch (const std::exception &e) {
-      // Pipeline build failed - log error and rethrow with context
-      std::cerr
-          << "[InstanceRegistry] Exception building pipeline for instance "
-          << instanceId << ": " << e.what() << " (type: " << typeid(e).name()
-          << ")" << std::endl;
-      // ✅ Pipeline vector is empty or partially constructed, will be destroyed
-      // automatically
-      throw std::runtime_error(
-          "Pipeline build failed: " + std::string(e.what()) +
-          " (exception type: " + typeid(e).name() + ")");
-    } catch (...) {
-      // Unknown error - try to get more info
-      std::cerr
-          << "[InstanceRegistry] Unknown error building pipeline for instance "
-          << instanceId << " (non-standard exception)" << std::endl;
-      // Try to get exception info if possible
-      std::string errorMsg =
-          "Unknown error while building pipeline (non-standard exception)";
-      try {
-        std::rethrow_exception(std::current_exception());
-      } catch (const std::exception &e) {
-        std::cerr << "[InstanceRegistry] Re-thrown exception: " << e.what()
-                  << std::endl;
-        errorMsg = "Pipeline build failed: " + std::string(e.what());
-      } catch (...) {
-        std::cerr
-            << "[InstanceRegistry] Could not extract exception information"
-            << std::endl;
-      }
-      // ✅ Pipeline vector will be destroyed automatically, nodes will be
-      // cleaned up
-      throw std::runtime_error(errorMsg);
-    }
+  // ✅ ASYNC PIPELINE BUILDING: Build pipeline in background thread
+  // This allows API to return immediately instead of blocking for 30+ seconds
+  // Pipeline will be built asynchronously and instance will be marked as
+  // "building" until pipeline is ready
+
+  if (ShutdownFlag::isRequested()) {
+    throw std::runtime_error("Server is shutting down");
   }
 
-  // ✅ CRITICAL: Only register pipeline if build succeeded and pipeline is not
-  // empty Pipeline will be moved into map, not copied, so no extra overhead
-  if (pipeline.empty() && solution) {
-    std::cerr << "[InstanceRegistry] Pipeline is empty after build - cannot "
-                 "create instance"
-              << std::endl;
-    throw std::runtime_error("Pipeline build completed but pipeline is empty. "
-                             "Check solution configuration and node types.");
+  // Allocate GPU resource for this instance (in-process mode)
+  // Use tryAllocateGPU with timeout to avoid blocking API when many concurrent
+  // creates contend for ResourceManager lock (would cause 60s client timeout).
+  auto &resourceManager = ResourceManager::getInstance();
+  constexpr int kGpuAllocTimeoutMs = 5000;
+  auto gpu_allocation =
+      resourceManager.tryAllocateGPU(1536, -1, kGpuAllocTimeoutMs);
+
+  if (gpu_allocation) {
+    {
+      std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
+      gpu_allocations_[instanceId] = gpu_allocation;
+    }
+    std::cout << "[InstanceRegistry] Allocated GPU " << gpu_allocation->device_id 
+              << " for instance " << instanceId << " (in-process mode)" << std::endl;
+    std::cout << "[InstanceRegistry] Note: In in-process mode, all instances share the same process." << std::endl;
+    std::cout << "[InstanceRegistry] GPU will be used automatically by CVEDIX SDK if available." << std::endl;
+  } else {
+    std::cout << "[InstanceRegistry] No GPU available for instance "
+              << instanceId << " - will use CPU (or GPU lock timeout after "
+              << kGpuAllocTimeoutMs << "ms)" << std::endl;
   }
 
   // Create instance info (no lock needed)
   InstanceInfo info = createInstanceInfo(instanceId, req, solution);
+  
+  // Mark as building if solution is provided (pipeline will be built async)
+  if (solution) {
+    info.building = true;
+    info.loaded = false; // Not loaded until pipeline is built
+  } else {
+    info.building = false;
+    info.loaded = true; // No solution = no pipeline needed, so "loaded"
+  }
 
   // Store instance (need lock briefly)
+  // NOTE: Pipeline will be stored later by buildPipelineAsync when build completes
+  // Use try_lock_for in short chunks so we can abort quickly on shutdown (Ctrl+C).
+  std::cerr << "[InstanceRegistry] Acquiring registry lock to store instance "
+            << instanceId << "..." << std::endl;
   {
-    std::unique_lock<std::shared_timed_mutex> lock(
-        mutex_); // Exclusive lock for write operations
-    instances_[instanceId] = info;
-    if (!pipeline.empty()) {
-      pipelines_[instanceId] = pipeline;
+    std::unique_lock<std::shared_timed_mutex> lock(mutex_, std::defer_lock);
+    constexpr int kStoreLockTimeoutMs = 10000; // 10s max wait
+    constexpr int kChunkMs = 200;              // Check shutdown every 200ms
+    int remaining_ms = kStoreLockTimeoutMs;
+    while (remaining_ms > 0) {
+      if (ShutdownFlag::isRequested()) {
+        std::cerr << "[InstanceRegistry] createInstance() aborted: shutdown requested"
+                  << std::endl;
+        {
+          std::lock_guard<std::mutex> gpuLock(gpu_allocations_mutex_);
+          auto it = gpu_allocations_.find(instanceId);
+          if (it != gpu_allocations_.end()) {
+            ResourceManager::getInstance().releaseGPU(it->second);
+            gpu_allocations_.erase(it);
+          }
+        }
+        throw std::runtime_error("Server is shutting down");
+      }
+      int wait_ms = std::min(kChunkMs, remaining_ms);
+      if (lock.try_lock_for(std::chrono::milliseconds(wait_ms)))
+        break;
+      remaining_ms -= wait_ms;
     }
+    if (!lock.owns_lock()) {
+      std::cerr << "[InstanceRegistry] createInstance() failed: could not acquire "
+                   "registry lock within "
+                << kStoreLockTimeoutMs << "ms (registry busy)" << std::endl;
+      {
+        std::lock_guard<std::mutex> gpuLock(gpu_allocations_mutex_);
+        auto it = gpu_allocations_.find(instanceId);
+        if (it != gpu_allocations_.end()) {
+          ResourceManager::getInstance().releaseGPU(it->second);
+          gpu_allocations_.erase(it);
+        }
+      }
+      throw std::runtime_error(
+          "Instance registry is busy, please retry in a few seconds");
+    }
+    instances_[instanceId] = info;
+    // DO NOT store pipeline here - it will be stored by buildPipelineAsync
   } // Release lock - save to storage doesn't need it
 
-  // Save to storage for all instances (for debugging and inspection)
-  // Only persistent instances will be loaded on server restart
-  bool saved = instance_storage_.saveInstance(instanceId, info);
-  if (saved) {
-    if (req.persistent) {
-      std::cerr << "[InstanceRegistry] Instance configuration saved "
-                   "(persistent - will be loaded on restart)"
-                << std::endl;
-    } else {
-      std::cerr << "[InstanceRegistry] Instance configuration saved "
-                   "(non-persistent - for inspection only)"
-                << std::endl;
-    }
-  } else {
-    std::cerr << "[InstanceRegistry] Warning: Failed to save instance "
-                 "configuration to file"
-              << std::endl;
-  }
-
-  // Auto start if requested (do this OUTSIDE lock - can take time)
-  // IMPORTANT: Run auto-start in a separate thread to avoid blocking API
-  // response
-  if (req.autoStart && !pipeline.empty()) {
-    std::cerr << "[InstanceRegistry] ========================================"
-              << std::endl;
-    std::cerr << "[InstanceRegistry] Auto-starting pipeline for instance "
-              << instanceId << " (async)" << std::endl;
-    std::cerr << "[InstanceRegistry] ========================================"
-              << std::endl;
-
-    // Start auto-start process in a separate thread (non-blocking)
-    // This allows the API to return immediately after instance creation
-    std::thread([this, instanceId, pipeline]() {
-      try {
-        // Wait for DNN models to be ready using exponential backoff
-        // This is more reliable than fixed delay as it adapts to model loading
-        // time
-        waitForModelsReady(pipeline, 2000); // Max 2 seconds
-
-        // Validate model files before starting pipeline
-        // This prevents assertion failures when model files don't exist
-        std::map<std::string, std::string> additionalParams;
-        {
-          std::unique_lock<std::shared_timed_mutex> lock(
-              mutex_); // Exclusive lock for write operations
-          auto instanceIt = instances_.find(instanceId);
-          if (instanceIt != instances_.end()) {
-            additionalParams = instanceIt->second.additionalParams;
-          }
-        }
-
-        bool modelValidationFailed = false;
-        std::string missingModelPath;
-
-        // Check for YuNet face detector node
-        for (const auto &node : pipeline) {
-          auto yunetNode = std::dynamic_pointer_cast<
-              cvedix_nodes::cvedix_yunet_face_detector_node>(node);
-          if (yunetNode) {
-            // Get model path from additionalParams
-            std::string modelPath;
-            auto modelPathIt = additionalParams.find("MODEL_PATH");
-            if (modelPathIt != additionalParams.end() &&
-                !modelPathIt->second.empty()) {
-              modelPath = modelPathIt->second;
-            } else {
-              // Try to get from solution config or use default
-              modelPath = "/usr/share/cvedix/cvedix_data/models/face/"
-                          "face_detection_yunet_2022mar.onnx";
-            }
-
-            // Check if model file exists
-            struct stat modelStat;
-            if (stat(modelPath.c_str(), &modelStat) != 0) {
-              std::cerr << "[InstanceRegistry] "
-                           "========================================"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] ✗ CRITICAL: YuNet model file "
-                           "not found!"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] Expected path: " << modelPath
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] "
-                           "========================================"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] Cannot auto-start instance - "
-                           "model file validation failed"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] The pipeline will crash with "
-                           "assertion failure if started without model file"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] Please ensure the model file "
-                           "exists before starting the instance"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] "
-                           "========================================"
-                        << std::endl;
-              modelValidationFailed = true;
-              missingModelPath = modelPath;
-              break;
-            }
-
-            if (!S_ISREG(modelStat.st_mode)) {
-              std::cerr << "[InstanceRegistry] ✗ CRITICAL: Model path is not a "
-                           "regular file: "
-                        << modelPath << std::endl;
-              std::cerr << "[InstanceRegistry] Cannot auto-start instance - "
-                           "model file validation failed"
-                        << std::endl;
-              modelValidationFailed = true;
-              missingModelPath = modelPath;
-              break;
-            }
-          }
-
-          // Check for SFace feature encoder node
-          auto sfaceNode = std::dynamic_pointer_cast<
-              cvedix_nodes::cvedix_sface_feature_encoder_node>(node);
-          if (sfaceNode) {
-            // Get model path from additionalParams
-            std::string modelPath;
-            auto modelPathIt = additionalParams.find("SFACE_MODEL_PATH");
-            if (modelPathIt != additionalParams.end() &&
-                !modelPathIt->second.empty()) {
-              modelPath = modelPathIt->second;
-            } else {
-              // Use system-wide default path (no hardcoded user-specific paths)
-              modelPath = "/usr/share/cvedix/cvedix_data/models/face/"
-                          "face_recognition_sface_2021dec.onnx";
-            }
-
-            // Check if model file exists
-            struct stat modelStat;
-            if (stat(modelPath.c_str(), &modelStat) != 0) {
-              std::cerr << "[InstanceRegistry] "
-                           "========================================"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] ✗ CRITICAL: SFace model file "
-                           "not found!"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] Expected path: " << modelPath
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] "
-                           "========================================"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] Cannot auto-start instance - "
-                           "model file validation failed"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] The pipeline will crash with "
-                           "assertion failure if started without model file"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] Please ensure the model file "
-                           "exists before starting the instance"
-                        << std::endl;
-              std::cerr << "[InstanceRegistry] "
-                           "========================================"
-                        << std::endl;
-              modelValidationFailed = true;
-              missingModelPath = modelPath;
-              break;
-            }
-
-            if (!S_ISREG(modelStat.st_mode)) {
-              std::cerr << "[InstanceRegistry] ✗ CRITICAL: Model path is not a "
-                           "regular file: "
-                        << modelPath << std::endl;
-              std::cerr << "[InstanceRegistry] Cannot auto-start instance - "
-                           "model file validation failed"
-                        << std::endl;
-              modelValidationFailed = true;
-              missingModelPath = modelPath;
-              break;
-            }
-          }
-        }
-
-        // If model validation failed, don't start pipeline
-        if (modelValidationFailed) {
-          std::cerr << "[InstanceRegistry] ✗ Cannot auto-start instance - "
-                       "model file validation failed"
+  // ✅ ASYNC SAVE: Save to storage in background thread to avoid blocking API response
+  // This allows API to return immediately instead of waiting for file I/O
+  std::thread([this, instanceId, info, persistent = req.persistent]() {
+    try {
+      bool saved = instance_storage_.saveInstance(instanceId, info);
+      if (saved) {
+        if (persistent) {
+          std::cerr << "[InstanceRegistry] Instance configuration saved "
+                       "(persistent - will be loaded on restart)"
                     << std::endl;
-          std::cerr << "[InstanceRegistry] Missing model file: "
-                    << missingModelPath << std::endl;
-          std::cerr << "[InstanceRegistry] Instance created but not started - "
-                       "you can start it manually after fixing the model file"
-                    << std::endl;
-          return; // Exit thread without starting pipeline
-        }
-
-        // Start pipeline with exception handling
-        try {
-          if (startPipeline(pipeline, instanceId)) {
-            // Update running status and reset retry counter (need lock briefly)
-            {
-              std::unique_lock<std::shared_timed_mutex> lock(
-                  mutex_); // Exclusive lock for write operations
-              auto instanceIt = instances_.find(instanceId);
-              if (instanceIt != instances_.end()) {
-                instanceIt->second.running = true;
-                // Reset retry counter and tracking when instance starts
-                // successfully
-                instanceIt->second.retryCount = 0;
-                instanceIt->second.retryLimitReached = false;
-                instanceIt->second.startTime = std::chrono::steady_clock::now();
-                instanceIt->second.lastActivityTime =
-                    instanceIt->second.startTime;
-                instanceIt->second.hasReceivedData = false;
-              }
-            } // Release lock
-
-            // Start MP4 directory watcher if RECORD_PATH is set
-            {
-              std::unique_lock<std::shared_timed_mutex> lock(mutex_);
-              auto instanceIt = instances_.find(instanceId);
-              if (instanceIt != instances_.end()) {
-                auto recordPathIt =
-                    instanceIt->second.additionalParams.find("RECORD_PATH");
-                if (recordPathIt != instanceIt->second.additionalParams.end() &&
-                    !recordPathIt->second.empty()) {
-                  std::string recordPath = recordPathIt->second;
-                  lock.unlock(); // Release main lock before acquiring watcher
-                                 // lock
-
-                  std::lock_guard<std::mutex> watcherLock(mp4_watcher_mutex_);
-
-                  // Stop existing watcher if any
-                  if (mp4_watchers_.find(instanceId) != mp4_watchers_.end()) {
-                    mp4_watchers_[instanceId]->stop();
-                    mp4_watchers_.erase(instanceId);
-                  }
-
-                  // Create and start new watcher
-                  auto watcher =
-                      std::make_unique<MP4Finalizer::MP4DirectoryWatcher>(
-                          recordPath);
-                  watcher->start();
-                  mp4_watchers_[instanceId] = std::move(watcher);
-                  std::cerr << "[InstanceRegistry] ✓ Started MP4 directory "
-                               "watcher for: "
-                            << recordPath << std::endl;
-                  std::cerr << "[InstanceRegistry] Files will be automatically "
-                               "converted "
-                               "to compatible format during recording"
-                            << std::endl;
-                }
-              }
-            }
-
-            std::cerr
-                << "[InstanceRegistry] ========================================"
-                << std::endl;
-            std::cerr << "[InstanceRegistry] ✓ Pipeline started successfully "
-                         "for instance "
-                      << instanceId << std::endl;
-            std::cerr << "[InstanceRegistry] NOTE: If RTSP connection fails, "
-                         "the node will retry automatically"
-                      << std::endl;
-            std::cerr << "[InstanceRegistry] NOTE: Monitor logs above for RTSP "
-                         "connection status"
-                      << std::endl;
-            std::cerr
-                << "[InstanceRegistry] ========================================"
-                << std::endl;
-
-            // Wait a bit for pipeline to initialize
-            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-          } else {
-            std::cerr
-                << "[InstanceRegistry] ✗ Failed to start pipeline for instance "
-                << instanceId << " (pipeline created but not started)"
-                << std::endl;
-            std::cerr << "[InstanceRegistry] You can manually start it later "
-                         "using startInstance API"
-                      << std::endl;
-          }
-        } catch (const std::exception &e) {
-          std::cerr << "[InstanceRegistry] ✗ Exception starting pipeline for "
-                       "instance "
-                    << instanceId << ": " << e.what() << std::endl;
-          std::cerr << "[InstanceRegistry] Instance created but pipeline not "
-                       "started. You can start it manually later."
-                    << std::endl;
-          // Don't crash - instance is created but not running
-        } catch (...) {
-          std::cerr << "[InstanceRegistry] ✗ Unknown error starting pipeline "
-                       "for instance "
-                    << instanceId << std::endl;
-          std::cerr << "[InstanceRegistry] Instance created but pipeline not "
-                       "started. You can start it manually later."
+        } else {
+          std::cerr << "[InstanceRegistry] Instance configuration saved "
+                       "(non-persistent - for inspection only)"
                     << std::endl;
         }
-      } catch (const std::exception &e) {
-        // Catch any exceptions from waitForModelsReady or model validation
-        // (outer catch)
-        std::cerr << "[InstanceRegistry] ✗ Exception in auto-start thread for "
-                     "instance "
-                  << instanceId << ": " << e.what() << std::endl;
-        std::cerr << "[InstanceRegistry] Instance created but pipeline not "
-                     "started. You can start it manually later."
-                  << std::endl;
-      } catch (...) {
-        // Catch any other exceptions (outer catch)
-        std::cerr << "[InstanceRegistry] ✗ Unknown exception in auto-start "
-                     "thread for instance "
-                  << instanceId << std::endl;
-        std::cerr << "[InstanceRegistry] Instance created but pipeline not "
-                     "started. You can start it manually later."
+      } else {
+        std::cerr << "[InstanceRegistry] Warning: Failed to save instance "
+                     "configuration to file"
                   << std::endl;
       }
-    }).detach(); // Detach thread so it runs independently and doesn't block
-  } else if (!pipeline.empty()) {
-    std::cerr << "[InstanceRegistry] Pipeline created but not started "
-                 "(autoStart=false)"
-              << std::endl;
-    std::cerr << "[InstanceRegistry] Use startInstance API to start the "
-                 "pipeline when ready"
-              << std::endl;
+    } catch (const std::exception &e) {
+      std::cerr << "[InstanceRegistry] Exception in async save thread: " << e.what() << std::endl;
+    } catch (...) {
+      std::cerr << "[InstanceRegistry] Unknown exception in async save thread" << std::endl;
+    }
+  }).detach();
+
+  // Build pipeline ASYNC if solution is provided
+  // This allows API to return immediately instead of blocking for 30+ seconds
+  // Auto-start is handled inside buildPipelineAsync after pipeline build completes
+  if (solution) {
+    std::cerr << "[InstanceRegistry] Starting async pipeline build..." << std::endl;
+    buildPipelineAsync(instanceId, req, *solution, existingRTMPStreamKeys);
+  } else {
+    std::cerr << "[InstanceRegistry] No solution provided, skipping pipeline build" << std::endl;
   }
 
+  std::cerr << "[InstanceRegistry] createInstance() returning instanceId: " << instanceId << std::endl;
+  std::cerr << "[InstanceRegistry] ========================================" << std::endl;
   return instanceId;
 }
 
@@ -626,6 +370,19 @@ bool InstanceRegistry::deleteInstance(const std::string &instanceId) {
       std::cerr
           << "[InstanceRegistry] Stopped MP4 directory watcher for instance "
           << instanceId << std::endl;
+    }
+  }
+
+  // Release GPU allocation if exists
+  {
+    std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
+    auto it = gpu_allocations_.find(instanceId);
+    if (it != gpu_allocations_.end()) {
+      auto &resourceManager = ResourceManager::getInstance();
+      resourceManager.releaseGPU(it->second);
+      gpu_allocations_.erase(it);
+      std::cout << "[InstanceRegistry] Released GPU allocation for instance: " 
+                << instanceId << std::endl;
     }
   }
 
@@ -768,6 +525,7 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
   InstanceInfo existingInfo;
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipelineToStop;
   bool wasRunning = false;
+  bool usedExistingPipeline = false; // true when we waited for async build and use that pipeline
 
   // Get existing instance info
   {
@@ -782,40 +540,117 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
 
     existingInfo = instanceIt->second;
 
-    // Stop instance if it's running (unless skipAutoStop is true)
-    wasRunning = instanceIt->second.running;
-
-    if (wasRunning && !skipAutoStop) {
+    // ✅ ASYNC BUILD: If pipeline is building, wait for it (then use that pipeline)
+    if (existingInfo.building) {
+      constexpr int kWaitBuildTimeoutSec = 120;
+      constexpr int kWaitBuildPollMs = 500;
       std::cerr << "[InstanceRegistry] Instance " << instanceId
-                << " is currently running, stopping it first..." << std::endl;
-      instanceIt->second.running = false;
-
-      // Get pipeline copy before releasing lock
-      auto pipelineIt = pipelines_.find(instanceId);
-      if (pipelineIt != pipelines_.end() && !pipelineIt->second.empty()) {
-        pipelineToStop = pipelineIt->second;
+                << " pipeline is building, waiting up to " << kWaitBuildTimeoutSec
+                << "s..." << std::endl;
+      lock.unlock();
+      int waited_ms = 0;
+      bool build_done = false;
+      while (waited_ms < kWaitBuildTimeoutSec * 1000) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(kWaitBuildPollMs));
+        waited_ms += kWaitBuildPollMs;
+        if (ShutdownFlag::isRequested()) {
+          return false;
+        }
+        lock.lock();
+        instanceIt = instances_.find(instanceId);
+        if (instanceIt == instances_.end()) {
+          lock.unlock();
+          return false;
+        }
+        if (!instanceIt->second.building) {
+          build_done = true;
+          existingInfo = instanceIt->second;
+          if (!existingInfo.buildError.empty()) {
+            std::cerr << "[InstanceRegistry] ✗ Cannot start instance "
+                      << instanceId
+                      << ": Pipeline build failed: " << existingInfo.buildError
+                      << std::endl;
+            lock.unlock();
+            return false;
+          }
+          auto pipelineIt = pipelines_.find(instanceId);
+          if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+            std::cerr << "[InstanceRegistry] ✗ Pipeline not ready for instance "
+                      << instanceId << std::endl;
+            lock.unlock();
+            return false;
+          }
+          usedExistingPipeline = true;
+          wasRunning = instanceIt->second.running;
+          std::cerr << "[InstanceRegistry] Pipeline build completed, "
+                       "proceeding with start"
+                    << std::endl;
+          break;
+        }
+        lock.unlock();
       }
-    } else if (wasRunning && skipAutoStop) {
-      // If skipAutoStop is true, instance should already be stopped
-      // Fail if instance is still running to prevent resource conflicts
-      if (instanceIt->second.running) {
-        std::cerr << "[InstanceRegistry] ✗ Error: Instance " << instanceId
-                  << " is still running despite skipAutoStop=true" << std::endl;
-        std::cerr << "[InstanceRegistry] Instance must be stopped before "
-                     "calling startInstance with skipAutoStop=true"
+      if (!build_done) {
+        std::cerr << "[InstanceRegistry] ✗ Timeout waiting for pipeline build "
+                     "for instance "
+                  << instanceId << " (" << kWaitBuildTimeoutSec << "s)"
                   << std::endl;
-        return false; // Fail early to prevent resource conflicts
+        return false;
       }
+      // Hold lock; fall through to run stop/erase only when !usedExistingPipeline
     }
 
-    // Remove old pipeline from map to ensure fresh build
-    // This is safe because:
-    // - If wasRunning && !skipAutoStop: pipeline copy is saved in
-    // pipelineToStop before erase
-    // - If wasRunning && skipAutoStop: instance should already be stopped, so
-    // no active pipeline
-    // - If !wasRunning: no active pipeline to worry about
-    pipelines_.erase(instanceId);
+    if (!usedExistingPipeline) {
+      // ✅ ASYNC BUILD CHECK: Kiểm tra lỗi build pipeline
+      if (!existingInfo.buildError.empty()) {
+        std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
+                  << ": Pipeline build failed: " << existingInfo.buildError
+                  << std::endl;
+        return false;
+      }
+
+      // ✅ ASYNC BUILD CHECK: Kiểm tra pipeline đã được build chưa
+      auto pipelineIt = pipelines_.find(instanceId);
+      if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+        std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
+                  << ": Pipeline not built yet" << std::endl;
+        std::cerr << "[InstanceRegistry] If instance was just created, pipeline "
+                     "may still be building in background"
+                  << std::endl;
+        std::cerr << "[InstanceRegistry] Check instance status via GET "
+                     "/v1/core/instance/"
+                  << instanceId << " to see build status" << std::endl;
+        return false;
+      }
+
+      // Stop instance if it's running (unless skipAutoStop is true)
+      wasRunning = instanceIt->second.running;
+
+      if (wasRunning && !skipAutoStop) {
+        std::cerr << "[InstanceRegistry] Instance " << instanceId
+                  << " is currently running, stopping it first..." << std::endl;
+        instanceIt->second.running = false;
+
+        // Get pipeline copy before releasing lock
+        auto pipelineIt = pipelines_.find(instanceId);
+        if (pipelineIt != pipelines_.end() && !pipelineIt->second.empty()) {
+          pipelineToStop = pipelineIt->second;
+        }
+      } else if (wasRunning && skipAutoStop) {
+        // If skipAutoStop is true, instance should already be stopped
+        if (instanceIt->second.running) {
+          std::cerr << "[InstanceRegistry] ✗ Error: Instance " << instanceId
+                    << " is still running despite skipAutoStop=true"
+                    << std::endl;
+          std::cerr << "[InstanceRegistry] Instance must be stopped before "
+                       "calling startInstance with skipAutoStop=true"
+                    << std::endl;
+          return false;
+        }
+      }
+
+      // Remove old pipeline from map to ensure fresh build (only when not using just-built pipeline)
+      pipelines_.erase(instanceId);
+    }
   } // Release lock
 
   // Stop pipeline if it was running and not skipping auto-stop (do this outside
@@ -829,7 +664,9 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
   std::cerr << "[InstanceRegistry] ========================================"
             << std::endl;
   std::cerr << "[InstanceRegistry] Starting instance " << instanceId
-            << " (creating new pipeline)..." << std::endl;
+            << (usedExistingPipeline ? " (using built pipeline)..."
+                                    : " (creating new pipeline)...")
+            << std::endl;
   std::cerr << "[InstanceRegistry] ========================================"
             << std::endl;
 
@@ -839,50 +676,60 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
               << ", solution: " << existingInfo.solutionId << ")";
   }
 
-  // Rebuild pipeline from instance info (this creates a fresh pipeline)
-  // Check instance still exists before rebuilding (may have been deleted)
-  {
-    std::unique_lock<std::shared_timed_mutex> lock(
-        mutex_); // Exclusive lock for write operations
-    if (instances_.find(instanceId) == instances_.end()) {
-      std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
-                << " was deleted during start operation" << std::endl;
-      return false;
-    }
-  } // Release lock
-
-  if (!rebuildPipelineFromInstanceInfo(instanceId)) {
-    std::cerr << "[InstanceRegistry] ✗ Failed to rebuild pipeline for instance "
-              << instanceId << std::endl;
-    return false;
-  }
-
-  // Get pipeline copy after rebuild
-  // Check instance still exists (may have been deleted during rebuild)
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipelineCopy;
-  {
-    std::unique_lock<std::shared_timed_mutex> lock(
-        mutex_); // Exclusive lock for write operations
-    if (instances_.find(instanceId) == instances_.end()) {
-      std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
-                << " was deleted during rebuild" << std::endl;
-      // Cleanup pipeline that was just created
-      pipelines_.erase(instanceId);
-      return false;
-    }
+
+  if (usedExistingPipeline) {
+    // Use pipeline that was just built by createInstance (async build)
+    std::unique_lock<std::shared_timed_mutex> lock(mutex_);
     auto pipelineIt = pipelines_.find(instanceId);
     if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
-      std::cerr << "[InstanceRegistry] ✗ Pipeline rebuild failed or returned "
-                   "empty pipeline"
-                << std::endl;
+      std::cerr << "[InstanceRegistry] ✗ Pipeline not found for instance "
+                << instanceId << std::endl;
       return false;
     }
     pipelineCopy = pipelineIt->second;
-  } // Release lock
+    std::cerr << "[InstanceRegistry] ✓ Using pipeline from async build"
+              << std::endl;
+  } else {
+    // Rebuild pipeline from instance info (this creates a fresh pipeline)
+    {
+      std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+      if (instances_.find(instanceId) == instances_.end()) {
+        std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
+                  << " was deleted during start operation" << std::endl;
+        return false;
+      }
+    }
 
-  std::cerr
-      << "[InstanceRegistry] ✓ Pipeline rebuilt successfully (fresh pipeline)"
-      << std::endl;
+    if (!rebuildPipelineFromInstanceInfo(instanceId)) {
+      std::cerr << "[InstanceRegistry] ✗ Failed to rebuild pipeline for instance "
+                << instanceId << std::endl;
+      return false;
+    }
+
+    // Get pipeline copy after rebuild
+    {
+      std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+      if (instances_.find(instanceId) == instances_.end()) {
+        std::cerr << "[InstanceRegistry] ✗ Instance " << instanceId
+                  << " was deleted during rebuild" << std::endl;
+        pipelines_.erase(instanceId);
+        return false;
+      }
+      auto pipelineIt = pipelines_.find(instanceId);
+      if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+        std::cerr << "[InstanceRegistry] ✗ Pipeline rebuild failed or returned "
+                     "empty pipeline"
+                  << std::endl;
+        return false;
+      }
+      pipelineCopy = pipelineIt->second;
+    }
+
+    std::cerr
+        << "[InstanceRegistry] ✓ Pipeline rebuilt successfully (fresh pipeline)"
+        << std::endl;
+  }
 
   // Wait for models to be ready (use adaptive timeout)
   // OPTIMIZED: Reduced timeout to minimize impact on other instances
@@ -1680,17 +1527,22 @@ bool InstanceRegistry::stopInstance(const std::string &instanceId) {
               << ", was running: " << (wasRunning ? "true" : "false") << ")";
   }
 
-  // CRITICAL: Stop RTSP monitor thread FIRST (before any other cleanup)
-  // This prevents race condition where RTSP monitor thread tries to reconnect
-  // while pipeline is being destroyed
-  // IMPORTANT: stopRTSPMonitorThread() uses instanceId to identify and stop
-  // ONLY this instance's thread
-  std::cerr << "[InstanceRegistry] Stopping RTSP monitor thread for instance "
+  // CRITICAL: Stop monitoring threads FIRST (before any other cleanup)
+  // This prevents race condition where monitor threads try to reconnect while pipeline is being destroyed
+  std::cerr << "[InstanceRegistry] Stopping monitoring threads for instance "
             << instanceId << "..." << std::endl;
-  std::cerr << "[InstanceRegistry] NOTE: Only stopping RTSP monitor thread for "
+  std::cerr << "[InstanceRegistry] NOTE: Only stopping monitoring threads for "
                "this specific instance"
             << std::endl;
+  
+  // Stop RTSP monitor thread
   stopRTSPMonitorThread(instanceId);
+  
+  // Stop RTMP source monitor thread
+  stopRTMPSourceMonitorThread(instanceId);
+  
+  // Stop RTMP destination monitor thread
+  stopRTMPDestinationMonitorThread(instanceId);
 
   // CRITICAL: Now remove pipeline from map after threads are stopped
   // This ensures threads can't access pipeline through getInstanceNodes()
@@ -2171,6 +2023,14 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
       hasChanges = true;
     }
 
+    if (req.configuredFps != -1) {
+      std::cerr << "[InstanceRegistry] Updating configuredFps: "
+                << info.configuredFps << " -> " << req.configuredFps
+                << std::endl;
+      info.configuredFps = req.configuredFps;
+      hasChanges = true;
+    }
+
     if (req.metadataMode.has_value()) {
       std::cerr << "[InstanceRegistry] Updating metadataMode: "
                 << info.metadataMode << " -> " << req.metadataMode.value()
@@ -2290,10 +2150,21 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
       }
       hasChanges = true;
 
-      // Update RTSP URL if changed
-      auto rtspIt = req.additionalParams.find("RTSP_URL");
-      if (rtspIt != req.additionalParams.end() && !rtspIt->second.empty()) {
-        info.rtspUrl = rtspIt->second;
+      // Update RTSP URL if changed - check RTSP_DES_URL first (for output), 
+      // then RTSP_SRC_URL (for input), then RTSP_URL (backward compatibility)
+      auto rtspDesIt = req.additionalParams.find("RTSP_DES_URL");
+      if (rtspDesIt != req.additionalParams.end() && !rtspDesIt->second.empty()) {
+        info.rtspUrl = rtspDesIt->second;
+      } else {
+        auto rtspSrcIt = req.additionalParams.find("RTSP_SRC_URL");
+        if (rtspSrcIt != req.additionalParams.end() && !rtspSrcIt->second.empty()) {
+          info.rtspUrl = rtspSrcIt->second;
+        } else {
+          auto rtspIt = req.additionalParams.find("RTSP_URL");
+          if (rtspIt != req.additionalParams.end() && !rtspIt->second.empty()) {
+            info.rtspUrl = rtspIt->second;
+          }
+        }
       }
 
       // Update RTMP URL if changed - check RTMP_DES_URL first, then RTMP_URL
@@ -2563,7 +2434,8 @@ InstanceRegistry::createInstanceInfo(const std::string &instanceId,
 
   InstanceInfo info;
   info.instanceId = instanceId;
-  info.displayName = req.name;
+  // Use default name if not provided
+  info.displayName = req.name.empty() ? ("Instance " + instanceId.substr(0, 8)) : req.name;
   info.group = req.group;
   info.persistent = req.persistent;
   info.frameRateLimit = req.frameRateLimit;
@@ -2597,6 +2469,9 @@ InstanceRegistry::createInstanceInfo(const std::string &instanceId,
 
   // SolutionManager settings
   info.recommendedFrameRate = req.recommendedFrameRate;
+
+  // FPS configuration: default to 5 FPS if not specified (fps == 0)
+  info.configuredFps = (req.fps > 0) ? req.fps : 5;
 
   info.loaded = true;
   info.running = false;
@@ -2665,12 +2540,12 @@ InstanceRegistry::createInstanceInfo(const std::string &instanceId,
 
   // Only generate RTSP URL from RTMP URL if RTSP URL is not already set
   // This prevents overriding user's RTSP_SRC_URL
+  // RTSP URL will have the same stream key as RTMP URL (including instanceId if present)
   if (info.rtspUrl.empty() && !info.rtmpUrl.empty()) {
 
     // Generate RTSP URL from RTMP URL
-    // Pattern: rtmp://host:1935/live/stream_key ->
-    // rtsp://host:8554/live/stream_key_0 RTMP node automatically adds "_0"
-    // suffix to stream key
+    // Keep the same stream key as RTMP URL (including instanceId and "_0" suffix if present)
+    // Pattern: rtmp://host:1935/live/stream_key -> rtsp://host:8554/live/stream_key
     std::string rtmpUrl = info.rtmpUrl;
 
     // Replace RTMP protocol and port with RTSP
@@ -2687,17 +2562,11 @@ InstanceRegistry::createInstanceInfo(const std::string &instanceId,
         rtspUrl.replace(portPos, 5, ":8554");
       }
 
-      // Add "_0" suffix to stream key if not already present
-      // RTMP node automatically adds this suffix
-      size_t lastSlash = rtspUrl.find_last_of('/');
-      if (lastSlash != std::string::npos) {
-        std::string streamKey = rtspUrl.substr(lastSlash + 1);
-        if (streamKey.find("_0") == std::string::npos && !streamKey.empty()) {
-          rtspUrl += "_0";
-        }
-      }
-
+      // Keep the same stream key as RTMP URL (no modification needed)
+      // RTMP URL already includes instanceId and "_0" suffix if applicable
       info.rtspUrl = rtspUrl;
+      std::cerr << "[InstanceRegistry] Generated RTSP URL from RTMP URL (same stream key): '" 
+                << rtspUrl << "'" << std::endl;
     }
   }
 
@@ -2881,13 +2750,17 @@ bool InstanceRegistry::startPipeline(
     auto &controller =
         BackpressureController::BackpressureController::getInstance();
 
-    // Get FPS from additionalParams if provided (user override)
+    // Priority order for FPS configuration:
+    // 1. MAX_FPS from additionalParams (highest priority - explicit override)
+    // 2. configuredFps from instance info (from API /api/v1/instances/{id}/fps)
+    // 3. Auto-detect based on model type (fallback)
     double maxFPS = 0.0;
     bool userFPSProvided = false;
     {
       std::unique_lock<std::shared_timed_mutex> lock(mutex_);
       auto instanceIt = instances_.find(instanceId);
       if (instanceIt != instances_.end()) {
+        // First, check MAX_FPS from additionalParams (explicit override)
         auto fpsIt = instanceIt->second.additionalParams.find("MAX_FPS");
         if (fpsIt != instanceIt->second.additionalParams.end() &&
             !fpsIt->second.empty()) {
@@ -2902,6 +2775,16 @@ bool InstanceRegistry::startPipeline(
                          "additionalParams: "
                       << fpsIt->second << std::endl;
           }
+        }
+        
+        // If MAX_FPS not provided, use configuredFps from instance info
+        // (set via API /api/v1/instances/{id}/fps, default is 5)
+        if (!userFPSProvided && instanceIt->second.configuredFps > 0) {
+          maxFPS = static_cast<double>(instanceIt->second.configuredFps);
+          userFPSProvided = true;
+          std::cerr
+              << "[InstanceRegistry] ✓ Using configuredFps from instance info: "
+              << maxFPS << " FPS" << std::endl;
         }
       }
     }
@@ -2952,10 +2835,10 @@ bool InstanceRegistry::startPipeline(
       }
     }
 
-    // Clamp FPS to valid range (12-120 FPS) - synchronized with
-    // BackpressureController MIN_FPS = 12.0, MAX_FPS = 120.0 to support high
-    // FPS processing for multiple instances
-    maxFPS = std::max(12.0, std::min(120.0, maxFPS));
+    // Clamp FPS to valid range (5-120 FPS) - synchronized with
+    // BackpressureController MIN_FPS = 5.0, MAX_FPS = 120.0
+    // Minimum 5 FPS to support task 12 requirement (default FPS = 5)
+    maxFPS = std::max(5.0, std::min(120.0, maxFPS));
 
     // Configure with DROP_NEWEST policy (keep latest frame, drop old ones)
     // This prevents queue backlog while maintaining current state
@@ -2979,6 +2862,9 @@ bool InstanceRegistry::startPipeline(
 
   // Setup frame capture hook before starting pipeline
   setupFrameCaptureHook(instanceId, nodes);
+
+  // Setup RTMP destination activity hook so monitor sees real push activity
+  setupRTMPDestinationActivityHook(instanceId, nodes);
 
   // Setup queue size tracking hook before starting pipeline
   // This also tracks incoming frames on source node (first node)
@@ -3094,11 +2980,11 @@ bool InstanceRegistry::startPipeline(
       std::cerr << "[InstanceRegistry]   2. Check CVEDIX SDK logs for "
                    "'rtspsrc' connection messages:"
                 << std::endl;
-      std::cerr << "[InstanceRegistry]      - Direct run: ./bin/edge_ai_api "
+      std::cerr << "[InstanceRegistry]      - Direct run: ./bin/edgeos-api "
                    "2>&1 | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Service: sudo journalctl -u "
-                   "edge-ai-api | grep -i rtspsrc"
+                   "edgeos-api | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Enable GStreamer debug: export "
                    "GST_DEBUG=rtspsrc:4"
@@ -3511,26 +3397,95 @@ bool InstanceRegistry::startPipeline(
           << std::endl;
       std::cerr << "[InstanceRegistry] ========================================"
                 << std::endl;
+
+      // Start RTMP source monitoring thread for error detection and auto-reconnect
+      startRTMPSourceMonitorThread(instanceId);
+      
+      // Check if instance also has RTMP destination and start monitoring thread
+      {
+        std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+        auto instanceIt = instances_.find(instanceId);
+        if (instanceIt != instances_.end()) {
+          auto rtmpDesIt = instanceIt->second.additionalParams.find("RTMP_DES_URL");
+          if (rtmpDesIt != instanceIt->second.additionalParams.end() && 
+              !rtmpDesIt->second.empty()) {
+            // Start RTMP destination monitoring thread
+            startRTMPDestinationMonitorThread(instanceId);
+          }
+        }
+      }
+      
       return true;
     }
 
+    // Check for image source node (image_src)
+    auto imageNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(nodes[0]);
+    if (imageNode) {
+      std::cerr << "[InstanceRegistry] Starting image source pipeline..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      try {
+        imageNode->start();
+        std::cerr << "[InstanceRegistry] ✓ Image source node started"
+                  << std::endl;
+        return true;
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceRegistry] ✗ Exception during imageNode->start(): "
+                  << e.what() << std::endl;
+        return false;
+      }
+    }
+
+    // Check for UDP source node (udp_src)
+    auto udpNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(nodes[0]);
+    if (udpNode) {
+      std::cerr << "[InstanceRegistry] Starting UDP source pipeline..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      try {
+        udpNode->start();
+        std::cerr << "[InstanceRegistry] ✓ UDP source node started"
+                  << std::endl;
+        return true;
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceRegistry] ✗ Exception during udpNode->start(): "
+                  << e.what() << std::endl;
+        return false;
+      }
+    }
+
+    // Check for app source node (app_src, push-based)
+    auto appSrcNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(nodes[0]);
+    if (appSrcNode) {
+      std::cerr << "[InstanceRegistry] Starting app source pipeline (push-based)..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      try {
+        appSrcNode->start();
+        std::cerr << "[InstanceRegistry] ✓ App source node started"
+                  << std::endl;
+        return true;
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceRegistry] ✗ Exception during appSrcNode->start(): "
+                  << e.what() << std::endl;
+        return false;
+      }
+    }
+
     // If not a recognized source node, cannot start pipeline
-    // RTSP, File, and RTMP source nodes are currently supported
     std::cerr << "[InstanceRegistry] ✗ Error: First node is not a recognized "
-                 "source node (RTSP, File, or RTMP)"
+                 "source node (RTSP, File, RTMP, Image, UDP, or App)"
               << std::endl;
     std::cerr << "[InstanceRegistry] Currently supported source node types:"
               << std::endl;
-    std::cerr
-        << "[InstanceRegistry]   - cvedix_rtsp_src_node (for RTSP streams)"
-        << std::endl;
-    std::cerr << "[InstanceRegistry]   - cvedix_file_src_node (for video files)"
+    std::cerr << "[InstanceRegistry]   - cvedix_rtsp_src_node, cvedix_rtmp_src_node, "
+                 "cvedix_file_src_node (ff_src uses file_src),"
               << std::endl;
-    std::cerr
-        << "[InstanceRegistry]   - cvedix_rtmp_src_node (for RTMP streams)"
-        << std::endl;
-    std::cerr << "[InstanceRegistry] Please ensure your solution config uses "
-                 "one of these as the first node"
+    std::cerr << "[InstanceRegistry]   - cvedix_image_src_node, cvedix_udp_src_node, "
+                 "cvedix_app_src_node"
               << std::endl;
     return false;
   } catch (const std::exception &e) {
@@ -4151,10 +4106,12 @@ bool InstanceRegistry::rebuildPipelineFromInstanceInfo(
   req.additionalParams = info.additionalParams;
 
   // Also restore individual fields for backward compatibility
-  // Use originator.address as RTSP URL if available
+  // Use originator.address as RTSP URL if available (typically input source)
   if (!info.originator.address.empty() &&
+      req.additionalParams.find("RTSP_SRC_URL") == req.additionalParams.end() &&
+      req.additionalParams.find("RTSP_DES_URL") == req.additionalParams.end() &&
       req.additionalParams.find("RTSP_URL") == req.additionalParams.end()) {
-    req.additionalParams["RTSP_URL"] = info.originator.address;
+    req.additionalParams["RTSP_SRC_URL"] = info.originator.address;
   }
 
   // Restore RTMP URL if available (override if not in additionalParams)
@@ -4184,7 +4141,7 @@ bool InstanceRegistry::rebuildPipelineFromInstanceInfo(
         
         // Extract RTMP stream key if RTMP URL is configured
         if (!info.rtmpUrl.empty()) {
-          std::string streamKey = pipeline_builder_.extractRTMPStreamKey(info.rtmpUrl);
+          std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(info.rtmpUrl);
           if (!streamKey.empty()) {
             existingRTMPStreamKeys.insert(streamKey);
           }
@@ -4193,7 +4150,7 @@ bool InstanceRegistry::rebuildPipelineFromInstanceInfo(
         // Also check additionalParams for RTMP_URL
         auto rtmpIt = info.additionalParams.find("RTMP_URL");
         if (rtmpIt != info.additionalParams.end() && !rtmpIt->second.empty()) {
-          std::string streamKey = pipeline_builder_.extractRTMPStreamKey(rtmpIt->second);
+          std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(rtmpIt->second);
           if (!streamKey.empty()) {
             existingRTMPStreamKeys.insert(streamKey);
           }
@@ -4202,7 +4159,7 @@ bool InstanceRegistry::rebuildPipelineFromInstanceInfo(
         // Check RTMP_DES_URL as well
         auto rtmpDesIt = info.additionalParams.find("RTMP_DES_URL");
         if (rtmpDesIt != info.additionalParams.end() && !rtmpDesIt->second.empty()) {
-          std::string streamKey = pipeline_builder_.extractRTMPStreamKey(rtmpDesIt->second);
+          std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(rtmpDesIt->second);
           if (!streamKey.empty()) {
             existingRTMPStreamKeys.insert(streamKey);
           }
@@ -4243,6 +4200,215 @@ bool InstanceRegistry::rebuildPipelineFromInstanceInfo(
         << instanceId << std::endl;
     return false;
   }
+}
+
+void InstanceRegistry::buildPipelineAsync(
+    const std::string &instanceId,
+    const CreateInstanceRequest &req,
+    const SolutionConfig &solution,
+    const std::set<std::string> &existingRTMPStreamKeys) {
+  
+  std::cerr << "[InstanceRegistry] ========================================"
+            << std::endl;
+  std::cerr << "[InstanceRegistry] Building pipeline ASYNC for instance "
+            << instanceId << " (background thread)" << std::endl;
+  std::cerr << "[InstanceRegistry] API will return immediately, pipeline will "
+               "be built in background"
+            << std::endl;
+  std::cerr << "[InstanceRegistry] ========================================"
+            << std::endl;
+
+  // Start async build in separate thread
+  std::thread([this, instanceId, req, solution, existingRTMPStreamKeys]() {
+    try {
+      // 1. Set building = true
+      {
+        std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+        auto it = instances_.find(instanceId);
+        if (it != instances_.end()) {
+          it->second.building = true;
+          it->second.buildError.clear();
+        } else {
+          std::cerr << "[InstanceRegistry] Instance not found for async build: "
+                    << instanceId << std::endl;
+          return;
+        }
+      }
+
+      // 2. Build pipeline (có thể mất 30+ giây)
+      std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipeline;
+      try {
+        pipeline = pipeline_builder_.buildPipeline(
+            solution, req, instanceId, existingRTMPStreamKeys);
+      } catch (const std::bad_alloc &e) {
+        std::cerr << "[InstanceRegistry] Memory allocation error building "
+                     "pipeline for instance "
+                  << instanceId << ": " << e.what() << std::endl;
+        {
+          std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+          auto it = instances_.find(instanceId);
+          if (it != instances_.end()) {
+            it->second.building = false;
+            it->second.buildError = "Memory allocation error: " + std::string(e.what());
+          }
+        }
+        return;
+      } catch (const std::invalid_argument &e) {
+        std::cerr << "[InstanceRegistry] Invalid argument building pipeline for "
+                     "instance "
+                  << instanceId << ": " << e.what() << std::endl;
+        {
+          std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+          auto it = instances_.find(instanceId);
+          if (it != instances_.end()) {
+            it->second.building = false;
+            it->second.buildError = "Invalid argument: " + std::string(e.what());
+          }
+        }
+        return;
+      } catch (const std::runtime_error &e) {
+        std::cerr << "[InstanceRegistry] Runtime error building pipeline for "
+                     "instance "
+                  << instanceId << ": " << e.what() << std::endl;
+        {
+          std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+          auto it = instances_.find(instanceId);
+          if (it != instances_.end()) {
+            it->second.building = false;
+            it->second.buildError = "Runtime error: " + std::string(e.what());
+          }
+        }
+        return;
+      } catch (const std::exception &e) {
+        std::cerr << "[InstanceRegistry] Exception building pipeline for instance "
+                  << instanceId << ": " << e.what() << " (type: " << typeid(e).name()
+                  << ")" << std::endl;
+        {
+          std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+          auto it = instances_.find(instanceId);
+          if (it != instances_.end()) {
+            it->second.building = false;
+            it->second.buildError = "Pipeline build failed: " + std::string(e.what());
+          }
+        }
+        return;
+      } catch (...) {
+        std::cerr << "[InstanceRegistry] Unknown error building pipeline for "
+                     "instance "
+                  << instanceId << " (non-standard exception)" << std::endl;
+        {
+          std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+          auto it = instances_.find(instanceId);
+          if (it != instances_.end()) {
+            it->second.building = false;
+            it->second.buildError = "Unknown error while building pipeline";
+          }
+        }
+        return;
+      }
+
+      // 3. Lưu pipeline và cập nhật trạng thái
+      bool buildSuccess = false;
+      {
+        std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+        auto it = instances_.find(instanceId);
+        if (it != instances_.end()) {
+          if (!pipeline.empty()) {
+            pipelines_[instanceId] = pipeline;
+            it->second.building = false;
+            it->second.loaded = true; // Pipeline đã sẵn sàng
+            buildSuccess = true;
+            std::cerr << "[InstanceRegistry] ✓ Pipeline built successfully for "
+                         "instance "
+                      << instanceId << std::endl;
+          } else {
+            it->second.building = false;
+            it->second.buildError = "Pipeline is empty after build";
+            std::cerr << "[InstanceRegistry] ✗ Pipeline is empty after build for "
+                         "instance "
+                      << instanceId << std::endl;
+          }
+        } else {
+          std::cerr << "[InstanceRegistry] Instance not found after pipeline build: "
+                    << instanceId << std::endl;
+          // Cleanup pipeline if instance was deleted
+          pipeline.clear();
+          return;
+        }
+      }
+
+      // 4. Update RTMP URL if needed (similar to sync createInstance)
+      if (buildSuccess) {
+        std::string actualRtmpUrl = PipelineBuilder::getActualRTMPUrl(instanceId);
+        if (!actualRtmpUrl.empty()) {
+          std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+          auto it = instances_.find(instanceId);
+          if (it != instances_.end()) {
+            std::string finalRtmpUrl = actualRtmpUrl;
+            size_t lastSlash = finalRtmpUrl.find_last_of('/');
+            if (lastSlash != std::string::npos &&
+                lastSlash < finalRtmpUrl.length() - 1) {
+              std::string streamKey = finalRtmpUrl.substr(lastSlash + 1);
+              if (streamKey.length() < 2 ||
+                  streamKey.substr(streamKey.length() - 2) != "_0") {
+                finalRtmpUrl += "_0";
+              }
+            }
+            it->second.rtmpUrl = finalRtmpUrl;
+            it->second.additionalParams["RTMP_URL"] = finalRtmpUrl;
+            PipelineBuilder::clearActualRTMPUrl(instanceId);
+          }
+        }
+      }
+
+      // 5. Auto-start nếu được yêu cầu
+      if (buildSuccess) {
+        bool shouldAutoStart = false;
+        {
+          std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+          auto it = instances_.find(instanceId);
+          if (it != instances_.end() && it->second.autoStart) {
+            shouldAutoStart = true;
+          }
+        }
+
+        if (shouldAutoStart) {
+          std::cerr << "[InstanceRegistry] ========================================"
+                    << std::endl;
+          std::cerr << "[InstanceRegistry] Auto-starting pipeline for instance "
+                    << instanceId << " (async, after pipeline build)" << std::endl;
+          std::cerr << "[InstanceRegistry] ========================================"
+                    << std::endl;
+          // Start instance (this will use the pipeline we just built)
+          startInstance(instanceId, false);
+        }
+      }
+
+    } catch (const std::exception &e) {
+      std::cerr << "[InstanceRegistry] Exception in async pipeline build thread: "
+                << e.what() << std::endl;
+      {
+        std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+        auto it = instances_.find(instanceId);
+        if (it != instances_.end()) {
+          it->second.building = false;
+          it->second.buildError = "Exception in async build: " + std::string(e.what());
+        }
+      }
+    } catch (...) {
+      std::cerr << "[InstanceRegistry] Unknown exception in async pipeline build "
+                   "thread"
+                << std::endl;
+      {
+        std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+        auto it = instances_.find(instanceId);
+        if (it != instances_.end()) {
+          it->second.building = false;
+          it->second.buildError = "Unknown exception in async build";
+        }
+      }
+    }
+  }).detach(); // Detach thread để không block
 }
 
 bool InstanceRegistry::hasRTMPOutput(const std::string &instanceId) const {
@@ -5324,6 +5490,8 @@ InstanceRegistry::getInstanceStatistics(const std::string &instanceId) {
   std::string format_cached;
   size_t current_queue_size_cached = 0;
   size_t max_queue_size_seen_cached = 0;
+  bool has_rtmp_des = false;
+  bool has_rtmp_src = false;
 
   {
     // CRITICAL: Use timeout to prevent blocking if mutex is locked by another
@@ -5409,6 +5577,10 @@ InstanceRegistry::getInstanceStatistics(const std::string &instanceId) {
     format_cached = tracker.format;
     current_queue_size_cached = tracker.current_queue_size;
     max_queue_size_seen_cached = tracker.max_queue_size_seen;
+    auto it = info.additionalParams.find("RTMP_DES_URL");
+    has_rtmp_des = (it != info.additionalParams.end() && !it->second.empty());
+    it = info.additionalParams.find("RTMP_SRC_URL");
+    has_rtmp_src = (it != info.additionalParams.end() && !it->second.empty());
   } // LOCK RELEASED HERE - all subsequent operations are lock-free!
 
   // Step 2: Check cache (lock-free)
@@ -5504,6 +5676,17 @@ InstanceRegistry::getInstanceStatistics(const std::string &instanceId) {
       trackerPtr->frames_incoming.load(std::memory_order_relaxed);
   uint64_t dropped_frames_value =
       trackerPtr->dropped_frames.load(std::memory_order_relaxed);
+
+  // Refresh RTMP activity when pipeline is processing frames (reduces false
+  // "no activity" reconnect when hook misses or pipeline is slow)
+  if (frames_processed_value > 0) {
+    if (has_rtmp_des) {
+      updateRTMPDestinationActivity(instanceId);
+    }
+    if (has_rtmp_src) {
+      updateRTMPSourceActivity(instanceId);
+    }
+  }
 
   // Debug logging for statistics - flush to ensure it appears
   std::cout << "[InstanceRegistry] getInstanceStatistics(" << instanceId
@@ -5869,9 +6052,9 @@ void InstanceRegistry::setupFrameCaptureHook(
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) !=
               nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_crossline_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(
               node) != nullptr ||
-          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_jam_osd_node>(
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(
               node) != nullptr ||
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(
               node) != nullptr;
@@ -6099,13 +6282,40 @@ void InstanceRegistry::setupFrameCaptureHook(
           if (frameToCache && !frameToCache->empty()) {
             updateFrameCache(instanceId, *frameToCache);
 
-            // CRITICAL: Update RTSP activity when we receive frames
-            // This is the only reliable way to know RTSP is actually
-            // working OPTIMIZATION: Use cached RTSP flag (read lock-free
-            // above) No need to check again - flag is set during instance
-            // initialization
+            // CRITICAL: Update RTSP/RTMP activity when we receive frames
+            // This is the only reliable way to know streams are actually working
+            // OPTIMIZATION: Use cached RTSP flag (read lock-free above)
             if (isRTSPInstance) {
               updateRTSPActivity(instanceId);
+            }
+            
+            // Update RTMP source activity (check if instance uses RTMP source)
+            // We check by looking at the first node type
+            {
+              std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+              auto instanceIt = instances_.find(instanceId);
+              if (instanceIt != instances_.end()) {
+                // Check if instance has RTMP source URL in additionalParams
+                auto rtmpSrcIt = instanceIt->second.additionalParams.find("RTMP_SRC_URL");
+                if (rtmpSrcIt != instanceIt->second.additionalParams.end() && 
+                    !rtmpSrcIt->second.empty()) {
+                  updateRTMPSourceActivity(instanceId);
+                }
+              }
+            }
+            
+            // Update RTMP destination activity (frames are being sent to RTMP destination)
+            // Check if instance has RTMP destination
+            {
+              std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+              auto instanceIt = instances_.find(instanceId);
+              if (instanceIt != instances_.end()) {
+                auto rtmpDesIt = instanceIt->second.additionalParams.find("RTMP_DES_URL");
+                if (rtmpDesIt != instanceIt->second.additionalParams.end() && 
+                    !rtmpDesIt->second.empty()) {
+                  updateRTMPDestinationActivity(instanceId);
+                }
+              }
             }
           }
         }
@@ -6148,6 +6358,48 @@ void InstanceRegistry::setupFrameCaptureHook(
     std::cerr << "[InstanceRegistry] Frame capture will not be available. "
                  "Consider adding app_des_node to pipeline."
               << std::endl;
+  }
+}
+
+void InstanceRegistry::setupRTMPDestinationActivityHook(
+    const std::string &instanceId,
+    const std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> &nodes) {
+  if (nodes.empty()) {
+    return;
+  }
+
+  for (const auto &node : nodes) {
+    if (!node) {
+      continue;
+    }
+    auto rtmpDesNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node);
+    if (!rtmpDesNode) {
+      continue;
+    }
+
+    // Update RTMP destination activity when SDK reports stream status
+    // (frame actually pushed to RTMP). This makes monitor reflect real output.
+    rtmpDesNode->set_stream_status_hooker(
+        [this, instanceId](std::string /*node_name*/,
+                           cvedix_nodes::cvedix_stream_status /*status*/) {
+          updateRTMPDestinationActivity(instanceId);
+        });
+
+    // Fallback: also update when frame meta is handled by rtmp_des node
+    // (in case SDK does not invoke stream_status every time)
+    rtmpDesNode->set_meta_handled_hooker(
+        [this, instanceId](std::string /*node_name*/, int /*queue_size*/,
+                           std::shared_ptr<cvedix_objects::cvedix_meta> meta) {
+          if (meta && meta->meta_type ==
+                          cvedix_objects::cvedix_meta_type::FRAME) {
+            updateRTMPDestinationActivity(instanceId);
+          }
+        });
+
+    std::cerr << "[InstanceRegistry] ✓ RTMP destination activity hook set for "
+                 "instance "
+              << instanceId << std::endl;
   }
 }
 
@@ -7178,3 +7430,7 @@ bool InstanceRegistry::reconnectRTSPStream(
     return false;
   }
 }
+
+// Note: queryActualStreamPath() removed - API query may be blocked by server
+// We use default "_0" suffix instead. If server assigns different suffix (_1, _2, etc.),
+// the actual stream path may differ from the URL in response.

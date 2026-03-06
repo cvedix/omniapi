@@ -125,6 +125,16 @@ void SolutionRegistry::initializeDefaultSolutions() {
   registerBAJamMQTTDefaultSolution();           // ba_jam_mqtt_default
   registerBAStopDefaultSolution();              // ba_stop_default
   registerBAStopMQTTDefaultSolution();          // ba_stop_mqtt_default
+  registerBALoiteringSolution();                // ba_loitering
+  registerBAAreaEnterExitSolution();            // ba_area_enter_exit
+  registerBALineCountingSolution();            // ba_line_counting
+  registerBACrowdingSolution();                 // ba_crowding
+  registerSecuRTSolution();                     // securt
+
+  // Register specialized detection solutions
+  registerFireSmokeDetectionSolution();          // fire_smoke_detection
+  registerObstacleDetectionSolution();           // obstacle_detection
+  registerWrongWayDetectionSolution();           // wrong_way_detection
 
 #ifdef CVEDIX_WITH_RKNN
   registerRKNNYOLOv11DetectionSolution();
@@ -386,14 +396,17 @@ void SolutionRegistry::registerBACrosslineSolution() {
   sortTrack.nodeName = "sort_tracker_{instanceId}";
   config.pipeline.push_back(sortTrack);
 
-  // BA Crossline Node
+  // BA Crossline Node (use placeholders so instance additionalParams.input
+  // CROSSLINE_* are applied; fallback in pipeline builder also reads CROSSLINE_*
+  // from additionalParams when solution has no line_channel)
   SolutionConfig::NodeConfig baCrossline;
   baCrossline.nodeType = "ba_crossline";
   baCrossline.nodeName = "ba_crossline_{instanceId}";
-  baCrossline.parameters["line_start_x"] = "1500";
-  baCrossline.parameters["line_start_y"] = "1500";
-  baCrossline.parameters["line_end_x"] = "1000";
-  baCrossline.parameters["line_end_y"] = "1000";
+  baCrossline.parameters["line_channel"] = "0";
+  baCrossline.parameters["line_start_x"] = "${CROSSLINE_START_X}";
+  baCrossline.parameters["line_start_y"] = "${CROSSLINE_START_Y}";
+  baCrossline.parameters["line_end_x"] = "${CROSSLINE_END_X}";
+  baCrossline.parameters["line_end_y"] = "${CROSSLINE_END_Y}";
   config.pipeline.push_back(baCrossline);
 
   // BA Crossline OSD Node
@@ -645,15 +658,15 @@ void SolutionRegistry::registerFaceSwapSolution() {
   // variables.
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
   config.defaults["FACE_DETECTION_MODEL_PATH"] =
-      "/opt/cvedix/models/face/yunet.onnx";
+      "/opt/edgeos-api/models/face/yunet.onnx";
   config.defaults["BUFFALO_L_FACE_ENCODING_MODEL"] =
-      "/opt/cvedix/models/face/buffalo_l.onnx";
+      "/opt/edgeos-api/models/face/buffalo_l.onnx";
   config.defaults["EMAP_FILE_FOR_EMBEDDINGS"] =
-      "/opt/cvedix/models/face/emap.onnx";
+      "/opt/edgeos-api/models/face/emap.onnx";
   config.defaults["FACE_SWAP_MODEL_PATH"] =
-      "/opt/cvedix/models/face/face_swap.onnx";
+      "/opt/edgeos-api/models/face/face_swap.onnx";
   config.defaults["SWAP_SOURCE_IMAGE"] =
-      "/opt/cvedix/models/face/source_face.jpg";
+      "/opt/edgeos-api/models/face/source_face.jpg";
   config.defaults["RTMP_URL"] = "rtmp://localhost:1935/live/stream";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -712,9 +725,9 @@ void SolutionRegistry::registerInsightFaceRecognitionSolution() {
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
   config.defaults["FACE_DETECTION_MODEL_PATH"] =
-      "/opt/cvedix/models/face/yunet.onnx";
+      "/opt/edgeos-api/models/face/yunet.onnx";
   config.defaults["FACE_RECOGNITION_MODEL_PATH"] =
-      "/opt/cvedix/models/face/insightface.onnx";
+      "/opt/edgeos-api/models/face/insightface.onnx";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -818,7 +831,7 @@ void SolutionRegistry::registerRKNNYOLOv11DetectionSolution() {
 
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
-  config.defaults["MODEL_PATH"] = "/opt/cvedix/models/yolov11/yolov11n.rknn";
+  config.defaults["MODEL_PATH"] = "/opt/edgeos-api/models/yolov11/yolov11n.rknn";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -879,9 +892,9 @@ void SolutionRegistry::registerTRTInsightFaceRecognitionSolution() {
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
   config.defaults["FACE_DETECTION_MODEL_PATH"] =
-      "/opt/cvedix/models/face/yunet.onnx";
+      "/opt/edgeos-api/models/face/yunet.onnx";
   config.defaults["FACE_RECOGNITION_MODEL_PATH"] =
-      "/opt/cvedix/models/face/insightface.trt";
+      "/opt/edgeos-api/models/face/insightface.trt";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -1564,7 +1577,7 @@ void SolutionRegistry::registerYOLOv11DetectionSolution() {
 
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
-  config.defaults["MODEL_PATH"] = "/opt/cvedix/models/yolov11/yolov11n.onnx";
+  config.defaults["MODEL_PATH"] = "/opt/edgeos-api/models/yolov11/yolov11n.onnx";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -1698,6 +1711,520 @@ void SolutionRegistry::registerBAStopMQTTDefaultSolution() {
   config.pipeline.push_back(baStopOSD2);
 
   config.defaults["MIN_STOP_SECONDS"] = "3";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerBALoiteringSolution() {
+  SolutionConfig config;
+  config.solutionId = "ba_loitering";
+  config.solutionName = "Behavior Analysis - Loitering Detection";
+  config.solutionType = "behavior_analysis";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(yoloDetector);
+
+  // SORT Tracker Node
+  SolutionConfig::NodeConfig sortTrack;
+  sortTrack.nodeType = "sort_track";
+  sortTrack.nodeName = "sort_tracker_{instanceId}";
+  config.pipeline.push_back(sortTrack);
+
+  // BA Loitering Node
+  SolutionConfig::NodeConfig baLoitering;
+  baLoitering.nodeType = "ba_loitering";
+  baLoitering.nodeName = "ba_loitering_{instanceId}";
+  baLoitering.parameters["LoiteringAreas"] = "${LOITERING_AREAS_JSON}";
+  baLoitering.parameters["alarm_seconds"] = "${ALARM_SECONDS}";
+  baLoitering.parameters["check_interval"] = "${CHECK_INTERVAL}";
+  config.pipeline.push_back(baLoitering);
+
+  // BA Stop OSD Node (ba_loitering uses ba_stop_osd_node)
+  SolutionConfig::NodeConfig baLoiteringOSD;
+  baLoiteringOSD.nodeType = "ba_loitering_osd";
+  baLoiteringOSD.nodeName = "osd_{instanceId}";
+  config.pipeline.push_back(baLoiteringOSD);
+
+  // NOTE: json_mqtt_broker node removed - it's disabled due to crash issues
+  // MQTT events are handled by instance_registry instead
+
+  // Screen Destination Node
+  SolutionConfig::NodeConfig screenDes;
+  screenDes.nodeType = "screen_des";
+  screenDes.nodeName = "screen_des_{instanceId}";
+  screenDes.parameters["channel"] = "0";
+  screenDes.parameters["enabled"] = "${ENABLE_SCREEN_DES}";
+  config.pipeline.push_back(screenDes);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "ba_loitering";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.7";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "0.6";
+  config.defaults["CHECK_INTERVAL"] = "30";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerBAAreaEnterExitSolution() {
+  SolutionConfig config;
+  config.solutionId = "ba_area_enter_exit";
+  config.solutionName = "Behavior Analysis - Area Enter/Exit Detection";
+  config.solutionType = "behavior_analysis";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(yoloDetector);
+
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
+
+  // BA Area Enter/Exit Node
+  SolutionConfig::NodeConfig baAreaEnterExit;
+  baAreaEnterExit.nodeType = "ba_area_enter_exit";
+  baAreaEnterExit.nodeName = "ba_area_enter_exit_{instanceId}";
+  baAreaEnterExit.parameters["Areas"] = "${AREAS_JSON}";
+  baAreaEnterExit.parameters["AreaConfigs"] = "${AREA_CONFIGS_JSON}";
+  config.pipeline.push_back(baAreaEnterExit);
+
+  // BA Area Enter/Exit OSD Node
+  SolutionConfig::NodeConfig baAreaOSD;
+  baAreaOSD.nodeType = "ba_area_enter_exit_osd";
+  baAreaOSD.nodeName = "osd_{instanceId}";
+  config.pipeline.push_back(baAreaOSD);
+
+  // Screen Destination Node
+  SolutionConfig::NodeConfig screenDes;
+  screenDes.nodeType = "screen_des";
+  screenDes.nodeName = "screen_des_{instanceId}";
+  screenDes.parameters["channel"] = "0";
+  screenDes.parameters["enabled"] = "${ENABLE_SCREEN_DES}";
+  config.pipeline.push_back(screenDes);
+
+  // RTMP Destination Node (optional)
+  SolutionConfig::NodeConfig rtmpDes;
+  rtmpDes.nodeType = "rtmp_des";
+  rtmpDes.nodeName = "rtmp_des_{instanceId}";
+  rtmpDes.parameters["rtmp_url"] = "${RTMP_DES_URL}";
+  rtmpDes.parameters["channel"] = "0";
+  config.pipeline.push_back(rtmpDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.7";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "0.6";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerBALineCountingSolution() {
+  SolutionConfig config;
+  config.solutionId = "ba_line_counting";
+  config.solutionName = "Behavior Analysis - Multiple Line Counting";
+  config.solutionType = "behavior_analysis";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(yoloDetector);
+
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
+
+  // BA Line Counting Node (multiple lines with direction)
+  SolutionConfig::NodeConfig baLineCounting;
+  baLineCounting.nodeType = "ba_line_counting";
+  baLineCounting.nodeName = "ba_line_counting_{instanceId}";
+  baLineCounting.parameters["LineSettings"] = "${LINE_SETTINGS_JSON}";
+  config.pipeline.push_back(baLineCounting);
+
+  // BA Crossline OSD Node (reuse for visualization)
+  SolutionConfig::NodeConfig baCrosslineOSD;
+  baCrosslineOSD.nodeType = "ba_crossline_osd";
+  baCrosslineOSD.nodeName = "osd_{instanceId}";
+  config.pipeline.push_back(baCrosslineOSD);
+
+  // Screen Destination Node
+  SolutionConfig::NodeConfig screenDes;
+  screenDes.nodeType = "screen_des";
+  screenDes.nodeName = "screen_des_{instanceId}";
+  screenDes.parameters["channel"] = "0";
+  screenDes.parameters["enabled"] = "${ENABLE_SCREEN_DES}";
+  config.pipeline.push_back(screenDes);
+
+  // RTMP Destination Node (optional)
+  SolutionConfig::NodeConfig rtmpDes;
+  rtmpDes.nodeType = "rtmp_des";
+  rtmpDes.nodeName = "rtmp_des_{instanceId}";
+  rtmpDes.parameters["rtmp_url"] = "${RTMP_DES_URL}";
+  rtmpDes.parameters["channel"] = "0";
+  config.pipeline.push_back(rtmpDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.7";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "0.4";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerBACrowdingSolution() {
+  SolutionConfig config;
+  config.solutionId = "ba_crowding";
+  config.solutionName = "Behavior Analysis - Crowding Detection";
+  config.solutionType = "behavior_analysis";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(yoloDetector);
+
+  // SORT Tracker Node
+  SolutionConfig::NodeConfig sortTrack;
+  sortTrack.nodeType = "sort_track";
+  sortTrack.nodeName = "sort_tracker_{instanceId}";
+  config.pipeline.push_back(sortTrack);
+
+  // BA Crowding Node
+  SolutionConfig::NodeConfig baCrowding;
+  baCrowding.nodeType = "ba_crowding";
+  baCrowding.nodeName = "ba_crowding_{instanceId}";
+  baCrowding.parameters["CrowdingZones"] = "${CROWDING_ZONES_JSON}";
+  baCrowding.parameters["check_interval"] = "${CROWDING_CHECK_INTERVAL}";
+  config.pipeline.push_back(baCrowding);
+
+  // BA Crowding OSD Node
+  SolutionConfig::NodeConfig baCrowdingOSD;
+  baCrowdingOSD.nodeType = "ba_crowding_osd";
+  baCrowdingOSD.nodeName = "ba_crowding_osd_{instanceId}";
+  config.pipeline.push_back(baCrowdingOSD);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "ba_crowding";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.5";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+  config.defaults["CROWDING_CHECK_INTERVAL"] = "30";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerSecuRTSolution() {
+  SolutionConfig config;
+  config.solutionId = "securt";
+  config.solutionName = "SecuRT Solution";
+  config.solutionType = "securt";
+  config.isDefault = true;
+
+  // File Source Node (supports flexible input: file, RTSP, RTMP, HLS via
+  // auto-detection)
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] =
+      "${FILE_PATH}"; // Can be file path or RTSP/RTMP URL
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node (for object detection)
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  yoloDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  yoloDetector.parameters["nms_threshold"] = "0.4";
+  config.pipeline.push_back(yoloDetector);
+
+  // SORT Tracker Node (for object tracking)
+  SolutionConfig::NodeConfig sortTrack;
+  sortTrack.nodeType = "sort_track";
+  sortTrack.nodeName = "sort_tracker_{instanceId}";
+  config.pipeline.push_back(sortTrack);
+
+  // BA Crossline Node (for line-based analytics - counting, crossing, tailgating)
+  // Lines will be passed via CrossingLines parameter from SecuRT lines
+  SolutionConfig::NodeConfig baCrossline;
+  baCrossline.nodeType = "ba_crossline";
+  baCrossline.nodeName = "ba_crossline_{instanceId}";
+  // Lines will be dynamically set from SecuRT lines via additionalParams["CrossingLines"]
+  baCrossline.parameters["line_channel"] = "0";
+  baCrossline.parameters["line_start_x"] = "${CROSSLINE_START_X}";
+  baCrossline.parameters["line_start_y"] = "${CROSSLINE_START_Y}";
+  baCrossline.parameters["line_end_x"] = "${CROSSLINE_END_X}";
+  baCrossline.parameters["line_end_y"] = "${CROSSLINE_END_Y}";
+  config.pipeline.push_back(baCrossline);
+
+  // BA Crossline OSD Node (for visualization)
+  SolutionConfig::NodeConfig baCrosslineOSD;
+  baCrosslineOSD.nodeType = "ba_crossline_osd";
+  baCrosslineOSD.nodeName = "osd_{instanceId}";
+  config.pipeline.push_back(baCrosslineOSD);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "securt";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "Medium";
+  config.defaults["movementSensitivity"] = "Medium";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerFireSmokeDetectionSolution() {
+  SolutionConfig config;
+  config.solutionId = "fire_smoke_detection";
+  config.solutionName = "Fire/Smoke Detection";
+  config.solutionType = "object_detection";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node (for fire/smoke detection)
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "fire_smoke_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${MODEL_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  yoloDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  yoloDetector.parameters["nms_threshold"] = "0.4";
+  config.pipeline.push_back(yoloDetector);
+
+  // OSD v3 Node
+  SolutionConfig::NodeConfig osd;
+  osd.nodeType = "osd_v3";
+  osd.nodeName = "osd_{instanceId}";
+  osd.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(osd);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "fire_smoke_detection";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.5";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerObstacleDetectionSolution() {
+  SolutionConfig config;
+  config.solutionId = "obstacle_detection";
+  config.solutionName = "Obstacle Detection";
+  config.solutionType = "object_detection";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node (for obstacle detection)
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "obstacle_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${MODEL_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  yoloDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  yoloDetector.parameters["nms_threshold"] = "0.4";
+  config.pipeline.push_back(yoloDetector);
+
+  // OSD v3 Node
+  SolutionConfig::NodeConfig osd;
+  osd.nodeType = "osd_v3";
+  osd.nodeName = "osd_{instanceId}";
+  osd.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(osd);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "obstacle_detection";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.5";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerWrongWayDetectionSolution() {
+  SolutionConfig config;
+  config.solutionId = "wrong_way_detection";
+  config.solutionName = "Wrong Way Detection";
+  config.solutionType = "object_detection";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node (for vehicle detection)
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "vehicle_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${MODEL_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  yoloDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  yoloDetector.parameters["nms_threshold"] = "0.4";
+  config.pipeline.push_back(yoloDetector);
+
+  // SORT Tracker Node (for tracking vehicles)
+  SolutionConfig::NodeConfig sortTrack;
+  sortTrack.nodeType = "sort_track";
+  sortTrack.nodeName = "vehicle_tracker_{instanceId}";
+  config.pipeline.push_back(sortTrack);
+
+  // OSD v3 Node
+  SolutionConfig::NodeConfig osd;
+  osd.nodeType = "osd_v3";
+  osd.nodeName = "osd_{instanceId}";
+  osd.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(osd);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "wrong_way_detection";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.5";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
 
   registerSolution(config);
 }

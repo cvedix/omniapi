@@ -187,10 +187,9 @@ private:
 
   // Adaptive FPS parameters
   // Note: MIN_FPS should be > 0 to avoid division by zero when calculating
-  // interval_ms Set to 12.0 to ensure minimum acceptable FPS (targeting 10-15
-  // FPS range) when backpressure occurs
+  // interval_ms Set to 5.0 to support task 12 requirement (default FPS = 5)
   static constexpr double MIN_FPS =
-      12.0; // Changed from 5.0 to maintain 10-15 FPS minimum
+      5.0; // Minimum FPS to support task 12 (default FPS = 5)
   static constexpr double MAX_FPS =
       120.0; // Increased from 60.0 to support high FPS processing for multiple
              // instances

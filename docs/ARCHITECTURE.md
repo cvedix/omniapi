@@ -1,6 +1,30 @@
 # Architecture & Flow Diagrams
 
-Tài liệu này mô tả kiến trúc hệ thống và các flow diagram của Edge AI API.
+Tài liệu này mô tả kiến trúc hệ thống và các flow diagram của edgeos-api.
+
+## API → AI Runtime → SDK
+
+Edge AI API định vị là **nền tảng Edge AI** (REST API + xử lý AI). CVEDIX SDK là tầng hỗ trợ; mọi luồng AI đi qua lớp **AI Runtime** (decode, inference, cache).
+
+```mermaid
+flowchart LR
+    Client[Client] --> API[REST API Server]
+    API --> Runtime[AI Runtime / SDK Helper]
+    Runtime --> Decode[Decode]
+    Runtime --> Infer[InferenceSession]
+    Runtime --> Cache[Cache]
+    Decode --> SDK[CVEDIX SDK]
+    Infer --> SDK
+    Cache --> SDK
+    SDK --> Pipeline[Pipelines]
+```
+
+**Thành phần AI Runtime:**
+- **InferenceSession** — Load/unload model, infer (face detector + recognizer).
+- **AIRuntimeFacade** — Request (payload, codec, model_key) → decode → cache? → infer → response.
+- **PipelineHelper** — Pipeline ngắn: frame → detector → callback (không dùng InstanceRegistry).
+
+Recognition và Push frame dùng chung decode + infer qua facade/session. Xem [AI_RUNTIME_DESIGN.md](AI_RUNTIME_DESIGN.md).
 
 ## System Architecture
 
@@ -404,7 +428,7 @@ flowchart TB
 
 ### Tổng quan
 
-Edge AI API hỗ trợ 2 chế độ thực thi (execution mode):
+edgeos-api hỗ trợ 2 chế độ thực thi (execution mode):
 
 1. **In-Process Mode** (Legacy): Pipeline AI chạy trong cùng process với API server
 2. **Subprocess Mode** (Production Default): Mỗi instance AI chạy trong worker process riêng biệt
@@ -521,17 +545,19 @@ Worker A crash (segfault trong GStreamer)
 **Subprocess cho phép:**
 ```bash
 # Giới hạn CPU per worker
-taskset -c 0,1 ./edge_ai_worker ...
+taskset -c 0,1 ./edgeos-worker ...
 
 # Giới hạn RAM per worker
 ulimit -v 2000000  # 2GB max
 
 # Sử dụng cgroups
-cgcreate -g memory,cpu:edge_ai_worker_1
-cgset -r memory.limit_in_bytes=2G edge_ai_worker_1
+cgcreate -g memory,cpu:edgeos-worker_1
+cgset -r memory.limit_in_bytes=2G edgeos-worker_1
 ```
 
 ### Khi nào dùng mode nào?
+
+Execution mode chi tiết và tối ưu ổn định: [task/edgeos-api/01_PHASE_OPTIMIZATION_STABILITY.md](../task/edgeos-api/01_PHASE_OPTIMIZATION_STABILITY.md).
 
 #### Dùng In-Process khi:
 - Development/debugging
@@ -555,30 +581,30 @@ cgset -r memory.limit_in_bytes=2G edge_ai_worker_1
 ```bash
 # In-Process mode (legacy, for development)
 export EDGE_AI_EXECUTION_MODE=in-process
-./edge_ai_api
+./edgeos-api
 
 # Subprocess mode (production default)
 export EDGE_AI_EXECUTION_MODE=subprocess
-./edge_ai_api
+./edgeos-api
 ```
 
-**Production Configuration**: Khi cài đặt từ .deb package, file `/opt/edge_ai_api/config/.env` được tạo tự động với `EDGE_AI_EXECUTION_MODE=subprocess`. Systemd service sẽ load file này, đảm bảo production chạy Subprocess mode mặc định.
+**Production Configuration**: Khi cài đặt từ .deb package, file `/opt/edgeos-api/config/.env` được tạo tự động với `EDGE_AI_EXECUTION_MODE=subprocess`. Systemd service sẽ load file này, đảm bảo production chạy Subprocess mode mặc định.
 
-Để chuyển về In-Process mode trong production, sửa file `/opt/edge_ai_api/config/.env`:
+Để chuyển về In-Process mode trong production, sửa file `/opt/edgeos-api/config/.env`:
 ```bash
-sudo nano /opt/edge_ai_api/config/.env
+sudo nano /opt/edgeos-api/config/.env
 # Thay đổi: EDGE_AI_EXECUTION_MODE=in-process
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 ```
 
 #### Cấu hình Worker
 
 ```bash
 # Đường dẫn worker executable
-export EDGE_AI_WORKER_PATH=/usr/bin/edge_ai_worker
+export EDGE_AI_WORKER_PATH=/usr/bin/edgeos-worker
 
-# Socket directory (default: /opt/edge_ai_api/run)
-export EDGE_AI_SOCKET_DIR=/opt/edge_ai_api/run
+# Socket directory (default: /opt/edgeos-api/run)
+export EDGE_AI_SOCKET_DIR=/opt/edgeos-api/run
 
 # Max restart attempts
 export EDGE_AI_MAX_RESTARTS=3
@@ -661,8 +687,8 @@ graph TB
 - Test dễ dàng với mock implementations
 
 **Production Setup**: Khi cài đặt từ .deb package:
-- `edge_ai_worker` executable được install vào `/usr/local/bin`
-- File `/opt/edge_ai_api/config/.env` được tạo với `EDGE_AI_EXECUTION_MODE=subprocess`
+- `edgeos-worker` executable được install vào `/usr/local/bin`
+- File `/opt/edgeos-api/config/.env` được tạo với `EDGE_AI_EXECUTION_MODE=subprocess`
 - Systemd service load `.env` file → production chạy Subprocess mode mặc định
 
 ---
@@ -670,4 +696,7 @@ graph TB
 ## 📚 Xem Thêm
 
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Hướng dẫn phát triển chi tiết
-- [API_document.md](APIPdocument.md) - Tài liệu tham khảo API đầy đủ
+- [API_document.md](API_document.md) - Tài liệu tham khảo API đầy đủ
+- [AI_RUNTIME_DESIGN.md](AI_RUNTIME_DESIGN.md) - Thiết kế AI Runtime (InferenceSession, Facade)
+- [VISION_AI_PROCESSING_PLATFORM.md](VISION_AI_PROCESSING_PLATFORM.md) - Vision nền tảng Edge AI
+- [task/edgeos-api/00_MASTER_PLAN.md](../task/edgeos-api/00_MASTER_PLAN.md) - Master plan & trạng thái phases

@@ -1,0 +1,14 @@
+{
+  "name": "Restricted Zone",
+  "coordinates": [
+    {"x": 350, "y": 160},
+    {"x": 550, "y": 160},
+    {"x": 550, "y": 360},
+    {"x": 350, "y": 360}
+  ],
+  "classes": ["Person"],
+  "color": [0, 0, 220, 255],
+  "alertOnEnter": true,
+  "alertOnExit": false
+}
+

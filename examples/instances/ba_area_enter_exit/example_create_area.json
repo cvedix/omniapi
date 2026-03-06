@@ -1,0 +1,14 @@
+{
+  "name": "Entrance Area",
+  "coordinates": [
+    {"x": 50, "y": 150},
+    {"x": 250, "y": 150},
+    {"x": 250, "y": 350},
+    {"x": 50, "y": 350}
+  ],
+  "classes": ["Person", "Vehicle"],
+  "color": [0, 220, 0, 255],
+  "alertOnEnter": true,
+  "alertOnExit": true
+}
+

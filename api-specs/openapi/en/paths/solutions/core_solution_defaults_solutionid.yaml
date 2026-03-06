@@ -1,0 +1,54 @@
+# API endpoint: /v1/core/solution/defaults/{solutionId}
+# Tag: Solutions
+
+/v1/core/solution/defaults/{solutionId}:
+  post:
+    summary: Load default solution
+    description: 'Load a default solution from examples/default_solutions/ into the solution registry.
+
+      This endpoint allows loading a default solution template into the system for use in creating instances.
+      '
+    operationId: loadDefaultSolution
+    tags:
+    - Solutions
+    parameters:
+    - name: solutionId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Default solution ID to load
+    responses:
+      '200':
+        description: Default solution loaded successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                solutionId:
+                  type: string
+                  description: Loaded solution ID
+                message:
+                  type: string
+                  example: Default solution loaded successfully
+      '404':
+        description: Default solution not found
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for load default solution
+    operationId: loadDefaultSolutionOptions
+    tags:
+    - Solutions
+    responses:
+      '200':
+        description: CORS preflight response

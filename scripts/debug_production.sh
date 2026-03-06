@@ -21,11 +21,11 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 BUILD_DIR="build"
-PROD_BIN="/usr/local/bin/edge_ai_api"
-PROD_WORKER="/usr/local/bin/edge_ai_worker"
-INSTALL_DIR="/opt/edge_ai_api"
+PROD_BIN="/usr/local/bin/edgeos-api"
+PROD_WORKER="/usr/local/bin/edgeos-worker"
+INSTALL_DIR="/opt/edgeos-api"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Debug Production Issues${NC}"
@@ -103,8 +103,8 @@ echo ""
 echo -e "${BLUE}[4/8]${NC} Checking binaries..."
 
 echo "  Main executable:"
-if [ -f "$BUILD_DIR/bin/edge_ai_api" ]; then
-    BUILD_SIZE=$(stat -c%s "$BUILD_DIR/bin/edge_ai_api" 2>/dev/null || echo "N/A")
+if [ -f "$BUILD_DIR/bin/edgeos-api" ]; then
+    BUILD_SIZE=$(stat -c%s "$BUILD_DIR/bin/edgeos-api" 2>/dev/null || echo "N/A")
     echo -e "    Build: ${GREEN}✓${NC} ($BUILD_SIZE bytes)"
 else
     echo -e "    Build: ${RED}✗${NC} Not found"
@@ -124,7 +124,7 @@ else
 fi
 
 echo "  Worker executable:"
-if [ -f "$BUILD_DIR/bin/edge_ai_worker" ]; then
+if [ -f "$BUILD_DIR/bin/edgeos-worker" ]; then
     echo -e "    Build: ${GREEN}✓${NC}"
 else
     echo -e "    Build: ${RED}✗${NC} Not found"

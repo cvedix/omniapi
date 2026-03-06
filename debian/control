@@ -1,4 +1,4 @@
-Source: edge-ai-api
+Source: edgeos-api
 Section: net
 Priority: optional
 Maintainer: CVEDIX <support@cvedix.com>
@@ -42,9 +42,9 @@ Build-Depends: debhelper (>= 13),
                python3-dev,
                python3-numpy
 Standards-Version: 4.6.0
-Homepage: https://github.com/cvedix/edge_ai_api
+Homepage: https://github.com/cvedix/edgeos-api
 
-Package: edge-ai-api
+Package: edgeos-api
 Architecture: amd64
 Depends: ,
          libc6,

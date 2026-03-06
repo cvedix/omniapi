@@ -1,0 +1,45 @@
+{
+  "name": "trt_vehicle_scanner_demo_1",
+  "group": "vehicle",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "/opt/edgeos-api/test_video/vehicle.mp4",
+      "VEHICLE_SCANNER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_scanner.trt"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_vehicle_scanner",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "trt_vehicle_scanner",
+      "nodeName": "trt_vehicle_scanner",
+      "parameters": {
+        "model_path": "${VEHICLE_SCANNER_MODEL_PATH}"
+      }
+    },
+    {
+      "nodeType": "osd_v3",
+      "nodeName": "osd_vehicle_scanner",
+      "parameters": {}
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_vehicle_scanner",
+      "parameters": {
+        "channel": "0"
+      }
+    }
+  ]
+}
+

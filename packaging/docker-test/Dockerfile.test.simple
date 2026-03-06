@@ -48,12 +48,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy file .deb vào container
-COPY edge-ai-api-with-sdk-2026.0.1.21-amd64.deb /tmp/
+COPY edgeos-api-with-sdk-2026.0.1.21-amd64.deb /tmp/
 
 # Cài đặt package (bỏ qua systemd dependencies nếu có)
-RUN dpkg -i /tmp/edge-ai-api-with-sdk-2026.0.1.21-amd64.deb || \
+RUN dpkg -i /tmp/edgeos-api-with-sdk-2026.0.1.21-amd64.deb || \
     (apt-get update && apt-get install -f -y && \
-     dpkg -i --force-depends /tmp/edge-ai-api-with-sdk-2026.0.1.21-amd64.deb || true)
+     dpkg -i --force-depends /tmp/edgeos-api-with-sdk-2026.0.1.21-amd64.deb || true)
 
 # Expose port cho API
 EXPOSE 8080
@@ -65,14 +65,14 @@ echo ""\n\
 echo "Package đã được cài đặt!"\n\
 echo ""\n\
 echo "Executable:"\n\
-ls -la /usr/local/bin/edge_ai_api 2>/dev/null || echo "  Không tìm thấy"\n\
+ls -la /usr/local/bin/edgeos-api 2>/dev/null || echo "  Không tìm thấy"\n\
 echo ""\n\
 echo "Config directory:"\n\
-ls -la /opt/edge_ai_api/ 2>/dev/null || echo "  Không tìm thấy"\n\
+ls -la /opt/edgeos-api/ 2>/dev/null || echo "  Không tìm thấy"\n\
 echo ""\n\
 echo "Để test, chạy:"\n\
-echo "  /usr/local/bin/edge_ai_api --help"\n\
-echo "  /usr/local/bin/edge_ai_api --log-api"\n\
+echo "  /usr/local/bin/edgeos-api --help"\n\
+echo "  /usr/local/bin/edgeos-api --log-api"\n\
 echo ""\n\
 echo "Hoặc test API:"\n\
 echo "  # Trong một terminal khác:\n\

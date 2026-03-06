@@ -130,28 +130,24 @@ bool SystemConfig::saveConfig(const std::string &configPath) {
   }
 }
 
+// Default auto_device_list: GPU/accelerator devices before CPU (prioritize GPU)
+static std::vector<std::string> getDefaultAutoDeviceList() {
+  return {
+      "hailo.auto",   "blaize.auto", "tensorrt.1", "rknn.auto", "tensorrt.2",
+      "cavalry",      "openvino.VPU", "openvino.GPU", "openvino.CPU",
+      "snpe.dsp",     "snpe.aip",    "mnn.auto",   "armnn.GpuAcc", "armnn.CpuAcc",
+      "armnn.CpuRef", "memx.memx",   "memx.cpu",
+  };
+}
+
 void SystemConfig::initializeDefaults() {
   config_json_ = Json::Value(Json::objectValue);
 
-  // auto_device_list
+  // auto_device_list (GPU-first default)
   Json::Value autoDeviceList(Json::arrayValue);
-  autoDeviceList.append("hailo.auto");
-  autoDeviceList.append("blaize.auto");
-  autoDeviceList.append("tensorrt.1");
-  autoDeviceList.append("rknn.auto");
-  autoDeviceList.append("tensorrt.2");
-  autoDeviceList.append("cavalry");
-  autoDeviceList.append("openvino.VPU");
-  autoDeviceList.append("openvino.GPU");
-  autoDeviceList.append("openvino.CPU");
-  autoDeviceList.append("snpe.dsp");
-  autoDeviceList.append("snpe.aip");
-  autoDeviceList.append("mnn.auto");
-  autoDeviceList.append("armnn.GpuAcc");
-  autoDeviceList.append("armnn.CpuAcc");
-  autoDeviceList.append("armnn.CpuRef");
-  autoDeviceList.append("memx.memx");
-  autoDeviceList.append("memx.cpu");
+  for (const auto &d : getDefaultAutoDeviceList()) {
+    autoDeviceList.append(d);
+  }
   config_json_["auto_device_list"] = autoDeviceList;
 
   // decoder_priority_list
@@ -268,10 +264,22 @@ void SystemConfig::initializeDefaults() {
   webServer["ip_address"] = "0.0.0.0";
   webServer["port"] = 8080;
   webServer["name"] = "default";
+  webServer["max_body_size"] = 524288000; // 500MB
+  webServer["max_memory_body_size"] = 104857600; // 100MB
+  webServer["keepalive_requests"] = 100;
+  webServer["keepalive_timeout"] = 60;
+  webServer["reuse_port"] = true;
   Json::Value cors(Json::objectValue);
   cors["enabled"] = false;
   webServer["cors"] = cors;
   system["web_server"] = webServer;
+
+  // performance
+  Json::Value performance(Json::objectValue);
+  performance["thread_num"] = 0; // 0 = auto-detect
+  performance["min_threads"] = 16;
+  performance["max_threads"] = 64;
+  system["performance"] = performance;
 
   // logging
   Json::Value logging(Json::objectValue);
@@ -279,7 +287,28 @@ void SystemConfig::initializeDefaults() {
   logging["log_level"] = "debug";
   logging["max_log_file_size"] = 52428800;
   logging["max_log_files"] = 3;
+  logging["log_dir"] = "./logs";
+  logging["retention_days"] = 30;
+  logging["max_disk_usage_percent"] = 85;
+  logging["cleanup_interval_hours"] = 24;
   system["logging"] = logging;
+
+  // monitoring
+  Json::Value monitoring(Json::objectValue);
+  monitoring["watchdog_check_interval_ms"] = 5000;
+  monitoring["watchdog_timeout_ms"] = 30000;
+  monitoring["health_monitor_interval_ms"] = 1000;
+  system["monitoring"] = monitoring;
+
+  // directories (empty = use auto-detection with fallback)
+  Json::Value directories(Json::objectValue);
+  directories["instances_dir"] = "";
+  directories["models_dir"] = "";
+  directories["solutions_dir"] = "";
+  directories["videos_dir"] = "";
+  directories["fonts_dir"] = "";
+  directories["nodes_dir"] = "";
+  system["directories"] = directories;
 
   system["max_running_instances"] = 0; // 0 = unlimited
   system["modelforge_permissive"] = false;
@@ -357,6 +386,10 @@ std::vector<std::string> SystemConfig::getAutoDeviceList() const {
     }
   }
 
+  // When missing or empty, return GPU-first default so inference prefers GPU over CPU
+  if (result.empty()) {
+    result = getDefaultAutoDeviceList();
+  }
   return result;
 }
 
@@ -424,6 +457,21 @@ SystemConfig::WebServerConfig SystemConfig::getWebServerConfig() const {
         ws["cors"]["enabled"].isBool()) {
       config.corsEnabled = ws["cors"]["enabled"].asBool();
     }
+    if (ws.isMember("max_body_size") && ws["max_body_size"].isInt()) {
+      config.maxBodySize = static_cast<size_t>(ws["max_body_size"].asInt());
+    }
+    if (ws.isMember("max_memory_body_size") && ws["max_memory_body_size"].isInt()) {
+      config.maxMemoryBodySize = static_cast<size_t>(ws["max_memory_body_size"].asInt());
+    }
+    if (ws.isMember("keepalive_requests") && ws["keepalive_requests"].isInt()) {
+      config.keepaliveRequests = static_cast<size_t>(ws["keepalive_requests"].asInt());
+    }
+    if (ws.isMember("keepalive_timeout") && ws["keepalive_timeout"].isInt()) {
+      config.keepaliveTimeout = static_cast<size_t>(ws["keepalive_timeout"].asInt());
+    }
+    if (ws.isMember("reuse_port") && ws["reuse_port"].isBool()) {
+      config.reusePort = ws["reuse_port"].asBool();
+    }
   }
 
   // Priority 2: Fallback to environment variables (only if config.json doesn't
@@ -450,6 +498,15 @@ SystemConfig::WebServerConfig SystemConfig::getWebServerConfig() const {
     }
   }
 
+  // Fallback for performance settings from env vars
+  if (!hasConfigJson) {
+    config.maxBodySize = EnvConfig::getSizeT("CLIENT_MAX_BODY_SIZE", config.maxBodySize);
+    config.maxMemoryBodySize = EnvConfig::getSizeT("CLIENT_MAX_MEMORY_BODY_SIZE", config.maxMemoryBodySize);
+    config.keepaliveRequests = EnvConfig::getSizeT("KEEPALIVE_REQUESTS", config.keepaliveRequests);
+    config.keepaliveTimeout = EnvConfig::getSizeT("KEEPALIVE_TIMEOUT", config.keepaliveTimeout);
+    config.reusePort = EnvConfig::getBool("ENABLE_REUSE_PORT", config.reusePort);
+  }
+
   return config;
 }
 
@@ -465,6 +522,11 @@ void SystemConfig::setWebServerConfig(const WebServerConfig &config) {
   webServer["ip_address"] = config.ipAddress;
   webServer["port"] = config.port;
   webServer["name"] = config.name;
+  webServer["max_body_size"] = static_cast<Json::Int64>(config.maxBodySize);
+  webServer["max_memory_body_size"] = static_cast<Json::Int64>(config.maxMemoryBodySize);
+  webServer["keepalive_requests"] = static_cast<Json::Int64>(config.keepaliveRequests);
+  webServer["keepalive_timeout"] = static_cast<Json::Int64>(config.keepaliveTimeout);
+  webServer["reuse_port"] = config.reusePort;
 
   Json::Value cors(Json::objectValue);
   cors["enabled"] = config.corsEnabled;
@@ -519,6 +581,18 @@ SystemConfig::LoggingConfig SystemConfig::getLoggingConfig() const {
     if (log.isMember("max_log_files") && log["max_log_files"].isInt()) {
       config.maxLogFiles = log["max_log_files"].asInt();
     }
+    if (log.isMember("log_dir") && log["log_dir"].isString()) {
+      config.logDir = log["log_dir"].asString();
+    }
+    if (log.isMember("retention_days") && log["retention_days"].isInt()) {
+      config.retentionDays = log["retention_days"].asInt();
+    }
+    if (log.isMember("max_disk_usage_percent") && log["max_disk_usage_percent"].isInt()) {
+      config.maxDiskUsagePercent = log["max_disk_usage_percent"].asInt();
+    }
+    if (log.isMember("cleanup_interval_hours") && log["cleanup_interval_hours"].isInt()) {
+      config.cleanupIntervalHours = log["cleanup_interval_hours"].asInt();
+    }
   }
 
   // Priority 2: Fallback to environment variables (only if config.json doesn't
@@ -529,15 +603,20 @@ SystemConfig::LoggingConfig SystemConfig::getLoggingConfig() const {
       config.logLevel = std::string(log_level);
     }
   }
+  
+  // Fallback for log_dir from env var
+  if (!hasConfigJson || config.logDir.empty()) {
+    const char *log_dir = std::getenv("LOG_DIR");
+    if (log_dir && strlen(log_dir) > 0) {
+      config.logDir = std::string(log_dir);
+    }
+  }
 
-  // Check LOG_DIR (override log_file directory if LOG_DIR is set and log_file
-  // is relative)
-  const char *log_dir = std::getenv("LOG_DIR");
-  if (log_dir && strlen(log_dir) > 0) {
-    // If log_file is relative, prepend LOG_DIR; if absolute, keep as is
+  // Override log_file directory if LOG_DIR is set and log_file is relative
+  if (!config.logDir.empty()) {
     if (!std::filesystem::path(config.logFile).is_absolute()) {
       config.logFile =
-          std::string(log_dir) + "/" +
+          config.logDir + "/" +
           std::filesystem::path(config.logFile).filename().string();
     }
   }
@@ -558,8 +637,72 @@ void SystemConfig::setLoggingConfig(const LoggingConfig &config) {
   logging["max_log_file_size"] =
       static_cast<Json::Int64>(config.maxLogFileSize);
   logging["max_log_files"] = config.maxLogFiles;
+  logging["log_dir"] = config.logDir;
+  logging["retention_days"] = config.retentionDays;
+  logging["max_disk_usage_percent"] = config.maxDiskUsagePercent;
+  logging["cleanup_interval_hours"] = config.cleanupIntervalHours;
 
   config_json_["system"]["logging"] = logging;
+}
+
+SystemConfig::PerformanceConfig SystemConfig::getPerformanceConfig() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  PerformanceConfig config;
+
+  // Priority 1: Load from config.json
+  if (config_json_.isMember("system") &&
+      config_json_["system"].isMember("performance")) {
+    const auto &perf = config_json_["system"]["performance"];
+    
+    if (perf.isMember("thread_num") && perf["thread_num"].isInt()) {
+      config.threadNum = perf["thread_num"].asInt();
+    }
+    if (perf.isMember("min_threads") && perf["min_threads"].isInt()) {
+      config.minThreads = static_cast<unsigned int>(perf["min_threads"].asInt());
+    }
+    if (perf.isMember("max_threads") && perf["max_threads"].isInt()) {
+      config.maxThreads = static_cast<unsigned int>(perf["max_threads"].asInt());
+    }
+  }
+
+  // Priority 2: Fallback to environment variable (explicit thread count)
+  if (config.threadNum == 0) {
+    config.threadNum = EnvConfig::getInt("THREAD_NUM", 0, 0, 256);
+  }
+
+  return config;
+}
+
+SystemConfig::MonitoringConfig SystemConfig::getMonitoringConfig() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  MonitoringConfig config;
+
+  // Priority 1: Load from config.json (highest priority)
+  bool hasConfigJson = false;
+  if (config_json_.isMember("system") &&
+      config_json_["system"].isMember("monitoring")) {
+    const auto &mon = config_json_["system"]["monitoring"];
+    hasConfigJson = true;
+    
+    if (mon.isMember("watchdog_check_interval_ms") && mon["watchdog_check_interval_ms"].isInt()) {
+      config.watchdogCheckIntervalMs = static_cast<uint32_t>(mon["watchdog_check_interval_ms"].asInt());
+    }
+    if (mon.isMember("watchdog_timeout_ms") && mon["watchdog_timeout_ms"].isInt()) {
+      config.watchdogTimeoutMs = static_cast<uint32_t>(mon["watchdog_timeout_ms"].asInt());
+    }
+    if (mon.isMember("health_monitor_interval_ms") && mon["health_monitor_interval_ms"].isInt()) {
+      config.healthMonitorIntervalMs = static_cast<uint32_t>(mon["health_monitor_interval_ms"].asInt());
+    }
+  }
+
+  // Priority 2: Fallback to environment variables (only if config.json doesn't have value)
+  if (!hasConfigJson) {
+    config.watchdogCheckIntervalMs = EnvConfig::getUInt32("WATCHDOG_CHECK_INTERVAL_MS", config.watchdogCheckIntervalMs);
+    config.watchdogTimeoutMs = EnvConfig::getUInt32("WATCHDOG_TIMEOUT_MS", config.watchdogTimeoutMs);
+    config.healthMonitorIntervalMs = EnvConfig::getUInt32("HEALTH_MONITOR_INTERVAL_MS", config.healthMonitorIntervalMs);
+  }
+
+  return config;
 }
 
 bool SystemConfig::getModelforgePermissive() const {

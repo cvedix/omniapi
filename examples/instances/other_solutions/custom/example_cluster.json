@@ -1,0 +1,91 @@
+{
+  "name": "cluster_demo_1",
+  "group": "vehicle",
+  "solution": "custom",
+  "persistent": false,
+  "autoStart": false,
+  "detectionSensitivity": "Medium",
+  "additionalParams": {
+    "input": {
+      "IMAGE_PATH": "/opt/edgeos-api/test_images/vehicle/%d.jpg",
+      "VEHICLE_DETECTOR_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_v8.5.trt",
+      "VEHICLE_COLOR_CLASSIFIER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_color_v8.5.trt",
+      "VEHICLE_TYPE_CLASSIFIER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_type_v8.5.trt",
+      "VEHICLE_FEATURE_ENCODER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_embedding_v8.5.trt",
+      "CLASS_IDS_APPLIED_TO": "0,1,2",
+      "CLUSTER_LABELS": "red,white,black,blue,yellow,bus,small_truck,van,tanker",
+      "CLUSTER_THRESHOLD": "1000"
+    }
+  },
+  "pipeline": [
+    {
+      "nodeType": "image_src",
+      "nodeName": "image_src_cluster",
+      "parameters": {
+        "port_or_location": "${IMAGE_PATH}",
+        "interval": "1000",
+        "resize_ratio": "1.0",
+        "cycle": "true"
+      }
+    },
+    {
+      "nodeType": "trt_vehicle_detector",
+      "nodeName": "trt_vehicle_detector_cluster",
+      "parameters": {
+        "model_path": "${VEHICLE_DETECTOR_MODEL_PATH}"
+      }
+    },
+    {
+      "nodeType": "trt_vehicle_color_classifier",
+      "nodeName": "trt_vehicle_color_classifier_cluster",
+      "parameters": {
+        "model_path": "${VEHICLE_COLOR_CLASSIFIER_MODEL_PATH}",
+        "class_ids_applied_to": "${CLASS_IDS_APPLIED_TO}",
+        "min_width_applied_to": "0",
+        "min_height_applied_to": "0"
+      }
+    },
+    {
+      "nodeType": "trt_vehicle_type_classifier",
+      "nodeName": "trt_vehicle_type_classifier_cluster",
+      "parameters": {
+        "model_path": "${VEHICLE_TYPE_CLASSIFIER_MODEL_PATH}",
+        "class_ids_applied_to": "${CLASS_IDS_APPLIED_TO}",
+        "min_width_applied_to": "0",
+        "min_height_applied_to": "0"
+      }
+    },
+    {
+      "nodeType": "trt_vehicle_feature_encoder",
+      "nodeName": "trt_vehicle_feature_encoder_cluster",
+      "parameters": {
+        "model_path": "${VEHICLE_FEATURE_ENCODER_MODEL_PATH}",
+        "class_ids_applied_to": "${CLASS_IDS_APPLIED_TO}",
+        "min_width_applied_to": "0",
+        "min_height_applied_to": "0"
+      }
+    },
+    {
+      "nodeType": "osd_v3",
+      "nodeName": "osd_cluster",
+      "parameters": {}
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_cluster",
+      "parameters": {
+        "channel": "0"
+      }
+    },
+    {
+      "nodeType": "cluster",
+      "nodeName": "cluster_node",
+      "parameters": {
+        "enable": "true",
+        "labels": "${CLUSTER_LABELS}",
+        "threshold": "${CLUSTER_THRESHOLD}"
+      }
+    }
+  ]
+}
+
