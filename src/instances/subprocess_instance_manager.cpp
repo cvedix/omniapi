@@ -1,7 +1,8 @@
 #include "instances/subprocess_instance_manager.h"
+#include "core/resource_manager.h"
+#include "core/runtime_update_log.h"
 #include "core/timeout_constants.h"
 #include "core/uuid_generator.h"
-#include "core/resource_manager.h"
 #include "models/solution_config.h"
 #include <chrono>
 #include <future>
@@ -613,6 +614,7 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
 
 bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
                                                const Json::Value &configJson) {
+  logRuntimeUpdate(instanceId, "api: sending UPDATE_INSTANCE");
   // Check worker state - accept both READY and BUSY states
   // BUSY is OK because worker can handle multiple commands
   auto workerState = supervisor_->getWorkerState(instanceId);
@@ -635,6 +637,7 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
       instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
 
   if (response.type != worker::MessageType::UPDATE_INSTANCE_RESPONSE) {
+    logRuntimeUpdate(instanceId, "api: invalid response type");
     std::cerr
         << "[SubprocessInstanceManager] Invalid response type for update: "
         << static_cast<int>(response.type) << std::endl;
@@ -642,6 +645,13 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
   }
 
   bool success = response.payload.get("success", false).asBool();
+  if (success) {
+    logRuntimeUpdate(instanceId, "api: update success");
+  } else {
+    std::string error =
+        response.payload.get("error", "Unknown error").asString();
+    logRuntimeUpdate(instanceId, "api: update failed: " + error);
+  }
 
   if (success) {
     // Update local cache with new config
@@ -695,34 +705,16 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
 
 std::optional<InstanceInfo>
 SubprocessInstanceManager::getInstance(const std::string &instanceId) const {
-  std::unique_lock<std::mutex> lock(instances_mutex_);
+  std::lock_guard<std::mutex> lock(instances_mutex_);
   auto it = instances_.find(instanceId);
   if (it != instances_.end()) {
-    InstanceInfo info = it->second;
-    bool isRunning = info.running;
-
-    // If instance is running, try to get FPS from statistics
-    if (isRunning) {
-      // Release lock before calling getInstanceStatistics to avoid deadlock
-      lock.unlock();
-      // Note: getInstanceStatistics is not const, so we use const_cast
-      // This is safe because we're only reading statistics, not modifying
-      // instance
-      auto optStats =
-          const_cast<SubprocessInstanceManager *>(this)->getInstanceStatistics(
-              instanceId);
-      lock.lock();
-
-      // Re-check instance still exists and is still running after lock
-      it = instances_.find(instanceId);
-      if (it != instances_.end() && it->second.running &&
-          optStats.has_value()) {
-        // Update fps from statistics
-        info.fps = optStats.value().current_framerate;
-      }
-    }
-
-    return info;
+    // Return cached InstanceInfo only. Do NOT call getInstanceStatistics()
+    // here: it performs sendToWorker(GET_INSTANCE_STATUS) and can block the
+    // calling thread for up to IPC_STATUS_TIMEOUT_MS (default 3s). When
+    // instances are running, that caused all API handlers (GET instance,
+    // list, etc.) to block and made the server appear unresponsive.
+    // Use GET /v1/core/instance/{id}/statistics for fresh FPS when needed.
+    return it->second;
   }
   return std::nullopt;
 }

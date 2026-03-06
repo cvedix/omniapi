@@ -81,6 +81,9 @@ target_link_libraries(edgeos_api_tests PRIVATE
     gtest
 )
 
+# Link edgeos_core (e.g. logRuntimeUpdate used by subprocess_instance_manager)
+target_link_libraries(edgeos_api_tests PRIVATE edgeos_core)
+
 # Link Drogon (same as main project)
 if(TARGET Drogon::Drogon)
     target_link_libraries(edgeos_api_tests PRIVATE Drogon::Drogon)

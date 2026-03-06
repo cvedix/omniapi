@@ -185,6 +185,7 @@ Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa
 | `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/edgeos-api/run` | `src/worker/unix_socket.cpp` |
 | `EDGE_AI_MAX_RESTARTS` | Số lần restart worker tối đa (subprocess) | (trong code) | `src/worker/worker_supervisor.cpp` |
 | `EDGE_AI_HEALTH_CHECK_INTERVAL` | Khoảng kiểm tra health worker (ms) | (trong code) | `src/worker/worker_supervisor.cpp` |
+| `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` | Thư mục ghi log **runtime update** (PATCH/PUT instance, merge, apply line, rebuild). File: `runtime_update.log`. Dùng khi dev để kiểm tra lỗi. Nếu không set thì dùng `LOG_DIR`; nếu cả hai không set thì dùng **`/tmp`** (file: `/tmp/runtime_update.log`). | (dùng `LOG_DIR` hoặc `/tmp`) | `src/worker/worker_handler.cpp` |
 
 **Lưu ý về Socket Directory:**
 - **Default**: `/opt/edgeos-api/run` (tự động tạo nếu chưa tồn tại)
@@ -239,8 +240,12 @@ export API_PORT=9000
 - **Production:** Dùng `EDGE_AI_EXECUTION_MODE=subprocess`, cấu hình `EDGE_AI_WORKER_PATH` và `EDGE_AI_SOCKET_DIR`. Xem [ARCHITECTURE.md](ARCHITECTURE.md#khi-nào-dùng-mode-nào).
 - **Timeout:** Điều chỉnh `IPC_*_TIMEOUT_MS`, `REGISTRY_MUTEX_TIMEOUT_MS` nếu hệ thống chậm.
 - **Queue monitor:** Bật `EDGE_AI_QUEUE_MONITOR_ENABLED=true` để tự restart instance khi FPS=0 hoặc queue đầy.
-- **Thread pool:** `THREAD_NUM=0` (auto) hoặc giá trị cố định cho Drogon.
+- **Thread pool:** `THREAD_NUM=0` (auto, 90% CPU cores) hoặc giá trị cố định cho Drogon. Nếu API chậm khi có nhiều instance chạy, tăng số thread (ví dụ `THREAD_NUM=4`).
 - **Log:** `LOG_LEVEL`, `LOG_DIR`; xem [LOGGING.md](LOGGING.md).
+
+### Subprocess mode – API không phản hồi khi instance đang chạy
+
+Trước đây, khi instance đang chạy, mỗi lần gọi GET instance hoặc list instance có thể block luồng HTTP vài giây (do gọi IPC lấy statistics). Đã sửa: **getInstance()** trong subprocess mode chỉ trả về dữ liệu cache, không gọi IPC đồng bộ. Các API khác (GET /v1/core/instance, list, v.v.) vẫn dùng được khi instance đang chạy. Nếu cần FPS mới nhất, dùng GET `/v1/core/instance/{id}/statistics`.
 
 ## Lưu Ý
 

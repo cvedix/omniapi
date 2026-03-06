@@ -260,6 +260,20 @@ private:
   bool preBuildPipeline(const Json::Value &newConfig);
 
   /**
+   * @brief Get flattened AdditionalParams from config (supports
+   * AdditionalParams, additionalParams, and nested input/output).
+   */
+  Json::Value getParamsFromConfig(const Json::Value &config) const;
+
+  /**
+   * @brief Apply CrossingLines or CROSSLINE_* from params to running pipeline
+   * (runtime update, no restart). Used for instance update hot-reload.
+   * @param params Flattened params (from getParamsFromConfig)
+   * @return true if lines were applied or no line config present
+   */
+  bool applyLinesFromParamsToPipeline(const Json::Value &params);
+
+  /**
    * @brief Check if config changes require pipeline rebuild
    * @param oldConfig Old configuration
    * @param newConfig New configuration

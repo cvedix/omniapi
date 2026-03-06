@@ -1268,6 +1268,7 @@ set(CORE_LIB_SOURCES
     src/core/analytics_entities_manager.cpp
     src/core/area_storage.cpp
     src/core/area_manager.cpp
+    src/core/runtime_update_log.cpp
 )
 
 add_library(edgeos_core SHARED ${CORE_LIB_SOURCES})

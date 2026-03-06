@@ -1,9 +1,11 @@
 #include "worker/worker_handler.h"
 #include "core/env_config.h"
 #include "core/pipeline_builder.h"
+#include "core/runtime_update_log.h"
 #include "core/timeout_constants.h"
 #include "models/create_instance_request.h"
 #include "solutions/solution_registry.h"
+#include <chrono>
 #include <cstring>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -29,11 +31,28 @@
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <mutex>
+#include <set>
 #include <getopt.h>
 #include <iostream>
+#include <iomanip>
 #include <opencv2/imgcodecs.hpp>
 #include <sstream>
 #include <thread>
+
+// Deep-merge source into target (objects merged recursively, other types replace).
+// Prevents partial update from wiping entire AdditionalParams/Input/Output.
+static void mergeJsonInto(Json::Value &target, const Json::Value &source) {
+  if (!source.isObject()) return;
+  for (const auto &key : source.getMemberNames()) {
+    const Json::Value &srcVal = source[key];
+    if (srcVal.isObject() && target.isMember(key) && target[key].isObject()) {
+      mergeJsonInto(target[key], srcVal);
+    } else {
+      target[key] = srcVal;
+    }
+  }
+}
 
 // Base64 encoding table
 static const char base64_chars[] =
@@ -207,6 +226,7 @@ int WorkerHandler::run() {
   // Send ready signal to supervisor
   sendReadySignal();
 
+  logRuntimeUpdate(instance_id_, "worker ready, runtime_update.log active");
   std::cout << "[Worker:" << instance_id_ << "] Ready and listening on "
             << socket_path_ << std::endl;
 
@@ -408,12 +428,36 @@ IPCMessage WorkerHandler::handleStartInstance(const IPCMessage & /*msg*/) {
   IPCMessage response;
   response.type = MessageType::START_INSTANCE_RESPONSE;
 
+  // If no pipeline yet but we have config with Solution, build now then start
+  // (single "start" = build-if-needed then run, no separate create step)
   if (pipeline_nodes_.empty()) {
-    std::cout << "[Worker:" << instance_id_
-              << "] START_INSTANCE: No pipeline configured" << std::endl;
-    response.payload = createErrorResponse("No pipeline configured",
-                                           ResponseStatus::NOT_FOUND);
-    return response;
+    if (!config_.isNull() &&
+        (config_.isMember("Solution") || config_.isMember("SolutionId") ||
+         (config_.isMember("AdditionalParams") && config_["AdditionalParams"].isObject()) ||
+         (config_.isMember("additionalParams") && config_["additionalParams"].isObject()))) {
+      std::cout << "[Worker:" << instance_id_
+                << "] START_INSTANCE: No pipeline yet, building from config first"
+                << std::endl;
+      if (!buildPipeline()) {
+        std::cerr << "[Worker:" << instance_id_
+                  << "] START_INSTANCE: Build failed: " << last_error_
+                  << std::endl;
+        response.payload = createErrorResponse(
+            "Failed to build pipeline: " + last_error_,
+            ResponseStatus::INTERNAL_ERROR);
+        return response;
+      }
+      std::cout << "[Worker:" << instance_id_
+                << "] START_INSTANCE: Pipeline built, proceeding to start"
+                << std::endl;
+    } else {
+      std::cout << "[Worker:" << instance_id_
+                << "] START_INSTANCE: No pipeline configured and no config to build"
+                << std::endl;
+      response.payload = createErrorResponse("No pipeline configured",
+                                             ResponseStatus::NOT_FOUND);
+      return response;
+    }
   }
 
   // Use start_pipeline_mutex_ to atomically check pipeline state and
@@ -536,6 +580,13 @@ IPCMessage WorkerHandler::handleStopInstance(const IPCMessage & /*msg*/) {
 }
 
 IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
+  // RUNTIME UPDATE GUARANTEE (no restart): When (1) the only changed params
+  // are line-related (CrossingLines, CROSSLINE_START_X/Y, CROSSLINE_END_X/Y)
+  // and (2) pipeline has ba_crossline_node, we apply via set_lines() and
+  // return OK without rebuild/hot-swap. All other changes go through
+  // checkIfNeedsRebuild / applyConfigToPipeline and may trigger hot-swap or
+  // rebuild. See INSTANCE_UPDATE_HOT_RELOAD_MANUAL_TEST.md "Phân tích thuật toán".
+  logRuntimeUpdate(instance_id_, "UPDATE_INSTANCE received");
   IPCMessage response;
   response.type = MessageType::UPDATE_INSTANCE_RESPONSE;
 
@@ -548,11 +599,12 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
   // Store old config for comparison
   Json::Value oldConfig = config_;
 
-  // Merge new config
+  // Deep-merge new config so partial updates (e.g. only CrossingLines or
+  // CROSSLINE_*) do not wipe entire AdditionalParams/Input/Output and trigger
+  // spurious rebuild or hot-swap.
   const auto &newConfig = msg.payload["config"];
-  for (const auto &key : newConfig.getMemberNames()) {
-    config_[key] = newConfig[key];
-  }
+  mergeJsonInto(config_, newConfig);
+  logRuntimeUpdate(instance_id_, "config merged (deep merge)");
 
   // If pipeline is not running, just update config (will apply on next start)
   if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
@@ -569,10 +621,14 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
 
   // Check if this is a structural change that requires rebuild
   bool needsRebuild = checkIfNeedsRebuild(oldConfig, config_);
+  logRuntimeUpdate(instance_id_,
+                   "checkIfNeedsRebuild=" + std::string(needsRebuild ? "true" : "false"));
 
   // Try to apply config changes runtime first (for parameters that can be
   // updated)
   bool canApplyRuntime = applyConfigToPipeline(oldConfig, config_);
+  logRuntimeUpdate(instance_id_,
+                   "applyConfigToPipeline=" + std::string(canApplyRuntime ? "true" : "false"));
 
   // If rebuild is needed OR runtime update failed, use hot swap for zero
   // downtime
@@ -580,6 +636,7 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
     std::cout << "[Worker:" << instance_id_
               << "] Config changes require pipeline rebuild, using hot swap..."
               << std::endl;
+    logRuntimeUpdate(instance_id_, "decision=hot_swap_or_rebuild (needsRebuild or !canApplyRuntime)");
 
     // Use hot swap for zero downtime
     if (pipeline_running_.load()) {
@@ -587,6 +644,7 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
         std::cout << "[Worker:" << instance_id_
                   << "] ✓ Pipeline hot-swapped successfully (zero downtime)"
                   << std::endl;
+        logRuntimeUpdate(instance_id_, "result=hot_swap_ok");
         response.payload =
             createResponse(ResponseStatus::OK, "Instance updated (hot swap)");
       } else {
@@ -612,6 +670,7 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
               createErrorResponse(last_error_, ResponseStatus::INTERNAL_ERROR);
           return response;
         }
+        logRuntimeUpdate(instance_id_, "result=rebuild_fallback (hot_swap failed)");
         response.payload = createResponse(
             ResponseStatus::OK, "Instance updated (rebuild fallback)");
       }
@@ -640,6 +699,7 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
   std::cout << "[Worker:" << instance_id_
             << "] ✓ Config changes applied successfully (runtime update)"
             << std::endl;
+  logRuntimeUpdate(instance_id_, "result=runtime_ok (no restart)");
   response.payload =
       createResponse(ResponseStatus::OK, "Instance updated (runtime)");
 
@@ -2355,6 +2415,150 @@ std::string WorkerHandler::encodeFrameToBase64(const cv::Mat &frame,
   return result;
 }
 
+Json::Value WorkerHandler::getParamsFromConfig(const Json::Value &config) const {
+  Json::Value result(Json::objectValue);
+  Json::Value base;
+  if (config.isMember("AdditionalParams") &&
+      config["AdditionalParams"].isObject()) {
+    base = config["AdditionalParams"];
+  } else if (config.isMember("additionalParams") &&
+             config["additionalParams"].isObject()) {
+    base = config["additionalParams"];
+  }
+  if (base.isObject()) {
+    for (const auto &key : base.getMemberNames()) {
+      if (key == "input" && base[key].isObject()) {
+        for (const auto &k : base[key].getMemberNames()) {
+          result[k] = base[key][k];
+        }
+      } else if (key == "output" && base[key].isObject()) {
+        for (const auto &k : base[key].getMemberNames()) {
+          result[k] = base[key][k];
+        }
+      } else {
+        result[key] = base[key];
+      }
+    }
+  }
+  // Support direct PascalCase Input/Output (e.g. PUT with top-level Input)
+  if (config.isMember("Input") && config["Input"].isObject()) {
+    for (const auto &k : config["Input"].getMemberNames()) {
+      result[k] = config["Input"][k];
+    }
+  }
+  if (config.isMember("Output") && config["Output"].isObject()) {
+    for (const auto &k : config["Output"].getMemberNames()) {
+      result[k] = config["Output"][k];
+    }
+  }
+  return result;
+}
+
+bool WorkerHandler::applyLinesFromParamsToPipeline(const Json::Value &params) {
+  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+    return true; // No pipeline, nothing to apply
+  }
+  std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> baCrosslineNode;
+  for (const auto &node : pipeline_nodes_) {
+    if (!node) continue;
+    auto crosslineNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(
+            node);
+    if (crosslineNode) {
+      baCrosslineNode = crosslineNode;
+      break;
+    }
+  }
+  if (!baCrosslineNode) {
+    std::cout << "[Worker:" << instance_id_
+              << "] applyLinesFromParamsToPipeline: no ba_crossline_node"
+              << std::endl;
+    return true; // Not a crossline pipeline, no lines to apply
+  }
+
+  std::map<int, cvedix_objects::cvedix_line> lines;
+
+  // Priority 1: CrossingLines (JSON array string)
+  if (params.isMember("CrossingLines") && params["CrossingLines"].isString()) {
+    std::string linesStr = params["CrossingLines"].asString();
+    if (linesStr.empty()) {
+      bool ok = baCrosslineNode->set_lines(lines);
+      if (ok) {
+        std::cout << "[Worker:" << instance_id_
+                  << "] Applied empty CrossingLines (runtime, no restart)"
+                  << std::endl;
+      }
+      return ok;
+    }
+    Json::CharReaderBuilder builder;
+    Json::Value linesArray;
+    std::istringstream ss(linesStr);
+    std::string errs;
+    if (!Json::parseFromStream(builder, ss, &linesArray, &errs) ||
+        !linesArray.isArray()) {
+      std::cerr << "[Worker:" << instance_id_
+                << "] Failed to parse CrossingLines JSON" << std::endl;
+      return false;
+    }
+    for (Json::ArrayIndex i = 0; i < linesArray.size(); ++i) {
+      const Json::Value &lineObj = linesArray[i];
+      if (!lineObj.isMember("coordinates") ||
+          !lineObj["coordinates"].isArray() ||
+          lineObj["coordinates"].size() < 2) {
+        continue;
+      }
+      const Json::Value &coords = lineObj["coordinates"];
+      const Json::Value &startCoord = coords[0];
+      const Json::Value &endCoord = coords[coords.size() - 1];
+      if (!startCoord.isMember("x") || !startCoord.isMember("y") ||
+          !endCoord.isMember("x") || !endCoord.isMember("y")) {
+        continue;
+      }
+      int start_x = startCoord["x"].asInt();
+      int start_y = startCoord["y"].asInt();
+      int end_x = endCoord["x"].asInt();
+      int end_y = endCoord["y"].asInt();
+      cvedix_objects::cvedix_point start(start_x, start_y);
+      cvedix_objects::cvedix_point end(end_x, end_y);
+      lines[static_cast<int>(i)] = cvedix_objects::cvedix_line(start, end);
+    }
+  } else {
+    // Priority 2: Legacy CROSSLINE_START_X/Y, CROSSLINE_END_X/Y (single line)
+    auto sx = params.get("CROSSLINE_START_X", Json::Value());
+    auto sy = params.get("CROSSLINE_START_Y", Json::Value());
+    auto ex = params.get("CROSSLINE_END_X", Json::Value());
+    auto ey = params.get("CROSSLINE_END_Y", Json::Value());
+    if (sx.isString() && sy.isString() && ex.isString() && ey.isString()) {
+      int start_x = std::stoi(sx.asString());
+      int start_y = std::stoi(sy.asString());
+      int end_x = std::stoi(ex.asString());
+      int end_y = std::stoi(ey.asString());
+      cvedix_objects::cvedix_point start(start_x, start_y);
+      cvedix_objects::cvedix_point end(end_x, end_y);
+      lines[0] = cvedix_objects::cvedix_line(start, end);
+    }
+  }
+
+  if (lines.empty()) {
+    logRuntimeUpdate(instance_id_, "applyLinesFromParamsToPipeline: lines.empty() -> skip");
+    return true; // No line config, nothing to apply
+  }
+
+  logRuntimeUpdate(instance_id_, "applyLinesFromParamsToPipeline: lines.size()=" + std::to_string(lines.size()) + " calling set_lines()");
+  bool ok = baCrosslineNode->set_lines(lines);
+  if (ok) {
+    std::cout << "[Worker:" << instance_id_ << "] Applied " << lines.size()
+              << " line(s) at runtime (no restart)" << std::endl;
+    logRuntimeUpdate(instance_id_, "applyLinesFromParamsToPipeline: set_lines()=ok");
+  } else {
+    std::cerr << "[Worker:" << instance_id_
+              << "] set_lines() failed in applyLinesFromParamsToPipeline"
+              << std::endl;
+    logRuntimeUpdate(instance_id_, "applyLinesFromParamsToPipeline: set_lines()=failed");
+  }
+  return ok;
+}
+
 bool WorkerHandler::checkIfNeedsRebuild(const Json::Value &oldConfig,
                                         const Json::Value &newConfig) const {
   // Check if solution changed (structural change)
@@ -2398,11 +2602,14 @@ bool WorkerHandler::checkIfNeedsRebuild(const Json::Value &oldConfig,
   }
 
   // Check for model path changes (requires rebuild as models are loaded at
-  // pipeline creation)
-  Json::Value oldParams = oldConfig.get("AdditionalParams", Json::Value());
-  Json::Value newParams = newConfig.get("AdditionalParams", Json::Value());
+  // pipeline creation). Use getParamsFromConfig to support both
+  // AdditionalParams and additionalParams (API format).
+  Json::Value oldParams = getParamsFromConfig(oldConfig);
+  Json::Value newParams = getParamsFromConfig(newConfig);
 
   if (oldParams.isObject() && newParams.isObject()) {
+    // Line params (CrossingLines, CROSSLINE_*) are runtime-updatable via
+    // set_lines() in applyConfigToPipeline; do NOT require rebuild here.
     // Check detector model file
     if (oldParams.isMember("DETECTOR_MODEL_FILE") !=
             newParams.isMember("DETECTOR_MODEL_FILE") ||
@@ -2442,18 +2649,8 @@ bool WorkerHandler::checkIfNeedsRebuild(const Json::Value &oldConfig,
       }
     }
 
-    // Check for CrossingLines changes (lines configuration for BA crossline)
-    // Lines are stored as JSON string in AdditionalParams["CrossingLines"]
-    if (oldParams.isMember("CrossingLines") !=
-            newParams.isMember("CrossingLines") ||
-        (oldParams.isMember("CrossingLines") &&
-         newParams.isMember("CrossingLines") &&
-         oldParams["CrossingLines"].asString() !=
-             newParams["CrossingLines"].asString())) {
-      std::cout << "[Worker:" << instance_id_
-                << "] CrossingLines changed (requires rebuild)" << std::endl;
-      return true;
-    }
+    // CrossingLines and CROSSLINE_* are runtime-updatable via set_lines() - do
+    // NOT require rebuild (applied in applyConfigToPipeline for 99% uptime).
   }
 
   // Other structural changes that require rebuild can be added here
@@ -2462,10 +2659,13 @@ bool WorkerHandler::checkIfNeedsRebuild(const Json::Value &oldConfig,
 
 bool WorkerHandler::applyConfigToPipeline(const Json::Value &oldConfig,
                                           const Json::Value &newConfig) {
+  // Decides whether config can be applied at runtime (true) or must trigger
+  // rebuild/hot-swap (false). For line-only changes + ba_crossline_node we
+  // apply via set_lines() and return true (no restart).
   try {
-    // Extract AdditionalParams from config
-    Json::Value oldParams = oldConfig.get("AdditionalParams", Json::Value());
-    Json::Value newParams = newConfig.get("AdditionalParams", Json::Value());
+    // Extract params (supports AdditionalParams and additionalParams + nested input)
+    Json::Value oldParams = getParamsFromConfig(oldConfig);
+    Json::Value newParams = getParamsFromConfig(newConfig);
 
     // Check for source URL changes (RTSP, RTMP, FILE_PATH)
     bool sourceUrlChanged = false;
@@ -2535,18 +2735,48 @@ bool WorkerHandler::applyConfigToPipeline(const Json::Value &oldConfig,
       std::cout << "[Worker:" << instance_id_
                 << "] Source URL changed, requires pipeline rebuild"
                 << std::endl;
+      logRuntimeUpdate(instance_id_, "applyConfigToPipeline: sourceUrlChanged=true -> rebuild");
       return false; // Trigger rebuild
     }
 
-    // Check for other parameter changes that might need rebuild
-    // Some parameters like CrossingLines, Zone, etc. need rebuild
-    if (newParams.isMember("CrossingLines")) {
-      std::string oldLines = oldParams.get("CrossingLines", "").asString();
-      std::string newLines = newParams["CrossingLines"].asString();
-      if (oldLines != newLines) {
+    // CrossingLines / CROSSLINE_*: apply at runtime (no restart)
+    bool linesChanged = false;
+    if (newParams.isMember("CrossingLines") &&
+        oldParams.get("CrossingLines", "").asString() !=
+            newParams["CrossingLines"].asString()) {
+      linesChanged = true;
+    }
+    if (!linesChanged &&
+        (newParams.isMember("CROSSLINE_START_X") ||
+         newParams.isMember("CROSSLINE_END_X"))) {
+      if (oldParams.get("CROSSLINE_START_X", "").asString() !=
+              newParams.get("CROSSLINE_START_X", "").asString() ||
+          oldParams.get("CROSSLINE_START_Y", "").asString() !=
+              newParams.get("CROSSLINE_START_Y", "").asString() ||
+          oldParams.get("CROSSLINE_END_X", "").asString() !=
+              newParams.get("CROSSLINE_END_X", "").asString() ||
+          oldParams.get("CROSSLINE_END_Y", "").asString() !=
+              newParams.get("CROSSLINE_END_Y", "").asString()) {
+        linesChanged = true;
+      }
+    }
+    if (linesChanged) {
+      logRuntimeUpdate(instance_id_, "applyConfigToPipeline: linesChanged=true, calling applyLinesFromParamsToPipeline");
+      if (applyLinesFromParamsToPipeline(newParams)) {
         std::cout << "[Worker:" << instance_id_
-                  << "] CrossingLines changed, requires rebuild" << std::endl;
-        return false; // Trigger rebuild
+                  << "] CrossingLines/CROSSLINE_* applied at runtime (no restart)"
+                  << std::endl;
+        logRuntimeUpdate(instance_id_, "applyConfigToPipeline: applyLinesFromParamsToPipeline=ok");
+        // Continue to check other params; if only lines changed we'll return true below
+      } else {
+        // Only line change but set_lines() failed: do NOT trigger rebuild so the
+        // instance keeps running. Config is already merged; new lines will apply
+        // on next start. Avoids stopping the pipeline when SDK rejects the line update.
+        std::cerr << "[Worker:" << instance_id_
+                  << "] Failed to apply lines at runtime (config saved, will apply on next start)"
+                  << std::endl;
+        logRuntimeUpdate(instance_id_, "applyConfigToPipeline: applyLinesFromParamsToPipeline=failed (config saved, no restart)");
+        // Fall through: if no other param changes we return true (no restart)
       }
     }
 
@@ -2557,19 +2787,27 @@ bool WorkerHandler::applyConfigToPipeline(const Json::Value &oldConfig,
         std::cout << "[Worker:" << instance_id_
                   << "] Zone configuration changed, requires rebuild"
                   << std::endl;
+        logRuntimeUpdate(instance_id_, "applyConfigToPipeline: Zone changed -> rebuild");
         return false; // Trigger rebuild
       }
     }
 
-    // For other parameter changes, log them
-    // Most CVEDIX nodes don't support runtime parameter updates
-    // Config is merged, but changes will take effect after rebuild
+    // For other parameter changes, log them (exclude runtime-updatable: lines)
+    // Most CVEDIX nodes don't support runtime parameter updates.
+    // Use normalized string comparison so int vs string or missing key don't
+    // cause false "changed" and spurious rebuild for line-only updates.
+    static const std::set<std::string> runtimeLineKeys = {
+        "CrossingLines", "CROSSLINE_START_X", "CROSSLINE_START_Y",
+        "CROSSLINE_END_X", "CROSSLINE_END_Y"};
     std::vector<std::string> changedParams;
     for (const auto &key : newParams.getMemberNames()) {
       if (key != "RTSP_SRC_URL" && key != "RTSP_URL" && key != "RTMP_SRC_URL" &&
-          key != "RTMP_URL" && key != "FILE_PATH" && key != "CrossingLines") {
-        if (!oldParams.isMember(key) ||
-            oldParams[key].asString() != newParams[key].asString()) {
+          key != "RTMP_URL" && key != "FILE_PATH" &&
+          runtimeLineKeys.count(key) == 0) {
+        std::string oldStr =
+            oldParams.isMember(key) ? oldParams[key].asString() : "";
+        std::string newStr = newParams[key].asString();
+        if (oldStr != newStr) {
           changedParams.push_back(key);
         }
       }
@@ -2595,12 +2833,19 @@ bool WorkerHandler::applyConfigToPipeline(const Json::Value &oldConfig,
       std::cout << "[Worker:" << instance_id_
                 << "] Parameters changed, rebuilding to apply changes"
                 << std::endl;
+      std::string changedStr;
+      for (size_t i = 0; i < changedParams.size(); ++i) {
+        if (i) changedStr += ",";
+        changedStr += changedParams[i];
+      }
+      logRuntimeUpdate(instance_id_, "applyConfigToPipeline: changedParams=[" + changedStr + "] -> rebuild");
       return false; // Trigger rebuild to apply parameter changes
     }
 
     // No significant changes detected
     std::cout << "[Worker:" << instance_id_
               << "] No significant parameter changes detected" << std::endl;
+    logRuntimeUpdate(instance_id_, "applyConfigToPipeline: no significant changes -> return true");
     return true;
 
   } catch (const std::exception &e) {

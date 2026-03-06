@@ -28,6 +28,7 @@
 #include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
+#include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
@@ -608,19 +609,6 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
         return false;
       }
 
-      // ✅ ASYNC BUILD CHECK: Kiểm tra pipeline đã được build chưa
-      auto pipelineIt = pipelines_.find(instanceId);
-      if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
-        std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
-                  << ": Pipeline not built yet" << std::endl;
-        std::cerr << "[InstanceRegistry] If instance was just created, pipeline "
-                     "may still be building in background"
-                  << std::endl;
-        std::cerr << "[InstanceRegistry] Check instance status via GET "
-                     "/v1/core/instance/"
-                  << instanceId << " to see build status" << std::endl;
-        return false;
-      }
 
       // Stop instance if it's running (unless skipAutoStop is true)
       wasRunning = instanceIt->second.running;
@@ -1965,6 +1953,7 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
   bool isPersistent = false;
   InstanceInfo infoCopy;
   bool hasChanges = false;
+  bool requiresRestart = false;
 
   {
     std::unique_lock<std::shared_timed_mutex> lock(
@@ -1999,6 +1988,7 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
                 << info.displayName << " -> " << req.name << std::endl;
       info.displayName = req.name;
       hasChanges = true;
+      requiresRestart = true;
     }
 
     if (!req.group.empty()) {
@@ -2021,6 +2011,7 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
                 << std::endl;
       info.frameRateLimit = req.frameRateLimit;
       hasChanges = true;
+      requiresRestart = true;
     }
 
     if (req.configuredFps != -1) {
@@ -2029,6 +2020,7 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
                 << std::endl;
       info.configuredFps = req.configuredFps;
       hasChanges = true;
+      requiresRestart = true;
     }
 
     if (req.metadataMode.has_value()) {
@@ -2114,6 +2106,7 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
                 << std::endl;
       info.inputOrientation = req.inputOrientation;
       hasChanges = true;
+      requiresRestart = true;
     }
 
     if (req.inputPixelLimit != -1) {
@@ -2122,6 +2115,7 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
                 << std::endl;
       info.inputPixelLimit = req.inputPixelLimit;
       hasChanges = true;
+      requiresRestart = true;
     }
 
     // Update additionalParams (merge with existing)
@@ -2147,6 +2141,12 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
                           : "<new>")
                   << " -> " << pair.second << std::endl;
         info.additionalParams[pair.first] = pair.second;
+        
+        if (pair.first != "CrossingLines" && 
+            pair.first != "CROSSLINE_START_X" && pair.first != "CROSSLINE_START_Y" &&
+            pair.first != "CROSSLINE_END_X" && pair.first != "CROSSLINE_END_Y") {
+          requiresRestart = true;
+        }
       }
       hasChanges = true;
 
@@ -2345,12 +2345,100 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
   }
 
   if (wasRunning) {
-    std::cerr << "[InstanceRegistry] Instance is running, restarting to apply "
-                 "changes..."
-              << std::endl;
+    if (!requiresRestart) {
+      std::cerr << "[InstanceRegistry] Instance is running, applying runtime line changes (no restart)..." << std::endl;
+      bool ok = false;
+      std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipeline_nodes;
+      {
+        std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+        auto it = pipelines_.find(instanceId);
+        if (it != pipelines_.end()) {
+          pipeline_nodes = it->second;
+        }
+      }
+      
+      std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> baCrosslineNode;
+      for (const auto &node : pipeline_nodes) {
+        if (!node) continue;
+        baCrosslineNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(node);
+        if (baCrosslineNode) break;
+      }
+      
+      if (!baCrosslineNode) {
+        std::cerr << "[InstanceRegistry] No ba_crossline_node found in pipeline" << std::endl;
+        ok = true; // Nothing to apply for lines, so it's nominally OK
+      } else {
+        std::map<int, cvedix_objects::cvedix_line> lines;
+        
+        auto getParamStr = [&](const std::string& key) -> std::string {
+          auto it = req.additionalParams.find(key);
+          if (it != req.additionalParams.end()) return it->second;
+          auto it2 = infoCopy.additionalParams.find(key);
+          if (it2 != infoCopy.additionalParams.end()) return it2->second;
+          return "";
+        };
 
-    // Stop instance first
-    if (stopInstance(instanceId)) {
+        std::string crossingLinesStr = getParamStr("CrossingLines");
+        if (!crossingLinesStr.empty()) {
+          Json::CharReaderBuilder builder;
+          Json::Value linesArray;
+          std::istringstream ss(crossingLinesStr);
+          std::string errs;
+          if (!Json::parseFromStream(builder, ss, &linesArray, &errs) || !linesArray.isArray()) {
+            std::cerr << "[InstanceRegistry] Failed to parse CrossingLines JSON" << std::endl;
+            ok = false;
+          } else {
+            for (Json::ArrayIndex i = 0; i < linesArray.size(); ++i) {
+              const Json::Value &lineObj = linesArray[i];
+              if (!lineObj.isMember("coordinates") || !lineObj["coordinates"].isArray() || lineObj["coordinates"].size() < 2) continue;
+              const Json::Value &coords = lineObj["coordinates"];
+              const Json::Value &startCoord = coords[0];
+              const Json::Value &endCoord = coords[coords.size() - 1];
+              if (!startCoord.isMember("x") || !startCoord.isMember("y") || !endCoord.isMember("x") || !endCoord.isMember("y")) continue;
+              int start_x = startCoord["x"].asInt();
+              int start_y = startCoord["y"].asInt();
+              int end_x = endCoord["x"].asInt();
+              int end_y = endCoord["y"].asInt();
+              lines[static_cast<int>(i)] = cvedix_objects::cvedix_line(cvedix_objects::cvedix_point(start_x, start_y), cvedix_objects::cvedix_point(end_x, end_y));
+            }
+            ok = baCrosslineNode->set_lines(lines);
+          }
+        } else {
+          std::string sx = getParamStr("CROSSLINE_START_X");
+          std::string sy = getParamStr("CROSSLINE_START_Y");
+          std::string ex = getParamStr("CROSSLINE_END_X");
+          std::string ey = getParamStr("CROSSLINE_END_Y");
+          if (!sx.empty() && !sy.empty() && !ex.empty() && !ey.empty()) {
+            try {
+              int start_x = std::stoi(sx);
+              int start_y = std::stoi(sy);
+              int end_x = std::stoi(ex);
+              int end_y = std::stoi(ey);
+              lines[0] = cvedix_objects::cvedix_line(cvedix_objects::cvedix_point(start_x, start_y), cvedix_objects::cvedix_point(end_x, end_y));
+              ok = baCrosslineNode->set_lines(lines);
+            } catch (...) {
+              std::cerr << "[InstanceRegistry] Invalid legacy crossline coordinates" << std::endl;
+              ok = false;
+            }
+          } else {
+             ok = true; // no lines config
+          }
+        }
+      }
+      
+      if (!ok) {
+        std::cerr << "[InstanceRegistry] Failed to apply runtime changes, falling back to restart..." << std::endl;
+        requiresRestart = true;
+      }
+    }
+    
+    if (requiresRestart) {
+      std::cerr << "[InstanceRegistry] Instance is running, restarting to apply "
+                   "changes..."
+                << std::endl;
+
+      // Stop instance first
+      if (stopInstance(instanceId)) {
       // CRITICAL: Wait longer for complete cleanup to prevent segmentation
       // faults GStreamer pipelines, threads (MQTT, RTSP monitor), and OpenCV
       // DNN need time to fully cleanup Previous 500ms was too short and caused
@@ -2391,6 +2479,7 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
       std::cerr << "[InstanceRegistry] NOTE: Configuration has been updated. "
                    "Restart the instance manually to apply changes."
                 << std::endl;
+    }
     }
   } else {
     std::cerr << "[InstanceRegistry] Instance is not running. Changes will "
