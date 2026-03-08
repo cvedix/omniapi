@@ -121,6 +121,20 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 |------|-------|----------|--------------|
 | `HEALTH_MONITOR_INTERVAL_MS` | Khoảng thời gian monitor health (ms) | `1000` | `src/main.cpp` |
 
+#### Device Report (OsmAnd/Traccar) Configuration
+Chỉ gửi report khi server reachable; retry kết nối khi lỗi.
+| Biến | Mô tả | Mặc định | File sử dụng |
+|------|-------|----------|--------------|
+| `DEVICE_REPORT_ENABLED` | Bật device report lên Traccar | `false` | `src/config/system_config.cpp` |
+| `DEVICE_REPORT_SERVER_URL` | URL Traccar OsmAnd (vd. http://traccar:5055) | (trống) | `src/config/system_config.cpp` |
+| `DEVICE_REPORT_DEVICE_ID` | Mã thiết bị (trống = hostname) | (trống) | `src/config/system_config.cpp` |
+| `DEVICE_REPORT_DEVICE_TYPE` | Loại thiết bị (aibox, omnimedia, ...) | `aibox` | `src/config/system_config.cpp` |
+| `DEVICE_REPORT_INTERVAL_SEC` | Chu kỳ gửi report (giây), mặc định 5 phút | `300` | `src/config/system_config.cpp` |
+| `DEVICE_REPORT_LATITUDE` | Vĩ độ (thiết bị cố định) | `0` | `src/config/system_config.cpp` |
+| `DEVICE_REPORT_LONGITUDE` | Kinh độ (thiết bị cố định) | `0` | `src/config/system_config.cpp` |
+
+Cấu hình qua config.json: `system.monitoring.device_report` (enabled, server_url, device_id, device_type, interval_sec, latitude, longitude).
+
 #### Data Storage Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|

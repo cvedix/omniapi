@@ -19,7 +19,9 @@ manual/
 ├── Core_API/           # Manual tests cho Core API
 │   ├── SYSTEM_CONFIG_MANUAL_TEST.md
 │   ├── SYSTEM_CONFIG_QUICK_TEST.md
-│   └── EVENTS_OUTPUT_MANUAL_TEST.md
+│   ├── EVENTS_OUTPUT_MANUAL_TEST.md
+│   ├── WATCHDOG_DEVICE_REPORT_MANUAL_TEST.md
+│   └── WATCHDOG_DEVICE_REPORT_CONFIG_API.md
 │
 ├── Solutions/          # Manual tests cho Solutions
 │
@@ -80,6 +82,17 @@ Manual tests được thiết kế để:
   - Configure HLS (HTTP Live Streaming) output
   - Configure RTSP (Real-Time Streaming Protocol) output
   - Integration tests với multiple output formats
+
+### Core API - Watchdog & Device Report
+- **WATCHDOG_DEVICE_REPORT_MANUAL_TEST.md**: Hướng dẫn test thủ công Watchdog và Device Report (OsmAnd/Traccar), bao gồm:
+  - GET /v1/core/watchdog — trạng thái watchdog, health monitor, device_report
+  - GET /v1/core/watchdog/report-now — gửi report thủ công
+  - Cấu hình qua config.json và environment
+  - Kịch bản full: bật/tắt device report, server reachable/unreachable
+  - Expected results và troubleshooting
+- **WATCHDOG_DEVICE_REPORT_CONFIG_API.md**: Hướng dẫn cho người vận hành (non-dev) — cấu hình Device Report qua API:
+  - GET/PUT /v1/core/watchdog/config — xem và sửa toàn bộ cấu hình (bật/tắt, server, chu kỳ, device_id, tọa độ, timeout)
+  - Giải thích từng trường, ví dụ curl, lỗi thường gặp và cách xử lý
 
 ### Analytics - SecuRT Instance
 - **SECURT_INSTANCE_WORKFLOW_TEST.md**: Hướng dẫn test chi tiết SecuRT Instance Workflow, bao gồm:
