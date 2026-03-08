@@ -441,3 +441,26 @@ void FrameRouter::submitFrame(const cv::Mat& frame, const FrameMetadata& meta) {
 | Minimize frame drops (0–2) | Atomic swap, warm-up, drain, last-frame pump, single producer. |
 
 This design extends the current codebase (WorkerHandler, PipelineSnapshot, RtmpLastFrameFallbackProxyNode) with a clear separation between **swappable AI leg** and **persistent output leg**, and a **frame router** plus **atomic pipeline pointer** to achieve zero-downtime hot updates without RTMP reconnects.
+
+---
+
+## 12. RTMP Destination (rtmp_des) Teardown – TCP FIN
+
+When stopping or tearing down **rtmp_des** (e.g. instance stop, pipeline swap teardown, or `PersistentOutputLeg` destruction), the RTMP TCP connection must be closed in a way that sends **TCP FIN** so the server (e.g. nginx-rtmp, ZLMediaKit) releases the stream key and does not leave the connection in half-open state.
+
+**Requirement (SDK / cvedix_rtmp_des_node):**
+
+- On stop or destruct, the node must:
+  1. `shutdown(socket_fd, SHUT_RDWR);`
+  2. `close(socket_fd);`
+- Doing only `close()` can leave the connection in a state where the server does not see a clean FIN, which can delay stream key release or cause "connection in use" on reconnect.
+
+This applies to any code path that disposes of rtmp_des: in-process instance stop (`InstanceRegistry`), worker pipeline teardown (`WorkerHandler`), and persistent output leg destruction (`PersistentOutputLeg::~PersistentOutputLeg()`). The actual socket is owned by the cvedix rtmp_des node; the SDK must implement the above in its stop/teardown (or destructor).
+
+**Workaround when the SDK cannot be changed:** use the LD_PRELOAD wrapper in `support/rtmp_fin_wrapper/`. It overrides `close()` and, for TCP socket fds, calls `shutdown(fd, SHUT_RDWR)` before the real `close()`. Build yields `build/lib/libclose_fin.so`; run e.g. `LD_PRELOAD=/path/to/libclose_fin.so ./bin/edgeos-api` (or only the worker). See `support/rtmp_fin_wrapper/README.md`.
+
+**Zero-downtime path and EDGE_AI_HOTSWAP_DELAY_SEC:** The test delay is applied **after** the new pipeline has started (not before). A delay before start caused several seconds of only last-frame pump; some RTMP servers close the connection in that situation, so output was lost. With delay after start, the new pipeline is already sending real frames and the stream stays up.
+
+**Pump overlap:** After starting the new pipeline source, the last-frame pump is kept running for **500 ms** before it is stopped. That overlap gives the new pipeline time to produce its first frame (source connect, decode, etc.). Without it, there can be a gap where neither the pump nor the new pipeline sends, so the stream stalls or the server closes the connection. With the overlap, output stays continuous.
+
+**Log visibility:** By default the CVEDIX SDK log level is **WARN** so worker logs (e.g. "Zero-downtime pipeline swap", "Hot-swap: preserved RTMP output") remain visible. If SDK logs still flood, set `CVEDIX_LOG_LEVEL=ERROR`. Use `EDGE_AI_VERBOSE=1` only when you need detailed PipelineBuilder/getRTMPUrl logs. See [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md).

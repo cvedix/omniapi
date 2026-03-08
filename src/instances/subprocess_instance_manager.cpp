@@ -4,10 +4,73 @@
 #include "core/timeout_constants.h"
 #include "core/uuid_generator.h"
 #include "models/solution_config.h"
+#include <json/reader.h>
+#include <json/writer.h>
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <thread>
+
+namespace {
+
+// Ensure every line in CrossingLines JSON string has a stable id for the
+// instance lifecycle: if user did not provide id (or empty), generate UUID once
+// and store it so GET /lines returns the same id on every request.
+std::string normalizeCrossingLinesIds(const std::string& crossingLinesJson) {
+  if (crossingLinesJson.empty()) return crossingLinesJson;
+  Json::CharReaderBuilder builder;
+  std::istringstream ss(crossingLinesJson);
+  std::string errs;
+  Json::Value arr;
+  if (!Json::parseFromStream(builder, ss, &arr, &errs) || !arr.isArray()) {
+    return crossingLinesJson;
+  }
+  for (Json::ArrayIndex i = 0; i < arr.size(); ++i) {
+    if (!arr[i].isObject()) continue;
+    Json::Value& line = arr[i];
+    if (!line.isMember("id") || !line["id"].isString() ||
+        line["id"].asString().empty()) {
+      line["id"] = UUIDGenerator::generateUUID();
+    }
+  }
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  return Json::writeString(wb, arr);
+}
+
+// Normalize JSON object keys by trimming leading/trailing whitespace.
+// Fixes PATCH body with typos like "AdditionalParams " (trailing space) so
+// worker and cache see "AdditionalParams" and CrossingLines/RTMP are applied.
+Json::Value normalizeConfigKeys(const Json::Value& in) {
+  if (!in.isObject()) return in;
+  Json::Value out(Json::objectValue);
+  for (const auto& key : in.getMemberNames()) {
+    std::string k = key;
+    size_t start = k.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) continue;
+    size_t end = k.find_last_not_of(" \t\r\n");
+    k = k.substr(start, end - start + 1);
+    if (in[key].isObject()) {
+      out[k] = normalizeConfigKeys(in[key]);
+    } else if (in[key].isArray()) {
+      Json::Value arr(Json::arrayValue);
+      for (Json::ArrayIndex i = 0; i < in[key].size(); ++i) {
+        if (in[key][i].isObject())
+          arr.append(normalizeConfigKeys(in[key][i]));
+        else
+          arr.append(in[key][i]);
+      }
+      out[k] = arr;
+    } else {
+      out[k] = in[key];
+    }
+  }
+  return out;
+}
+
+}  // namespace
 
 // Static member initialization
 InstanceStateManager SubprocessInstanceManager::state_manager_;
@@ -616,23 +679,29 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
 bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
                                                const Json::Value &configJson) {
   logRuntimeUpdate(instanceId, "api: sending UPDATE_INSTANCE");
-  // Check worker state - accept both READY and BUSY states
-  // BUSY is OK because worker can handle multiple commands
-  auto workerState = supervisor_->getWorkerState(instanceId);
-  if (workerState != worker::WorkerState::READY &&
-      workerState != worker::WorkerState::BUSY) {
-    std::cerr << "[SubprocessInstanceManager] Worker not ready: " << instanceId
-              << " (state: " << static_cast<int>(workerState) << ")"
-              << std::endl;
+  // Normalize config keys (e.g. "AdditionalParams " -> "AdditionalParams") so
+  // worker merge and cache see CrossingLines/RTMP; avoids 500 and stream loss.
+  Json::Value normalizedConfig = normalizeConfigKeys(configJson);
+
+  // Persist to cache and storage first (same as updateInstanceFromConfig) so
+  // PATCH with only AdditionalParams.CrossingLines returns 200 and GET /lines
+  // shows new data even if worker is slow or returns error.
+  if (!mergeConfigIntoCacheAndSave(instanceId, normalizedConfig)) {
     return false;
   }
 
-  // Send UPDATE command to worker
-  // Use configurable timeout for update operation (default: 10 seconds)
+  // Sync worker (best-effort); accept READY and BUSY
+  auto workerState = supervisor_->getWorkerState(instanceId);
+  if (workerState != worker::WorkerState::READY &&
+      workerState != worker::WorkerState::BUSY) {
+    logRuntimeUpdate(instanceId, "api: worker not ready, config already saved");
+    return true;
+  }
+
   worker::IPCMessage msg;
   msg.type = worker::MessageType::UPDATE_INSTANCE;
   msg.payload["instance_id"] = instanceId;
-  msg.payload["config"] = configJson;
+  msg.payload["config"] = normalizedConfig;
 
   auto response = supervisor_->sendToWorker(
       instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
@@ -642,7 +711,7 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
     std::cerr
         << "[SubprocessInstanceManager] Invalid response type for update: "
         << static_cast<int>(response.type) << std::endl;
-    return false;
+    return true;  // Config already saved
   }
 
   bool success = response.payload.get("success", false).asBool();
@@ -652,56 +721,12 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
     std::string error =
         response.payload.get("error", "Unknown error").asString();
     logRuntimeUpdate(instanceId, "api: update failed: " + error);
-  }
-
-  if (success) {
-    // Update local cache with new config
-    std::lock_guard<std::mutex> lock(instances_mutex_);
-    auto it = instances_.find(instanceId);
-    if (it != instances_.end()) {
-      // Update instance info from config if possible
-      // Note: Full config merge is handled by worker, we just update local
-      // cache
-      if (configJson.isMember("DisplayName")) {
-        it->second.displayName = configJson["DisplayName"].asString();
-      }
-      if (configJson.isMember("AdditionalParams")) {
-        const auto &params = configJson["AdditionalParams"];
-        if (params.isObject()) {
-          for (const auto &key : params.getMemberNames()) {
-            it->second.additionalParams[key] = params[key].asString();
-          }
-          // Update URLs from AdditionalParams
-          // Check RTSP_DES_URL first (for output), then RTSP_SRC_URL (for input), then RTSP_URL (backward compatibility)
-          if (it->second.additionalParams.count("RTSP_DES_URL")) {
-            it->second.rtspUrl = it->second.additionalParams.at("RTSP_DES_URL");
-          } else if (it->second.additionalParams.count("RTSP_SRC_URL")) {
-            it->second.rtspUrl = it->second.additionalParams.at("RTSP_SRC_URL");
-          } else if (it->second.additionalParams.count("RTSP_URL")) {
-            it->second.rtspUrl = it->second.additionalParams.at("RTSP_URL");
-          }
-          // Check RTMP_DES_URL first (new format), then RTMP_URL (backward compatibility)
-          if (it->second.additionalParams.count("RTMP_DES_URL")) {
-            it->second.rtmpUrl = it->second.additionalParams.at("RTMP_DES_URL");
-          } else if (it->second.additionalParams.count("RTMP_URL")) {
-            it->second.rtmpUrl = it->second.additionalParams.at("RTMP_URL");
-          }
-          if (it->second.additionalParams.count("FILE_PATH")) {
-            it->second.filePath = it->second.additionalParams.at("FILE_PATH");
-          }
-        }
-      }
-    }
-    std::cout << "[SubprocessInstanceManager] Updated instance: " << instanceId
-              << std::endl;
-  } else {
-    std::string error =
-        response.payload.get("error", "Unknown error").asString();
     std::cerr << "[SubprocessInstanceManager] Failed to update instance "
-              << instanceId << ": " << error << std::endl;
+              << instanceId << ": " << error << " (config already saved)"
+              << std::endl;
   }
 
-  return success;
+  return true;  // Config was saved; worker sync is best-effort
 }
 
 std::optional<InstanceInfo>
@@ -1497,9 +1522,89 @@ Json::Value SubprocessInstanceManager::getInstanceConfig(
   return Json::Value();
 }
 
+bool SubprocessInstanceManager::mergeConfigIntoCacheAndSave(
+    const std::string &instanceId, const Json::Value &normalizedConfig) {
+  InstanceInfo infoCopy;
+  {
+    std::lock_guard<std::mutex> lock(instances_mutex_);
+    auto it = instances_.find(instanceId);
+    if (it == instances_.end()) {
+      std::cerr << "[SubprocessInstanceManager] mergeConfigIntoCacheAndSave: "
+                   "instance not in cache: "
+                << instanceId << std::endl;
+      return false;
+    }
+    if (normalizedConfig.isMember("DisplayName")) {
+      it->second.displayName = normalizedConfig["DisplayName"].asString();
+    }
+    auto mergeParamsIntoCache = [&it](const Json::Value& params) {
+      if (!params.isObject()) return;
+      for (const auto& key : params.getMemberNames()) {
+        if (key == "input" && params[key].isObject()) {
+          for (const auto& k : params[key].getMemberNames()) {
+            if (params[key][k].isString())
+              it->second.additionalParams[k] = params[key][k].asString();
+          }
+        } else if (key == "output" && params[key].isObject()) {
+          for (const auto& k : params[key].getMemberNames()) {
+            if (params[key][k].isString())
+              it->second.additionalParams[k] = params[key][k].asString();
+          }
+        } else if (key == "CrossingLines" && params[key].isString()) {
+          // Normalize so lines without id get a generated UUID once; that id
+          // is stored and used for the whole instance lifecycle.
+          it->second.additionalParams[key] =
+              normalizeCrossingLinesIds(params[key].asString());
+        } else if (params[key].isString()) {
+          it->second.additionalParams[key] = params[key].asString();
+        }
+      }
+      if (it->second.additionalParams.count("RTSP_DES_URL")) {
+        it->second.rtspUrl = it->second.additionalParams.at("RTSP_DES_URL");
+      } else if (it->second.additionalParams.count("RTSP_SRC_URL")) {
+        it->second.rtspUrl = it->second.additionalParams.at("RTSP_SRC_URL");
+      } else if (it->second.additionalParams.count("RTSP_URL")) {
+        it->second.rtspUrl = it->second.additionalParams.at("RTSP_URL");
+      }
+      if (it->second.additionalParams.count("RTMP_DES_URL")) {
+        it->second.rtmpUrl = it->second.additionalParams.at("RTMP_DES_URL");
+      } else if (it->second.additionalParams.count("RTMP_URL")) {
+        it->second.rtmpUrl = it->second.additionalParams.at("RTMP_URL");
+      }
+      if (it->second.additionalParams.count("FILE_PATH")) {
+        it->second.filePath = it->second.additionalParams.at("FILE_PATH");
+      }
+    };
+    if (normalizedConfig.isMember("AdditionalParams")) {
+      mergeParamsIntoCache(normalizedConfig["AdditionalParams"]);
+    }
+    if (normalizedConfig.isMember("additionalParams")) {
+      mergeParamsIntoCache(normalizedConfig["additionalParams"]);
+    }
+    infoCopy = it->second;
+  }
+  if (!instance_storage_.saveInstance(instanceId, infoCopy)) {
+    std::cerr << "[SubprocessInstanceManager] mergeConfigIntoCacheAndSave: "
+                 "saveInstance failed for "
+              << instanceId << " (cache already updated, GET /lines will show new data)"
+              << std::endl;
+    // Cache was updated so API (e.g. GET /lines) sees new config; persist failed.
+    return true;
+  }
+  return true;
+}
+
 bool SubprocessInstanceManager::updateInstanceFromConfig(
     const std::string &instanceId, const Json::Value &configJson) {
-  return updateInstance(instanceId, configJson);
+  Json::Value normalizedConfig = normalizeConfigKeys(configJson);
+  // Persist to cache and storage first so that lines/config save succeeds
+  // even when worker is slow or returns error (e.g. IPC timeout).
+  if (!mergeConfigIntoCacheAndSave(instanceId, normalizedConfig)) {
+    return false;
+  }
+  // Sync worker (best-effort); GET /lines and persistence already have new data.
+  updateInstance(instanceId, normalizedConfig);
+  return true;
 }
 
 bool SubprocessInstanceManager::hasRTMPOutput(

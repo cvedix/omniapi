@@ -408,10 +408,11 @@ static void initCVEDIXLoggerOnce() {
       }
 
       // Set CVEDIX log level (can be overridden via CVEDIX_LOG_LEVEL env var)
-      // Default: INFO to show all important logs (WARNING and above)
+      // Default: WARN so SDK does not flood stderr and worker logs remain visible.
+      // Set CVEDIX_LOG_LEVEL=INFO or DEBUG if you need SDK diagnostics.
       // Options: ERROR, WARNING, INFO, DEBUG (case-insensitive)
       cvedix_utils::cvedix_log_level cvedix_log_level =
-          cvedix_utils::cvedix_log_level::INFO;
+          cvedix_utils::cvedix_log_level::WARN;
       const char *env_cvedix_log = std::getenv("CVEDIX_LOG_LEVEL");
       if (env_cvedix_log) {
         std::string log_level_str = env_cvedix_log;
@@ -430,7 +431,7 @@ static void initCVEDIXLoggerOnce() {
       CVEDIX_SET_LOG_LEVEL(cvedix_log_level);
       CVEDIX_LOGGER_INIT();
       std::string log_level_name =
-          env_cvedix_log ? std::string(env_cvedix_log) : "INFO (default)";
+          env_cvedix_log ? std::string(env_cvedix_log) : "WARN (default)";
       std::cerr
           << "[PipelineBuilder] CVEDIX SDK logger initialized (log level: "
           << log_level_name << ")" << std::endl;
@@ -474,26 +475,28 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
   // Ensure CVEDIX SDK is initialized before creating nodes
   initCVEDIXLoggerOnce();
 
-  std::cerr << "[PipelineBuilder] ========================================"
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Building pipeline for solution: "
-            << solution.solutionId << std::endl;
-  std::cerr << "[PipelineBuilder] Solution name: " << solution.solutionName
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Instance ID: " << instanceId << std::endl;
-  std::cerr << "[PipelineBuilder] NOTE: This may be a new instance or "
-               "rebuilding after stop/restart"
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Pipeline will contain "
-            << solution.pipeline.size() << " nodes:" << std::endl;
-  for (size_t i = 0; i < solution.pipeline.size(); ++i) {
-    const auto &nodeConfig = solution.pipeline[i];
-    std::cerr << "[PipelineBuilder]   " << (i + 1) << ". "
-              << nodeConfig.nodeType << " (" << nodeConfig.nodeName << ")"
+  if (EnvConfig::getBool("EDGE_AI_VERBOSE", false)) {
+    std::cerr << "[PipelineBuilder] ========================================"
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Building pipeline for solution: "
+              << solution.solutionId << std::endl;
+    std::cerr << "[PipelineBuilder] Solution name: " << solution.solutionName
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Instance ID: " << instanceId << std::endl;
+    std::cerr << "[PipelineBuilder] NOTE: This may be a new instance or "
+                 "rebuilding after stop/restart"
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Pipeline will contain "
+              << solution.pipeline.size() << " nodes:" << std::endl;
+    for (size_t i = 0; i < solution.pipeline.size(); ++i) {
+      const auto &nodeConfig = solution.pipeline[i];
+      std::cerr << "[PipelineBuilder]   " << (i + 1) << ". "
+                << nodeConfig.nodeType << " (" << nodeConfig.nodeName << ")"
+                << std::endl;
+    }
+    std::cerr << "[PipelineBuilder] ========================================"
               << std::endl;
   }
-  std::cerr << "[PipelineBuilder] ========================================"
-            << std::endl;
 
   // ========================================================================
   // SecuRT Integration: Load areas and lines from managers

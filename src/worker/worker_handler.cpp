@@ -704,8 +704,7 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
         "CrossingLines", "CROSSLINE_START_X", "CROSSLINE_START_Y",
         "CROSSLINE_END_X", "CROSSLINE_END_Y"};
     bool onlyLineParamsChanged = true;
-    // Non-line keys: treat "missing or empty in new" as unchanged so that
-    // PATCH with only line params (no output section) still takes line-only path.
+    // Compare only non-line keys: any non-line key with different value -> not line-only.
     for (const auto &key : newParams.getMemberNames()) {
       if (lineKeys.count(key)) {
         continue;
@@ -3384,10 +3383,11 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
     return buildPipeline();
   }
 
+  // Merge newConfig into a copy of config_ so nested objects (e.g. AdditionalParams)
+  // are merged, not replaced. Avoids losing params when PATCH sends only
+  // AdditionalParams.CrossingLines and hot-swap path is taken.
   Json::Value tempConfig = config_;
-  for (const auto &key : newConfig.getMemberNames()) {
-    tempConfig[key] = newConfig[key];
-  }
+  mergeJsonInto(tempConfig, newConfig);
   // CRITICAL: Ensure tempConfig has RTMP output so preBuildPipeline builds with
   // FrameRouterSinkNode / output_leg_ and stream is not lost after swap.
   if (config_.isMember("additionalParams") && config_["additionalParams"].isObject() &&
@@ -3456,22 +3456,8 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
     drainPipelineSnapshot(oldSnapshot);
     oldSnapshot.reset();
 
-    // Optional test delay: EDGE_AI_HOTSWAP_DELAY_SEC (e.g. 5) = sleep Ns before starting new pipeline
-    {
-      const char* env = std::getenv("EDGE_AI_HOTSWAP_DELAY_SEC");
-      int delaySec = env ? std::atoi(env) : 0;
-      if (delaySec > 0) {
-        std::cout << "[Worker:" << instance_id_
-                  << "] Hot-swap test delay: sleeping " << delaySec << "s before starting new pipeline..."
-                  << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(delaySec));
-        std::cout << "[Worker:" << instance_id_
-                  << "] Hot-swap test delay: done, starting new pipeline"
-                  << std::endl;
-      }
-    }
-
-    // 6) Start new pipeline source
+    // 6) Start new pipeline source immediately (no delay here: delay before start
+    //    caused 5s of only last-frame pump -> server could close RTMP -> stream lost)
     config_ = tempConfig;
     setupFrameCaptureHook();
     setupQueueSizeTrackingHook();
@@ -3489,9 +3475,30 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
       return false;
     }
 
-    // 7) Stop pump; frame_router_ now forwards from new pipeline
+    // 7) Keep last-frame pump running briefly so new pipeline has time to produce first frame
+    //    (avoids gap where neither pump nor new pipeline sends -> stream stays continuous)
+    constexpr std::chrono::milliseconds kPumpOverlapMs(500);
+    std::cout << "[Worker:" << instance_id_
+              << "] Pump overlap " << kPumpOverlapMs.count() << "ms (ensure new pipeline feeds output before stopping pump)"
+              << std::endl;
+    std::this_thread::sleep_for(kPumpOverlapMs);
     stopLastFramePumpThread();
     frame_router_->setLastFramePumpActive(false);
+
+    // Optional test delay AFTER new pipeline is running (so RTMP keeps receiving real frames; delay is for testing only)
+    {
+      const char* env = std::getenv("EDGE_AI_HOTSWAP_DELAY_SEC");
+      int delaySec = env ? std::atoi(env) : 0;
+      if (delaySec > 0) {
+        std::cout << "[Worker:" << instance_id_
+                  << "] Hot-swap test delay: sleeping " << delaySec << "s (new pipeline already running)..."
+                  << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(delaySec));
+        std::cout << "[Worker:" << instance_id_
+                  << "] Hot-swap test delay: done"
+                  << std::endl;
+      }
+    }
 
     {
       std::lock_guard<std::shared_mutex> lock(state_mutex_);
@@ -3510,7 +3517,7 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
     return true;
   }
 
-  // Legacy path: stop old → build new → start new (short gap, RTMP reconnects)
+  // Legacy path: stop old → [optional delay] → build new → start new (short gap, RTMP reconnects)
   std::cout << "[Worker:" << instance_id_
             << "] Pipeline swap (stop old → build new → start new)..." << std::endl;
 
@@ -3521,6 +3528,21 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
     pipeline_running_.store(false);
   }
   stopSourceNodeForSnapshot(oldSnapshot);
+
+  // Optional test delay BEFORE build so gap is explicit; new pipeline connects to RTMP only when started (no idle connection during delay)
+  {
+    const char* env = std::getenv("EDGE_AI_HOTSWAP_DELAY_SEC");
+    int delaySec = env ? std::atoi(env) : 0;
+    if (delaySec > 0) {
+      std::cout << "[Worker:" << instance_id_
+                << "] Hot-swap test delay: sleeping " << delaySec << "s before building new pipeline..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(delaySec));
+      std::cout << "[Worker:" << instance_id_
+                << "] Hot-swap test delay: done, building new pipeline"
+                << std::endl;
+    }
+  }
 
   building_new_pipeline_.store(true);
   new_pipeline_nodes_.clear();
@@ -3543,6 +3565,12 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
   setupFrameCaptureHook();
   setupQueueSizeTrackingHook();
 
+  if (!startSourceNodeForSnapshot(newSnapshot)) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to start new pipeline source after swap" << std::endl;
+    return false;
+  }
+
   {
     std::lock_guard<std::mutex> lock(start_pipeline_mutex_);
     pipeline_running_.store(true);
@@ -3555,27 +3583,6 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
   {
     std::lock_guard<std::shared_mutex> lock(state_mutex_);
     current_state_ = "running";
-  }
-
-  // Optional test delay: EDGE_AI_HOTSWAP_DELAY_SEC (e.g. 5) = sleep Ns before starting new pipeline
-  {
-    const char* env = std::getenv("EDGE_AI_HOTSWAP_DELAY_SEC");
-    int delaySec = env ? std::atoi(env) : 0;
-    if (delaySec > 0) {
-      std::cout << "[Worker:" << instance_id_
-                << "] Hot-swap test delay: sleeping " << delaySec << "s before starting new pipeline..."
-                << std::endl;
-      std::this_thread::sleep_for(std::chrono::seconds(delaySec));
-      std::cout << "[Worker:" << instance_id_
-                << "] Hot-swap test delay: done, starting new pipeline"
-                << std::endl;
-    }
-  }
-
-  if (!startSourceNodeForSnapshot(newSnapshot)) {
-    std::cerr << "[Worker:" << instance_id_
-              << "] Failed to start new pipeline source after swap" << std::endl;
-    return false;
   }
 
   auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -3598,6 +3605,22 @@ bool WorkerHandler::preBuildPipeline(const Json::Value &newConfig) {
   try {
     // Parse config to CreateInstanceRequest
     CreateInstanceRequest req = parseCreateRequest(newConfig);
+
+    // Zero-downtime: when we already have frame_router_ (persistent output leg),
+    // the new pipeline MUST feed it via FrameRouterSinkNode. The builder only
+    // adds FrameRouterSinkNode when req has RTMP URL. If newConfig omitted or
+    // wiped output (e.g. PATCH only line but payload shape dropped RTMP), inject
+    // RTMP URL from current running config_ so stream is not lost after swap.
+    if (frame_router_ && PipelineBuilderRequestUtils::getRTMPUrl(req).empty()) {
+      std::string fromConfig = PipelineBuilderRequestUtils::getRTMPUrl(parseCreateRequest(config_));
+      if (!fromConfig.empty()) {
+        req.additionalParams["RTMP_URL"] = fromConfig;
+        req.additionalParams["RTMP_DES_URL"] = fromConfig;
+        std::cout << "[Worker:" << instance_id_
+                  << "] Pre-build: injected RTMP URL from running config (zero-downtime stream preservation)"
+                  << std::endl;
+      }
+    }
 
     if (req.solution.empty()) {
       last_error_ = "No solution specified in config";

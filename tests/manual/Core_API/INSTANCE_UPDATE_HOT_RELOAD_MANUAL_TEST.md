@@ -49,12 +49,16 @@ http://localhost:8080/v1/core/instance
 
 Khi instance chạy, worker in rất nhiều log ra console. Để ghi log vào file:
 
-**Test hot-swap với delay 5s (sau stop pipeline cũ, delay 5s rồi mới start pipeline mới):**
+**Test hot-swap với delay 5s (mô phỏng gap giữa stop pipeline cũ và build/start pipeline mới):**
 ```bash
 # Chỉ khi cần test: set EDGE_AI_HOTSWAP_DELAY_SEC=5. Chạy từ thư mục gốc project:
 EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api
 # Hoặc nếu đang ở trong build/: EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./bin/edgeos-api
 ```
+**Lưu ý EDGE_AI_HOTSWAP_DELAY_SEC và output stream:**
+- **Legacy path** (pipeline không dùng persistent output leg): delay nằm **sau** khi stop pipeline cũ, **trước** khi build pipeline mới. Trong khoảng delay không có stream; sau đó build + start pipeline mới → RTMP kết nối lại khi start → stream hoạt động lại. Instance chỉ được coi là `running` sau khi start pipeline mới thành công.
+- **Zero-downtime path** (có frame_router_ + output_leg_): delay (nếu có) nằm **sau khi** đã start pipeline mới, để tránh khoảng 5s chỉ bơm last frame khiến server RTMP đóng kết nối và mất output. Thứ tự: drain → start pipeline mới ngay → (sau đó mới delay cho test).
+- Nếu sau update **instance vẫn chạy nhưng output stream mất**: kiểm tra log worker có "Zero-downtime pipeline swap" hay "Pipeline swap (stop old → build new → start new)"; có "Hot-swap: preserved RTMP output in tempConfig" không; và `/tmp/runtime_update.log` xem `result=hot_swap_ok` hay `runtime_ok`.
 
 **Cách 1 – Chạy API và ghi mọi output (API + worker) ra file:**
 ```bash
@@ -382,6 +386,8 @@ Xem thêm biến `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` trong [ENVIRONMENT_VARIABLES.m
   3. **Log worker:** Khi build pipeline nên thấy `Found RTMP_URL in top-level RtmpUrl` hoặc `getRTMPUrl: ... RTMP_DES_URL` và `Created persistent output leg + frame router`. Nếu thấy `RTMP URL not provided, RTMP destination node will be skipped` thì URL chưa tới worker.
 - **Pipeline chạy, log rất nhiều, rtmp_des in_queue 200+ nhưng khi play RTMP URL vẫn không thấy stream:** Pipeline gửi frame ~30 fps vào `rtmp_des`, trong khi node encode + push RTMP chậm hơn (~25 fps) → hàng đợi input của `rtmp_des` tăng không giới hạn (200+), stream bị trễ rất lớn hoặc không kịp hiển thị. **Đã sửa:** trong `FrameRouter::submitFrame()` thêm **throttle** chỉ inject frame vào output leg tối đa ~20 fps (50 ms giữa hai lần inject). Hàng đợi không còn tăng vô hạn, stream ra RTMP ổn định và có thể xem được. Nếu cần output mượt hơn cần tăng tốc encode/push phía SDK hoặc giảm độ phân giải/bitrate.
 
+- **Vẫn mất output sau hot-swap (zero-downtime path):** Sau khi start pipeline mới, có thể có khoảng ngắn mà pipeline mới chưa kịp gửi frame đầu tiên (source kết nối, decode…) trong khi last-frame pump đã tắt → không có frame ra RTMP → stream đứng hoặc server đóng. **Đã bổ sung:** giữ last-frame pump chạy thêm **500 ms** sau khi start pipeline mới (pump overlap), rồi mới tắt pump; trong 500 ms đó pipeline mới kịp gửi frame → stream liên tục. Log worker: "Pump overlap 500ms (ensure new pipeline feeds output before stopping pump)".
+- **Mất output khi dùng EDGE_AI_HOTSWAP_DELAY_SEC=5:** Trước đây trong **legacy path** (stop old → build new → start new), delay 5s nằm **sau** khi build nhưng **trước** khi start pipeline mới, và `pipeline_running_` được set true trước delay → trong 5s instance báo "running" nhưng không có frame ra RTMP; sau 5s khi start pipeline mới, một số môi trường (RTMP server đóng kết nối khi idle) có thể khiến output không hoạt động lại. **Đã sửa:** delay chuyển ra **sau** stop pipeline cũ, **trước** build pipeline mới; và `pipeline_running_` chỉ set true **sau khi** start pipeline mới thành công. Như vậy khoảng "không stream" nằm gọn trong lúc delay + build, và khi start xong thì RTMP kết nối mới ngay lúc có frame.
 - **Mất stream key trên server:** Khi pipeline restart, client RTMP (push) ngắt kết nối; server (nginx-rtmp, v.v.) **giải phóng stream key**. Khi pipeline kết nối lại, có thể cần **stream key giống hệt** và server cho phép reconnect, hoặc stream key đã bị release và output không còn. Cách giảm thiểu:
   1. **Chỉ PATCH line** (CrossingLines / CROSSLINE_*) và đảm bảo **runtime update thành công** (xem log `result=runtime_ok (no restart)`) → pipeline không restart → stream không mất.
   2. Tránh PATCH kèm Zone, URL, param khác (dễ gây rebuild).

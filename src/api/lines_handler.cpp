@@ -120,34 +120,74 @@ LinesHandler::loadLinesFromConfig(const std::string &instanceId) const {
   }
 
   const auto &info = optInfo.value();
+
+  // 1) Prefer CrossingLines (JSON array string) when present.
+  // Line ids: if user provided id it is kept for the whole instance lifecycle;
+  // if not provided, PATCH/save paths normalize and store a generated UUID once.
+  // Here we only generate for display when stored data has no id (e.g. legacy).
   auto it = info.additionalParams.find("CrossingLines");
   if (it != info.additionalParams.end() && !it->second.empty()) {
-    // Parse JSON string to JSON array
     Json::Reader reader;
     Json::Value parsedLines;
     if (reader.parse(it->second, parsedLines) && parsedLines.isArray()) {
-      // Ensure all lines have an id - generate UUID if missing
       for (Json::ArrayIndex i = 0; i < parsedLines.size(); ++i) {
         Json::Value &line = parsedLines[i];
-        if (!line.isObject()) {
-          continue;
-        }
-
-        // Check if id is missing or empty
+        if (!line.isObject()) continue;
         if (!line.isMember("id") || !line["id"].isString() ||
             line["id"].asString().empty()) {
-          // Generate UUID for line without id
           line["id"] = UUIDGenerator::generateUUID();
           if (isApiLoggingEnabled()) {
-            PLOG_DEBUG
-                << "[API] loadLinesFromConfig: Generated UUID for line at "
-                   "index "
-                << i;
+            PLOG_DEBUG << "[API] loadLinesFromConfig: Generated UUID for line at index " << i;
           }
         }
       }
       return parsedLines;
     }
+  }
+
+  // 2) When CrossingLines is absent, build one line from CROSSLINE_START_* / CROSSLINE_END_*
+  //    (same format used in additionalParams.input for ba_crossline)
+  //    Use a stable id so GET /lines returns the same id every time until user updates with CrossingLines.
+  auto sx = info.additionalParams.find("CROSSLINE_START_X");
+  auto sy = info.additionalParams.find("CROSSLINE_START_Y");
+  auto ex = info.additionalParams.find("CROSSLINE_END_X");
+  auto ey = info.additionalParams.find("CROSSLINE_END_Y");
+  if (sx != info.additionalParams.end() && !sx->second.empty() &&
+      sy != info.additionalParams.end() && !sy->second.empty() &&
+      ex != info.additionalParams.end() && !ex->second.empty() &&
+      ey != info.additionalParams.end() && !ey->second.empty()) {
+    int startX = 0, startY = 0, endX = 0, endY = 0;
+    try {
+      startX = std::stoi(sx->second);
+      startY = std::stoi(sy->second);
+      endX = std::stoi(ex->second);
+      endY = std::stoi(ey->second);
+    } catch (...) {
+      return linesArray;
+    }
+    Json::Value line(Json::objectValue);
+    line["id"] = "line_1";  // Stable id for single line from CROSSLINE_* (no random UUID per GET)
+    line["name"] = "Line 1";
+    Json::Value coords(Json::arrayValue);
+    Json::Value p1(Json::objectValue);
+    p1["x"] = startX;
+    p1["y"] = startY;
+    Json::Value p2(Json::objectValue);
+    p2["x"] = endX;
+    p2["y"] = endY;
+    coords.append(p1);
+    coords.append(p2);
+    line["coordinates"] = coords;
+    line["direction"] = "Both";
+    line["classes"] = Json::arrayValue;
+    line["classes"].append("Vehicle");
+    line["color"] = Json::arrayValue;
+    line["color"].append(255);
+    line["color"].append(0);
+    line["color"].append(0);
+    line["color"].append(255);
+    linesArray.append(line);
+    return linesArray;
   }
 
   return linesArray;

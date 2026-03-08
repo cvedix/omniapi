@@ -94,7 +94,8 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
 | `LOG_DIR` | Thư mục lưu log files | Override thư mục của `config.json["system"]["logging"]["log_file"]` | `src/config/system_config.cpp` |
-| `CVEDIX_LOG_LEVEL` | Mức log SDK pipeline (CVEDIX/omniruntime): `DEBUG`, `INFO`, `WARN`, `ERROR` | `INFO` | `src/core/pipeline_builder.cpp` (khi build pipeline; worker kế thừa env từ API) |
+| `CVEDIX_LOG_LEVEL` | Mức log SDK pipeline (CVEDIX/omniruntime): `DEBUG`, `INFO`, `WARN`, `ERROR` | `WARN` (để log worker không bị chìm trong log SDK) | `src/core/pipeline_builder.cpp` (worker kế thừa env từ API) |
+| `EDGE_AI_VERBOSE` | Khi `1`/`true`: bật log chi tiết PipelineBuilder (getRTMPUrl, danh sách node, …). Mặc định `0`: chỉ log worker, dễ theo dõi zero-downtime/hot-swap | `false` | `src/core/pipeline_builder.cpp`, `pipeline_builder_request_utils.cpp` |
 | `LOG_RETENTION_DAYS` | Số ngày giữ logs (tự động xóa sau thời gian này) | `30` | `src/core/log_manager.cpp` |
 | `LOG_MAX_DISK_USAGE_PERCENT` | Ngưỡng dung lượng đĩa để trigger cleanup (%) | `85` | `src/core/log_manager.cpp` |
 | `LOG_CLEANUP_INTERVAL_HOURS` | Khoảng thời gian kiểm tra và cleanup (giờ) | `24` | `src/core/log_manager.cpp` |
@@ -245,7 +246,7 @@ export API_PORT=9000
 - **Queue monitor:** Bật `EDGE_AI_QUEUE_MONITOR_ENABLED=true` để tự restart instance khi FPS=0 hoặc queue đầy.
 - **Thread pool:** `THREAD_NUM=0` (auto, 90% CPU cores) hoặc giá trị cố định cho Drogon. Nếu API chậm khi có nhiều instance chạy, tăng số thread (ví dụ `THREAD_NUM=4`).
 - **Log:** `LOG_LEVEL`, `LOG_DIR`; xem [LOGGING.md](LOGGING.md).
-- **SDK log spam:** Nếu log liên tục xuất hiện `[ba_crossline_...] queue full, dropping meta!` hoặc nhiều dòng Debug của SDK (queue size, meta flow), set **`CVEDIX_LOG_LEVEL=INFO`** hoặc **`CVEDIX_LOG_LEVEL=WARN`** (thậm chí **`ERROR`** để bỏ hết log SDK) trước khi chạy API. Worker process kế thừa env nên chỉ cần set khi start API.
+- **SDK log spam:** Mặc định **`CVEDIX_LOG_LEVEL=WARN`** nên log SDK ít, log worker (zero-downtime, hot-swap, …) dễ thấy. Nếu vẫn thấy quá nhiều log SDK, set **`CVEDIX_LOG_LEVEL=ERROR`**. Khi cần debug SDK, set **`CVEDIX_LOG_LEVEL=INFO`** hoặc **`DEBUG`**. **`EDGE_AI_VERBOSE=1`** chỉ bật log chi tiết PipelineBuilder (getRTMPUrl, danh sách node); không ảnh hưởng SDK.
 
 ### Subprocess mode – API không phản hồi khi instance đang chạy
 

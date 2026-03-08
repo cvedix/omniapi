@@ -41,6 +41,7 @@ PersistentOutputLeg::PersistentOutputLeg(const std::string& instanceId,
 }
 
 PersistentOutputLeg::~PersistentOutputLeg() {
+  // NOTE: rtmp_des teardown (via detach/destroy) must send TCP FIN: shutdown(socket_fd, SHUT_RDWR); close(socket_fd); (SDK requirement, see ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md §12).
   if (proxy_) {
     try {
       proxy_->detach_recursively();

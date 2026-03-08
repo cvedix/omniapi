@@ -1429,9 +1429,14 @@ set_target_properties(edgeos_worker PROPERTIES
 message(STATUS "✓ Edge AI Worker executable configured")
 
 # ============================================
+# Optional: LD_PRELOAD wrapper for TCP FIN on rtmp_des close (when SDK cannot be changed)
+# ============================================
+add_subdirectory(support/rtmp_fin_wrapper)
+
+# ============================================
 # Install target (optional)
 # ============================================
-install(TARGETS edgeos_api edgeos_worker edgeos_core
+install(TARGETS edgeos_api edgeos_worker edgeos_core close_fin
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
 )

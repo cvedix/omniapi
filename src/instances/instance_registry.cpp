@@ -3641,9 +3641,8 @@ void InstanceRegistry::stopPipeline(
         continue;
       }
 
-      // Prepare RTMP destination nodes for cleanup
-      // Note: RTMP destination nodes don't have stop() method, so we just
-      // prepare them by waiting for buffers to flush
+      // Prepare RTMP destination nodes for cleanup.
+      // SDK requirement: when rtmp_des is stopped/teardown, it must call shutdown(socket_fd, SHUT_RDWR) and close(socket_fd) to send TCP FIN (ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md §12). Currently cvedix_rtmp_des_node has no stop(); teardown is via detach/destroy.
       auto rtmpDesNode =
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node);
       if (rtmpDesNode) {
@@ -3651,8 +3650,6 @@ void InstanceRegistry::stopPipeline(
                      "cleanup..."
                   << std::endl;
         // Give it time to flush buffers before we stop source
-        // This helps reduce GStreamer warnings during cleanup
-        // During shutdown, use shorter timeout to exit faster
         auto sleep_time =
             isDeletion ? TimeoutConstants::getRtmpPrepareTimeoutDeletion()
                        : TimeoutConstants::getRtmpPrepareTimeout();
