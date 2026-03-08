@@ -21,7 +21,8 @@ manual/
 │   ├── SYSTEM_CONFIG_QUICK_TEST.md
 │   ├── EVENTS_OUTPUT_MANUAL_TEST.md
 │   ├── WATCHDOG_DEVICE_REPORT_MANUAL_TEST.md
-│   └── WATCHDOG_DEVICE_REPORT_CONFIG_API.md
+│   ├── WATCHDOG_DEVICE_REPORT_CONFIG_API.md
+│   └── CONFIG_BIND_AND_RESTART_MANUAL_TEST.md
 │
 ├── Solutions/          # Manual tests cho Solutions
 │
@@ -93,6 +94,10 @@ Manual tests được thiết kế để:
 - **WATCHDOG_DEVICE_REPORT_CONFIG_API.md**: Hướng dẫn cho người vận hành (non-dev) — cấu hình Device Report qua API:
   - GET/PUT /v1/core/watchdog/config — xem và sửa toàn bộ cấu hình (bật/tắt, server, chu kỳ, device_id, tọa độ, timeout)
   - Giải thích từng trường, ví dụ curl, lỗi thường gặp và cách xử lý
+- **CONFIG_BIND_AND_RESTART_MANUAL_TEST.md**: Hướng dẫn cho người vận hành (non-dev) — cấu hình bind (chỉ local hay public) và restart server:
+  - GET /v1/core/config?path=system/web_server — xem cấu hình
+  - POST /v1/core/config với auto_restart=true — đổi bind_mode/ip_address/port và tự động restart server
+  - Các kịch bản: chỉ local, public, đổi port, lưu không restart; dùng curl hoặc Swagger/Scalar
 
 ### Analytics - SecuRT Instance
 - **SECURT_INSTANCE_WORKFLOW_TEST.md**: Hướng dẫn test chi tiết SecuRT Instance Workflow, bao gồm:

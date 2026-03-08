@@ -259,9 +259,11 @@ void SystemConfig::initializeDefaults() {
   Json::Value system(Json::objectValue);
 
   // web_server
+  // bind_mode: "local" = 127.0.0.1 (chỉ thiết bị local), "public" = 0.0.0.0 (chấp nhận từ mọi mạng)
   Json::Value webServer(Json::objectValue);
   webServer["enabled"] = true;
   webServer["ip_address"] = "0.0.0.0";
+  webServer["bind_mode"] = "public";  // "local" | "public" (dùng khi không set ip_address)
   webServer["port"] = 8080;
   webServer["name"] = "default";
   webServer["max_body_size"] = 524288000; // 500MB
@@ -458,6 +460,17 @@ SystemConfig::WebServerConfig SystemConfig::getWebServerConfig() const {
     if (ws.isMember("ip_address") && ws["ip_address"].isString()) {
       config.ipAddress = ws["ip_address"].asString();
     }
+    // bind_mode: "local" = 127.0.0.1 (chỉ mạng nội bộ), "public" = 0.0.0.0 (chấp nhận mọi kết nối)
+    // Chỉ áp dụng khi ip_address chưa được set hoặc rỗng
+    if ((!ws.isMember("ip_address") || config.ipAddress.empty()) &&
+        ws.isMember("bind_mode") && ws["bind_mode"].isString()) {
+      std::string mode = ws["bind_mode"].asString();
+      if (mode == "local") {
+        config.ipAddress = "127.0.0.1";
+      } else if (mode == "public") {
+        config.ipAddress = "0.0.0.0";
+      }
+    }
     if (ws.isMember("port") && ws["port"].isInt()) {
       config.port = static_cast<uint16_t>(ws["port"].asInt());
     }
@@ -531,6 +544,11 @@ void SystemConfig::setWebServerConfig(const WebServerConfig &config) {
   Json::Value webServer(Json::objectValue);
   webServer["enabled"] = config.enabled;
   webServer["ip_address"] = config.ipAddress;
+  if (config.ipAddress == "127.0.0.1") {
+    webServer["bind_mode"] = "local";
+  } else if (config.ipAddress == "0.0.0.0") {
+    webServer["bind_mode"] = "public";
+  }
   webServer["port"] = config.port;
   webServer["name"] = config.name;
   webServer["max_body_size"] = static_cast<Json::Int64>(config.maxBodySize);

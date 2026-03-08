@@ -65,8 +65,8 @@ Environment="API_PORT=8080"
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
 | `CONFIG_FILE` | Đường dẫn đến file config.json | Tự động tìm: `./config.json` → `/opt/edgeos-api/config/config.json` → `/etc/edgeos-api/config.json` | `src/main.cpp` |
-| `API_HOST` | Địa chỉ host để bind server | Override từ `config.json["system"]["web_server"]["ip_address"]` | `src/config/system_config.cpp` |
-| `API_PORT` | Port của HTTP server | Override từ `config.json["system"]["web_server"]["port"]` | `src/config/system_config.cpp` |
+| `API_HOST` | Địa chỉ host để bind server (vd. `127.0.0.1`, `0.0.0.0`) | Fallback khi `config.json` không có `ip_address`; có thể dùng `bind_mode` trong config | `src/config/system_config.cpp` |
+| `API_PORT` | Port của HTTP server | Fallback khi `config.json` không có `port` | `src/config/system_config.cpp` |
 | `CLIENT_MAX_BODY_SIZE` | Kích thước body tối đa (bytes) | `1048576` (1MB) | `src/main.cpp` |
 | `CLIENT_MAX_MEMORY_BODY_SIZE` | Kích thước memory body tối đa (bytes) | `1048576` (1MB) | `src/main.cpp` |
 | `THREAD_NUM` | Số lượng worker threads (0 = auto, minimum 8 for AI) | `0` | `src/main.cpp` |
@@ -230,15 +230,71 @@ Các biến sau có thể được thêm vào trong tương lai:
 
 Xem `docs/HARDCODE_AUDIT.md` để biết chi tiết.
 
+## Cấu hình bind: Chỉ local hay public
+
+API có thể chỉ chấp nhận thiết bị trong mạng nội bộ (localhost) hoặc chạy public (mọi địa chỉ).
+
+### Cách 1: File config (`config.json`)
+
+Trong `config.json` → `system.web_server`:
+
+- **Chỉ mạng local** (chỉ máy chạy API truy cập được):
+  ```json
+  "web_server": {
+    "ip_address": "127.0.0.1",
+    "port": 8080
+  }
+  ```
+  Hoặc dùng `bind_mode` (tiện hơn):
+  ```json
+  "web_server": {
+    "bind_mode": "local",
+    "port": 8080
+  }
+  ```
+  → Tương đương bind `127.0.0.1`.
+
+- **Chạy public** (thiết bị trong mạng đều truy cập được):
+  ```json
+  "web_server": {
+    "ip_address": "0.0.0.0",
+    "port": 8080
+  }
+  ```
+  Hoặc:
+  ```json
+  "web_server": {
+    "bind_mode": "public",
+    "port": 8080
+  }
+  ```
+  → Tương đương bind `0.0.0.0`.
+
+**Lưu ý:** Nếu đã set `ip_address` thì dùng đúng giá trị đó; `bind_mode` chỉ áp dụng khi không set `ip_address`. Ưu tiên: `config.json` > biến môi trường `API_HOST`/`API_PORT`.
+
+File mẫu: `config/config.json.example`.
+
+### Cách 2: Biến môi trường
+
+```bash
+# Chỉ local
+export API_HOST=127.0.0.1
+export API_PORT=8080
+
+# Public
+export API_HOST=0.0.0.0
+export API_PORT=8080
+```
+
 ## Ví Dụ Cấu Hình
 
-### Development
+### Development (chỉ local)
 ```bash
 export API_HOST=127.0.0.1
 export API_PORT=8080
 ```
 
-### Production
+### Production (public)
 ```bash
 export API_HOST=0.0.0.0
 export API_PORT=80

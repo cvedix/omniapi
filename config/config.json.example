@@ -1,0 +1,17 @@
+{
+  "system": {
+    "web_server": {
+      "enabled": true,
+      "port": 8080,
+      "ip_address": "0.0.0.0",
+      "bind_mode": "public",
+      "name": "default",
+      "max_body_size": 524288000,
+      "max_memory_body_size": 104857600,
+      "keepalive_requests": 100,
+      "keepalive_timeout": 60,
+      "reuse_port": true,
+      "cors": { "enabled": false }
+    }
+  }
+}

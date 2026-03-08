@@ -40,6 +40,16 @@ info:
 
     - Server URLs are automatically updated based on environment variables (`API_HOST` and `API_PORT`)
 
+
+    ## Server bind and restart
+
+
+    - **Bind mode:** Configure who can connect: `127.0.0.1` or `bind_mode: "local"` = local only; `0.0.0.0` or `bind_mode:
+    "public"` = accept from any network. Set in config (e.g. `system.web_server`) or via `API_HOST`.
+
+    - **Applying changes:** Changes to host/port require a server restart. When updating config via **POST/PUT/PATCH** `/v1/core/config`,
+    set `auto_restart=true` (query or body) to restart the server automatically after 3 seconds.
+
     '
   version: 1.0.0
   contact:
@@ -2745,6 +2755,7 @@ paths:
                     web_server:
                       enabled: true
                       ip_address: 0.0.0.0
+                      bind_mode: public
                       port: 8080
                     auto_reload: false
                     max_running_instances: 0
@@ -2763,6 +2774,8 @@ paths:
 
         The configuration is saved to the config file after update.
 
+        **Server bind (local vs public):** Use `system.web_server.ip_address` (e.g. `127.0.0.1` for local only, `0.0.0.0`
+        for public) or `bind_mode` (`"local"` or `"public"`). Changes require a server restart to take effect.
 
         **Auto Restart:**
 
@@ -2803,6 +2816,7 @@ paths:
               example:
                 system:
                   web_server:
+                    bind_mode: public
                     port: 8080
                   auto_reload: false
                 auto_restart: false
@@ -3203,6 +3217,7 @@ paths:
                 example:
                   enabled: true
                   ip_address: 0.0.0.0
+                  bind_mode: public
                   port: 8080
         '400':
           description: Invalid request (empty path)
@@ -3983,7 +3998,7 @@ paths:
       summary: Get watchdog status
       description: 'Returns watchdog and health monitor statistics including instance health checks,
 
-        restart counts, and monitoring information.
+        restart counts, monitoring information, and device report (OsmAnd/Traccar) status when enabled.
 
         '
       operationId: getWatchdogStatus
@@ -3996,7 +4011,119 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Watchdog and health monitor statistics
+                description: Watchdog, health_monitor, and device_report statistics
+                additionalProperties: true
+  /v1/core/watchdog/config:
+    get:
+      summary: Get device report config
+      description: Returns current device report (OsmAnd/Traccar) configuration. Includes _description for each field (user-friendly).
+      operationId: getDeviceReportConfig
+      tags:
+      - Core
+      responses:
+        '200':
+          description: Config and field descriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      server_url:
+                        type: string
+                      device_id:
+                        type: string
+                      device_type:
+                        type: string
+                      interval_sec:
+                        type: integer
+                      latitude:
+                        type: number
+                      longitude:
+                        type: number
+                      reachability_timeout_sec:
+                        type: integer
+                      report_timeout_sec:
+                        type: integer
+                      _description:
+                        type: object
+                additionalProperties: true
+    put:
+      summary: Update device report config
+      description: Update device report configuration. Send only fields you want to change. Config is applied immediately
+        (device report restarted with new settings).
+      operationId: putDeviceReportConfig
+      tags:
+      - Core
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: Turn report on/off
+                server_url:
+                  type: string
+                  description: Traccar server URL (e.g. http://traccar:5055)
+                device_id:
+                  type: string
+                  description: Device identifier on Traccar; empty = hostname
+                device_type:
+                  type: string
+                  description: e.g. aibox, omnimedia
+                interval_sec:
+                  type: integer
+                  description: Report interval in seconds (default 300 = 5 min)
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                reachability_timeout_sec:
+                  type: integer
+                report_timeout_sec:
+                  type: integer
+              additionalProperties: true
+      responses:
+        '200':
+          description: Updated config applied
+        '400':
+          description: Invalid JSON body
+        '500':
+          description: Update or save failed
+  /v1/core/watchdog/report-now:
+    get:
+      summary: Send device report now (manual)
+      description: Triggers one device report to Traccar (OsmAnd) with event=manual. Only works when device report is enabled
+        and server is reachable.
+      operationId: watchdogReportNow
+      tags:
+      - Core
+      responses:
+        '200':
+          description: Report sent or error info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent:
+                    type: boolean
+                  event:
+                    type: string
+                    example: manual
+                  report_count:
+                    type: integer
+                  last_report:
+                    type: string
+                  last_status:
+                    type: string
                 additionalProperties: true
   /hls/{instanceId}/segment_{segmentId}.ts:
     get:
@@ -8316,6 +8443,8 @@ paths:
 
         **Input Types:**
 
+        - **File**: Local video file path (e.g. ``./video.mp4`` or path after upload via ``POST /v1/core/video/upload``)
+
         - **RTSP**: Uses `rtsp_src` node for RTSP streams
 
         - **HLS**: Uses `hls_src` node for HLS streams
@@ -8343,9 +8472,17 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SetInputRequest'
-            example:
-              type: Manual
-              uri: http://localhost
+            examples:
+              fileInput:
+                summary: Input from video file
+                value:
+                  type: File
+                  uri: ./test_video.mp4
+              manualInput:
+                summary: Input from V4L2 device
+                value:
+                  type: Manual
+                  uri: /dev/video0
       responses:
         '204':
           description: Input settings updated successfully
@@ -11108,19 +11245,19 @@ paths:
                   api:
                   - date: '2024-01-01'
                     size: 1024
-                    path: /var/log/edgeos-api/api_2024-01-01.log
+                    path: /var/log/edge_ai_api/api_2024-01-01.log
                   instance:
                   - date: '2024-01-01'
                     size: 2048
-                    path: /var/log/edgeos-api/instance_2024-01-01.log
+                    path: /var/log/edge_ai_api/instance_2024-01-01.log
                   sdk_output:
                   - date: '2024-01-01'
                     size: 512
-                    path: /var/log/edgeos-api/sdk_output_2024-01-01.log
+                    path: /var/log/edge_ai_api/sdk_output_2024-01-01.log
                   general:
                   - date: '2024-01-01'
                     size: 4096
-                    path: /var/log/edgeos-api/general_2024-01-01.log
+                    path: /var/log/edge_ai_api/general_2024-01-01.log
         '500':
           description: Server error
           content:
@@ -11211,7 +11348,7 @@ paths:
                 $ref: '#/components/schemas/LogsResponse'
               example:
                 category: api
-                category_dir: /var/log/edgeos-api/api
+                category_dir: /var/log/edge_ai_api/api
                 files_count: 1
                 total_lines: 1000
                 filtered_lines: 500
@@ -16979,17 +17116,17 @@ components:
       properties:
         type:
           type: string
-          description: Type of input source
+          description: Type of input source (File = local video file path)
           enum:
+          - File
           - RTSP
           - HLS
           - Manual
-          example: Manual
+          example: File
         uri:
           type: string
-          format: uri
-          description: URI of the input source (must be valid)
-          example: http://localhost
+          description: URI or path (for File type use local path e.g. ./video.mp4)
+          example: ./test_video.mp4
     InstanceConfig:
       type: object
       description: Instance configuration (config format, not runtime state)
