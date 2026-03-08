@@ -328,8 +328,30 @@ set(SOURCES
     src/api/create_instance_handler.cpp
     src/api/quick_instance_handler.cpp
     src/api/instance_handler.cpp
+    src/api/instance_handler_get_start_restart.cpp
+    src/api/instance_handler_update_delete.cpp
+    src/api/instance_handler_config_stats_frame.cpp
+    src/api/instance_handler_input_stream.cpp
+    src/api/instance_handler_configure_stream.cpp
+    src/api/instance_handler_classes_preview.cpp
+    src/api/instance_handler_options_parse.cpp
+    src/api/instance_handler_batch.cpp
+    src/api/instance_handler_instance_output.cpp
+    src/api/instance_handler_nested_set_config.cpp
+    src/api/instance_handler_load_unload_state.cpp
+    src/api/instance_handler_set_state_patch.cpp
+    src/api/instance_handler_events_hls.cpp
+    src/api/instance_handler_configure_rtsp.cpp
+    src/api/instance_handler_push_encoded.cpp
+    src/api/instance_handler_push_compressed.cpp
     src/api/instance_fps_handler.cpp
     src/api/solution_handler.cpp
+    src/api/solution_handler_create_update.cpp
+    src/api/solution_handler_delete_parameters.cpp
+    src/api/solution_handler_instance_body.cpp
+    src/api/solution_handler_options_defaults.cpp
+    src/api/solution_handler_load_schema.cpp
+    src/api/solution_handler_schema_helpers.cpp
     src/api/group_handler.cpp
     src/api/config_handler.cpp
     src/api/system_handler.cpp
@@ -368,6 +390,24 @@ set(SOURCES
     src/core/backpressure_controller.cpp
     src/core/adaptive_queue_size_manager.cpp
     src/instances/instance_registry.cpp
+    src/instances/instance_registry_start_instance.cpp
+    src/instances/instance_registry_stop_list.cpp
+    src/instances/instance_registry_update.cpp
+    src/instances/instance_registry_persistent.cpp
+    src/instances/instance_registry_start_pipeline.cpp
+    src/instances/instance_registry_stop_pipeline.cpp
+    src/instances/instance_registry_rebuild.cpp
+    src/instances/instance_registry_rtmp_nodes.cpp
+    src/instances/instance_registry_retry.cpp
+    src/instances/instance_registry_update_config.cpp
+    src/instances/instance_registry_video_loop.cpp
+    src/instances/instance_registry_statistics.cpp
+    src/instances/instance_registry_frame_cache.cpp
+    src/instances/instance_registry_frame_capture_hook.cpp
+    src/instances/instance_registry_rtmp_hooks.cpp
+    src/instances/instance_registry_rtsp_monitor.cpp
+    src/instances/instance_registry_rtsp_stop.cpp
+    src/instances/instance_registry_rtsp_reconnect.cpp
     src/instances/instance_registry_rtmp_monitor.cpp
     src/instances/instance_state_manager.cpp
     src/instances/queue_monitor.cpp
@@ -1401,6 +1441,18 @@ message(STATUS "✓ edgeos_api linked to edgeos_core")
 set(WORKER_SOURCES
     src/worker/edgeos_worker.cpp
     src/worker/worker_handler.cpp
+    src/worker/worker_handler_handlers.cpp
+    src/worker/worker_handler_handlers_query.cpp
+    src/worker/worker_handler_parse_build.cpp
+    src/worker/worker_handler_lifecycle.cpp
+    src/worker/worker_handler_output.cpp
+    src/worker/worker_handler_hooks.cpp
+    src/worker/worker_handler_runtime.cpp
+    src/worker/worker_handler_config.cpp
+    src/worker/worker_handler_source_nodes.cpp
+    src/worker/worker_handler_hotswap.cpp
+    src/worker/worker_handler_args.cpp
+    src/worker/worker_json_utils.cpp
     src/worker/config_file_watcher.cpp
     src/worker/ipc_protocol.cpp
     src/worker/unix_socket.cpp
