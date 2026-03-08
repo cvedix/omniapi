@@ -188,7 +188,7 @@ void WatchdogHandler::putDeviceReportConfig(
     std::function<void(const HttpResponsePtr &)> &&callback) {
   MetricsInterceptor::setHandlerStartTime(req);
   try {
-    auto *body = req->getJsonObject();
+    auto body = req->getJsonObject();
     if (!body || !body->isObject()) {
       Json::Value err;
       err["error"] = "Invalid request";
