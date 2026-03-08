@@ -56,6 +56,7 @@
 #include "core/pipeline_builder.h"
 #include "core/request_middleware.h"
 #include "core/timeout_constants.h"
+#include "core/device_watchdog.h"
 #include "core/watchdog.h"
 #include "fonts/font_upload_handler.h"
 #include "groups/group_registry.h"
@@ -116,6 +117,7 @@ static std::atomic<bool> g_shutdown_requested{false};
 
 // Global watchdog and health monitor instances
 static std::unique_ptr<Watchdog> g_watchdog;
+static std::unique_ptr<DeviceWatchdog> g_device_watchdog;
 static std::unique_ptr<HealthMonitor> g_health_monitor;
 
 // Global instance registry pointer for error recovery (in-process only)
@@ -505,6 +507,11 @@ void signalHandler(int signal) {
           } catch (...) {
             // Ignore errors
           }
+        }
+        if (g_device_watchdog) {
+          try {
+            g_device_watchdog->stop();
+          } catch (...) {}
         }
       }).detach();
 
@@ -3269,8 +3276,34 @@ int main(int argc, char *argv[]) {
     WatchdogHandler::setWatchdog(g_watchdog.get());
     WatchdogHandler::setHealthMonitor(g_health_monitor.get());
 
+    auto deviceReportConfig = systemConfig.getDeviceReportConfig();
+    if (deviceReportConfig.enabled && !deviceReportConfig.serverUrl.empty()) {
+      g_device_watchdog = std::make_unique<DeviceWatchdog>(deviceReportConfig);
+      g_device_watchdog->start();
+      WatchdogHandler::setDeviceWatchdog(g_device_watchdog.get());
+      PLOG_INFO << "[Main] Device report (OsmAnd) started - GET /v1/core/watchdog/report-now";
+    } else {
+      WatchdogHandler::setDeviceWatchdog(nullptr);
+    }
+
+    WatchdogHandler::setDeviceReportReloadCallback([&systemConfig]() {
+      if (g_device_watchdog) {
+        g_device_watchdog->stop();
+        g_device_watchdog.reset();
+      }
+      auto cfg = systemConfig.getDeviceReportConfig();
+      if (cfg.enabled && !cfg.serverUrl.empty()) {
+        g_device_watchdog = std::make_unique<DeviceWatchdog>(cfg);
+        g_device_watchdog->start();
+        WatchdogHandler::setDeviceWatchdog(g_device_watchdog.get());
+      } else {
+        WatchdogHandler::setDeviceWatchdog(nullptr);
+      }
+    });
+
     PLOG_INFO << "[Main] Watchdog and health monitor started";
     PLOG_INFO << "  GET /v1/core/watchdog - Watchdog status";
+    PLOG_INFO << "  GET/PUT /v1/core/watchdog/config - Device report config";
 
     // Start debug analysis board thread if debug mode is enabled
     std::thread debugThread;
@@ -3874,9 +3907,12 @@ int main(int argc, char *argv[]) {
       if (g_health_monitor) {
         g_health_monitor->stop();
       }
-      if (g_watchdog) {
-        g_watchdog->stop();
-      }
+        if (g_watchdog) {
+            g_watchdog->stop();
+        }
+        if (g_device_watchdog) {
+            g_device_watchdog->stop();
+        }
 
       // Stop log cleanup thread (with timeout protection)
       CategorizedLogger::shutdown();
