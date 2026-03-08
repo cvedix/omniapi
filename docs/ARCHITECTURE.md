@@ -567,6 +567,18 @@ sequenceDiagram
 2. **Flatten & Extract Params:** Khi nhận update, `getParamsFromConfig()` hỗ trợ rút trích (`flatten`) tham số đầu vào (`additionalParams`, `input`) thành tập key-value phẳng, từ đó `applyConfigToPipeline()` có thể so sánh và áp dụng cực kỳ nhanh chóng.
 3. **Cập nhật SDK trực tiếp `set_lines()`:** Thay vì khởi tạo lại, tiến trình kiểm tra `CrossingLines` dạng JSON array (hoặc `CROSSLINE_START/END_X/Y`), tạo cấu trúc đối tượng `cvedix_line` và bơm trực tiếp thông qua hàm `set_lines()` của Node `ba_crossline_node` trong SDK. Sự thay đổi có hiệu lực ngay tại frame tiếp theo.
 
+**Pipeline Swap (Update khi cần rebuild):** Khi cần rebuild pipeline (thay đổi solution/model/source), worker thực hiện **stop old → build new → start new** (không còn “atomic swap” để tránh mất output RTMP):
+- **PipelineSnapshot**: Mỗi pipeline là một snapshot bất biến (danh sách node). Runtime đọc pipeline đang active qua `getActivePipeline()` (shared lock).
+- **Thứ tự swap (fix mất stream sau update):** (1) Dừng pipeline cũ và giải phóng kết nối output (RTMP/rtmp_des) trước. (2) Build pipeline mới. (3) Gán pipeline mới làm active, setup hooks, rồi start source. Nhờ đó rtmp_des mới kết nối được tới server (stream key đã được giải phóng), tránh lỗi “instance vẫn chạy nhưng mất output” sau PATCH/PUT. Có **gap ngắn** (vài giây) không có stream trong lúc build + start.
+- **Memory safety**: Pipeline cũ được giữ bằng `shared_ptr`; sau khi stop source và `stopSourceNodeForSnapshot()`, destructor gọi `detach_recursively()` để giải phóng tài nguyên.
+
+**Giữ kết nối stream (RTMP) trong lúc update (Last-Frame Pump):** Khi hot swap bắt buộc rebuild pipeline, output RTMP có thể bị ngắt (pipeline cũ teardown → rtmp_des mất). Để tránh server stream mất stream key, có thể dùng **last-frame** để tiếp tục gửi trong lúc swap:
+- **RtmpLastFrameFallbackProxyNode** đã có `inject_frame(cv::Mat)`: cho phép bơm frame từ bên ngoài vào proxy (gọi `meta_flow(meta)`), proxy forward xuống rtmp_des. Worker đã có `last_frame_` (capture từ hook).
+- **Option A (zero-gap):** Giữ pipeline cũ **chỉ phần proxy + rtmp_des**; tách upstream (OSD) khỏi proxy. Chạy thread "last-frame pump" định kỳ gọi `proxy->inject_frame(last_frame_)`. Build pipeline mới sao cho output OSD **gắn vào cùng proxy** (không tạo rtmp_des mới). Sau khi pipeline mới chạy ổn, dừng pump. Cần pipeline builder hỗ trợ "reuse existing proxy" (attach OSD vào proxy có sẵn).
+- **Option B (minimize gap):** Sau khi dừng pipeline cũ, chạy sender tạm chỉ gửi last-frame tới cùng RTMP URL cho đến khi pipeline mới kết nối; gap ngắn khi chuyển.
+
+**Full design (zero-downtime, no RTMP reconnect):** [ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md](ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md) — persistent output leg (proxy + rtmp_des), frame router, atomic pipeline swap, drain, last-frame pump, threading, memory safety, logging.
+
 ---
 
 ## Subprocess Architecture với Unix Socket IPC

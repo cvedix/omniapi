@@ -174,7 +174,9 @@ private:
    * @brief Helper: Allocate GPU and spawn worker with GPU device ID
    * @param instanceId Instance ID
    * @param config Worker configuration
+   * @param out_error If non-null and spawn fails, set to reason for API response
    * @return true if successful
    */
-  bool allocateGPUAndSpawnWorker(const std::string &instanceId, const Json::Value &config);
+  bool allocateGPUAndSpawnWorker(const std::string &instanceId, const Json::Value &config,
+                                 std::string *out_error = nullptr);
 };

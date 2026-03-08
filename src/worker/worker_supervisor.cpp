@@ -66,11 +66,16 @@ void WorkerSupervisor::stop() {
 }
 
 bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
-                                   const Json::Value &config, int gpu_device_id) {
+                                   const Json::Value &config, int gpu_device_id,
+                                   std::string *out_error) {
+  auto setError = [&out_error](const std::string &msg) {
+    if (out_error) *out_error = msg;
+  };
   std::lock_guard<std::timed_mutex> lock(workers_mutex_);
 
   // Check if worker already exists
   if (workers_.find(instance_id) != workers_.end()) {
+    setError("Worker already exists for instance: " + instance_id);
     std::cerr << "[Supervisor] Worker already exists for instance: "
               << instance_id << std::endl;
     return false;
@@ -79,6 +84,8 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   // Find worker executable
   std::string exe_path = findWorkerExecutable();
   if (exe_path.empty()) {
+    setError("Worker executable not found: " + worker_executable_ +
+             " (set EDGE_AI_WORKER_PATH to full path, e.g. ./build/bin/edgeos-worker)");
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] ✗ Worker executable not found: "
               << worker_executable_ << std::endl;
@@ -106,6 +113,7 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   pid_t pid = fork();
 
   if (pid < 0) {
+    setError(std::string("Fork failed: ") + strerror(errno) + " (try: ulimit -u 4096)");
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] ✗ Fork failed: " << strerror(errno) << std::endl;
     std::cerr << "[Supervisor] ========================================" << std::endl;
@@ -163,6 +171,8 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   bool ready = waitForWorkerReady(*worker, worker_startup_timeout_ms_);
 
   if (!ready) {
+    setError("Worker failed to become ready (timeout or worker crash - run worker manually: "
+             "edgeos-worker --instance-id <id> --socket /tmp/edgeos_worker_<id>.sock --config '{}')");
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] ✗ Worker failed to become ready, killing PID "
               << pid << std::endl;

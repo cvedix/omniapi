@@ -3,6 +3,14 @@
 **Ngày chạy**: 2026-03-06  
 **Kịch bản**: [INSTANCE_UPDATE_HOT_RELOAD_MANUAL_TEST.md](./INSTANCE_UPDATE_HOT_RELOAD_MANUAL_TEST.md)
 
+## Cơ chế Zero-Downtime (Worker / Subprocess)
+
+Khi chạy ở **subprocess mode**, worker dùng **Atomic Pipeline Swap**:
+
+- **PipelineSnapshot**: Mỗi pipeline là một snapshot bất biến (danh sách node). Runtime luôn đọc pipeline đang active qua `getActivePipeline()` (shared lock).
+- **Swap O(1)**: Cập nhật = build pipeline mới → start source của pipeline mới → `setActivePipeline(new)` (đổi con trỏ) → stop source của pipeline cũ → giải phóng pipeline cũ. Vòng lặp worker **không bị block** bởi swap.
+- **Hot swap**: `hotSwapPipeline()` thực hiện: pre-build → tạo snapshot mới → start source mới → atomic swap → setup hooks → stop source cũ. Mục tiêu **zero downtime** (99–99.99% uptime).
+
 ## Môi trường
 
 - **Server**: `./bin/edgeos-api` (từ `build/`), chạy nền với log ghi ra `/tmp/edgeos-api-test.log` và terminal.

@@ -23,6 +23,9 @@ Tài liệu này hướng dẫn test thủ công tính năng **cập nhật inst
 http://localhost:8080/v1/core/instance
 ```
 
+### Quy tắc cập nhật (PATCH)
+- **Body gửi gì thì update cái đó, còn lại giữ nguyên.** Chỉ các key có trong body mới được cập nhật; toàn bộ config khác (output, RtmpUrl, Zone, …) giữ nguyên. Gửi PATCH chỉ với line (CrossingLines hoặc CROSSLINE_*) thì chỉ line thay đổi, output RTMP và mọi thứ khác không đổi.
+
 ### Phạm vi test
 - **PATCH** `/v1/core/instance/{instanceId}` với `additionalParams.CrossingLines` hoặc `additionalParams.input.CROSSLINE_*`.
 - Kiểm tra instance vẫn **running**, **không restart**, và line mới hiển thị/đếm đúng.
@@ -41,6 +44,47 @@ http://localhost:8080/v1/core/instance
 
 3. **Instance ba_crossline**:
    - Tạo mới theo Test Case 0 hoặc dùng instance có sẵn. **Lưu ý**: Sau POST tạo instance, dùng `instanceId` trong response (thường là UUID) cho mọi request tiếp theo, không dùng `name`.
+
+### Chạy API với log ra file (tránh log instance tràn console)
+
+Khi instance chạy, worker in rất nhiều log ra console. Để ghi log vào file:
+
+**Test hot-swap với delay 5s (sau stop pipeline cũ, delay 5s rồi mới start pipeline mới):**
+```bash
+# Chỉ khi cần test: set EDGE_AI_HOTSWAP_DELAY_SEC=5. Chạy từ thư mục gốc project:
+EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api
+# Hoặc nếu đang ở trong build/: EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./bin/edgeos-api
+```
+
+**Cách 1 – Chạy API và ghi mọi output (API + worker) ra file:**
+```bash
+# Subprocess mode (cần cho hot-reload line). Chạy từ thư mục gốc project (edge_ai_api):
+EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api >> /tmp/edgeos-api.log 2>&1
+# Xem log: tail -f /tmp/edgeos-api.log
+```
+
+**Cách 2 – Script test vừa start API vừa ghi log:**
+```bash
+LOG_FILE=/tmp/edgeos-api.log ./tests/manual/Core_API/run_patch_crossinglines_test.sh
+```
+
+**Cách 3 – API đã chạy sẵn (bạn đã start với redirect ở Cách 1), chỉ chạy test:**
+```bash
+START_SERVER=0 LOG_FILE=/tmp/edgeos-api.log ./tests/manual/Core_API/run_patch_crossinglines_test.sh
+```
+
+Script `run_patch_crossinglines_test.sh` kiểm tra trong log có dòng `Line-only update: applying CrossingLines at runtime (no hot-swap)` và không có hot swap khi PATCH chỉ CrossingLines.
+
+**Dọn sạch worker cũ sau khi tắt API (tránh "Worker not ready" / mutex timeout khi restart):**
+```bash
+# Từ thư mục gốc project
+./scripts/clean_workers.sh
+```
+Script sẽ: (1) kill toàn bộ process `edgeos-worker`, (2) xóa socket `/tmp/edgeos_worker_*.sock` và `/opt/edgeos-api/run/edgeos_worker_*.sock`. Chạy sau khi đã Ctrl+C tắt edgeos-api.
+
+**Tại sao mỗi lần start API có rất nhiều worker (Exited cleanly)?**  
+Khi API khởi động, nó gọi `loadPersistentInstances()`: đọc **toàn bộ instance** trong storage (ví dụ `/opt/edgeos-api/instances/instances.json`), với mỗi instance có **`persistent: true`** thì **spawn một worker**. Do đó nếu trong storage có nhiều instance (tạo trước đó, hoặc nhiều máy dùng chung storage) và đều đánh dấu persistent → mỗi lần start sẽ có hàng chục worker. Khi tắt API (Ctrl+C), tất cả worker nhận tín hiệu thoát → log "[Worker:uuid] Exited cleanly" và "Accept thread join timeout" là bình thường.  
+**Cách giảm số worker khi start:** (1) Tạo instance test với **`persistent: false`**; (2) Xóa instance không dùng qua API `DELETE /v1/core/instance/{id}` hoặc chỉnh/xóa bớt trong file storage; (3) Trước khi start lại, chạy `./scripts/clean_workers.sh` để dọn process/socket cũ.
 
 ---
 
@@ -329,7 +373,15 @@ Xem thêm biến `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` trong [ENVIRONMENT_VARIABLES.m
 
 ## Instance treo / mất stream output sau khi cập nhật
 
+- **Mất output sau update (instance vẫn chạy):** Trước đây khi hot-swap (PATCH thay đổi ngoài line), pipeline mới start trước, pipeline cũ stop sau → rtmp_des mới cố kết nối cùng stream key trong khi cũ vẫn push → server từ chối / connection fail → mất stream. **Đã sửa:** thứ tự là **stop pipeline cũ trước** → build mới → start mới → rtmp_des mới kết nối được. Có gap ngắn (vài giây) không stream trong lúc build+start; sau đó output hoạt động bình thường.
+- **“Chỉ thêm line” nhưng vẫn mất stream:** Nếu PATCH gửi kèm key khác (Zone, output rỗng, param khác) → worker coi là **không phải line-only** → chạy **hot-swap**. Trong hot-swap, `tempConfig` dùng để build pipeline mới; nếu thiếu `additionalParams.output` / RTMP URL thì pipeline mới không có FrameRouterSinkNode/rtmp_des → **stream mất**. **Đã bổ sung:** trong `hotSwapPipeline()` luôn **preserve RTMP output** vào `tempConfig` (từ config_ hiện tại) trước khi `preBuildPipeline`, và log "Hot-swap: preserved RTMP output in tempConfig". Để tránh hot-swap khi chỉ thêm line: gửi PATCH **chỉ** với line (CrossingLines hoặc CROSSLINE_*), không gửi kèm Zone/output/param khác; khi đó log sẽ là "Line-only update: applying CrossingLines at runtime (no hot-swap)" và stream giữ nguyên.
 - **Nếu instance “treo” rồi chạy lại:** Thường do pipeline bị **rebuild** hoặc **hot-swap** (khi PATCH không chỉ đổi line, hoặc `set_lines()` thất bại trước khi sửa “no restart when line apply fail”). Khi đó pipeline dừng rồi start lại → kết nối RTMP/stream output bị ngắt.
+- **Instance chạy bình thường nhưng không thấy stream RTMP output:** Config dùng `additionalParams.input` / `additionalParams.output` (RTMP_SRC_URL, RTMP_DES_URL). Đảm bảo:
+  1. **Khi tạo instance:** API đã parse đúng `additionalParams.output.RTMP_DES_URL` vào request (CreateInstanceRequest) và worker config có `RtmpUrl` hoặc `AdditionalParams.RTMP_DES_URL`.
+  2. **Khi start instance (worker spawn từ storage):** `buildWorkerConfigFromInstanceInfo` phải set `config["RtmpUrl"]` và `AdditionalParams.RTMP_URL`/`RTMP_DES_URL`; khi load instance từ file, storage phải gán `info.rtmpUrl` từ `AdditionalParams.RTMP_DES_URL`/`RTMP_URL` nếu chưa có. (Đã sửa trong code.)
+  3. **Log worker:** Khi build pipeline nên thấy `Found RTMP_URL in top-level RtmpUrl` hoặc `getRTMPUrl: ... RTMP_DES_URL` và `Created persistent output leg + frame router`. Nếu thấy `RTMP URL not provided, RTMP destination node will be skipped` thì URL chưa tới worker.
+- **Pipeline chạy, log rất nhiều, rtmp_des in_queue 200+ nhưng khi play RTMP URL vẫn không thấy stream:** Pipeline gửi frame ~30 fps vào `rtmp_des`, trong khi node encode + push RTMP chậm hơn (~25 fps) → hàng đợi input của `rtmp_des` tăng không giới hạn (200+), stream bị trễ rất lớn hoặc không kịp hiển thị. **Đã sửa:** trong `FrameRouter::submitFrame()` thêm **throttle** chỉ inject frame vào output leg tối đa ~20 fps (50 ms giữa hai lần inject). Hàng đợi không còn tăng vô hạn, stream ra RTMP ổn định và có thể xem được. Nếu cần output mượt hơn cần tăng tốc encode/push phía SDK hoặc giảm độ phân giải/bitrate.
+
 - **Mất stream key trên server:** Khi pipeline restart, client RTMP (push) ngắt kết nối; server (nginx-rtmp, v.v.) **giải phóng stream key**. Khi pipeline kết nối lại, có thể cần **stream key giống hệt** và server cho phép reconnect, hoặc stream key đã bị release và output không còn. Cách giảm thiểu:
   1. **Chỉ PATCH line** (CrossingLines / CROSSLINE_*) và đảm bảo **runtime update thành công** (xem log `result=runtime_ok (no restart)`) → pipeline không restart → stream không mất.
   2. Tránh PATCH kèm Zone, URL, param khác (dễ gây rebuild).
@@ -352,6 +404,28 @@ Xem thêm biến `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` trong [ENVIRONMENT_VARIABLES.m
 
 4. **Biến môi trường**
    - Có thể cần `INSTANCE_ID` trùng với instance đã tạo (name hoặc instanceId trả về từ POST).
+
+5. **"Failed to create instance" / "Failed to spawn worker for instance"**
+   - **Nguyên nhân thường gặp:** API không tìm thấy `edgeos-worker`, thư mục socket không ghi được, hoặc worker khởi động chậm/lỗi.
+   - **Cách xử lý:**
+     1. Chạy script chẩn đoán: `./scripts/diagnose_spawn_worker.sh`
+     2. Đảm bảo worker cùng thư mục với API hoặc set đường dẫn tuyệt đối:
+        ```bash
+        export EDGE_AI_WORKER_PATH=/path/to/edgeos-worker   # ví dụ: ./build/bin/edgeos-worker (từ thư mục gốc)
+        ```
+     3. Nếu không ghi được `/opt/edgeos-api/run`: `export EDGE_AI_SOCKET_DIR=/tmp` hoặc `sudo chown $USER /opt/edgeos-api/run`
+     4. Xem **log server API (stderr)** khi tạo instance: sẽ có dòng chi tiết như "Worker executable not found", "Fork failed", hoặc "Worker failed to become ready".
+
+6. **PATCH không thấy server response (instance vẫn đang chạy)**
+   - **Nguyên nhân thường gặp:** API **block** chờ worker trả lời qua IPC. Timeout mặc định là **5 giây** (`IPC_START_STOP_TIMEOUT_MS`, xem [ENVIRONMENT_VARIABLES.md](../../docs/ENVIRONMENT_VARIABLES.md)). Nếu client (curl, Postman, browser) có timeout **ngắn hơn** (ví dụ 3s), client sẽ báo timeout / "no response" trước khi server trả về.
+   - **Với PATCH chỉ CrossingLines (line-only):** Worker đi nhánh "Line-only update" và trả lời **rất nhanh** (vài trăm ms). Nếu vẫn không thấy response thì kiểm tra:
+     1. **Body đúng format:** `{"additionalParams": {"CrossingLines": "[...]"}}` — API và worker chấp nhận cả `additionalParams` (camelCase) và `AdditionalParams` (PascalCase).
+     2. **Tăng timeout phía client:** Ví dụ curl: `curl -X PATCH ... --max-time 15`.
+     3. **Xem log server (API + worker):**
+        - API: `[API] PATCH /v1/core/instance/{id} - Patch instance` rồi có thể chờ tới khi có `Success` hoặc `Update failed`.
+        - Worker: `[Worker:uuid] UPDATE_INSTANCE received` → nếu line-only sẽ thấy `Line-only update: applying CrossingLines at runtime (no hot-swap)` và response gửi ngay; nếu thấy `Applying config changes to running pipeline` / `hot swap` thì worker có thể mất 5s+ (stop + build + start) → API trả về sau khi worker xong hoặc sau khi hết timeout (5s).
+   - **Nếu worker đang xử lý request khác:** API nhận ngay lỗi "Worker is busy", trả 500 — vẫn là "có response". Gửi lại sau vài giây.
+   - **Tăng timeout IPC (nếu cần):** `export IPC_START_STOP_TIMEOUT_MS=20000` (20s) rồi restart API, nếu PATCH thường xuyên đi nhánh hot-swap.
 
 ---
 

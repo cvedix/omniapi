@@ -62,9 +62,10 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   Json::Value config = buildWorkerConfig(req);
 
   // Allocate GPU and spawn worker
-  if (!allocateGPUAndSpawnWorker(instanceId, config)) {
+  std::string spawn_error;
+  if (!allocateGPUAndSpawnWorker(instanceId, config, &spawn_error)) {
     throw std::runtime_error("Failed to spawn worker for instance: " +
-                             instanceId);
+                             instanceId + (spawn_error.empty() ? "" : " (" + spawn_error + ")"));
   }
 
   // Create local instance info
@@ -1828,6 +1829,7 @@ Json::Value SubprocessInstanceManager::buildWorkerConfigFromInstanceInfo(
   }
   if (!info.rtmpUrl.empty()) {
     config["AdditionalParams"]["RTMP_URL"] = info.rtmpUrl;
+    config["RtmpUrl"] = info.rtmpUrl;  // Top-level so worker parseCreateRequest sees it
   }
   if (!info.filePath.empty()) {
     config["AdditionalParams"]["FILE_PATH"] = info.filePath;
@@ -1836,6 +1838,15 @@ Json::Value SubprocessInstanceManager::buildWorkerConfigFromInstanceInfo(
   // Add all additional parameters
   for (const auto &[key, value] : info.additionalParams) {
     config["AdditionalParams"][key] = value;
+  }
+
+  // Ensure top-level RtmpUrl when RTMP output is in additionalParams (e.g. from nested input/output)
+  if (!config.isMember("RtmpUrl") || config["RtmpUrl"].asString().empty()) {
+    if (info.additionalParams.count("RTMP_DES_URL") && !info.additionalParams.at("RTMP_DES_URL").empty()) {
+      config["RtmpUrl"] = info.additionalParams.at("RTMP_DES_URL");
+    } else if (info.additionalParams.count("RTMP_URL") && !info.additionalParams.at("RTMP_URL").empty()) {
+      config["RtmpUrl"] = info.additionalParams.at("RTMP_URL");
+    }
   }
 
   return config;
@@ -1915,7 +1926,8 @@ void SubprocessInstanceManager::onWorkerError(const std::string &instanceId,
 }
 
 bool SubprocessInstanceManager::allocateGPUAndSpawnWorker(const std::string &instanceId, 
-                                                         const Json::Value &config) {
+                                                         const Json::Value &config,
+                                                         std::string *out_error) {
   // Allocate GPU resource for this instance
   // Estimate memory requirement: 1.5GB per instance (can be adjusted)
   int gpu_device_id = -1;
@@ -1936,7 +1948,7 @@ bool SubprocessInstanceManager::allocateGPUAndSpawnWorker(const std::string &ins
   }
 
   // Spawn worker process with GPU device ID
-  if (!supervisor_->spawnWorker(instanceId, config, gpu_device_id)) {
+  if (!supervisor_->spawnWorker(instanceId, config, gpu_device_id, out_error)) {
     // Release GPU allocation if worker spawn failed
     if (gpu_allocation) {
       resourceManager.releaseGPU(gpu_allocation);

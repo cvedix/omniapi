@@ -1,11 +1,14 @@
 #include "worker/worker_handler.h"
 #include "core/env_config.h"
 #include "core/pipeline_builder.h"
+#include "core/pipeline_builder_request_utils.h"
+#include "core/pipeline_snapshot.h"
 #include "core/runtime_update_log.h"
 #include "core/timeout_constants.h"
 #include "models/create_instance_request.h"
 #include "solutions/solution_registry.h"
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -41,7 +44,8 @@
 #include <thread>
 
 // Deep-merge source into target (objects merged recursively, other types replace).
-// Prevents partial update from wiping entire AdditionalParams/Input/Output.
+// Body gửi gì thì update cái đó, còn lại giữ nguyên: only keys present in source
+// are updated; target keys not in source are left unchanged.
 static void mergeJsonInto(Json::Value &target, const Json::Value &source) {
   if (!source.isObject()) return;
   for (const auto &key : source.getMemberNames()) {
@@ -383,7 +387,7 @@ IPCMessage WorkerHandler::handleCreateInstance(const IPCMessage &msg) {
   IPCMessage response;
   response.type = MessageType::CREATE_INSTANCE_RESPONSE;
 
-  if (!pipeline_nodes_.empty()) {
+  if (getActivePipeline() && !getActivePipeline()->empty()) {
     response.payload = createErrorResponse("Instance already exists",
                                            ResponseStatus::ALREADY_EXISTS);
     return response;
@@ -430,7 +434,7 @@ IPCMessage WorkerHandler::handleStartInstance(const IPCMessage & /*msg*/) {
 
   // If no pipeline yet but we have config with Solution, build now then start
   // (single "start" = build-if-needed then run, no separate create step)
-  if (pipeline_nodes_.empty()) {
+  if (!getActivePipeline() || getActivePipeline()->empty()) {
     if (!config_.isNull() &&
         (config_.isMember("Solution") || config_.isMember("SolutionId") ||
          (config_.isMember("AdditionalParams") && config_["AdditionalParams"].isObject()) ||
@@ -599,20 +603,156 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
   // Store old config for comparison
   Json::Value oldConfig = config_;
 
+  // PATCH semantics: only update fields present in the body; leave everything else unchanged.
   // Deep-merge new config so partial updates (e.g. only CrossingLines or
   // CROSSLINE_*) do not wipe entire AdditionalParams/Input/Output and trigger
   // spurious rebuild or hot-swap.
   const auto &newConfig = msg.payload["config"];
   mergeJsonInto(config_, newConfig);
+  // Ensure getParamsFromConfig sees merged params: sync additionalParams <-> AdditionalParams
+  // (API may send camelCase, storage may use PascalCase; both must see the same flattened params).
+  if (config_.isMember("additionalParams") && config_["additionalParams"].isObject()) {
+    if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+      config_["AdditionalParams"] = Json::Value(Json::objectValue);
+    }
+    mergeJsonInto(config_["AdditionalParams"], config_["additionalParams"]);
+    mergeJsonInto(config_["additionalParams"], config_["AdditionalParams"]);
+  }
+  // Preserve output URLs if update wiped them (e.g. PUT with partial body or empty RtmpUrl).
+  // Otherwise hot-swap builds pipeline without rtmp_des and stream output is lost.
+  if (oldConfig.isMember("RtmpUrl") && !oldConfig["RtmpUrl"].asString().empty()) {
+    if (!config_.isMember("RtmpUrl") || config_["RtmpUrl"].asString().empty()) {
+      config_["RtmpUrl"] = oldConfig["RtmpUrl"];
+      if (config_["AdditionalParams"].isObject()) config_["AdditionalParams"]["RTMP_URL"] = oldConfig["RtmpUrl"];
+      if (config_["additionalParams"].isObject()) config_["additionalParams"]["RTMP_URL"] = oldConfig["RtmpUrl"];
+    }
+  }
+  if (oldConfig.isMember("RtspUrl") && !oldConfig["RtspUrl"].asString().empty()) {
+    if (!config_.isMember("RtspUrl") || config_["RtspUrl"].asString().empty()) {
+      config_["RtspUrl"] = oldConfig["RtspUrl"];
+      if (config_["AdditionalParams"].isObject()) config_["AdditionalParams"]["RTSP_URL"] = oldConfig["RtspUrl"];
+      if (config_["additionalParams"].isObject()) config_["additionalParams"]["RTSP_URL"] = oldConfig["RtspUrl"];
+    }
+  }
+  if (oldConfig.isMember("AdditionalParams") && oldConfig["AdditionalParams"].isObject()) {
+    for (const char* key : {"RTMP_URL", "RTMP_DES_URL", "RTSP_URL"}) {
+      if (oldConfig["AdditionalParams"].isMember(key) && !oldConfig["AdditionalParams"][key].asString().empty()) {
+        if (!config_["AdditionalParams"].isMember(key) || config_["AdditionalParams"][key].asString().empty()) {
+          config_["AdditionalParams"][key] = oldConfig["AdditionalParams"][key];
+          if (config_["additionalParams"].isObject()) config_["additionalParams"][key] = oldConfig["AdditionalParams"][key];
+        }
+      }
+    }
+  }
+  // Preserve nested additionalParams.output (e.g. output.RTMP_DES_URL) when update wipes it
+  // or omits it. Otherwise hot-swap builds without RTMP output and stream is lost after update.
+  if (oldConfig.isMember("additionalParams") && oldConfig["additionalParams"].isObject() &&
+      oldConfig["additionalParams"].isMember("output") && oldConfig["additionalParams"]["output"].isObject()) {
+    const auto& oldOutput = oldConfig["additionalParams"]["output"];
+    bool oldHasRtmp = (oldOutput.isMember("RTMP_DES_URL") && !oldOutput["RTMP_DES_URL"].asString().empty()) ||
+                      (oldOutput.isMember("RTMP_URL") && !oldOutput["RTMP_URL"].asString().empty());
+    if (!oldHasRtmp) { /* nothing to preserve */ }
+    else {
+      if (!config_.isMember("additionalParams") || !config_["additionalParams"].isObject()) {
+        config_["additionalParams"] = Json::Value(Json::objectValue);
+      }
+      Json::Value& newOutput = config_["additionalParams"]["output"];
+      std::string newRtmp = newOutput.isObject() && newOutput.isMember("RTMP_DES_URL")
+          ? newOutput["RTMP_DES_URL"].asString()
+          : (newOutput.isObject() && newOutput.isMember("RTMP_URL") ? newOutput["RTMP_URL"].asString() : "");
+      bool needPreserve = !newOutput.isObject() || newOutput.empty() ||
+                          (newRtmp.empty() && oldHasRtmp);
+      if (needPreserve) {
+        config_["additionalParams"]["output"] = oldOutput;
+        if (config_.isMember("AdditionalParams") && config_["AdditionalParams"].isObject()) {
+          if (oldOutput.isMember("RTMP_DES_URL") && !oldOutput["RTMP_DES_URL"].asString().empty()) {
+            config_["AdditionalParams"]["RTMP_DES_URL"] = oldOutput["RTMP_DES_URL"];
+            config_["AdditionalParams"]["RTMP_URL"] = oldOutput["RTMP_DES_URL"];
+          }
+          if (oldOutput.isMember("RTMP_URL") && !oldOutput["RTMP_URL"].asString().empty()) {
+            config_["AdditionalParams"]["RTMP_URL"] = oldOutput["RTMP_URL"];
+          }
+        }
+        if (!config_.isMember("RtmpUrl") || config_["RtmpUrl"].asString().empty()) {
+          if (oldOutput.isMember("RTMP_DES_URL") && !oldOutput["RTMP_DES_URL"].asString().empty()) {
+            config_["RtmpUrl"] = oldOutput["RTMP_DES_URL"];
+          } else if (oldOutput.isMember("RTMP_URL") && !oldOutput["RTMP_URL"].asString().empty()) {
+            config_["RtmpUrl"] = oldOutput["RTMP_URL"];
+          }
+        }
+      }
+    }
+  }
   logRuntimeUpdate(instance_id_, "config merged (deep merge)");
 
   // If pipeline is not running, just update config (will apply on next start)
-  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+  if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
     std::cout << "[Worker:" << instance_id_
               << "] Config updated (pipeline not running, will apply on start)"
               << std::endl;
     response.payload = createResponse(ResponseStatus::OK, "Instance updated");
     return response;
+  }
+
+  // Early path: if the ONLY change is line-related (CrossingLines / CROSSLINE_*),
+  // apply via set_lines() and return immediately. Never hot-swap for line-only
+  // (avoids RTMP stream drop and no response / long wait).
+  {
+    Json::Value oldParams = getParamsFromConfig(oldConfig);
+    Json::Value newParams = getParamsFromConfig(config_);
+    static const std::set<std::string> lineKeys = {
+        "CrossingLines", "CROSSLINE_START_X", "CROSSLINE_START_Y",
+        "CROSSLINE_END_X", "CROSSLINE_END_Y"};
+    bool onlyLineParamsChanged = true;
+    // Non-line keys: treat "missing or empty in new" as unchanged so that
+    // PATCH with only line params (no output section) still takes line-only path.
+    for (const auto &key : newParams.getMemberNames()) {
+      if (lineKeys.count(key)) {
+        continue;
+      }
+      std::string oldVal = oldParams.isMember(key) ? oldParams[key].asString() : "";
+      std::string newVal = newParams[key].asString();
+      if (oldVal != newVal) {
+        onlyLineParamsChanged = false;
+        break;
+      }
+    }
+    if (onlyLineParamsChanged) {
+      for (const auto &key : oldParams.getMemberNames()) {
+        if (lineKeys.count(key)) continue;
+        std::string oldVal = oldParams[key].asString();
+        if (!newParams.isMember(key)) {
+          // Key only in old (e.g. RTMP_DES_URL not in payload) -> treat as unchanged
+          continue;
+        }
+        if (newParams[key].asString() != oldVal) {
+          onlyLineParamsChanged = false;
+          break;
+        }
+      }
+    }
+    if (!onlyLineParamsChanged) {
+      logRuntimeUpdate(instance_id_,
+                       "update=not_line_only (non-line param diff or structure) -> may hot-swap");
+    }
+    if (onlyLineParamsChanged) {
+      std::cout << "[Worker:" << instance_id_
+                << "] Line-only update: applying CrossingLines at runtime (no hot-swap)"
+                << std::endl;
+      logRuntimeUpdate(instance_id_, "update=line_only (no hot swap)");
+      if (applyLinesFromParamsToPipeline(newParams)) {
+        response.payload =
+            createResponse(ResponseStatus::OK, "Instance updated (runtime)");
+        return response;
+      }
+      // set_lines failed; config already saved, pipeline keeps running
+      std::cerr << "[Worker:" << instance_id_
+                << "] Failed to apply lines at runtime (config saved, will apply on next start)"
+                << std::endl;
+      response.payload =
+          createResponse(ResponseStatus::OK, "Instance updated (lines will apply on restart)");
+      return response;
+    }
   }
 
   // Pipeline is running - apply config changes automatically
@@ -717,7 +857,7 @@ IPCMessage WorkerHandler::handleUpdateLines(const IPCMessage &msg) {
   }
 
   // Check if pipeline is running
-  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+  if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
     std::cout << "[Worker:" << instance_id_
               << "] Cannot update lines: pipeline not running" << std::endl;
     response.payload = createErrorResponse("Pipeline not running",
@@ -727,16 +867,19 @@ IPCMessage WorkerHandler::handleUpdateLines(const IPCMessage &msg) {
 
   // Find ba_crossline_node in pipeline
   std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> baCrosslineNode = nullptr;
-  for (const auto &node : pipeline_nodes_) {
-    if (!node)
-      continue;
+  auto pipeline = getActivePipeline();
+  if (pipeline) {
+    for (const auto &node : pipeline->nodes()) {
+      if (!node)
+        continue;
 
-    auto crosslineNode =
-        std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(node);
+      auto crosslineNode =
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(node);
     if (crosslineNode) {
       baCrosslineNode = crosslineNode;
       break;
     }
+  }
   }
 
   if (!baCrosslineNode) {
@@ -853,7 +996,7 @@ IPCMessage WorkerHandler::handleUpdateJams(const IPCMessage &msg) {
     return response;
   }
 
-  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+  if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
     std::cout << "[Worker:" << instance_id_
               << "] Cannot update jams: pipeline not running" << std::endl;
     response.payload = createErrorResponse("Pipeline not running",
@@ -901,7 +1044,7 @@ IPCMessage WorkerHandler::handleUpdateStops(const IPCMessage &msg) {
     return response;
   }
 
-  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+  if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
     std::cout << "[Worker:" << instance_id_
               << "] Cannot update stops: pipeline not running" << std::endl;
     response.payload = createErrorResponse("Pipeline not running",
@@ -955,7 +1098,7 @@ IPCMessage WorkerHandler::handlePushFrame(const IPCMessage &msg) {
   }
   std::transform(codec.begin(), codec.end(), codec.begin(), ::tolower);
 
-  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+  if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
     response.payload = createErrorResponse("Pipeline not running",
                                            ResponseStatus::ERROR);
     return response;
@@ -989,10 +1132,13 @@ IPCMessage WorkerHandler::handlePushFrame(const IPCMessage &msg) {
   }
 
   std::shared_ptr<cvedix_nodes::cvedix_app_src_node> appSrcNode;
-  for (const auto &node : pipeline_nodes_) {
-    if (!node) continue;
-    appSrcNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(node);
-    if (appSrcNode) break;
+  auto pPush = getActivePipeline();
+  if (pPush) {
+    for (const auto &node : pPush->nodes()) {
+      if (!node) continue;
+      appSrcNode = std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(node);
+      if (appSrcNode) break;
+    }
   }
 
   if (!appSrcNode) {
@@ -1031,7 +1177,7 @@ IPCMessage WorkerHandler::handleGetStatus(const IPCMessage & /*msg*/) {
   data["instance_id"] = instance_id_;
   data["state"] = state_copy;
   data["running"] = pipeline_running_.load();
-  data["has_pipeline"] = !pipeline_nodes_.empty();
+  data["has_pipeline"] = (getActivePipeline() && !getActivePipeline()->empty());
   if (!error_copy.empty()) {
     data["last_error"] = error_copy;
   }
@@ -1085,10 +1231,11 @@ IPCMessage WorkerHandler::handleGetStatistics(const IPCMessage & /*msg*/) {
   double source_fps = 0.0;
   std::string source_res = "";
 
-  // Try to get source node - pipeline_nodes_ is read-only here, safe to access
-  if (!pipeline_nodes_.empty()) {
+  // Try to get source node from active pipeline (lock-free read via getActivePipeline)
+  auto pStats = getActivePipeline();
+  if (pStats && !pStats->empty()) {
     try {
-      auto sourceNode = pipeline_nodes_[0];
+      auto sourceNode = pStats->sourceNode();
       if (sourceNode) {
         auto rtspNode =
             std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtsp_src_node>(
@@ -1488,10 +1635,16 @@ WorkerHandler::parseCreateRequest(const Json::Value &config) const {
     }
 
     // Backward compatibility: if no input/output sections, parse as flat
-    // structure. Also parse top-level keys even when input/output sections exist
+    // structure. Also parse flat keys (RTMP_URL, RTSP_URL, etc.) even when input/output exist.
     if (!params.isMember("input") && !params.isMember("output")) {
       for (const auto &key : params.getMemberNames()) {
         if (params[key].isString()) {
+          req.additionalParams[key] = params[key].asString();
+        }
+      }
+    } else {
+      for (const auto &key : params.getMemberNames()) {
+        if (key != "input" && key != "output" && params[key].isString()) {
           req.additionalParams[key] = params[key].asString();
         }
       }
@@ -1554,27 +1707,48 @@ bool WorkerHandler::buildPipeline() {
       return false;
     }
 
-    // Build pipeline
-    pipeline_nodes_ = pipeline_builder_->buildPipeline(optSolution.value(), req,
-                                                       instance_id_);
+    // CVEDIX logger must be initialized before creating any cvedix nodes (e.g. PersistentOutputLeg/rtmp_des)
+    if (pipeline_builder_) {
+      pipeline_builder_->ensureCVEDIXInitialized();
+    }
+    if (!ensureOutputLegForRtmp(req)) {
+      return false;
+    }
 
-    if (pipeline_nodes_.empty()) {
+    // Build pipeline (with frame_router_ when RTMP → zero-downtime swap)
+    std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> nodes =
+        pipeline_builder_->buildPipeline(optSolution.value(), req,
+                                         instance_id_, {}, frame_router_.get());
+
+    if (nodes.empty()) {
       last_error_ = "Pipeline builder returned empty pipeline";
       return false;
     }
 
+    setActivePipeline(
+        std::make_shared<PipelineSnapshot>(std::move(nodes)));
     {
       std::lock_guard<std::shared_mutex> lock(state_mutex_);
       current_state_ = "created";
     }
     std::cout << "[Worker:" << instance_id_ << "] Pipeline built with "
-              << pipeline_nodes_.size() << " nodes" << std::endl;
+              << getActivePipeline()->size() << " nodes" << std::endl;
     return true;
 
+  } catch (const char* msg) {
+    last_error_ = std::string("Pipeline build (SDK/lib threw string): ") + (msg ? msg : "(null)");
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to build pipeline: " << (msg ? msg : "(null)") << std::endl;
+    return false;
   } catch (const std::exception &e) {
     last_error_ = e.what();
     std::cerr << "[Worker:" << instance_id_
               << "] Failed to build pipeline: " << e.what() << std::endl;
+    return false;
+  } catch (...) {
+    last_error_ = "Pipeline build failed (unknown exception, e.g. SDK threw non-std::exception)";
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to build pipeline: unknown exception" << std::endl;
     return false;
   }
 }
@@ -1586,7 +1760,8 @@ bool WorkerHandler::startPipeline() {
     return false;
   }
 
-  if (pipeline_nodes_.empty()) {
+  auto pipeline = getActivePipeline();
+  if (!pipeline || pipeline->empty()) {
     last_error_ = "No pipeline to start";
     return false;
   }
@@ -1596,19 +1771,14 @@ bool WorkerHandler::startPipeline() {
 
   try {
     // CRITICAL: Setup frame capture hook BEFORE starting pipeline
-    // This ensures we capture all frames from the beginning
-    // Hook must be setup before source node starts to avoid missing initial
-    // frames
     setupFrameCaptureHook();
-
-    // Setup queue size tracking hook to monitor input queue size
     setupQueueSizeTrackingHook();
 
     // Find and start source node (first node in pipeline)
-    // Try RTSP source first
+    auto sourceNode = pipeline->sourceNode();
     auto rtspNode =
         std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtsp_src_node>(
-            pipeline_nodes_[0]);
+            sourceNode);
     if (rtspNode) {
       std::cout << "[Worker:" << instance_id_ << "] Starting RTSP source node"
                 << std::endl;
@@ -1621,10 +1791,9 @@ bool WorkerHandler::startPipeline() {
 
       rtspNode->start();
     } else {
-      // Try RTMP source (subprocess: no monitor, stable like develop_doc sample)
       auto rtmpNode =
           std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
-              pipeline_nodes_[0]);
+              sourceNode);
       if (rtmpNode) {
         std::cout << "[Worker:" << instance_id_
                   << "] Starting RTMP source node" << std::endl;
@@ -1636,10 +1805,9 @@ bool WorkerHandler::startPipeline() {
 
         rtmpNode->start();
       } else {
-        // Try file source
         auto fileNode =
             std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
-                pipeline_nodes_[0]);
+                sourceNode);
         if (fileNode) {
           std::cout << "[Worker:" << instance_id_
                     << "] Starting file source node" << std::endl;
@@ -1653,7 +1821,7 @@ bool WorkerHandler::startPipeline() {
         } else {
           auto imageNode =
               std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
-                  pipeline_nodes_[0]);
+                  sourceNode);
           if (imageNode) {
             std::cout << "[Worker:" << instance_id_
                       << "] Starting image source node" << std::endl;
@@ -1665,7 +1833,7 @@ bool WorkerHandler::startPipeline() {
           } else {
             auto udpNode =
                 std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
-                    pipeline_nodes_[0]);
+                    sourceNode);
             if (udpNode) {
               std::cout << "[Worker:" << instance_id_
                         << "] Starting UDP source node" << std::endl;
@@ -1677,7 +1845,7 @@ bool WorkerHandler::startPipeline() {
             } else {
               auto appSrcNode =
                   std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
-                      pipeline_nodes_[0]);
+                      sourceNode);
               if (appSrcNode) {
                 std::cout << "[Worker:" << instance_id_
                           << "] Starting app source node (push-based)"
@@ -1861,8 +2029,15 @@ void WorkerHandler::stopPipeline() {
             << std::endl;
 
   try {
+    auto pStop = getActivePipeline();
+    if (!pStop) {
+      std::lock_guard<std::mutex> lock(stop_pipeline_mutex_);
+      stopping_pipeline_.store(false);
+      stop_pipeline_cv_.notify_all();
+      return;
+    }
     // Stop source nodes first
-    for (const auto &node : pipeline_nodes_) {
+    for (const auto &node : pStop->nodes()) {
       if (node) {
         // Check shutdown flag before stopping
         if (shutdown_requested_.load()) {
@@ -2047,11 +2222,107 @@ void WorkerHandler::stopPipeline() {
 
 void WorkerHandler::cleanupPipeline() {
   stopPipeline();
-  pipeline_nodes_.clear();
+  setActivePipeline(nullptr);
   {
     std::lock_guard<std::shared_mutex> lock(state_mutex_);
     current_state_ = "stopped";
   }
+}
+
+WorkerHandler::PipelineSnapshotPtr WorkerHandler::getActivePipeline() const {
+  if (frame_router_) {
+    return frame_router_->getActivePipeline();
+  }
+  std::shared_lock<std::shared_mutex> lock(active_pipeline_mutex_);
+  return active_pipeline_;
+}
+
+WorkerHandler::PipelineSnapshotPtr
+WorkerHandler::setActivePipeline(PipelineSnapshotPtr newPipeline) {
+  if (frame_router_) {
+    return frame_router_->setActivePipeline(std::move(newPipeline));
+  }
+  std::unique_lock<std::shared_mutex> lock(active_pipeline_mutex_);
+  PipelineSnapshotPtr old = std::move(active_pipeline_);
+  active_pipeline_ = std::move(newPipeline);
+  return old;
+}
+
+bool WorkerHandler::ensureOutputLegForRtmp(const CreateInstanceRequest &req) {
+  std::string rtmpUrl = PipelineBuilderRequestUtils::getRTMPUrl(req);
+  if (rtmpUrl.empty()) {
+    return true;
+  }
+  if (output_leg_) {
+    return true;
+  }
+  try {
+    edgeos::PersistentOutputLegParams params;
+    params.channel = 0;
+    params.enableOSD = true;
+    params.bitrate = 1024;
+    output_leg_ = std::make_shared<edgeos::PersistentOutputLeg>(
+        instance_id_, rtmpUrl, params);
+    frame_router_ = std::make_unique<edgeos::FrameRouter>(output_leg_);
+    std::cout << "[Worker:" << instance_id_
+              << "] Created persistent output leg + frame router (zero-downtime RTMP)"
+              << std::endl;
+    return true;
+  } catch (const char* msg) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to create output leg (SDK/lib threw string): "
+              << (msg ? msg : "(null)") << std::endl;
+    last_error_ = std::string("RTMP output leg: ") + (msg ? msg : "unknown");
+    return false;
+  } catch (const std::exception &e) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to create output leg: " << e.what() << std::endl;
+    last_error_ = e.what();
+    return false;
+  } catch (...) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to create output leg: unknown exception (e.g. SDK threw non-std::exception)"
+              << std::endl;
+    last_error_ = "Failed to create RTMP output leg (SDK/library threw non-standard exception)";
+    return false;
+  }
+}
+
+void WorkerHandler::startLastFramePumpThread() {
+  if (last_frame_pump_running_.exchange(true)) {
+    return;
+  }
+  last_frame_pump_stop_.store(false);
+  last_frame_pump_thread_ = std::thread([this]() {
+    const auto interval = std::chrono::milliseconds(33);  // ~30 fps
+    while (!last_frame_pump_stop_.load() && output_leg_ && frame_router_) {
+      cv::Mat frame = frame_router_->getLastFrameCopy();
+      if (!frame.empty()) {
+        output_leg_->injectFrame(frame);
+      }
+      std::this_thread::sleep_for(interval);
+    }
+    last_frame_pump_running_.store(false);
+  });
+  std::cout << "[Worker:" << instance_id_ << "] Last-frame pump started"
+            << std::endl;
+}
+
+void WorkerHandler::stopLastFramePumpThread() {
+  last_frame_pump_stop_.store(true);
+  if (last_frame_pump_thread_.joinable()) {
+    last_frame_pump_thread_.join();
+  }
+  std::cout << "[Worker:" << instance_id_ << "] Last-frame pump stopped"
+            << std::endl;
+}
+
+void WorkerHandler::drainPipelineSnapshot(PipelineSnapshotPtr &snapshot) {
+  if (!snapshot || snapshot->empty()) {
+    return;
+  }
+  const auto drainMs = std::chrono::milliseconds(150);
+  std::this_thread::sleep_for(drainMs);
 }
 
 void WorkerHandler::sendReadySignal() {
@@ -2063,7 +2334,8 @@ void WorkerHandler::setupFrameCaptureHook() {
   std::cout << "[Worker:" << instance_id_
             << "] Setting up frame capture hook..." << std::endl;
 
-  if (pipeline_nodes_.empty()) {
+  auto pHook = getActivePipeline();
+  if (!pHook || pHook->empty()) {
     std::cerr << "[Worker:" << instance_id_
               << "] ⚠ Warning: No pipeline nodes to setup frame capture hook"
               << std::endl;
@@ -2071,17 +2343,13 @@ void WorkerHandler::setupFrameCaptureHook() {
   }
 
   std::cout << "[Worker:" << instance_id_ << "] Searching for app_des_node in "
-            << pipeline_nodes_.size() << " pipeline nodes..." << std::endl;
+            << pHook->size() << " pipeline nodes..." << std::endl;
 
-  // Find app_des_node and check if pipeline has OSD node
-  // CRITICAL: We need to verify that app_des_node is attached after OSD node
-  // to ensure we get processed frames
   std::shared_ptr<cvedix_nodes::cvedix_app_des_node> appDesNode;
   bool hasOSDNode = false;
 
-  // Search through ALL nodes to find app_des_node and check for OSD node
-  // IMPORTANT: Don't stop early - need to check all nodes to find OSD node
-  for (auto it = pipeline_nodes_.rbegin(); it != pipeline_nodes_.rend(); ++it) {
+  const auto &nodes = pHook->nodes();
+  for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
     auto node = *it;
     if (!node) {
       continue;
@@ -2289,12 +2557,12 @@ void WorkerHandler::setupFrameCaptureHook() {
 }
 
 void WorkerHandler::setupQueueSizeTrackingHook() {
-  if (pipeline_nodes_.empty()) {
+  auto pQueue = getActivePipeline();
+  if (!pQueue || pQueue->empty()) {
     return;
   }
 
-  // Setup meta_arriving_hooker on all nodes to track input queue size
-  for (const auto &node : pipeline_nodes_) {
+  for (const auto &node : pQueue->nodes()) {
     if (!node) {
       continue;
     }
@@ -2455,18 +2723,21 @@ Json::Value WorkerHandler::getParamsFromConfig(const Json::Value &config) const 
 }
 
 bool WorkerHandler::applyLinesFromParamsToPipeline(const Json::Value &params) {
-  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
+  if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
     return true; // No pipeline, nothing to apply
   }
   std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node> baCrosslineNode;
-  for (const auto &node : pipeline_nodes_) {
-    if (!node) continue;
-    auto crosslineNode =
-        std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(
-            node);
-    if (crosslineNode) {
-      baCrosslineNode = crosslineNode;
-      break;
+  auto pLines = getActivePipeline();
+  if (pLines) {
+    for (const auto &node : pLines->nodes()) {
+      if (!node) continue;
+      auto crosslineNode =
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_node>(
+              node);
+      if (crosslineNode) {
+        baCrosslineNode = crosslineNode;
+        break;
+      }
     }
   }
   if (!baCrosslineNode) {
@@ -3008,184 +3279,313 @@ bool WorkerHandler::loadConfigFromFile(const std::string &configPath) {
   }
 }
 
-bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
-  std::lock_guard<std::mutex> lock(pipeline_swap_mutex_);
-
-  if (!pipeline_running_.load() || pipeline_nodes_.empty()) {
-    // Pipeline not running, just rebuild normally
-    return buildPipeline();
-  }
-
-  std::cout << "[Worker:" << instance_id_
-            << "] Starting hot swap pipeline (minimal downtime)..."
-            << std::endl;
-
-  auto totalStartTime = std::chrono::steady_clock::now();
-
-  // Step 1: Pre-build new pipeline (while old pipeline still running)
-  std::cout
-      << "[Worker:" << instance_id_
-      << "] Step 1/3: Pre-building new pipeline (old pipeline still running)..."
-      << std::endl;
-
-  building_new_pipeline_.store(true);
-  new_pipeline_nodes_.clear();
-
-  // Save current config
-  Json::Value savedConfig = config_;
-
-  // Temporarily update config for building
-  Json::Value tempConfig = config_;
-  for (const auto &key : newConfig.getMemberNames()) {
-    tempConfig[key] = newConfig[key];
-  }
-
-  // Build new pipeline (don't start it yet)
-  auto buildStartTime = std::chrono::steady_clock::now();
-  if (!preBuildPipeline(tempConfig)) {
-    std::cerr << "[Worker:" << instance_id_
-              << "] Failed to pre-build new pipeline" << std::endl;
-    building_new_pipeline_.store(false);
+bool WorkerHandler::startSourceNodeForSnapshot(PipelineSnapshotPtr snapshot) {
+  if (!snapshot || snapshot->empty()) {
     return false;
   }
-  auto buildEndTime = std::chrono::steady_clock::now();
-  auto buildDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                           buildEndTime - buildStartTime)
-                           .count();
+  auto sourceNode = snapshot->sourceNode();
+  auto rtspNode =
+      std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtsp_src_node>(sourceNode);
+  if (rtspNode) {
+    rtspNode->start();
+    return true;
+  }
+  auto rtmpNode =
+      std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(sourceNode);
+  if (rtmpNode) {
+    rtmpNode->start();
+    return true;
+  }
+  auto fileNode =
+      std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(sourceNode);
+  if (fileNode) {
+    fileNode->start();
+    return true;
+  }
+  auto imageNode =
+      std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(sourceNode);
+  if (imageNode) {
+    imageNode->start();
+    return true;
+  }
+  auto udpNode =
+      std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(sourceNode);
+  if (udpNode) {
+    udpNode->start();
+    return true;
+  }
+  auto appSrcNode =
+      std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(sourceNode);
+  if (appSrcNode) {
+    appSrcNode->start();
+    return true;
+  }
+  return false;
+}
 
-  std::cout << "[Worker:" << instance_id_ << "] ✓ New pipeline pre-built in "
-            << buildDuration << "ms (old pipeline still running)" << std::endl;
-
-  // Step 2: Stop old pipeline (as fast as possible)
-  std::cout << "[Worker:" << instance_id_
-            << "] Step 2/3: Stopping old pipeline (fast swap)..." << std::endl;
-
-  auto stopStartTime = std::chrono::steady_clock::now();
-
-  // Stop source nodes first (this stops the pipeline)
-  bool stopSuccess = false;
-  for (const auto &node : pipeline_nodes_) {
-    if (node) {
-      try {
-        // Try to stop gracefully first
-        auto rtspNode =
-            std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtsp_src_node>(node);
-        if (rtspNode) {
-          rtspNode->stop();
+void WorkerHandler::stopSourceNodeForSnapshot(PipelineSnapshotPtr &snapshot,
+                                              bool releaseSnapshot) {
+  if (!snapshot || snapshot->empty()) {
+    return;
+  }
+  auto node = snapshot->sourceNode();
+  if (!node) {
+    if (releaseSnapshot) snapshot.reset();
+    return;
+  }
+  try {
+    auto rtspNode =
+        std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtsp_src_node>(node);
+    if (rtspNode) {
+      rtspNode->stop();
+    } else {
+      auto rtmpNode =
+          std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(node);
+      if (rtmpNode) {
+        rtmpNode->stop();
+      } else {
+        auto imageNode =
+            std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(node);
+        if (imageNode) {
+          imageNode->stop();
         } else {
-          auto rtmpNode =
-              std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_src_node>(
-                  node);
-          if (rtmpNode) {
-            rtmpNode->stop();
+          auto udpNode =
+              std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(node);
+          if (udpNode) {
+            udpNode->stop();
           } else {
-            auto imageNode =
-                std::dynamic_pointer_cast<cvedix_nodes::cvedix_image_src_node>(
-                    node);
-            if (imageNode) {
-              imageNode->stop();
+            auto appSrcNode =
+                std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(node);
+            if (appSrcNode) {
+              appSrcNode->stop();
             } else {
-              auto udpNode =
-                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_udp_src_node>(
-                      node);
-              if (udpNode) {
-                udpNode->stop();
-              } else {
-                auto appSrcNode =
-                    std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_src_node>(
-                        node);
-                if (appSrcNode) {
-                  appSrcNode->stop();
-                } else {
-                  auto fileNode =
-                      std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(
-                          node);
-                  if (fileNode) {
-                    fileNode->stop();
-                  }
-                }
+              auto fileNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_src_node>(node);
+              if (fileNode) {
+                fileNode->stop();
               }
             }
           }
         }
+      }
+    }
+    node->detach_recursively();
+  } catch (const std::exception &e) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Error stopping old pipeline source: " << e.what() << std::endl;
+  }
+  if (releaseSnapshot) {
+    snapshot.reset();
+  }
+}
 
-        // Detach to fully stop pipeline
-        node->detach_recursively();
-        stopSuccess = true;
-        break; // Only need to stop source node
-      } catch (const std::exception &e) {
-        std::cerr << "[Worker:" << instance_id_
-                  << "] Error stopping old pipeline: " << e.what() << std::endl;
+bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
+  if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
+    return buildPipeline();
+  }
+
+  Json::Value tempConfig = config_;
+  for (const auto &key : newConfig.getMemberNames()) {
+    tempConfig[key] = newConfig[key];
+  }
+  // CRITICAL: Ensure tempConfig has RTMP output so preBuildPipeline builds with
+  // FrameRouterSinkNode / output_leg_ and stream is not lost after swap.
+  if (config_.isMember("additionalParams") && config_["additionalParams"].isObject() &&
+      config_["additionalParams"].isMember("output") &&
+      config_["additionalParams"]["output"].isObject()) {
+    const auto& out = config_["additionalParams"]["output"];
+    bool hasRtmp = (out.isMember("RTMP_DES_URL") && !out["RTMP_DES_URL"].asString().empty()) ||
+                   (out.isMember("RTMP_URL") && !out["RTMP_URL"].asString().empty());
+    if (hasRtmp) {
+      if (!tempConfig.isMember("additionalParams") || !tempConfig["additionalParams"].isObject()) {
+        tempConfig["additionalParams"] = Json::Value(Json::objectValue);
+      }
+      Json::Value& tOut = tempConfig["additionalParams"]["output"];
+      if (!tOut.isObject() || (tOut.get("RTMP_DES_URL", "").asString().empty() &&
+                               tOut.get("RTMP_URL", "").asString().empty())) {
+        tempConfig["additionalParams"]["output"] = config_["additionalParams"]["output"];
+        std::cout << "[Worker:" << instance_id_
+                  << "] Hot-swap: preserved RTMP output in tempConfig (avoid stream loss)"
+                  << std::endl;
       }
     }
   }
-
-  if (!stopSuccess) {
-    std::cerr << "[Worker:" << instance_id_
-              << "] Warning: Failed to stop old pipeline gracefully"
-              << std::endl;
+  if (config_.isMember("RtmpUrl") && !config_["RtmpUrl"].asString().empty() &&
+      (!tempConfig.isMember("RtmpUrl") || tempConfig["RtmpUrl"].asString().empty())) {
+    tempConfig["RtmpUrl"] = config_["RtmpUrl"];
+    if (tempConfig["additionalParams"].isObject()) {
+      tempConfig["additionalParams"]["RTMP_URL"] = config_["RtmpUrl"];
+    }
   }
 
+  // Zero-downtime path: persistent output leg + atomic swap (no RTMP reconnect)
+  if (frame_router_ && output_leg_) {
+    std::cout << "[Worker:" << instance_id_
+              << "] Zero-downtime pipeline swap (build new → atomic swap → drain old)..."
+              << std::endl;
+    auto totalStartTime = std::chrono::steady_clock::now();
+
+    // 1) Capture last frame and start pump so RTMP never sees gap
+    frame_router_->setLastFramePumpActive(true);
+    if (has_frame_ && last_frame_ && !last_frame_->empty()) {
+      frame_router_->setLastFrame(*last_frame_);
+      startLastFramePumpThread();
+    }
+
+    // 2) Build new pipeline (reuses frame_router_ → FrameRouterSinkNode)
+    building_new_pipeline_.store(true);
+    new_pipeline_nodes_.clear();
+    if (!preBuildPipeline(tempConfig)) {
+      building_new_pipeline_.store(false);
+      stopLastFramePumpThread();
+      frame_router_->setLastFramePumpActive(false);
+      return false;
+    }
+    building_new_pipeline_.store(false);
+    PipelineSnapshotPtr newSnapshot =
+        std::make_shared<PipelineSnapshot>(std::move(new_pipeline_nodes_));
+    new_pipeline_nodes_.clear();
+
+    // 3) Atomic swap: new becomes active; old is returned for stop + drain
+    PipelineSnapshotPtr oldSnapshot = frame_router_->setActivePipeline(newSnapshot);
+
+    // 4) Stop old pipeline source (no more frames into old graph); do not release yet
+    stopSourceNodeForSnapshot(oldSnapshot, false);
+
+    // 5) Drain in-flight frames in old graph, then release
+    drainPipelineSnapshot(oldSnapshot);
+    oldSnapshot.reset();
+
+    // Optional test delay: EDGE_AI_HOTSWAP_DELAY_SEC (e.g. 5) = sleep Ns before starting new pipeline
+    {
+      const char* env = std::getenv("EDGE_AI_HOTSWAP_DELAY_SEC");
+      int delaySec = env ? std::atoi(env) : 0;
+      if (delaySec > 0) {
+        std::cout << "[Worker:" << instance_id_
+                  << "] Hot-swap test delay: sleeping " << delaySec << "s before starting new pipeline..."
+                  << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(delaySec));
+        std::cout << "[Worker:" << instance_id_
+                  << "] Hot-swap test delay: done, starting new pipeline"
+                  << std::endl;
+      }
+    }
+
+    // 6) Start new pipeline source
+    config_ = tempConfig;
+    setupFrameCaptureHook();
+    setupQueueSizeTrackingHook();
+    {
+      std::lock_guard<std::mutex> lock(start_pipeline_mutex_);
+      start_time_ = std::chrono::steady_clock::now();
+      last_fps_update_ = start_time_;
+      frames_processed_.store(0);
+      dropped_frames_.store(0);
+      current_fps_.store(0.0);
+    }
+    if (!startSourceNodeForSnapshot(newSnapshot)) {
+      stopLastFramePumpThread();
+      frame_router_->setLastFramePumpActive(false);
+      return false;
+    }
+
+    // 7) Stop pump; frame_router_ now forwards from new pipeline
+    stopLastFramePumpThread();
+    frame_router_->setLastFramePumpActive(false);
+
+    {
+      std::lock_guard<std::shared_mutex> lock(state_mutex_);
+      current_state_ = "running";
+    }
+
+    auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::steady_clock::now() - totalStartTime).count();
+    std::cout << "[Worker:" << instance_id_
+              << "] ✓ Zero-downtime swap done in " << totalDuration << "ms (no RTMP reconnect)"
+              << std::endl;
+    std::cout << "[Worker:" << instance_id_
+              << "] New pipeline nodes=" << newSnapshot->size()
+              << ", output_leg_ active -> RTMP stream via FrameRouter"
+              << std::endl;
+    return true;
+  }
+
+  // Legacy path: stop old → build new → start new (short gap, RTMP reconnects)
+  std::cout << "[Worker:" << instance_id_
+            << "] Pipeline swap (stop old → build new → start new)..." << std::endl;
+
+  auto totalStartTime = std::chrono::steady_clock::now();
+  PipelineSnapshotPtr oldSnapshot = setActivePipeline(nullptr);
   {
     std::lock_guard<std::mutex> lock(start_pipeline_mutex_);
     pipeline_running_.store(false);
   }
+  stopSourceNodeForSnapshot(oldSnapshot);
 
-  auto stopEndTime = std::chrono::steady_clock::now();
-  auto stopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                          stopEndTime - stopStartTime)
-                          .count();
-
-  std::cout << "[Worker:" << instance_id_ << "] Old pipeline stopped in "
-            << stopDuration << "ms" << std::endl;
-
-  // Step 3: Swap pipelines and start new one immediately
-  std::cout << "[Worker:" << instance_id_
-            << "] Step 3/3: Swapping to new pipeline..." << std::endl;
-
-  auto swapStartTime = std::chrono::steady_clock::now();
-
-  // Swap pipelines
-  pipeline_nodes_.clear();
-  pipeline_nodes_ = std::move(new_pipeline_nodes_);
+  building_new_pipeline_.store(true);
   new_pipeline_nodes_.clear();
-  building_new_pipeline_.store(false);
-
-  // Update config
-  config_ = tempConfig;
-
-  // Start new pipeline immediately
-  if (!startPipeline()) {
+  if (!preBuildPipeline(tempConfig)) {
+    building_new_pipeline_.store(false);
     std::cerr << "[Worker:" << instance_id_
-              << "] Failed to start new pipeline after swap" << std::endl;
-    {
-      std::lock_guard<std::mutex> lock(start_pipeline_mutex_);
-      pipeline_running_.store(false);
+              << "] Pre-build failed after stopping old pipeline; instance needs restart"
+              << std::endl;
+    return false;
+  }
+  building_new_pipeline_.store(false);
+  auto buildEndTime = std::chrono::steady_clock::now();
+
+  PipelineSnapshotPtr newSnapshot =
+      std::make_shared<PipelineSnapshot>(std::move(new_pipeline_nodes_));
+  new_pipeline_nodes_.clear();
+
+  setActivePipeline(newSnapshot);
+  config_ = tempConfig;
+  setupFrameCaptureHook();
+  setupQueueSizeTrackingHook();
+
+  {
+    std::lock_guard<std::mutex> lock(start_pipeline_mutex_);
+    pipeline_running_.store(true);
+    start_time_ = std::chrono::steady_clock::now();
+    last_fps_update_ = start_time_;
+    frames_processed_.store(0);
+    dropped_frames_.store(0);
+    current_fps_.store(0.0);
+  }
+  {
+    std::lock_guard<std::shared_mutex> lock(state_mutex_);
+    current_state_ = "running";
+  }
+
+  // Optional test delay: EDGE_AI_HOTSWAP_DELAY_SEC (e.g. 5) = sleep Ns before starting new pipeline
+  {
+    const char* env = std::getenv("EDGE_AI_HOTSWAP_DELAY_SEC");
+    int delaySec = env ? std::atoi(env) : 0;
+    if (delaySec > 0) {
+      std::cout << "[Worker:" << instance_id_
+                << "] Hot-swap test delay: sleeping " << delaySec << "s before starting new pipeline..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(delaySec));
+      std::cout << "[Worker:" << instance_id_
+                << "] Hot-swap test delay: done, starting new pipeline"
+                << std::endl;
     }
-    config_ = savedConfig; // Restore config
+  }
+
+  if (!startSourceNodeForSnapshot(newSnapshot)) {
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to start new pipeline source after swap" << std::endl;
     return false;
   }
 
-  auto swapEndTime = std::chrono::steady_clock::now();
-
   auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                           swapEndTime - totalStartTime)
-                           .count();
-
-  auto downtime = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      swapEndTime - stopStartTime)
-                      .count();
-
+                           std::chrono::steady_clock::now() - totalStartTime).count();
+  auto buildDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                           buildEndTime - totalStartTime).count();
   std::cout << "[Worker:" << instance_id_
-            << "] ✓ Pipeline hot-swapped successfully!" << std::endl;
-  std::cout << "[Worker:" << instance_id_
-            << "]   - Pre-build time: " << buildDuration << "ms (no downtime)"
+            << "] ✓ Pipeline swap done in " << totalDuration << "ms (build: "
+            << buildDuration << "ms); stream output reconnects after old pipeline stopped)"
             << std::endl;
-  std::cout << "[Worker:" << instance_id_ << "]   - Downtime: " << downtime
-            << "ms" << std::endl;
-  std::cout << "[Worker:" << instance_id_
-            << "]   - Total time: " << totalDuration << "ms" << std::endl;
-
   return true;
 }
 
@@ -3212,9 +3612,17 @@ bool WorkerHandler::preBuildPipeline(const Json::Value &newConfig) {
       return false;
     }
 
-    // Build new pipeline (don't start it)
+    if (pipeline_builder_) {
+      pipeline_builder_->ensureCVEDIXInitialized();
+    }
+    if (!ensureOutputLegForRtmp(req)) {
+      return false;
+    }
+
+    // Build new pipeline (don't start it); use frame_router_ when RTMP for zero-downtime
     new_pipeline_nodes_ = pipeline_builder_->buildPipeline(optSolution.value(),
-                                                           req, instance_id_);
+                                                           req, instance_id_, {},
+                                                           frame_router_.get());
 
     if (new_pipeline_nodes_.empty()) {
       last_error_ = "Pipeline builder returned empty pipeline";
@@ -3225,10 +3633,20 @@ bool WorkerHandler::preBuildPipeline(const Json::Value &newConfig) {
               << new_pipeline_nodes_.size() << " nodes" << std::endl;
     return true;
 
+  } catch (const char* msg) {
+    last_error_ = std::string("Pre-build (SDK/lib threw string): ") + (msg ? msg : "(null)");
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to pre-build pipeline: " << (msg ? msg : "(null)") << std::endl;
+    return false;
   } catch (const std::exception &e) {
     last_error_ = e.what();
     std::cerr << "[Worker:" << instance_id_
               << "] Failed to pre-build pipeline: " << e.what() << std::endl;
+    return false;
+  } catch (...) {
+    last_error_ = "Pre-build failed (unknown exception)";
+    std::cerr << "[Worker:" << instance_id_
+              << "] Failed to pre-build pipeline: unknown exception" << std::endl;
     return false;
   }
 }
