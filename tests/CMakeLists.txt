@@ -118,6 +118,8 @@ target_sources(edgeos_api_tests PRIVATE
     # ${CMAKE_SOURCE_DIR}/src/api/ai_handler.cpp  # Commented out: requires C++20 for counting_semaphore, but project uses C++17
     ${CMAKE_SOURCE_DIR}/src/core/watchdog.cpp
     ${CMAKE_SOURCE_DIR}/src/core/health_monitor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/device_report_collector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/device_watchdog.cpp
     ${CMAKE_SOURCE_DIR}/src/core/endpoint_monitor.cpp
     ${CMAKE_SOURCE_DIR}/src/core/request_middleware.cpp
     ${CMAKE_SOURCE_DIR}/src/core/metrics_interceptor.cpp
