@@ -1025,6 +1025,13 @@ InstanceStorage::configJsonToInstanceInfo(const Json::Value &config,
           if (key == "FILE_PATH" && info.filePath.empty()) {
             info.filePath = additionalParams[key].asString();
           }
+
+          // Extract RTMP output URL: prefer RTMP_DES_URL (output), else RTMP_URL if still unset
+          if (key == "RTMP_DES_URL") {
+            info.rtmpUrl = additionalParams[key].asString();
+          } else if (key == "RTMP_URL" && info.rtmpUrl.empty()) {
+            info.rtmpUrl = additionalParams[key].asString();
+          }
         }
       }
     }

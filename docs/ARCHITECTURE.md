@@ -26,61 +26,80 @@ flowchart LR
 
 Recognition và Push frame dùng chung decode + infer qua facade/session. Xem [AI_RUNTIME_DESIGN.md](AI_RUNTIME_DESIGN.md).
 
-## System Architecture
+## Kiến Trúc Phân Tầng (Layered Architecture)
+
+Biểu đồ này cho thấy cách dòng chảy dữ liệu đi từ ngoài (Client) vào trong cùng của hệ thống (AI Core). Mỗi tầng có một trách nhiệm duy nhất (Single Responsibility).
 
 ```mermaid
-graph TB
-    Client[Client Application] -->|HTTP Request| API[REST API Server<br/>Drogon Framework]
+flowchart TD
+    %% Định nghĩa Client
+    Client[Client / Web UI / Mobile App]
 
-    API --> HealthHandler[Health Handler<br/>/v1/core/health]
-    API --> VersionHandler[Version Handler<br/>/v1/core/version]
-    API --> InstanceHandler[Instance Handler<br/>/v1/core/instance/*]
-    API --> CreateInstanceHandler[Create Instance Handler<br/>/v1/core/instance]
-    API --> SolutionHandler[Solution Handler<br/>/v1/core/solution/*]
-    API --> GroupHandler[Group Handler<br/>/v1/core/groups/*]
-    API --> LinesHandler[Lines Handler<br/>/v1/core/instance/*/lines/*]
-    API --> NodeHandler[Node Handler<br/>/v1/core/node/*]
-    API --> RecognitionHandler[Recognition Handler<br/>/v1/recognition/*]
-    API --> MetricsHandler[Metrics Handler<br/>/v1/core/metrics]
-    API --> SystemInfoHandler[System Info Handler<br/>/v1/core/system/*]
-    API --> ConfigHandler[Config Handler<br/>/v1/core/config/*]
-    API --> LogHandler[Log Handler<br/>/v1/core/log/*]
-    API --> SwaggerHandler[Swagger Handler<br/>/swagger, /openapi.yaml]
-
-    subgraph "Instance Management"
-        InstanceHandler --> IInstanceManager[IInstanceManager Interface]
-        CreateInstanceHandler --> IInstanceManager
-        GroupHandler --> IInstanceManager
-        LinesHandler --> IInstanceManager
+    %% Layer 1: API Gateway (Drogon HTTP Server)
+    subgraph Layer1 [Layer 1: REST API Gateway]
+        API_Server[Drogon HTTP Server
+Port: 8080]
+        Handler_Instance[Instance Handler
+/v1/core/instance]
+        Handler_System[System Handler
+Health, Logs, System Info]
+        
+        API_Server --> Handler_Instance
+        API_Server --> Handler_System
     end
 
-    subgraph "Execution Modes"
-        IInstanceManager --> InProcessManager[InProcessInstanceManager<br/>Legacy Mode]
-        IInstanceManager --> SubprocessManager[SubprocessInstanceManager<br/>Production Default]
-        SubprocessManager --> WorkerSupervisor[Worker Supervisor]
-        WorkerSupervisor --> Worker1[Worker Process 1]
-        WorkerSupervisor --> Worker2[Worker Process 2]
-        WorkerSupervisor --> WorkerN[Worker Process N]
+    %% Layer 2: Quản lý vòng đời (Lifecycle Management)
+    subgraph Layer2 [Layer 2: Execution Management]
+        IInstanceManager{IInstanceManager
+Interface}
+        Mode_InProcess[InProcess Manager
+(Legacy / Dev Mode)]
+        Mode_Subprocess[Subprocess Manager
+(Production Mode)]
+        
+        Handler_Instance --> IInstanceManager
+        IInstanceManager .-> Mode_InProcess
+        IInstanceManager .-> Mode_Subprocess
     end
 
-    HealthHandler -->|JSON Response| Client
-    VersionHandler -->|JSON Response| Client
-    InstanceHandler -->|JSON Response| Client
-    CreateInstanceHandler -->|JSON Response| Client
-    SolutionHandler -->|JSON Response| Client
-    GroupHandler -->|JSON Response| Client
-    LinesHandler -->|JSON Response| Client
-
-    subgraph "Server Components"
-        API
-        Config[Configuration<br/>Host/Port/Threads]
-        Watchdog[Watchdog Service]
-        HealthMonitor[Health Monitor]
+    %% Layer 3: AI Runtime và SDK xử lý thực tế
+    subgraph Layer3 [Layer 3: AI Runtime & CVEDIX SDK]
+        WorkerSupervisor[Worker Supervisor
+Quản lý các Worker process]
+        
+        subgraph Sub_Process_Isolation [Worker Processes (Cô lập)]
+            Worker1[EdgeOS Worker 1
+Camera A]
+            Worker2[EdgeOS Worker 2
+Camera B]
+        end
+        
+        AI_Facade[AI Runtime Facade
+Decode & Cache]
+        InferSession[Inference Session
+TensorRT / RKNN / ONNX]
+        
+        SDK[CVEDIX SDK
+43+ Nodes Pipeline]
     end
 
-    Config --> API
-    Watchdog --> API
-    HealthMonitor --> Watchdog
+    %% Luồng liên kết
+    Client -- HTTP Request --> API_Server
+    Mode_Subprocess --> WorkerSupervisor
+    WorkerSupervisor == Unix Socket IPC ==> Worker1
+    WorkerSupervisor == Unix Socket IPC ==> Worker2
+    
+    Worker1 --> AI_Facade
+    AI_Facade --> InferSession
+    InferSession --> SDK
+    
+    %% Style
+    classDef client fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef layer fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef core fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    class Client client;
+    class API_Server,Handler_Instance,Handler_System layer;
+    class AI_Facade,InferSession,SDK core;
 ```
 
 ## Request Flow
@@ -185,26 +204,42 @@ flowchart TD
     SleepMonitor --> HealthMonitorLoop
 ```
 
-## Flow Xử Lý Request Chi Tiết
+## Vòng Đời Của 1 Request Trong Máy Chủ C++ (Drogon Framework)
+
+Khi bạn dùng Postman gửi một lệnh gọi API, hệ thống C++ xử lý dữ liệu qua các bước sau để phản hồi cực mượt mà:
 
 ```mermaid
-flowchart TD
-    Start([HTTP Request Từ Client]) --> ParseHeaders[Parse HTTP Headers<br/>Content-Type, Authorization, etc.]
-    ParseHeaders --> ValidateMethod{HTTP Method<br/>Hợp Lệ?}
-    ValidateMethod -->|Không| Return405[405 Method Not Allowed]
-    ValidateMethod -->|Có| ParseBody[Parse Request Body<br/>JSON, Form Data, etc.]
-    ParseBody --> ValidateBody{Body Hợp Lệ?}
-    ValidateBody -->|Không| Return400[400 Bad Request<br/>Validation Error]
-    ValidateBody -->|Có| RouteToHandler[Route Đến Handler<br/>Dựa trên path pattern]
-    RouteToHandler --> ExecuteHandler[Thực Thi Handler Logic]
-    ExecuteHandler --> ProcessBusinessLogic[Xử Lý Business Logic<br/>Database, External APIs, etc.]
-    ProcessBusinessLogic --> GenerateResponse[Tạo Response<br/>JSON, Status Code]
-    GenerateResponse --> AddHeaders[Thêm Response Headers<br/>Content-Type, CORS, etc.]
-    AddHeaders --> SendResponse[Gửi Response Về Client]
-    SendResponse --> End([Kết Thúc])
-
-    Return400 --> End
-    Return405 --> End
+sequenceDiagram
+    participant C as Client (Postman)
+    participant Core as Drogon Framework (Router)
+    participant Valid as Validation (Check)
+    participant Handler as API Handler
+    participant Logic as Instance Manager
+    participant OS as Hệ Điều Hành (OS)
+    
+    C->>Core: GET /v1/core/instance (Thêm Token, Body)
+    Note over Core: Router tìm Controller dựa<br/> trên Path "/v1/core/instance"
+    
+    Core->>Valid: Parse HTTP Headers & JSON Body
+    alt [Path không tồn tại hoặc sai Method]
+        Valid-->>C: Trả về HTTP 404/405
+    else [Body/JSON không hợp lệ]
+        Valid-->>C: Trả về HTTP 400 Bad Request
+    end
+    
+    Valid->>Handler: Chuyển dữ liệu đã làm sạch
+    
+    Handler->>Logic: Yêu cầu lấy thông tin quản lý instances
+    Note over Logic,OS: Xử lý Logic Nghiệp Vụ
+    Logic->>OS: Quét các tiến trình Worker đang chạy
+    OS-->>Logic: Trả về trạng thái RAM, CPU của từng Worker
+    
+    Logic-->>Handler: Đối tượng C++ chứa dữ liệu
+    
+    Handler->>Core: Serialize (Chuyển C++ Struct thành chuỗi JSON)
+    Note over Core: Thêm CORS Headers, <br/>Content-Type: application/json
+    
+    Core-->>C: HTTP 200 OK + {"data": [...]}
 ```
 
 ## Flow Khởi Động Server
@@ -236,36 +271,55 @@ flowchart TD
     Running --> End
 ```
 
-## Background Services Flow
+## "Bảo Mẫu" Hệ Thống (Watchdog & Health Monitor)
 
-### Watchdog Service
-
-```mermaid
-flowchart TD
-    Start([Watchdog Thread Start]) --> Init[Khởi Tạo Watchdog<br/>Set interval, timeout]
-    Init --> Loop[Watchdog Loop]
-    Loop --> CheckHeartbeat[Kiểm Tra Heartbeat<br/>Từ Health Monitor]
-    CheckHeartbeat --> HeartbeatOK{Heartbeat<br/>OK?}
-    HeartbeatOK -->|Có| UpdateLastHeartbeat[Cập Nhật<br/>Last Heartbeat Time]
-    HeartbeatOK -->|Không| CheckTimeout{Kiểm Tra<br/>Timeout?}
-    CheckTimeout -->|Chưa| UpdateLastHeartbeat
-    CheckTimeout -->|Đã| TriggerRecovery[Kích Hoạt<br/>Recovery Action]
-    UpdateLastHeartbeat --> Sleep[Sleep Interval<br/>5 giây]
-    TriggerRecovery --> Sleep
-    Sleep --> Loop
-```
-
-### Health Monitor Service
+Hai luồng ngầm (Background Threads) này giúp đảm bảo Edge AI API có thể dùng ở Production 24/7/365 mà không sợ treo, tràn RAM hay đơ do lỗi nền tảng.
 
 ```mermaid
 flowchart TD
-    Start([Health Monitor Thread Start]) --> Init[Khởi Tạo Health Monitor<br/>Set interval]
-    Init --> Loop[Health Monitor Loop]
-    Loop --> CollectMetrics[Thu Thập Metrics<br/>CPU, Memory, etc.]
-    CollectMetrics --> CreateHeartbeat[Tạo Heartbeat<br/>Timestamp, Metrics]
-    CreateHeartbeat --> SendHeartbeat[Gửi Heartbeat<br/>Đến Watchdog]
-    SendHeartbeat --> Sleep[Sleep Interval<br/>1 giây]
-    Sleep --> Loop
+    subgraph Background_Services [Các Dịch Vụ Ngầm Trong Main Process]
+        
+        subgraph Thread_Monitor [Luồng 1: Health Monitor]
+            Collect[<b>Thu thập Metrics</b>
+(Mỗi 1 giây)]
+            Collect_RAM(Tính RAM) -.- Collect
+            Collect_CPU(Tính CPU) -.- Collect
+            
+            SendHB[Gửi System Heartbeat
+(Nhịp đập hệ thống)]
+            Collect --> SendHB
+        end
+        
+        subgraph Thread_Watchdog [Luồng 2: Watchdog Supervisor]
+            CheckHB[<b>Kiểm tra Nhịp Đập</b>
+(Mỗi 5 giây)]
+            
+            Cond_Alive{Nhịp đập
+ổn không?}
+            Cond_Timeout{Treo quá 
+30 Giây?}
+            
+            Action_Save[Lưu lại
+thời gian sống]
+            Action_Recover((<b>KÍCH HOẠT
+PHỤC HỒI</b>
+Khởi động lại
+các thành phần chết))
+            
+            CheckHB --> Cond_Alive
+            Cond_Alive -->|Có nhịp đập| Action_Save
+            Cond_Alive -->|Mất tín hiệu| Cond_Timeout
+            
+            Cond_Timeout -->|Chưa qua 30s| Action_Save
+            Cond_Timeout -->|Đã qua 30s!| Action_Recover
+        end
+
+    end
+
+    SendHB == "Tôi vẫn sống!" ==> CheckHB
+
+    classDef danger fill:#ffeb3b,stroke:#f57f17,stroke-width:2px;
+    class Action_Recover danger;
 ```
 
 ## Mô Tả Các Component
@@ -422,6 +476,109 @@ flowchart TB
     EventsN --> MQTT
 ```
 
+## Luồng Dữ Liệu Trong 1 Camera (AI Pipeline Data Flow)
+
+Khi một Worker Process được bật lên, nó sẽ nạp CVEDIX SDK để thiết lập một "đường ống" (Pipeline) xử lý liên tục. Đây là cách 1 khung hình (frame) đi từ Camera cho đến khi ra được cảnh báo:
+
+```mermaid
+flowchart LR
+
+Camera[(Camera RTSP<br>/ Tệp Video)]
+
+subgraph AI_Pipeline["Pipeline Chạy Trong Worker Process - CVEDIX SDK"]
+direction LR
+
+Node_Source[Source Node<br>Kéo luồng video<br>Decode]
+
+Node_Detector[Detector Node<br>YOLO / TensorRT]
+
+Node_Tracker[Tracker Node<br>SORT / ByteTrack]
+
+Node_BA[Behavior Analysis<br>Cắt qua vạch / Dừng đỗ]
+
+Node_Fusion[OSD Fusion Node<br>Vẽ khung và thông tin]
+
+Node_Broker[Broker Node<br>Đóng gói JSON Event]
+
+Node_Dest[Destination Node<br>Encode RTSP / Lưu file]
+
+Node_Source -->|Raw Frame| Node_Detector
+Node_Detector -->|Bounding Box| Node_Tracker
+Node_Tracker -->|Object ID| Node_BA
+
+Node_BA --> Node_Fusion
+Node_BA -->|Event Alert| Node_Broker
+
+Node_Fusion -->|Frame Overlay| Node_Dest
+
+end
+
+MQTT>MQTT Broker / Kafka]
+Output[(Monitor Screen<br>RTMP Recording)]
+
+Camera --> Node_Source
+Node_Broker ==> MQTT
+Node_Dest ==> Output
+
+classDef ai fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+classDef node fill:#e1f5fe,stroke:#01579b,stroke-width:1px;
+
+class Camera,MQTT,Output ai;
+class Node_Source,Node_Detector,Node_Tracker,Node_BA,Node_Fusion,Node_Broker,Node_Dest node;
+```
+
+---
+
+## Luồng Cập Nhật Instance Tại Runtime (Zero-Downtime Hot Reload)
+
+Khi người dùng cập nhật cấu hình của một instance (ví dụ: thay đổi tọa độ vạch kẻ `CrossingLines` hoặc `CROSSLINE_`), hệ thống có khả năng áp dụng cấu hình mới trực tiếp vào pipeline đang chạy mà không cần tái tạo hay khởi động lại (restart) quá trình xử lý, giúp giữ nguyên uptime và không gây gián đoạn luồng video phân tích.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as REST API Server
+    participant Manager as Instance Manager
+    participant Worker as Worker Process (WorkerHandler)
+    participant Pipeline as AI Pipeline (SDK Node)
+
+    Client->>API: PATCH/PUT /v1/core/instance/{id}<br/>(additionalParams chứa line mới)
+    API->>Manager: updateInstance(instanceId, updateJson)
+    Manager->>Worker: Gửi IPC Message: UPDATE_INSTANCE
+    Worker->>Worker: Merge cấu hình cũ và mới
+    Worker->>Worker: applyConfigToPipeline(oldConfig, newConfig)
+    
+    alt Chỉ có cấu hình line thay đổi (CrossingLines / CROSSLINE_*)
+        Worker->>Worker: Phát hiện runtime-updatable params
+        Worker->>Worker: applyLinesFromParamsToPipeline(newParams)
+        Worker->>Pipeline: ba_crossline_node->set_lines(lines)
+        Pipeline-->>Worker: success
+        Worker-->>Manager: Thành công (Không rebuild/restart)
+    else Có tham số yêu cầu thay đổi cấu trúc (Solution, Model, Source URL...)
+        Worker->>Worker: checkIfNeedsRebuild() == true
+        Worker->>Pipeline: Rebuild toàn bộ hoặc Hot-swap pipeline
+    end
+    
+    Manager-->>API: Instance updated
+    API-->>Client: HTTP 200 OK
+```
+
+**Các đặc điểm chính của kỹ thuật Hot Reload trên Worker:**
+1. **Không buộc rebuild:** Hàm `checkIfNeedsRebuild()` liệt kê các thay đổi về tọa độ `CrossingLines` (hoặc prefix `CROSSLINE_`) là các tham số an toàn, **không** trigger quá trình rebuild toàn bộ cỗ máy pipeline.
+2. **Flatten & Extract Params:** Khi nhận update, `getParamsFromConfig()` hỗ trợ rút trích (`flatten`) tham số đầu vào (`additionalParams`, `input`) thành tập key-value phẳng, từ đó `applyConfigToPipeline()` có thể so sánh và áp dụng cực kỳ nhanh chóng.
+3. **Cập nhật SDK trực tiếp `set_lines()`:** Thay vì khởi tạo lại, tiến trình kiểm tra `CrossingLines` dạng JSON array (hoặc `CROSSLINE_START/END_X/Y`), tạo cấu trúc đối tượng `cvedix_line` và bơm trực tiếp thông qua hàm `set_lines()` của Node `ba_crossline_node` trong SDK. Sự thay đổi có hiệu lực ngay tại frame tiếp theo.
+
+**Pipeline Swap (Update khi cần rebuild):** Khi cần rebuild pipeline (thay đổi solution/model/source), worker thực hiện **stop old → build new → start new** (không còn “atomic swap” để tránh mất output RTMP):
+- **PipelineSnapshot**: Mỗi pipeline là một snapshot bất biến (danh sách node). Runtime đọc pipeline đang active qua `getActivePipeline()` (shared lock).
+- **Thứ tự swap (fix mất stream sau update):** (1) Dừng pipeline cũ và giải phóng kết nối output (RTMP/rtmp_des) trước. (2) Build pipeline mới. (3) Gán pipeline mới làm active, setup hooks, rồi start source. Nhờ đó rtmp_des mới kết nối được tới server (stream key đã được giải phóng), tránh lỗi “instance vẫn chạy nhưng mất output” sau PATCH/PUT. Có **gap ngắn** (vài giây) không có stream trong lúc build + start.
+- **Memory safety**: Pipeline cũ được giữ bằng `shared_ptr`; sau khi stop source và `stopSourceNodeForSnapshot()`, destructor gọi `detach_recursively()` để giải phóng tài nguyên.
+
+**Giữ kết nối stream (RTMP) trong lúc update (Last-Frame Pump):** Khi hot swap bắt buộc rebuild pipeline, output RTMP có thể bị ngắt (pipeline cũ teardown → rtmp_des mất). Để tránh server stream mất stream key, có thể dùng **last-frame** để tiếp tục gửi trong lúc swap:
+- **RtmpLastFrameFallbackProxyNode** đã có `inject_frame(cv::Mat)`: cho phép bơm frame từ bên ngoài vào proxy (gọi `meta_flow(meta)`), proxy forward xuống rtmp_des. Worker đã có `last_frame_` (capture từ hook).
+- **Option A (zero-gap):** Giữ pipeline cũ **chỉ phần proxy + rtmp_des**; tách upstream (OSD) khỏi proxy. Chạy thread "last-frame pump" định kỳ gọi `proxy->inject_frame(last_frame_)`. Build pipeline mới sao cho output OSD **gắn vào cùng proxy** (không tạo rtmp_des mới). Sau khi pipeline mới chạy ổn, dừng pump. Cần pipeline builder hỗ trợ "reuse existing proxy" (attach OSD vào proxy có sẵn).
+- **Option B (minimize gap):** Sau khi dừng pipeline cũ, chạy sender tạm chỉ gửi last-frame tới cùng RTMP URL cho đến khi pipeline mới kết nối; gap ngắn khi chuyển.
+
+**Full design (zero-downtime, no RTMP reconnect):** [ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md](ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md) — persistent output leg (proxy + rtmp_des), frame router, atomic pipeline swap, drain, last-frame pump, threading, memory safety, logging.
+
 ---
 
 ## Subprocess Architecture với Unix Socket IPC
@@ -437,44 +594,55 @@ edgeos-api hỗ trợ 2 chế độ thực thi (execution mode):
 
 ### So sánh kiến trúc
 
-#### In-Process Mode (Legacy)
+#### Hình Ảnh So Sánh Sự Cô Lập Giữa 2 Execution Modes
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Main Process                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
-│  │  REST API   │  │  Instance   │  │  Instance   │  │
-│  │  Server     │  │  Pipeline A │  │  Pipeline B │  │
-│  │  (Drogon)   │  │  (CVEDIX)   │  │  (CVEDIX)   │  │
-│  └─────────────┘  └─────────────┘  └─────────────┘  │
-│                                                     │
-│  Shared Memory Space - Tất cả chạy trong 1 process  │
-└─────────────────────────────────────────────────────┘
-```
+```mermaid
+flowchart LR
+    subgraph IN_PROCESS ["Mode: In-Process (Legacy/Dev)"]
+        direction TB
+        MainProc1[Main Process PID: 1000]
+        
+        subgraph Server_Mem ["Shared Memory Space"]
+            API1[REST API]
+            PipeA1[Camera A Pipeline]
+            PipeB1[Camera B Pipeline]
+        end
+        MainProc1 --> Server_Mem
+        
+        Crash1((CRASH!)) -.- PipeA1
+        Crash1 -.-> |Kéo sập toàn bộ| MainProc1
+    end
 
-#### Subprocess Mode (Mới)
+    subgraph SUB_PROCESS ["Mode: Subprocess (Production Default)"]
+        direction TB
+        MainProc2[Main Process PID: 2000]
+        
+        API2[REST API + Supervisor]
+        MainProc2 --> API2
+        
+        WorkerA[Worker Process A
+PID: 2001]
+        WorkerB[Worker Process B
+PID: 2002]
+        
+        API2 == IPC ==> WorkerA
+        API2 == IPC ==> WorkerB
+        
+        PipeA2[Camera A Pipeline]
+        PipeB2[Camera B Pipeline]
+        WorkerA -.-> PipeA2
+        WorkerB -.-> PipeB2
+        
+        Crash2((CRASH!)) -.- PipeA2
+        Crash2 -.-> |Chỉ chết| WorkerA
+        API2 -- Tự động tạo lại --> WorkerA
+    end
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Main Process                      │
-│  ┌─────────────┐  ┌─────────────────────────────┐   │
-│  │  REST API   │  │   Worker Supervisor         │   │
-│  │  Server     │◄─┤   - Spawn workers           │   │
-│  │  (Drogon)   │  │   - Monitor health          │   │
-│  └─────────────┘  │   - Auto-restart            │   │
-│                   └─────────────────────────────┘   │
-└────────────────────────────┬────────────────────────┘
-                             │ Unix Socket IPC
-        ┌────────────────────┼────────────────────┐
-        ▼                    ▼                    ▼
-┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-│ Worker A      │   │ Worker B      │   │ Worker C      │
-│ ┌───────────┐ │   │ ┌───────────┐ │   │ ┌───────────┐ │
-│ │ Pipeline  │ │   │ │ Pipeline  │ │   │ │ Pipeline  │ │
-│ │ (CVEDIX)  │ │   │ │ (CVEDIX)  │ │   │ │ (CVEDIX)  │ │
-│ └───────────┘ │   │ └───────────┘ │   │ └───────────┘ │
-│ Isolated Mem  │   │ Isolated Mem  │   │ Isolated Mem  │
-└───────────────┘   └───────────────┘   └───────────────┘
+    %% Style
+    style Crash1 fill:#ffcdd2,stroke:#d32f2f,stroke-width:2px,color:#d32f2f
+    style Crash2 fill:#ffcdd2,stroke:#d32f2f,stroke-width:2px,color:#d32f2f
+    style IN_PROCESS fill:#f5f5f5,stroke:#9e9e9e,stroke-width:2px,stroke-dasharray: 5 5
+    style SUB_PROCESS fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
 ```
 
 ### So sánh ưu nhược điểm
@@ -639,6 +807,28 @@ Communication giữa Main Process và Workers sử dụng Unix Domain Socket v�
 - `GET_LAST_FRAME` - Lấy frame cuối
 - `SHUTDOWN` - Tắt worker
 
+### API responsiveness (subprocess)
+
+Trong subprocess mode, GET instance / list instance **không** block trên IPC: `getInstance()` chỉ trả về cache, không gọi `getInstanceStatistics()` (sendToWorker) trên luồng xử lý request. Nhờ đó các API khác vẫn dùng bình thường khi instance đang chạy. Endpoint GET `/v1/core/instance/{id}/statistics` vẫn gọi IPC khi cần FPS/thống kê mới.
+
+### Pipeline runtime: một lệnh start và cập nhật theo config
+
+**Một lệnh start là đủ (build-if-needed rồi chạy):**
+
+- Bạn **không bắt buộc** phải gọi "create" rồi mới "start". Worker khi nhận **START_INSTANCE** sẽ:
+  - Nếu **đã có pipeline** (đã build trước đó) → start ngay (async).
+  - Nếu **chưa có pipeline** nhưng **có config** (SolutionId, AdditionalParams, v.v.) → **tự build pipeline từ config** rồi start.
+- Từ phía API: **POST /v1/core/instance/{id}/start** một lần là đủ; nếu worker chưa build thì nó tự build rồi chạy. Pipeline vẫn cần được "build" (tạo nodes, kết nối) trước khi chạy vì CVEDIX pipeline là đồ thị nodes cố định, nhưng thao tác của bạn chỉ cần một lệnh **start**.
+
+**Khi thay đổi config thì pipeline cập nhật theo:**
+
+- **Cập nhật tại runtime (không restart):** Một số thay đổi được áp dụng **ngay trên pipeline đang chạy** qua SDK (ví dụ `set_lines()`):
+  - **CrossingLines / CROSSLINE_*** (vị trí line) → áp dụng ngay, không rebuild.
+  - Các tham số khác mà CVEDIX node hỗ trợ set runtime (nếu có) cũng có thể được mở rộng tương tự.
+- **Cập nhật cần rebuild hoặc hot-swap:** Thay đổi **cấu trúc** (solution, model path, source URL, Zone, v.v.) → worker dùng **hot-swap** (build pipeline mới song song rồi đổi) hoặc **stop → build → start** để áp dụng. Pipeline vẫn "update theo" config, nhưng qua bước rebuild/hot-swap thay vì chỉ set runtime.
+
+Tóm lại: **start** = build nếu chưa có rồi chạy; **update config** = áp dụng runtime khi có thể, còn không thì rebuild/hot-swap để pipeline luôn khớp config.
+
 ### Performance Benchmarks
 
 | Metric | In-Process | Subprocess | Overhead |
@@ -659,25 +849,54 @@ Subprocess Architecture phù hợp cho production environment với yêu cầu:
 
 Trade-off là complexity và overhead nhỏ (~10ms per API call, ~50MB RAM per worker), nhưng lợi ích về stability và maintainability vượt trội trong môi trường production.
 
-### Instance Manager Interface
-
-Tất cả API handlers sử dụng `IInstanceManager` interface, cho phép abstraction layer giữa handlers và execution backend:
+### Cấu Trúc Interfaces: Abstract Factory Pattern
 
 ```mermaid
-graph TB
-    APIHandlers[API Handlers<br/>InstanceHandler, CreateInstanceHandler,<br/>GroupHandler, LinesHandler] --> IInstanceManager[IInstanceManager Interface]
+classDiagram
+    %% Giao diện gốc
+    class IInstanceManager {
+        <<interface>>
+        +createInstance(config: JSON) Result
+        +startInstance(id: String) Result
+        +stopInstance(id: String) Result
+        +deleteInstance(id: String) Result
+        +getStatus(id: String) Status
+    }
 
-    IInstanceManager -->|Polymorphism| InProcessImpl[InProcessInstanceManager<br/>Wraps InstanceRegistry]
-    IInstanceManager -->|Polymorphism| SubprocessImpl[SubprocessInstanceManager<br/>Uses WorkerSupervisor]
+    %% Cài đặt cho chế độ In-Process
+    class InProcessInstanceManager {
+        -InstanceRegistry registry
+        +createInstance()
+        +startInstance()
+    }
 
-    InProcessImpl --> InstanceRegistry[InstanceRegistry<br/>Direct Pipeline Management]
-    SubprocessImpl --> WorkerSupervisor[WorkerSupervisor<br/>Process Management]
+    %% Cài đặt cho chế độ Subprocess
+    class SubprocessInstanceManager {
+        -WorkerSupervisor supervisor
+        +createInstance()
+        +startInstance()
+    }
 
-    InstanceRegistry --> Pipeline1[Pipeline 1<br/>In Main Process]
-    InstanceRegistry --> Pipeline2[Pipeline 2<br/>In Main Process]
+    class WorkerSupervisor {
+        -map<string, WorkerProcess> workers
+        -string socketPath
+        +spawnWorker(id: string)
+        +killWorker(id: string)
+        +sendIpcMessage(msg: IPCMessage)
+    }
 
-    WorkerSupervisor --> Worker1[Worker Process 1<br/>Isolated Pipeline]
-    WorkerSupervisor --> Worker2[Worker Process 2<br/>Isolated Pipeline]
+    class InstanceRegistry {
+        -map<string, PipelineCore> pipelines
+        -buildPipeline()
+    }
+
+    %% Mối quan hệ triển khai
+    IInstanceManager <|.. InProcessInstanceManager : Implements
+    IInstanceManager <|.. SubprocessInstanceManager : Implements
+
+    %% Mối quan hệ sử dụng
+    InProcessInstanceManager --> InstanceRegistry : Uses (Main Thread)
+    SubprocessInstanceManager --> WorkerSupervisor : Uses (Multi Processes)
 ```
 
 **Lợi ích của Interface Pattern**:

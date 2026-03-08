@@ -153,6 +153,14 @@ private:
   Json::Value buildWorkerConfigFromInstanceInfo(const InstanceInfo &info) const;
 
   /**
+   * @brief Merge config into local cache and persist to storage (no worker IPC).
+   * Used so that lines/config save succeeds even when worker is slow or fails.
+   * @return true if cache and storage were updated successfully
+   */
+  bool mergeConfigIntoCacheAndSave(const std::string &instanceId,
+                                   const Json::Value &normalizedConfig);
+
+  /**
    * @brief Update local instance cache from worker response
    */
   void updateInstanceCache(const std::string &instanceId,
@@ -174,7 +182,9 @@ private:
    * @brief Helper: Allocate GPU and spawn worker with GPU device ID
    * @param instanceId Instance ID
    * @param config Worker configuration
+   * @param out_error If non-null and spawn fails, set to reason for API response
    * @return true if successful
    */
-  bool allocateGPUAndSpawnWorker(const std::string &instanceId, const Json::Value &config);
+  bool allocateGPUAndSpawnWorker(const std::string &instanceId, const Json::Value &config,
+                                 std::string *out_error = nullptr);
 };

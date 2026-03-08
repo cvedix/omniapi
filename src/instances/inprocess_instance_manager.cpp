@@ -199,11 +199,12 @@ bool InProcessInstanceManager::updateInstance(const std::string &instanceId,
                                               const Json::Value &configJson) {
   // Check if this is a direct config update (PascalCase format)
   // If JSON has top-level fields like "InstanceId", "DisplayName", "Detector",
-  // etc., it's a direct config update
+  // "AdditionalParams" (e.g. CrossingLines-only PATCH), etc., use direct config merge.
   bool isDirectConfigUpdate =
       configJson.isMember("InstanceId") || configJson.isMember("DisplayName") ||
       configJson.isMember("Detector") || configJson.isMember("Input") ||
-      configJson.isMember("Output") || configJson.isMember("Zone");
+      configJson.isMember("Output") || configJson.isMember("Zone") ||
+      configJson.isMember("AdditionalParams");
 
   if (isDirectConfigUpdate) {
     // Direct config update - merge JSON directly into storage

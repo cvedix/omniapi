@@ -94,6 +94,8 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
 | `LOG_DIR` | Thư mục lưu log files | Override thư mục của `config.json["system"]["logging"]["log_file"]` | `src/config/system_config.cpp` |
+| `CVEDIX_LOG_LEVEL` | Mức log SDK pipeline (CVEDIX/omniruntime): `DEBUG`, `INFO`, `WARN`, `ERROR` | `WARN` (để log worker không bị chìm trong log SDK) | `src/core/pipeline_builder.cpp` (worker kế thừa env từ API) |
+| `EDGE_AI_VERBOSE` | Khi `1`/`true`: bật log chi tiết PipelineBuilder (getRTMPUrl, danh sách node, …). Mặc định `0`: chỉ log worker, dễ theo dõi zero-downtime/hot-swap | `false` | `src/core/pipeline_builder.cpp`, `pipeline_builder_request_utils.cpp` |
 | `LOG_RETENTION_DAYS` | Số ngày giữ logs (tự động xóa sau thời gian này) | `30` | `src/core/log_manager.cpp` |
 | `LOG_MAX_DISK_USAGE_PERCENT` | Ngưỡng dung lượng đĩa để trigger cleanup (%) | `85` | `src/core/log_manager.cpp` |
 | `LOG_CLEANUP_INTERVAL_HOURS` | Khoảng thời gian kiểm tra và cleanup (giờ) | `24` | `src/core/log_manager.cpp` |
@@ -176,7 +178,7 @@ Cấu hình qua config.json: `system.monitoring.device_report` (enabled, server_
 | `SHUTDOWN_TIMEOUT_MS` | Thời gian chờ trước khi force exit khi shutdown (ms) | `500` | 100–5000 | `core/timeout_constants.h`, `main.cpp` |
 | `REGISTRY_MUTEX_TIMEOUT_MS` | Timeout khi lock registry (list/get instance) (ms) | `2000` | 100–30000 | `core/timeout_constants.h`, `instance_registry.cpp` |
 | `API_WRAPPER_TIMEOUT_MS` | Timeout cho API wrapper (getInstance, v.v.) (ms); nên ≥ registry + 500 | (registry + 500) | 500–60000 | `core/timeout_constants.h` |
-| `IPC_START_STOP_TIMEOUT_MS` | Timeout IPC cho start/stop instance (subprocess) (ms) | `10000` | 1000–60000 | `core/timeout_constants.h`, `subprocess_instance_manager.cpp` |
+| `IPC_START_STOP_TIMEOUT_MS` | Timeout IPC cho start/stop instance (subprocess) (ms) | `5000` | 1000–60000 | `core/timeout_constants.h`, `subprocess_instance_manager.cpp` |
 | `IPC_API_TIMEOUT_MS` | Timeout IPC cho get statistics/frame (ms) | `5000` | 1000–30000 | `core/timeout_constants.h` |
 | `IPC_STATUS_TIMEOUT_MS` | Timeout IPC cho get status nhanh (ms) | `3000` | 500–15000 | `core/timeout_constants.h` |
 | `FRAME_CACHE_MUTEX_TIMEOUT_MS` | Timeout lock frame cache (ms) | `1000` | 100–10000 | `core/timeout_constants.h` |
@@ -199,6 +201,8 @@ Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa
 | `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/edgeos-api/run` | `src/worker/unix_socket.cpp` |
 | `EDGE_AI_MAX_RESTARTS` | Số lần restart worker tối đa (subprocess) | (trong code) | `src/worker/worker_supervisor.cpp` |
 | `EDGE_AI_HEALTH_CHECK_INTERVAL` | Khoảng kiểm tra health worker (ms) | (trong code) | `src/worker/worker_supervisor.cpp` |
+| `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` | Thư mục ghi log **runtime update** (PATCH/PUT instance, merge, apply line, rebuild). File: `runtime_update.log`. Dùng khi dev để kiểm tra lỗi. Nếu không set thì dùng `LOG_DIR`; nếu cả hai không set thì dùng **`/tmp`** (file: `/tmp/runtime_update.log`). | (dùng `LOG_DIR` hoặc `/tmp`) | `src/worker/worker_handler.cpp` |
+| `EDGE_AI_HOTSWAP_DELAY_SEC` | **Chỉ để test:** Sau khi stop pipeline cũ trong hot-swap, sleep N giây rồi mới start pipeline mới. Ví dụ `5` = delay 5s. Không set hoặc `0` = không delay. | `0` (không delay) | `src/worker/worker_handler.cpp` |
 
 **Lưu ý về Socket Directory:**
 - **Default**: `/opt/edgeos-api/run` (tự động tạo nếu chưa tồn tại)
@@ -206,6 +210,7 @@ Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa
 - **Production**: Khuyến nghị sử dụng `/opt/edgeos-api/run` hoặc `/var/run/edgeos-api` (nếu có quyền)
 - **Development**: Có thể override bằng `EDGE_AI_SOCKET_DIR=/tmp` để test
 - Socket files sẽ có format: `{EDGE_AI_SOCKET_DIR}/edgeos_worker_{instance_id}.sock`
+- **Dọn worker/socket sau khi tắt API:** chạy `./scripts/clean_workers.sh` để kill toàn bộ process `edgeos-worker` và xóa socket còn sót (tránh "Worker not ready" khi restart).
 
 **Lưu ý về RTSP Transport:**
 - **Mặc định sử dụng TCP**: Để tránh vấn đề firewall chặn UDP, hệ thống mặc định sử dụng TCP
@@ -253,8 +258,13 @@ export API_PORT=9000
 - **Production:** Dùng `EDGE_AI_EXECUTION_MODE=subprocess`, cấu hình `EDGE_AI_WORKER_PATH` và `EDGE_AI_SOCKET_DIR`. Xem [ARCHITECTURE.md](ARCHITECTURE.md#khi-nào-dùng-mode-nào).
 - **Timeout:** Điều chỉnh `IPC_*_TIMEOUT_MS`, `REGISTRY_MUTEX_TIMEOUT_MS` nếu hệ thống chậm.
 - **Queue monitor:** Bật `EDGE_AI_QUEUE_MONITOR_ENABLED=true` để tự restart instance khi FPS=0 hoặc queue đầy.
-- **Thread pool:** `THREAD_NUM=0` (auto) hoặc giá trị cố định cho Drogon.
+- **Thread pool:** `THREAD_NUM=0` (auto, 90% CPU cores) hoặc giá trị cố định cho Drogon. Nếu API chậm khi có nhiều instance chạy, tăng số thread (ví dụ `THREAD_NUM=4`).
 - **Log:** `LOG_LEVEL`, `LOG_DIR`; xem [LOGGING.md](LOGGING.md).
+- **SDK log spam:** Mặc định **`CVEDIX_LOG_LEVEL=WARN`** nên log SDK ít, log worker (zero-downtime, hot-swap, …) dễ thấy. Nếu vẫn thấy quá nhiều log SDK, set **`CVEDIX_LOG_LEVEL=ERROR`**. Khi cần debug SDK, set **`CVEDIX_LOG_LEVEL=INFO`** hoặc **`DEBUG`**. **`EDGE_AI_VERBOSE=1`** chỉ bật log chi tiết PipelineBuilder (getRTMPUrl, danh sách node); không ảnh hưởng SDK.
+
+### Subprocess mode – API không phản hồi khi instance đang chạy
+
+Trước đây, khi instance đang chạy, mỗi lần gọi GET instance hoặc list instance có thể block luồng HTTP vài giây (do gọi IPC lấy statistics). Đã sửa: **getInstance()** trong subprocess mode chỉ trả về dữ liệu cache, không gọi IPC đồng bộ. Các API khác (GET /v1/core/instance, list, v.v.) vẫn dùng được khi instance đang chạy. Nếu cần FPS mới nhất, dùng GET `/v1/core/instance/{id}/statistics`.
 
 ## Lưu Ý
 
