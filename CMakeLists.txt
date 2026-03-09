@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(edgeos_api VERSION 2026.0.1.50)
+project(edgeos_api VERSION 2026.0.1.55)
 
 # EdgeOS SDK root: use libs from SDK instead of system for better adaptation
 set(EDGEOS_SDK_ROOT "/opt/edgeos-sdk" CACHE PATH "EdgeOS SDK installation root")
