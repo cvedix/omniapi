@@ -25,9 +25,9 @@ LIB_DIR = /opt/edgeos-api/lib
 SERVICE_USER = edgeai
 SERVICE_GROUP = edgeai
 
-# SDK configuration
+# SDK configuration (EdgeOS SDK at /opt/edgeos-sdk)
 SDK_EXTRACT_DIR = $(CURDIR)/debian/sdk_extract
-CVEDIX_INSTALL_DIR = /opt/cvedix-ai-runtime
+CVEDIX_INSTALL_DIR = /opt/edgeos-sdk
 
 %:
 	dh $@
@@ -111,29 +111,22 @@ override_dh_auto_install:
 				echo "  ✓ libopencv_freetype.so.410 bundled from build/lib"; \
 			fi; \
 		fi; \
-		# Try system OpenCV 4.10 if not found in build/lib (REQUIRED - OpenCV 4.6 is NOT supported) \
+		# Try system OpenCV 4.6 if not found in build/lib \
 		if [ "$$FREETYPE_COPIED" = false ]; then \
-			FREETYPE_SOURCES="/usr/local/lib/libopencv_freetype.so.4.10.0 /usr/local/lib/libopencv_freetype.so.4.10 /usr/local/lib/libopencv_freetype.so.410 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10.0 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.410 /usr/lib/libopencv_freetype.so.4.10.0 /usr/lib/libopencv_freetype.so.4.10 /usr/lib/libopencv_freetype.so.410"; \
+			FREETYPE_SOURCES="/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.406 /usr/local/lib/libopencv_freetype.so.4.6.0 /usr/local/lib/libopencv_freetype.so.406 /usr/lib/libopencv_freetype.so.4.6.0 /usr/lib/libopencv_freetype.so.406"; \
 			for source in $$FREETYPE_SOURCES; do \
-				if [ -f "$$source" ] || [ -L "$$source" ]; then \
+				if [ -f "$$source" ]; then \
 					echo "Copying libopencv_freetype.so.410 from $$source..."; \
-					# Resolve symlink if needed \
-					if [ -L "$$source" ]; then \
-						resolved=$$(readlink -f "$$source" 2>/dev/null || echo ""); \
-						if [ -n "$$resolved" ] && [ -f "$$resolved" ]; then \
-							source="$$resolved"; \
-						fi; \
-					fi; \
 					cp -L "$$source" "$$LIB_TEMP_DIR/libopencv_freetype.so.410" 2>/dev/null && FREETYPE_COPIED=true && break || true; \
 				fi; \
 			done; \
 			if [ "$$FREETYPE_COPIED" = true ]; then \
-				echo "  ✓ libopencv_freetype.so.410 bundled from system OpenCV 4.10"; \
+				echo "  ✓ libopencv_freetype.so.410 bundled from system OpenCV 4.6"; \
 			fi; \
 		fi; \
 		# Try SDK extract directory if available \
 		if [ "$$FREETYPE_COPIED" = false ] && [ -d $(SDK_EXTRACT_DIR) ]; then \
-			for sdk_source in $(SDK_EXTRACT_DIR)/opt/cvedix/lib/libopencv_freetype.so* $(SDK_EXTRACT_DIR)/usr/lib/x86_64-linux-gnu/libopencv_freetype.so*; do \
+			for sdk_source in $(SDK_EXTRACT_DIR)/opt/edgeos-sdk/lib/libopencv_freetype.so* $(SDK_EXTRACT_DIR)/usr/lib/x86_64-linux-gnu/libopencv_freetype.so*; do \
 				if [ -f "$$sdk_source" ]; then \
 					echo "Copying libopencv_freetype.so.410 from SDK extract..."; \
 					cp -L "$$sdk_source" "$$LIB_TEMP_DIR/libopencv_freetype.so.410" 2>/dev/null && FREETYPE_COPIED=true && break || true; \
@@ -147,7 +140,7 @@ override_dh_auto_install:
 		if [ "$$FREETYPE_COPIED" = false ]; then \
 			echo "  ✗ ERROR: libopencv_freetype.so.410 not found in any source"; \
 			echo "  This file is REQUIRED for CVEDIX SDK compatibility"; \
-			echo "  Please ensure OpenCV 4.10 is installed on build machine (OpenCV 4.6 is NOT supported)"; \
+			echo "  Please ensure OpenCV 4.6 is installed on build machine or file exists in build/lib"; \
 			echo "  The package will be built but service may fail to start"; \
 		fi; \
 	fi; \
@@ -163,9 +156,9 @@ override_dh_auto_install:
 	fi
 
 	# Update RPATH in executables to use bundled libraries
-	# RPATH: /opt/edgeos-api/lib:/opt/cvedix-ai-runtime/lib/cvedix (relative to executable at /usr/local/bin)
+	# RPATH: /opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix (relative to executable at /usr/local/bin)
 	# CRITICAL: RPATH must be set correctly for bundled libraries to be found
-	@EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/cvedix-ai-runtime/lib/cvedix"; \
+	@EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"; \
 	if command -v patchelf >/dev/null 2>&1; then \
 		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api ]; then \
 			echo "Setting RPATH for edgeos-api..."; \
@@ -202,9 +195,18 @@ override_dh_auto_install:
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)/etc/systemd/system
 	install -m 644 $(CURDIR)/deploy/edgeos-api.service $(CURDIR)/debian/$(PACKAGE_NAME)/etc/systemd/system/edgeos-api.service
 
-	# Install config files
+	# Install config files (use config.json if present, else config/config.json.example)
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config
-	install -m 644 $(CURDIR)/config.json $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config/config.json
+	@if [ -f $(CURDIR)/config.json ]; then \
+		install -m 644 $(CURDIR)/config.json $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config/config.json; \
+		echo "  Installed config.json"; \
+	elif [ -f $(CURDIR)/config/config.json.example ]; then \
+		install -m 644 $(CURDIR)/config/config.json.example $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config/config.json; \
+		echo "  Installed config/config.json.example as config.json"; \
+	else \
+		echo "  Warning: No config.json or config/config.json.example found"; \
+		exit 1; \
+	fi
 
 	# Create directory structure from directories.conf
 	# Read directories.conf directly (Makefile uses /bin/sh, not bash)
@@ -259,52 +261,30 @@ override_dh_auto_install:
 	if [ -f $(CURDIR)/scripts/build_opencv_safe.sh ]; then \
 		install -m 755 $(CURDIR)/scripts/build_opencv_safe.sh $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/scripts/build_opencv_safe.sh; \
 	fi
-	# Install fix_freetype script for fixing OpenCV freetype library issues
-	if [ -f $(CURDIR)/scripts/fix_freetype.sh ]; then \
-		install -m 755 $(CURDIR)/scripts/fix_freetype.sh $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/scripts/fix_freetype.sh; \
-	fi
 
 	# ============================================
-	# Install CVEDIX SDK from extracted .deb
-	# Copy ALL files from SDK package to edgeos-api package
-	# Exclude README.md and VERSION to avoid conflicts with cvedix-ai-runtime package
+	# Install EdgeOS SDK from extracted .deb to /opt/edgeos-sdk
 	# ============================================
-	@echo "Installing CVEDIX SDK from extracted package..."; \
-	if [ -d $(SDK_EXTRACT_DIR) ]; then \
-		echo "  Copying entire CVEDIX SDK directory structure..."; \
-		# Copy entire SDK directory structure to /opt/cvedix-ai-runtime \
-		# Note: SDK package may have /opt/cvedix structure, we copy it to /opt/cvedix-ai-runtime \
-		# Exclude README.md and VERSION to avoid conflicts with existing cvedix-ai-runtime package \
-		if [ -d $(SDK_EXTRACT_DIR)/opt/cvedix ]; then \
-			install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR); \
-			# Copy all files/directories except README.md and VERSION \
-			for item in $(SDK_EXTRACT_DIR)/opt/cvedix/*; do \
-				BASENAME_ITEM=$$(basename "$$item"); \
-				if [ -e "$$item" ] && [ "$$BASENAME_ITEM" != "README.md" ] && [ "$$BASENAME_ITEM" != "VERSION" ]; then \
-					cp -r "$$item" $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR)/ 2>/dev/null || true; \
-				fi; \
-			done; \
-			echo "  ✓ CVEDIX SDK fully integrated into package at $(CVEDIX_INSTALL_DIR) (README.md and VERSION excluded to avoid conflicts)"; \
-		elif [ -d $(SDK_EXTRACT_DIR)/opt/cvedix-ai-runtime ]; then \
-			install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR); \
-			# Copy all files/directories except README.md and VERSION \
-			for item in $(SDK_EXTRACT_DIR)/opt/cvedix-ai-runtime/*; do \
-				BASENAME_ITEM=$$(basename "$$item"); \
-				if [ -e "$$item" ] && [ "$$BASENAME_ITEM" != "README.md" ] && [ "$$BASENAME_ITEM" != "VERSION" ]; then \
-					cp -r "$$item" $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR)/ 2>/dev/null || true; \
-				fi; \
-			done; \
-			echo "  ✓ CVEDIX SDK fully integrated into package at $(CVEDIX_INSTALL_DIR) (README.md and VERSION excluded to avoid conflicts)"; \
-		else \
-			echo "  ⚠  Warning: /opt/cvedix or /opt/cvedix-ai-runtime not found in SDK extract directory"; \
-		fi; \
-		# Also copy SDK libraries to bundled lib directory for easier access \
-		if [ -d $(SDK_EXTRACT_DIR)/opt/cvedix/lib ]; then \
+	@echo "Installing EdgeOS SDK from extracted package..."; \
+	if [ -d $(SDK_EXTRACT_DIR) ] && [ -d $(SDK_EXTRACT_DIR)/opt/edgeos-sdk ]; then \
+		SDK_SRC="$(SDK_EXTRACT_DIR)/opt/edgeos-sdk"; \
+		install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR); \
+		for item in $$SDK_SRC/*; do \
+			BASENAME_ITEM=$$(basename "$$item"); \
+			if [ -e "$$item" ] && [ "$$BASENAME_ITEM" != "README.md" ] && [ "$$BASENAME_ITEM" != "VERSION" ]; then \
+				cp -r "$$item" $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR)/ 2>/dev/null || true; \
+			fi; \
+		done; \
+		echo "  ✓ EdgeOS SDK integrated at $(CVEDIX_INSTALL_DIR)"; \
+		if [ -d $$SDK_SRC/lib ]; then \
 			echo "  Copying SDK libraries to bundled lib directory..."; \
-			cp -L $(SDK_EXTRACT_DIR)/opt/cvedix/lib/*.so* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
+			cp -L $$SDK_SRC/lib/*.so* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
+		fi; \
+		if [ -d $$SDK_SRC/lib/cvedix ]; then \
+			cp -L $$SDK_SRC/lib/cvedix/*.so* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
 		fi; \
 	else \
-		echo "  ⚠  Warning: SDK extract directory not found: $(SDK_EXTRACT_DIR)"; \
+		echo "  ⚠  Warning: /opt/edgeos-sdk not found in SDK extract or extract dir missing"; \
 		echo "  SDK will not be bundled in this package"; \
 	fi
 
