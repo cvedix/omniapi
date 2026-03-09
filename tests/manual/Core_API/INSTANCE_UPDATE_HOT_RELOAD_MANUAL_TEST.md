@@ -62,7 +62,7 @@ EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos
 
 **Cách 1 – Chạy API và ghi mọi output (API + worker) ra file:**
 ```bash
-# Subprocess mode (cần cho hot-reload line). Chạy từ thư mục gốc project (edge_ai_api):
+# Subprocess mode (cần cho hot-reload line). Chạy từ thư mục gốc project (edgeos-api):
 EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api >> /tmp/edgeos-api.log 2>&1
 # Xem log: tail -f /tmp/edgeos-api.log
 ```

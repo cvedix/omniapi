@@ -28,7 +28,7 @@ LD_PRELOAD=/path/to/build/lib/libclose_fin.so ./bin/edgeos-worker
 LD_PRELOAD=/path/to/build/lib/libclose_fin.so ./bin/edgeos-api
 ```
 
-Ví dụ từ thư mục **gốc project** (edge_ai_api):
+Ví dụ từ thư mục **gốc project** (edgeos-api):
 
 ```bash
 LD_PRELOAD=$PWD/build/lib/libclose_fin.so EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api
