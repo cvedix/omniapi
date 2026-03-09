@@ -22,7 +22,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstring> // For strerror
-// #include <cvedix/cvedix_version.h>  // File not available in cvedix-ai-runtime SDK
+// #include <cvedix/cvedix_version.h>  // File not available in edgeos-sdk
 #include <cvedix/nodes/broker/cvedix_json_console_broker_node.h>
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
