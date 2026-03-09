@@ -259,7 +259,7 @@ if [ "$SKIP_SYMLINKS" = false ] && [ "$BUILD_ONLY" = false ]; then
         echo -e "${YELLOW}⚠${NC}  Need sudo to fix symlinks. Skipping..."
     else
         # Fix CVEDIX SDK libraries
-        CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+        CVEDIX_LIB_DIR="/opt/edgeos-sdk/lib/cvedix"
         if [ -d "$CVEDIX_LIB_DIR" ]; then
             for lib in libtinyexpr.so libcvedix_instance_sdk.so; do
                 if [ -f "$CVEDIX_LIB_DIR/$lib" ]; then

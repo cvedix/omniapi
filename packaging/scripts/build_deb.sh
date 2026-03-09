@@ -201,14 +201,10 @@ if [ -d "$BUILD_LIB_DIR" ]; then
     cp -L "$BUILD_LIB_DIR"/*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
 fi
 
-# Copy CVEDIX SDK libraries if available
-# Check both old and new SDK locations for compatibility
-if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-elif [ -d "/opt/cvedix/lib" ]; then
-    cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+# EdgeOS SDK at /opt/edgeos-sdk
+if [ -d "/opt/edgeos-sdk/lib/cvedix" ]; then
+    cp -L /opt/edgeos-sdk/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+    cp -L /opt/edgeos-sdk/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
 fi
 
 # Copy CUDA libraries if available (for GPU acceleration support)
@@ -363,14 +359,10 @@ bundle_libraries() {
 
     # Copy CVEDIX SDK libraries if available
     # Check both old and new SDK locations for compatibility
-    if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
-        echo "  Copying CVEDIX SDK libraries from /opt/cvedix-ai-runtime/lib/cvedix..."
-        cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_DIR/" 2>/dev/null || true
-        cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_DIR/" 2>/dev/null || true
-    elif [ -d "/opt/cvedix/lib" ]; then
-        echo "  Copying CVEDIX SDK libraries from /opt/cvedix/lib..."
-        cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_DIR/" 2>/dev/null || true
-        cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_DIR/" 2>/dev/null || true
+    if [ -d "/opt/edgeos-sdk/lib/cvedix" ]; then
+        echo "  Copying EdgeOS SDK libraries from /opt/edgeos-sdk/lib/cvedix..."
+        cp -L /opt/edgeos-sdk/lib/cvedix/libcvedix*.so* "$LIB_DIR/" 2>/dev/null || true
+        cp -L /opt/edgeos-sdk/lib/cvedix/libtinyexpr.so* "$LIB_DIR/" 2>/dev/null || true
     fi
 
     # Copy CUDA libraries if available (for GPU acceleration support)
