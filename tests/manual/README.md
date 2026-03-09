@@ -18,25 +18,41 @@ manual/
 │
 ├── Core_API/           # Manual tests cho Core API
 │   ├── SERVER_SETTINGS_MONITORING_MANUAL_TEST.md
+│   ├── HEALTH_VERSION_LICENSE_MANUAL_TEST.md
+│   ├── FONT_MANUAL_TEST.md
+│   ├── INSTANCE_API_MANUAL_TEST.md
+│   ├── INSTANCE_FPS_MANUAL_TEST.md
+│   ├── CORE_AI_MANUAL_TEST.md
+│   ├── MODEL_MANUAL_TEST.md
+│   ├── VIDEO_MANUAL_TEST.md
+│   ├── LOG_CONFIG_MANUAL_TEST.md
+│   ├── LOG_CONFIG_API_GUIDE.md
+│   ├── LOG_LIST_MANUAL_TEST.md
 │   ├── SYSTEM_CONFIG_MANUAL_TEST.md
 │   ├── SYSTEM_CONFIG_QUICK_TEST.md
 │   ├── EVENTS_OUTPUT_MANUAL_TEST.md
 │   ├── WATCHDOG_DEVICE_REPORT_MANUAL_TEST.md
 │   ├── WATCHDOG_DEVICE_REPORT_CONFIG_API.md
 │   ├── CONFIG_BIND_AND_RESTART_MANUAL_TEST.md
-│   ├── LOG_CONFIG_MANUAL_TEST.md
-│   └── LOG_CONFIG_API_GUIDE.md
+│   └── INSTANCE_UPDATE_HOT_RELOAD_MANUAL_TEST.md
 │
 ├── Solutions/          # Manual tests cho Solutions
+│   └── SOLUTION_MANUAL_TEST.md
 │
 ├── Groups/             # Manual tests cho Groups
+│   └── GROUPS_MANUAL_TEST.md
 │
 ├── Nodes/              # Manual tests cho Nodes
+│   └── NODE_MANUAL_TEST.md
 │
 ├── Analytics/          # Manual tests cho Analytics (Lines, Jams, Stops, Area, SecuRT, Loitering)
 │   ├── SECURT_INSTANCE_WORKFLOW_TEST.md
+│   ├── SECURT_INSTANCE_API_MANUAL_TEST.md
+│   ├── SECURT_AREA_MANUAL_TEST.md
+│   ├── SECURT_LINES_MANUAL_TEST.md
 │   ├── LOITERING_CORE_API_TEST.md
-│   └── LOITERING_SECURT_API_TEST.md
+│   ├── LOITERING_SECURT_API_TEST.md
+│   └── BA_AREA_ENTER_EXIT_API_TEST.md
 │
 └── Config/             # Manual tests cho Config
 ```
@@ -143,6 +159,64 @@ Manual tests được thiết kế để:
   - Auto-restart khi thêm areas
   - Workflow hoàn chỉnh với SecuRT API
   - Troubleshooting và best practices
+
+### Core API - Health, Version, License
+- **HEALTH_VERSION_LICENSE_MANUAL_TEST.md**: GET /v1/core/health, /v1/core/version, /v1/core/license/check, /v1/core/license/info.
+
+### Core API - Font
+- **FONT_MANUAL_TEST.md**: GET/POST/PUT/DELETE /v1/core/font/list, upload, {fontName}.
+
+### Core API - Instance (toàn bộ endpoint)
+- **INSTANCE_API_MANUAL_TEST.md**: Toàn bộ Core Instance API (list, create, load/start/stop/restart/unload, batch, config, input, output, lines, jams, stops, frame, preview, consume_events, statistics, quick, status/summary).
+- **INSTANCE_FPS_MANUAL_TEST.md**: GET/POST/DELETE /api/v1/instances/{instance_id}/fps.
+
+### Core API - AI
+- **CORE_AI_MANUAL_TEST.md**: POST /v1/core/ai/process, /v1/core/ai/batch; GET /v1/core/ai/metrics, /v1/core/ai/status.
+
+### Core API - Model, Video
+- **MODEL_MANUAL_TEST.md**: GET/POST/PUT/DELETE /v1/core/model/list, upload, {modelName}.
+- **VIDEO_MANUAL_TEST.md**: GET/POST/PUT/DELETE /v1/core/video/list, upload, {videoName}.
+
+### Core API - Log list
+- **LOG_LIST_MANUAL_TEST.md**: GET /v1/core/log, /v1/core/log/{category}, /v1/core/log/{category}/{date}.
+
+### Groups
+- **GROUPS_MANUAL_TEST.md**: GET/POST/PUT/DELETE /v1/core/groups, /v1/core/groups/{groupId}, /v1/core/groups/{groupId}/instances.
+
+### Nodes
+- **NODE_MANUAL_TEST.md**: GET /v1/core/node, /v1/core/node/{nodeId}, preconfigured, template, build-solution, stats.
+
+### Solutions
+- **SOLUTION_MANUAL_TEST.md**: GET/POST/PUT/DELETE /v1/core/solution, defaults, {solutionId}, parameters, instance-body.
+
+### Analytics - SecuRT Area & Lines
+- **SECURT_INSTANCE_API_MANUAL_TEST.md**: SecuRT instance CRUD, input, output, stats, performance_profile, pip, analytics_entities, face_detection, lpr, exclusion_areas, masking_areas, motion_area, surrender_detection.
+- **SECURT_AREA_MANUAL_TEST.md**: Tất cả loại area (armedPerson, crossing, crowdEstimation, crowding, dwelling, faceCovered, fallenPerson, intrusion, loitering, objectEnterExit, objectLeft, objectRemoved, occupancy, vehicleGuard, areas).
+- **SECURT_LINES_MANUAL_TEST.md**: Lines, line/counting, line/crossing, line/tailgating và CRUD theo lineId.
+
+## Bảng ánh xạ API → Manual Test
+
+| Nhóm API | Path (prefix hoặc tag) | Manual Test |
+|----------|-------------------------|-------------|
+| Config | /v1/core/config, /v1/core/config/{path}, reset | SERVER_SETTINGS_MONITORING, CONFIG_BIND_AND_RESTART |
+| System | /v1/core/system/*, /v1/core/endpoints, /v1/core/metrics | SERVER_SETTINGS_MONITORING, SYSTEM_CONFIG_* |
+| Health, Version, License | /v1/core/health, version, license/* | HEALTH_VERSION_LICENSE_MANUAL_TEST |
+| Watchdog | /v1/core/watchdog, watchdog/config, report-now | SERVER_SETTINGS_MONITORING, WATCHDOG_* |
+| Font | /v1/core/font/* | FONT_MANUAL_TEST |
+| Groups | /v1/core/groups, groups/{groupId}, .../instances | GROUPS_MANUAL_TEST |
+| Instance (core) | /v1/core/instance, instance/{id}/* | INSTANCE_API_MANUAL_TEST, EVENTS_OUTPUT, INSTANCE_UPDATE_HOT_RELOAD |
+| Instance FPS | /api/v1/instances/{id}/fps | INSTANCE_FPS_MANUAL_TEST |
+| AI | /v1/core/ai/process, batch, metrics, status | CORE_AI_MANUAL_TEST |
+| Log | /v1/core/log, log/{category}, log/config | LOG_LIST_MANUAL_TEST, LOG_CONFIG_* |
+| Model | /v1/core/model/* | MODEL_MANUAL_TEST |
+| Node | /v1/core/node/* | NODE_MANUAL_TEST |
+| Solution | /v1/core/solution/* | SOLUTION_MANUAL_TEST |
+| Video | /v1/core/video/* | VIDEO_MANUAL_TEST |
+| ONVIF | /v1/onvif/* | ONVIF_* |
+| Recognition | /v1/recognition/* | RECOGNITION_API_GUIDE |
+| SecuRT instance | /v1/securt/instance, instance/{id}/* (không area/lines) | SECURT_INSTANCE_API_MANUAL_TEST, SECURT_INSTANCE_WORKFLOW |
+| SecuRT area | /v1/securt/instance/{id}/area/*, areas | SECURT_AREA_MANUAL_TEST, LOITERING_*, BA_AREA_ENTER_EXIT |
+| SecuRT lines | /v1/securt/instance/{id}/line/*, lines | SECURT_LINES_MANUAL_TEST |
 
 ## Thêm Manual Test Mới
 
