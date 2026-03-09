@@ -22,7 +22,9 @@ manual/
 │   ├── EVENTS_OUTPUT_MANUAL_TEST.md
 │   ├── WATCHDOG_DEVICE_REPORT_MANUAL_TEST.md
 │   ├── WATCHDOG_DEVICE_REPORT_CONFIG_API.md
-│   └── CONFIG_BIND_AND_RESTART_MANUAL_TEST.md
+│   ├── CONFIG_BIND_AND_RESTART_MANUAL_TEST.md
+│   ├── LOG_CONFIG_MANUAL_TEST.md
+│   └── LOG_CONFIG_API_GUIDE.md
 │
 ├── Solutions/          # Manual tests cho Solutions
 │
@@ -98,6 +100,13 @@ Manual tests được thiết kế để:
   - GET /v1/core/config?path=system/web_server — xem cấu hình
   - POST /v1/core/config với auto_restart=true — đổi bind_mode/ip_address/port và tự động restart server
   - Các kịch bản: chỉ local, public, đổi port, lưu không restart; dùng curl hoặc Swagger/Scalar
+
+### Core API - Log Config
+- **LOG_CONFIG_MANUAL_TEST.md**: Hướng dẫn test thủ công cấu hình ghi log (cho người mới / non-dev):
+  - Phần A: Log hệ thống — GET/PUT /v1/core/log/config (bật/tắt API, instance, SDK; đổi log_level; kiểm tra file log)
+  - Phần B: Log theo instance — GET/PUT /v1/core/instance/{instanceId}/log/config; kiểm tra thư mục logs/instance/
+  - Bảng tóm tắt, lỗi thường gặp, dùng Swagger/Postman
+- **LOG_CONFIG_API_GUIDE.md**: Tài liệu API chi tiết (reference) — từng endpoint: Method, URL, body, ý nghĩa từng trường, ví dụ curl; bảng tóm tắt nhanh; dành cho người mới / non-dev
 
 ### Analytics - SecuRT Instance
 - **SECURT_INSTANCE_WORKFLOW_TEST.md**: Hướng dẫn test chi tiết SecuRT Instance Workflow, bao gồm:

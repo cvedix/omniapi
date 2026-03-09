@@ -1,4 +1,5 @@
 #include "instances/subprocess_instance_manager.h"
+#include "core/instance_logging_config.h"
 #include "core/resource_manager.h"
 #include "core/runtime_update_log.h"
 #include "core/timeout_constants.h"
@@ -336,6 +337,8 @@ bool SubprocessInstanceManager::deleteInstance(const std::string &instanceId) {
     std::lock_guard<std::mutex> lock(instances_mutex_);
     instances_.erase(instanceId);
   }
+
+  InstanceLoggingConfig::remove(instanceId);
 
   // Remove from storage
   instance_storage_.deleteInstance(instanceId);

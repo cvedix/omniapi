@@ -51,6 +51,11 @@ Log tất cả các request và response của REST API.
 ./build/bin/edgeos-api --log-api
 ```
 
+**Cấu hình qua API (ưu tiên hơn command-line):** Có thể bật/tắt và đổi mức log qua API, không cần restart:
+- **GET** `/v1/core/log/config` — xem cấu hình hiện tại (enabled, log_level, api_enabled, instance_enabled, sdk_output_enabled).
+- **PUT** `/v1/core/log/config` — cập nhật cấu hình; body JSON: `enabled`, `log_level` (none, fatal, error, warning, info, debug, verbose), `api_enabled`, `instance_enabled`, `sdk_output_enabled`. Các cờ category có hiệu lực ngay; đổi `log_level` có thể cần restart.
+- Cấu hình cũng có thể đặt trong `config.json` → `system.logging` (enabled, log_level, api_enabled, instance_enabled, sdk_output_enabled).
+
 ---
 
 ### 2. Instance Execution Logging (`--log-instance` hoặc `--debug-instance`)
@@ -78,12 +83,16 @@ Log các sự kiện liên quan đến vòng đời của instance (start, stop,
 [Instance] Instance stopped successfully: xyz-789 (Face Detection File Source, solution: face_detection)
 ```
 
-**File location:** `logs/instance/YYYY-MM-DD.log`
+**File location:** `logs/instance/YYYY-MM-DD.log` (log chung) hoặc `logs/instance/<instance_id>/YYYY-MM-DD.log` (log riêng từng instance khi bật).
 
 **Cách sử dụng:**
 ```bash
 ./build/bin/edgeos-api --log-instance
 ```
+
+**Log riêng theo từng instance:** Có thể bật ghi log vào thư mục riêng cho từng instance (theo tên instance):
+- **GET** `/v1/core/instance/{instanceId}/log/config` — xem cấu hình log của instance (enabled).
+- **PUT** `/v1/core/instance/{instanceId}/log/config` — bật/tắt; body: `{"enabled": true}`. Khi bật, log của instance đó ghi vào `logs/instance/<instance_id>/`. Instance khác không bật vẫn dùng log chung (hoặc không ghi nếu tắt instance logging toàn hệ thống).
 
 ---
 

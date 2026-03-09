@@ -126,8 +126,12 @@ public:
    * @brief Get logging configuration
    */
   struct LoggingConfig {
+    bool enabled = true;              // Master switch for all logging
+    std::string logLevel = "info";     // none, fatal, error, warning, info, debug, verbose
+    bool apiEnabled = false;          // API request/response logs
+    bool instanceEnabled = false;      // Instance execution logs (start/stop/status)
+    bool sdkOutputEnabled = false;    // SDK output logs
     std::string logFile = "logs/api.log";
-    std::string logLevel = "debug";
     size_t maxLogFileSize = 52428800; // 50MB
     int maxLogFiles = 3;
     std::string logDir = "./logs";

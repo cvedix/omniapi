@@ -12,6 +12,20 @@
       "keepalive_timeout": 60,
       "reuse_port": true,
       "cors": { "enabled": false }
+    },
+    "logging": {
+      "enabled": true,
+      "log_level": "info",
+      "api_enabled": false,
+      "instance_enabled": false,
+      "sdk_output_enabled": false,
+      "log_dir": "./logs",
+      "log_file": "logs/api.log",
+      "max_log_file_size": 52428800,
+      "max_log_files": 3,
+      "retention_days": 30,
+      "max_disk_usage_percent": 85,
+      "cleanup_interval_hours": 24
     }
   }
 }

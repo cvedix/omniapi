@@ -112,6 +112,24 @@ public:
   static std::string getLogFilePath(Category category,
                                     const std::string &date_str);
 
+  /**
+   * @brief Get log directory for a specific instance (logs/instance/<instance_id>/).
+   */
+  static std::string getInstanceLogDir(const std::string &instance_id);
+
+  /**
+   * @brief Get log file path for an instance and date.
+   */
+  static std::string getInstanceLogPath(const std::string &instance_id,
+                                        const std::string &date_str);
+
+  /**
+   * @brief Write one log line to instance-specific log file. Creates directory if needed.
+   */
+  static void writeInstanceLog(const std::string &instance_id,
+                               const std::string &level,
+                               const std::string &message);
+
 private:
   static std::string base_dir_;
   static int max_disk_usage_percent_;

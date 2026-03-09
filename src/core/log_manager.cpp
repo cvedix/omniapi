@@ -1,8 +1,10 @@
 #include "core/log_manager.h"
 #include "core/env_config.h"
 #include <algorithm>
+#include <chrono>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <future>
 #include <iomanip>
 #include <iostream>
@@ -58,29 +60,21 @@ void LogManager::init(const std::string &base_dir, int max_disk_usage_percent,
   // Max files: 0 = unlimited (we handle cleanup manually)
   int max_files = 0;
 
-  // Initialize appenders for each category
-  // Only create appenders if their respective logging flags are enabled
-  if (isApiLoggingEnabled()) {
-    std::string api_log_path = getLogFilePath(Category::API, date_str);
-    api_appender_ =
-        std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
-            api_log_path.c_str(), max_file_size, max_files);
-  }
+  // Initialize appenders for each category (always create so enabling via API works at runtime)
+  std::string api_log_path = getLogFilePath(Category::API, date_str);
+  api_appender_ =
+      std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
+          api_log_path.c_str(), max_file_size, max_files);
 
-  if (isInstanceLoggingEnabled()) {
-    std::string instance_log_path =
-        getLogFilePath(Category::INSTANCE, date_str);
-    instance_appender_ =
-        std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
-            instance_log_path.c_str(), max_file_size, max_files);
-  }
+  std::string instance_log_path = getLogFilePath(Category::INSTANCE, date_str);
+  instance_appender_ =
+      std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
+          instance_log_path.c_str(), max_file_size, max_files);
 
-  if (isSdkOutputLoggingEnabled()) {
-    std::string sdk_log_path = getLogFilePath(Category::SDK_OUTPUT, date_str);
-    sdk_output_appender_ =
-        std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
-            sdk_log_path.c_str(), max_file_size, max_files);
-  }
+  std::string sdk_log_path = getLogFilePath(Category::SDK_OUTPUT, date_str);
+  sdk_output_appender_ =
+      std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
+          sdk_log_path.c_str(), max_file_size, max_files);
 
   // General appender (always created for general logs)
   std::string general_log_path = getLogFilePath(Category::GENERAL, date_str);
@@ -262,8 +256,47 @@ std::string LogManager::getLogFilePath(Category category,
   return category_dir + "/" + date_str + ".log";
 }
 
+std::string LogManager::getInstanceLogDir(const std::string &instance_id) {
+  std::string dir = getCategoryDir(Category::INSTANCE);
+  if (!dir.empty() && dir.back() != '/')
+    dir += "/";
+  dir += instance_id;
+  return dir;
+}
+
+std::string LogManager::getInstanceLogPath(const std::string &instance_id,
+                                           const std::string &date_str) {
+  return getInstanceLogDir(instance_id) + "/" + date_str + ".log";
+}
+
+void LogManager::writeInstanceLog(const std::string &instance_id,
+                                  const std::string &level,
+                                  const std::string &message) {
+  try {
+    std::string dir = getInstanceLogDir(instance_id);
+    std::filesystem::create_directories(dir);
+    std::string date_str = getDateString();
+    std::string path = dir + "/" + date_str + ".log";
+    std::ofstream out(path, std::ios::app);
+    if (!out.is_open())
+      return;
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  now.time_since_epoch()) % 1000;
+    std::tm *tm = std::localtime(&t);
+    std::ostringstream oss;
+    oss << std::put_time(tm, "%Y-%m-%d %H:%M:%S");
+    oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    oss << " [" << level << "] " << message << "\n";
+    out << oss.str();
+    out.flush();
+  } catch (...) {
+    // ignore
+  }
+}
+
 void LogManager::cleanupOldLogs() {
-  // Delete logs older than 30 days (1 month)
   int days_to_keep = EnvConfig::getInt("LOG_RETENTION_DAYS", 30, 1, 365);
 
   std::vector<std::string> categories = {
@@ -277,6 +310,26 @@ void LogManager::cleanupOldLogs() {
       std::cerr << "[LogManager] Error cleaning up old logs in " << category_dir
                 << ": " << e.what() << std::endl;
     }
+  }
+
+  // Per-instance log dirs: logs/instance/<instance_id>/
+  try {
+    std::string instance_dir = getCategoryDir(Category::INSTANCE);
+    if (fs::exists(instance_dir) && fs::is_directory(instance_dir)) {
+      for (const auto &entry : fs::directory_iterator(instance_dir)) {
+        if (entry.is_directory()) {
+          try {
+            deleteOldFiles(entry.path().string(), days_to_keep);
+          } catch (const std::exception &e) {
+            std::cerr << "[LogManager] Error cleaning instance log dir "
+                      << entry.path().string() << ": " << e.what() << std::endl;
+          }
+        }
+      }
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "[LogManager] Error cleaning instance log dirs: " << e.what()
+              << std::endl;
   }
 }
 

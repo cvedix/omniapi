@@ -338,6 +338,7 @@ set(SOURCES
     src/api/instance_handler_batch.cpp
     src/api/instance_handler_instance_output.cpp
     src/api/instance_handler_nested_set_config.cpp
+    src/api/instance_handler_log_config.cpp
     src/api/instance_handler_load_unload_state.cpp
     src/api/instance_handler_set_state_patch.cpp
     src/api/instance_handler_events_hls.cpp
@@ -447,6 +448,7 @@ set(SOURCES
     src/core/uuid_generator.cpp
     src/core/platform_detector.cpp
     src/core/log_manager.cpp
+    src/core/instance_logging_config.cpp
     src/core/onvif_camera_registry.cpp
     src/core/onvif_credentials_manager.cpp
     src/core/onvif_discovery.cpp

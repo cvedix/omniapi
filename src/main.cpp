@@ -49,6 +49,7 @@
 #include "core/shutdown_flag.h"
 #include "core/health_monitor.h"
 #include "core/logger.h"
+#include "core/apply_logging_config.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
 #include "core/node_pool_manager.h"
@@ -142,6 +143,12 @@ static std::atomic<bool> g_debug_mode{false};
 std::atomic<bool> g_log_api{false};
 std::atomic<bool> g_log_instance{false};
 std::atomic<bool> g_log_sdk_output{false};
+
+void applyLoggingConfig(const SystemConfig::LoggingConfig &config) {
+  g_log_api.store(config.enabled && config.apiEnabled);
+  g_log_instance.store(config.enabled && config.instanceEnabled);
+  g_log_sdk_output.store(config.enabled && config.sdkOutputEnabled);
+}
 
 // Global analysis board thread management
 static std::unique_ptr<std::thread> g_analysis_board_display_thread;
@@ -2059,6 +2066,9 @@ int main(int argc, char *argv[]) {
 
     auto &systemConfig = SystemConfig::getInstance();
     systemConfig.loadConfig(configPath);
+
+    // Apply logging config from config.json (overrides command-line --log-*)
+    applyLoggingConfig(systemConfig.getLoggingConfig());
 
     // Get server configuration (config.json with env var override handled by
     // SystemConfig)

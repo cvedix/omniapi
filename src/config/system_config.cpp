@@ -283,10 +283,14 @@ void SystemConfig::initializeDefaults() {
   performance["max_threads"] = 64;
   system["performance"] = performance;
 
-  // logging
+  // logging: enabled + log_level control all; api_enabled/instance_enabled/sdk_output_enabled per category
   Json::Value logging(Json::objectValue);
+  logging["enabled"] = true;
+  logging["log_level"] = "info";  // none, fatal, error, warning, info, debug, verbose
+  logging["api_enabled"] = false;
+  logging["instance_enabled"] = false;
+  logging["sdk_output_enabled"] = false;
   logging["log_file"] = "logs/api.log";
-  logging["log_level"] = "debug";
   logging["max_log_file_size"] = 52428800;
   logging["max_log_files"] = 3;
   logging["log_dir"] = "./logs";
@@ -596,12 +600,24 @@ SystemConfig::LoggingConfig SystemConfig::getLoggingConfig() const {
     const auto &log = config_json_["system"]["logging"];
     hasConfigJson = true;
 
-    if (log.isMember("log_file") && log["log_file"].isString()) {
-      config.logFile = log["log_file"].asString();
+    if (log.isMember("enabled") && log["enabled"].isBool()) {
+      config.enabled = log["enabled"].asBool();
     }
     if (log.isMember("log_level") && log["log_level"].isString()) {
       config.logLevel = log["log_level"].asString();
       hasLogLevel = true;
+    }
+    if (log.isMember("api_enabled") && log["api_enabled"].isBool()) {
+      config.apiEnabled = log["api_enabled"].asBool();
+    }
+    if (log.isMember("instance_enabled") && log["instance_enabled"].isBool()) {
+      config.instanceEnabled = log["instance_enabled"].asBool();
+    }
+    if (log.isMember("sdk_output_enabled") && log["sdk_output_enabled"].isBool()) {
+      config.sdkOutputEnabled = log["sdk_output_enabled"].asBool();
+    }
+    if (log.isMember("log_file") && log["log_file"].isString()) {
+      config.logFile = log["log_file"].asString();
     }
     if (log.isMember("max_log_file_size") && log["max_log_file_size"].isInt()) {
       config.maxLogFileSize =
@@ -661,8 +677,12 @@ void SystemConfig::setLoggingConfig(const LoggingConfig &config) {
   }
 
   Json::Value logging(Json::objectValue);
-  logging["log_file"] = config.logFile;
+  logging["enabled"] = config.enabled;
   logging["log_level"] = config.logLevel;
+  logging["api_enabled"] = config.apiEnabled;
+  logging["instance_enabled"] = config.instanceEnabled;
+  logging["sdk_output_enabled"] = config.sdkOutputEnabled;
+  logging["log_file"] = config.logFile;
   logging["max_log_file_size"] =
       static_cast<Json::Int64>(config.maxLogFileSize);
   logging["max_log_files"] = config.maxLogFiles;

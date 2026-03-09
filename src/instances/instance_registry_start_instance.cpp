@@ -3,6 +3,8 @@
 #include "core/backpressure_controller.h"
 #include "core/cvedix_validator.h"
 #include "core/logger.h"
+#include "core/instance_logging_config.h"
+#include "core/log_manager.h"
 #include "core/logging_flags.h"
 #include "core/resource_manager.h"
 #include "core/shutdown_flag.h"
@@ -931,12 +933,22 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
                     << instanceId << " (" << info.displayName
                     << ", solution: " << info.solutionId << ", running: true)";
         }
+        if (InstanceLoggingConfig::isEnabled(instanceId)) {
+          const auto &info = instanceIt->second;
+          std::string msg = "Instance started successfully: " + instanceId + " (" +
+                            info.displayName + ", solution: " + info.solutionId + ", running: true)";
+          LogManager::writeInstanceLog(instanceId, "INFO", msg);
+        }
       } else {
         std::cerr << "[InstanceRegistry] ✗ Failed to start instance "
                   << instanceId << std::endl;
         if (isInstanceLoggingEnabled()) {
           PLOG_ERROR << "[Instance] Failed to start instance: " << instanceId
                      << " (" << existingInfo.displayName << ")";
+        }
+        if (InstanceLoggingConfig::isEnabled(instanceId)) {
+          LogManager::writeInstanceLog(instanceId, "ERROR",
+              "Failed to start instance: " + instanceId + " (" + existingInfo.displayName + ")");
         }
         // Cleanup pipeline if start failed to prevent resource leak
         pipelines_.erase(instanceId);

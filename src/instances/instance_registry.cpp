@@ -3,6 +3,7 @@
 #include "core/backpressure_controller.h"
 #include "core/cvedix_validator.h"
 #include "core/logger.h"
+#include "core/instance_logging_config.h"
 #include "core/logging_flags.h"
 #include "core/resource_manager.h"
 #include "core/shutdown_flag.h"
@@ -386,6 +387,9 @@ bool InstanceRegistry::deleteInstance(const std::string &instanceId) {
                 << instanceId << std::endl;
     }
   }
+
+  // Clear per-instance logging cache
+  InstanceLoggingConfig::remove(instanceId);
 
   // Delete from storage (doesn't need lock)
   // Always delete from storage since all instances are saved to storage for
