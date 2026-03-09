@@ -304,6 +304,8 @@ void SystemConfig::initializeDefaults() {
   monitoring["watchdog_check_interval_ms"] = 5000;
   monitoring["watchdog_timeout_ms"] = 30000;
   monitoring["health_monitor_interval_ms"] = 1000;
+  monitoring["max_cpu_percent"] = 0;   // 0 = disabled; reject new instances when system CPU >= this
+  monitoring["max_ram_percent"] = 0;   // 0 = disabled; reject new instances when system RAM >= this
   Json::Value deviceReport(Json::objectValue);
   deviceReport["enabled"] = false;
   deviceReport["server_url"] = "";
@@ -741,6 +743,14 @@ SystemConfig::MonitoringConfig SystemConfig::getMonitoringConfig() const {
     }
     if (mon.isMember("health_monitor_interval_ms") && mon["health_monitor_interval_ms"].isInt()) {
       config.healthMonitorIntervalMs = static_cast<uint32_t>(mon["health_monitor_interval_ms"].asInt());
+    }
+    if (mon.isMember("max_cpu_percent") && mon["max_cpu_percent"].isInt()) {
+      int v = mon["max_cpu_percent"].asInt();
+      config.maxCpuPercent = (v >= 0 && v <= 100) ? v : 0;
+    }
+    if (mon.isMember("max_ram_percent") && mon["max_ram_percent"].isInt()) {
+      int v = mon["max_ram_percent"].asInt();
+      config.maxRamPercent = (v >= 0 && v <= 100) ? v : 0;
     }
   }
 

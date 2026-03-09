@@ -2576,6 +2576,7 @@ int main(int argc, char *argv[]) {
     QuickInstanceHandler::setSolutionRegistry(&solutionRegistry);
     InstanceHandler::setInstanceManager(instanceManager.get());
     InstanceFpsHandler::setInstanceManager(instanceManager.get());
+    SystemInfoHandler::setInstanceManager(instanceManager.get());
 
     // Register solution registry and storage with solution handler
     SolutionHandler::setSolutionRegistry(&solutionRegistry);

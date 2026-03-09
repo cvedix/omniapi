@@ -373,6 +373,7 @@ set(SOURCES
     src/fonts/font_upload_handler.cpp
     src/core/watchdog.cpp
     src/core/health_monitor.cpp
+    src/core/system_metrics.cpp
     src/core/device_report_collector.cpp
     src/core/device_watchdog.cpp
     src/core/endpoint_monitor.cpp

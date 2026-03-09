@@ -17,6 +17,7 @@ manual/
 ├── Instance_Management/ # Manual tests cho Instance Management
 │
 ├── Core_API/           # Manual tests cho Core API
+│   ├── SERVER_SETTINGS_MONITORING_MANUAL_TEST.md
 │   ├── SYSTEM_CONFIG_MANUAL_TEST.md
 │   ├── SYSTEM_CONFIG_QUICK_TEST.md
 │   ├── EVENTS_OUTPUT_MANUAL_TEST.md
@@ -69,6 +70,16 @@ Manual tests được thiết kế để:
   - Tìm kiếm khuôn mặt
   - Quản lý subjects
   - Cấu hình database
+
+### Core API - Server settings & Monitoring (toàn bộ tính năng)
+- **SERVER_SETTINGS_MONITORING_MANUAL_TEST.md**: Test thủ công **toàn bộ** API cấu hình server và giám sát:
+  - **Config API**: GET/POST/PATCH /v1/core/config (max_running_instances, performance threads, web_server, logging, monitoring).
+  - **System info/status**: GET /v1/core/system/info (CPU cores, RAM, GPU, disk), GET /v1/core/system/status (CPU %, RAM %, load, uptime).
+  - **Watchdog**: GET /v1/core/watchdog (health_monitor: cpu_usage_percent, memory_usage_mb), GET/PUT /v1/core/watchdog/config.
+  - **Endpoints & Metrics**: GET /v1/core/endpoints, GET /v1/core/metrics (Prometheus + JSON).
+  - **Health, Version**: GET /v1/core/health, GET /v1/core/version.
+  - **System config entity**: GET/PUT /v1/core/system/config.
+  - Bảng tóm tắt API, troubleshooting, link tới docs và các manual test chi tiết (log, watchdog, bind, system config).
 
 ### Core API - System Config
 - **SYSTEM_CONFIG_MANUAL_TEST.md**: Hướng dẫn test chi tiết System Config & Preferences API, bao gồm:

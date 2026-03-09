@@ -1,0 +1,78 @@
+# API endpoint: /v1/core/system/resource-status
+# Tag: Core
+
+/v1/core/system/resource-status:
+  get:
+    summary: Get resource limits and current usage
+    description: |
+      Returns configured resource limits (max_running_instances, max_cpu_percent, max_ram_percent,
+      thread_num, min_threads, max_threads), current usage, and over-limit flags.
+      Use this to monitor and tune all limits via config (system.performance, system.monitoring).
+    operationId: getResourceStatus
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Resource limits, current usage, and over-limit flags
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limits:
+                  type: object
+                  description: Configured limits (0 = disabled)
+                  properties:
+                    max_running_instances:
+                      type: integer
+                      description: Max instances (0 = unlimited)
+                    max_cpu_percent:
+                      type: integer
+                      description: Reject new instances when system CPU >= this (0 = disabled)
+                    max_ram_percent:
+                      type: integer
+                      description: Reject new instances when system RAM >= this (0 = disabled)
+                    thread_num:
+                      type: integer
+                      description: HTTP server thread count (0 = auto)
+                    min_threads:
+                      type: integer
+                      description: Min HTTP server threads
+                    max_threads:
+                      type: integer
+                      description: Max HTTP server threads
+                current:
+                  type: object
+                  properties:
+                    instance_count:
+                      type: integer
+                    cpu_usage_percent:
+                      type: number
+                      format: double
+                    ram_usage_percent:
+                      type: number
+                      format: double
+                over_limits:
+                  type: object
+                  description: true when current usage meets or exceeds configured limit
+                  properties:
+                    at_instance_limit:
+                      type: boolean
+                    over_cpu_limit:
+                      type: boolean
+                    over_ram_limit:
+                      type: boolean
+      '500':
+        description: Server error
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight for resource-status
+    operationId: getResourceStatusOptions
+    tags:
+    - Core
+    responses:
+      '200':
+        description: CORS preflight response

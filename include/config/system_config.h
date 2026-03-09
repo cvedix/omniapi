@@ -106,6 +106,10 @@ public:
     uint32_t watchdogCheckIntervalMs = 5000;
     uint32_t watchdogTimeoutMs = 30000;
     uint32_t healthMonitorIntervalMs = 1000;
+    /** Max CPU usage percent (0 = disabled). When set, new instances are rejected if system CPU >= this. */
+    int maxCpuPercent = 0;
+    /** Max RAM usage percent (0 = disabled). When set, new instances are rejected if system RAM >= this. */
+    int maxRamPercent = 0;
   };
   MonitoringConfig getMonitoringConfig() const;
 
