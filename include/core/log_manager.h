@@ -59,6 +59,12 @@ public:
   getAppender(Category category);
 
   /**
+   * @brief Get the base log directory actually in use at runtime (resolved at init).
+   * Use this to know where log files are being written; may differ from config if init ran before config load.
+   */
+  static std::string getBaseDir();
+
+  /**
    * @brief Get log directory for a category
    */
   static std::string getCategoryDir(Category category);

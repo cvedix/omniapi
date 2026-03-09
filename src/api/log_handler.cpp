@@ -29,6 +29,7 @@ void LogHandler::getLogConfig(
     out["instance_enabled"] = logConfig.instanceEnabled;
     out["sdk_output_enabled"] = logConfig.sdkOutputEnabled;
     out["log_dir"] = logConfig.logDir;
+    out["current_log_dir"] = LogManager::getBaseDir();
     out["log_file"] = logConfig.logFile;
     out["max_log_file_size"] = static_cast<Json::Int64>(logConfig.maxLogFileSize);
     out["max_log_files"] = logConfig.maxLogFiles;
@@ -41,6 +42,8 @@ void LogHandler::getLogConfig(
     out["_description"]["api_enabled"] = "Log API requests/responses (applies immediately).";
     out["_description"]["instance_enabled"] = "Log instance start/stop/status (applies immediately).";
     out["_description"]["sdk_output_enabled"] = "Log SDK output when instances process data (applies immediately).";
+    out["_description"]["log_dir"] = "Configured log directory (from config or env); may differ from current_log_dir until restart.";
+    out["_description"]["current_log_dir"] = "Actual base directory where log files are written at runtime. Use this to verify log location.";
     Json::Value response;
     response["config"] = out;
     auto resp = HttpResponse::newHttpJsonResponse(response);
@@ -102,6 +105,8 @@ void LogHandler::putLogConfig(
     response["config"]["api_enabled"] = current.apiEnabled;
     response["config"]["instance_enabled"] = current.instanceEnabled;
     response["config"]["sdk_output_enabled"] = current.sdkOutputEnabled;
+    response["config"]["log_dir"] = current.logDir;
+    response["config"]["current_log_dir"] = LogManager::getBaseDir();
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k200OK);
     resp->addHeader("Access-Control-Allow-Origin", "*");

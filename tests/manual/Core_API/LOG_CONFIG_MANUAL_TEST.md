@@ -50,6 +50,7 @@ Ví dụ response (rút gọn):
     "instance_enabled": false,
     "sdk_output_enabled": false,
     "log_dir": "./logs",
+    "current_log_dir": "/opt/edgeos-api/logs",
     "log_file": "logs/api.log",
     "retention_days": 30,
     "_description": {
@@ -72,7 +73,10 @@ Ví dụ response (rút gọn):
 | **api_enabled** | Ghi log mọi request/response của API | `true` / `false` |
 | **instance_enabled** | Ghi log khi start/stop instance, đổi trạng thái instance | `true` / `false` |
 | **sdk_output_enabled** | Ghi log kết quả xử lý từ SDK (rất nhiều log, chỉ bật khi debug) | `true` / `false` |
-| **log_dir** | Thư mục gốc chứa tất cả log | Ví dụ: `"./logs"` |
+| **log_dir** | Thư mục log đã cấu hình (config/env) | Ví dụ: `"./logs"`, `"/opt/edgeos-api/logs"` |
+| **current_log_dir** | **Thư mục thực tế đang ghi log** — dùng để kiểm tra log có lưu đúng vị trí không | Ví dụ: `"/opt/edgeos-api/logs"` — nếu khác mong muốn, set `LOG_DIR` và restart |
+
+**Kiểm tra log có lưu đúng vị trí:** Gọi GET `/v1/core/log/config` và xem trường **`current_log_dir`**. Đó chính là thư mục đang ghi log (api/, general/, instance/, sdk_output/ nằm bên trong). Nếu khác với vị trí mong muốn, cấu hình `LOG_DIR` khi khởi động server và restart.
 
 ---
 
@@ -303,7 +307,7 @@ curl -s -X PUT "http://localhost:8080/v1/core/instance/{instanceId}/log/config" 
 | PUT trả về **400** | Body phải là JSON đúng (dấu ngoặc, dấu phẩy, ngoặc kép). Kiểm tra lại hoặc dùng Postman/Swagger. |
 | PUT trả về **500** | Ghi config thất bại (quyền ghi file, đĩa đầy…). Xem log server. |
 | GET/PUT instance log config trả về **404** | Instance không tồn tại. Kiểm tra ID bằng **GET** `/v1/core/instance`. |
-| Bật log nhưng không thấy file mới | Kiểm tra `log_dir` (mặc định `./logs`). Tạo vài request hoặc start instance để có log. Đảm bảo `enabled: true` và đúng category đã bật. |
+| Bật log nhưng không thấy file mới | Kiểm tra current_log_dir trong GET /v1/core/log/config (thư mục thực tế đang ghi log); mặc định có thể là ./logs hoặc /opt/edgeos-api/logs. Tạo vài request hoặc start instance để có log. Đảm bảo `enabled: true` và đúng category đã bật. |
 | Muốn chỉ vài instance có log riêng | Bật `instance_enabled` toàn hệ thống (hoặc không), rồi chỉ **PUT** `{"enabled": true}` cho từng instance cần log riêng. |
 
 ---
@@ -318,3 +322,4 @@ curl -s -X PUT "http://localhost:8080/v1/core/instance/{instanceId}/log/config" 
 ---
 
 Nếu làm đúng từng bước trên, người mới / non-dev có thể tự bật tắt log và xem log theo từng instance mà không cần sửa code hay config file thủ công.
+hể tự bật tắt log và xem log theo từng instance mà không cần sửa code hay config file thủ công.

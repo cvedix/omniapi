@@ -4,6 +4,29 @@ Tài liệu này mô tả **từng API** một cách chi tiết: khi nào dùng,
 
 **Địa chỉ gốc:** Thay `http://localhost:8080` bằng địa chỉ máy chạy API của bạn (ví dụ: `http://192.168.1.100:8080`).
 
+### Bật/tắt qua API và quyền ghi (permission)
+
+- **Toàn quyền bật/tắt qua API:** Có. Khi bạn **tắt** log (enabled = false hoặc tắt từng loại api_enabled/instance_enabled/sdk_output_enabled), hệ thống **không ghi** vào file log nữa. Không có trường hợp “đã tắt mà vẫn bị lỗi vì không có quyền ghi log” — vì khi tắt thì không có thao tác ghi file.
+- **Khi bật log:** Việc ghi log do **process server** thực hiện, vào thư mục trong `log_dir` (mặc định `./logs`). Cần đảm bảo **user chạy process** có quyền ghi vào thư mục đó (ví dụ: `./logs` trong thư mục cài đặt). Nếu không có quyền, log có thể không được tạo/cập nhật nhưng **API không trả về lỗi** (ứng dụng vẫn chạy bình thường). Nên dùng thư mục mặc định hoặc thư mục đã cấp quyền ghi cho user chạy server.
+
+### Ghi mọi log vào `/opt/edgeos-api/logs`
+
+Bạn có thể gom **toàn bộ log hoạt động hệ thống** (api, general, instance, sdk_output, và log theo instance) vào một thư mục cố định, ví dụ `/opt/edgeos-api/logs`.
+
+- **Mặc định production:** Khi không set biến môi trường `LOG_DIR`, server tự dùng thư mục mặc định **`/opt/edgeos-api/logs`** (nếu process có quyền ghi). Cấu trúc sẽ là: `api/`, `general/`, `instance/`, `sdk_output/`, và `instance/<instance_id>/` khi bật log theo instance.
+- **Chắc chắn dùng thư mục này:** Trước khi chạy server, set biến môi trường:
+  ```bash
+  export LOG_DIR=/opt/edgeos-api/logs
+  ```
+  Hoặc trong file systemd (vd. `Environment="LOG_DIR=/opt/edgeos-api/logs"`) / file `.env` nếu bạn dùng script khởi động.
+- **Quyền ghi:** User chạy process (vd. `edgeos-api`) phải có quyền ghi vào `/opt/edgeos-api/logs`. Ví dụ:
+  ```bash
+  sudo chown -R edgeos-api:edgeos-api /opt/edgeos-api/logs
+  ```
+  Sau khi set `LOG_DIR` và quyền đúng, **mọi log** (API, instance, SDK, general, log theo instance) đều nằm trong `/opt/edgeos-api/logs`.
+
+**Lưu ý:** Thư mục log được chọn **lúc server khởi động**. Nếu đổi `log_dir` qua API (PUT `/v1/core/log/config`), giá trị được lưu vào config nhưng **chỉ áp dụng sau khi restart** server. Để dùng `/opt/edgeos-api/logs` ngay từ đầu, nên set `LOG_DIR` khi khởi động.
+
 ---
 
 ## 1. Xem cấu hình log hệ thống
@@ -32,7 +55,8 @@ curl -s "http://localhost:8080/v1/core/log/config"
 | `api_enabled` | `true` = ghi log mọi request/response API. |
 | `instance_enabled` | `true` = ghi log khi start/stop instance. |
 | `sdk_output_enabled` | `true` = ghi log kết quả xử lý từ SDK (rất nhiều, chỉ bật khi debug). |
-| `log_dir` | Thư mục chứa tất cả log (vd: `"./logs"`). |
+| `log_dir` | Thư mục log **đã cấu hình** (từ config/env); có thể khác thư mục thực tế cho đến khi restart. |
+| **`current_log_dir`** | **Thư mục thực tế đang ghi log tại runtime.** Dùng trường này để kiểm tra log đang lưu đúng vị trí hay không; nếu khác với mong muốn thì cần set `LOG_DIR` khi khởi động và restart. |
 | `log_file` | Tên file log mặc định. |
 | `retention_days` | Số ngày giữ file log, sau đó tự xóa. |
 | `_description` | Giải thích thêm từng trường (chỉ để đọc). |

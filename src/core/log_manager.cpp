@@ -101,6 +101,8 @@ LogManager::getAppender(Category category) {
   }
 }
 
+std::string LogManager::getBaseDir() { return base_dir_; }
+
 std::string LogManager::getCategoryDir(Category category) {
   std::string category_dir = base_dir_;
   if (!base_dir_.empty() && base_dir_.back() != '/') {
