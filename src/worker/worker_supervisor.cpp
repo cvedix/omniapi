@@ -131,6 +131,29 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   }
 
   if (pid == 0) {
+    // Redirect worker stdout/stderr to a dedicated log file so [Worker:...] lines
+    // are always visible (they are not written by LogManager/plog).
+    const char *log_dir = std::getenv("LOG_DIR");
+    if (!log_dir || !*log_dir) {
+      log_dir = "logs";
+    }
+    std::string worker_log_path =
+        std::string(log_dir) + "/worker_" + instance_id + ".log";
+    try {
+      std::filesystem::create_directories(
+          std::filesystem::path(worker_log_path).parent_path());
+      int fd = open(worker_log_path.c_str(),
+                    O_WRONLY | O_CREAT | O_APPEND,
+                    0644);
+      if (fd >= 0) {
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+      }
+    } catch (...) {
+      // ignore; worker will keep inherited stdout/stderr
+    }
+
     // Child process - set CUDA_VISIBLE_DEVICES if GPU device ID is specified
     if (gpu_device_id >= 0) {
       std::string cuda_visible_devices = std::to_string(gpu_device_id);

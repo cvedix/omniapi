@@ -96,7 +96,31 @@ Log các sự kiện liên quan đến vòng đời của instance (start, stop,
 
 ---
 
-### 3. SDK Output Logging (`--log-sdk-output` hoặc `--debug-sdk-output`)
+### 3. Worker process logs (chế độ subprocess)
+
+Khi chạy **subprocess mode** (mỗi instance chạy trong process worker riêng), mọi dòng log từ worker (prefix `[Worker:<instance_id>]`) — ví dụ `UPDATE_INSTANCE received`, `Zero-downtime pipeline swap`, hot-swap, start/stop — được ghi vào **file riêng theo instance**, không qua LogManager/plog.
+
+**Vị trí file:**
+
+- Thư mục log: biến môi trường **`LOG_DIR`** (nếu có) hoặc mặc định **`logs`** (tương đối thư mục hiện tại khi API khởi động).
+- File: **`<LOG_DIR>/worker_<instance_id>.log`**  
+  Ví dụ: `logs/worker_abc-123.log` hoặc `/opt/edgeos-api/logs/worker_abc-123.log` nếu `LOG_DIR=/opt/edgeos-api/logs`.
+
+**Cách xem log worker (debug update instance, hot-swap):**
+
+```bash
+# Theo instance_id
+tail -f logs/worker_<instance_id>.log
+
+# Hoặc khi dùng LOG_DIR (vd: deploy /opt/edgeos-api)
+tail -f /opt/edgeos-api/logs/worker_<instance_id>.log
+```
+
+**Lưu ý:** File `log/YYYY-MM-DD.txt` trong repo (nếu có) thường là output SDK/omniruntime hoặc log redirect tùy cách chạy; log **worker** nằm trong `logs/worker_<instance_id>.log` như trên.
+
+---
+
+### 4. SDK Output Logging (`--log-sdk-output` hoặc `--debug-sdk-output`)
 
 Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detection results, metadata, etc.).
 
@@ -133,7 +157,7 @@ Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detec
 
 ---
 
-### 4. General Logs (`logs/general/`)
+### 5. General Logs (`logs/general/`)
 
 **Luôn được ghi** (không cần flag)
 

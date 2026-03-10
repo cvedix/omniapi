@@ -8106,6 +8106,123 @@ paths:
       responses:
         '200':
           description: CORS preflight response
+  /v1/core/instance/{instanceId}/log/config:
+    get:
+      summary: Get per-instance logging config
+      description: 'Returns per-instance logging configuration. When **enabled** is true, instance logs are written to `logs/instance/<instance_id>/` (per-instance folder).'
+      operationId: getInstanceLogConfig
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the instance (UUID)
+      responses:
+        '200':
+          description: Per-instance logging config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        description: When true, instance logs are written to logs/instance/<instance_id>/
+                  _description:
+                    type: object
+                    additionalProperties:
+                      type: string
+              example:
+                config:
+                  enabled: false
+                _description:
+                  enabled: "When true, instance logs are written to logs/instance/<instance_id>/ (per-instance folder)."
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Set per-instance logging config
+      description: 'Sets per-instance logging. Send **enabled** true to write instance logs to `logs/instance/<instance_id>/`. Applies immediately; value is persisted with instance config.'
+      operationId: putInstanceLogConfig
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the instance (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: When true, instance logs are written to logs/instance/<instance_id>/
+            example:
+              enabled: true
+      responses:
+        '200':
+          description: Config updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+        '400':
+          description: Bad request (invalid JSON or missing enabled)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight for instance log config
+      operationId: instanceLogConfigOptions
+      tags:
+      - Instances
+      responses:
+        '200':
+          description: CORS preflight response
   /v1/core/instance/{instanceId}/load:
     post:
       summary: Load instance into memory

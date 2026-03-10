@@ -717,6 +717,7 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineOSDNode(
         std::make_shared<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(nodeName);
 
     // Parse CrossingLines config to set line names, colors, and directions for OSD
+    bool osdLinesSetFromCrossingLines = false;
     auto crossingLinesIt = req.additionalParams.find("CrossingLines");
     if (crossingLinesIt != req.additionalParams.end() &&
         !crossingLinesIt->second.empty()) {
@@ -824,6 +825,7 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineOSDNode(
           }
           std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   ✓ Total " << totalConfigsSet 
                     << " line config(s) set for OSD node" << std::endl;
+          osdLinesSetFromCrossingLines = (totalConfigsSet > 0);
         }
       } catch (const std::exception &e) {
         std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: Failed to parse "
@@ -832,33 +834,35 @@ PipelineBuilderBehaviorAnalysisNodes::createBACrosslineOSDNode(
     }
 
     // Fallback: legacy CROSSLINE_START_X/Y, CROSSLINE_END_X/Y from additionalParams
-    // (e.g. when instance uses additionalParams.input with these keys and no CrossingLines)
-    auto sx = req.additionalParams.find("CROSSLINE_START_X");
-    auto sy = req.additionalParams.find("CROSSLINE_START_Y");
-    auto ex = req.additionalParams.find("CROSSLINE_END_X");
-    auto ey = req.additionalParams.find("CROSSLINE_END_Y");
-    if (sx != req.additionalParams.end() && !sx->second.empty() &&
-        sy != req.additionalParams.end() && !sy->second.empty() &&
-        ex != req.additionalParams.end() && !ex->second.empty() &&
-        ey != req.additionalParams.end() && !ey->second.empty()) {
-      try {
-        int start_x = std::stoi(sx->second);
-        int start_y = std::stoi(sy->second);
-        int end_x = std::stoi(ex->second);
-        int end_y = std::stoi(ey->second);
-        cvedix_objects::cvedix_point start(start_x, start_y);
-        cvedix_objects::cvedix_point end(end_x, end_y);
-        cvedix_objects::cvedix_line line(start, end);
-        cv::Scalar line_color = cv::Scalar(0, 255, 0); // BGR green
-        cvedix_nodes::line_display_config displayConfig(
-            line, line_color, "Crossline", cvedix_objects::cvedix_ba_direct_type::BOTH);
-        node->set_line_configs(0, {displayConfig});
-        std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   ✓ Set 1 line from legacy "
-                     "CROSSLINE_* params (channel 0: (" << start_x << "," << start_y << ") -> ("
-                  << end_x << "," << end_y << "))" << std::endl;
-      } catch (const std::exception &e) {
-        std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: Failed to parse legacy "
-                     "CROSSLINE_* for OSD: " << e.what() << std::endl;
+    // Only when CrossingLines was not used (avoid overwriting multi-line config with single line).
+    if (!osdLinesSetFromCrossingLines) {
+      auto sx = req.additionalParams.find("CROSSLINE_START_X");
+      auto sy = req.additionalParams.find("CROSSLINE_START_Y");
+      auto ex = req.additionalParams.find("CROSSLINE_END_X");
+      auto ey = req.additionalParams.find("CROSSLINE_END_Y");
+      if (sx != req.additionalParams.end() && !sx->second.empty() &&
+          sy != req.additionalParams.end() && !sy->second.empty() &&
+          ex != req.additionalParams.end() && !ex->second.empty() &&
+          ey != req.additionalParams.end() && !ey->second.empty()) {
+        try {
+          int start_x = std::stoi(sx->second);
+          int start_y = std::stoi(sy->second);
+          int end_x = std::stoi(ex->second);
+          int end_y = std::stoi(ey->second);
+          cvedix_objects::cvedix_point start(start_x, start_y);
+          cvedix_objects::cvedix_point end(end_x, end_y);
+          cvedix_objects::cvedix_line line(start, end);
+          cv::Scalar line_color = cv::Scalar(0, 255, 0); // BGR green
+          cvedix_nodes::line_display_config displayConfig(
+              line, line_color, "Crossline", cvedix_objects::cvedix_ba_direct_type::BOTH);
+          node->set_line_configs(0, {displayConfig});
+          std::cerr << "[PipelineBuilderBehaviorAnalysisNodes]   ✓ Set 1 line from legacy "
+                       "CROSSLINE_* params (channel 0: (" << start_x << "," << start_y << ") -> ("
+                    << end_x << "," << end_y << "))" << std::endl;
+        } catch (const std::exception &e) {
+          std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: Failed to parse legacy "
+                       "CROSSLINE_* for OSD: " << e.what() << std::endl;
+        }
       }
     }
 
