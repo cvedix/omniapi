@@ -12,7 +12,8 @@ Tài liệu này bao gồm setup môi trường, hướng dẫn phát triển AP
 6. [API Documentation (Swagger & Scalar)](#api-documentation-swagger--scalar)
 7. [Pre-commit Hooks](#pre-commit-hooks)
 8. [Best Practices](#best-practices)
-9. [Troubleshooting](#troubleshooting)
+9. [Hot Swap (Zero-Downtime Update)](#hot-swap-zero-downtime-update)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -948,6 +949,89 @@ resp->addHeader("Access-Control-Allow-Origin", "*");
 
 ---
 
+## Hot Swap (Zero-Downtime Update)
+
+Phần này mô tả **tính năng hot swap** (cập nhật cấu hình instance không ngắt luồng RTMP), **cách thức hoạt động**, **cách xử lý khi tính năng bị hỏng** và **cách back lại code** để khôi phục.
+
+### Mô tả
+
+- **Hot swap** cho phép PATCH/PUT cấu hình instance (ví dụ đổi CrossingLines, zone, model) trong khi **luồng phát RTMP ra server không bị ngắt**.
+- **Điều kiện:** Instance đang chạy ở **subprocess mode** (`EDGE_AI_EXECUTION_MODE=subprocess`), có output RTMP; khi chỉ đổi line hoặc khi cần rebuild pipeline thì worker dùng **atomic swap** (build pipeline mới → đổi con trỏ active → drain pipeline cũ) thay vì stop → build → start (gây mất stream vài giây).
+- **Tài liệu thiết kế:** [ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md](ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md). **Tóm tắt kiến trúc (diagram):** [ARCHITECTURE.md](ARCHITECTURE.md) — section "Kiến Trúc Hot Swap & Zero-Downtime".
+
+### Cách thức hoạt động (tóm tắt)
+
+1. **Persistent output leg:** Proxy (RtmpLastFrameFallbackProxyNode) + rtmp_des **không** nằm trong pipeline có thể thay; chúng được giữ nguyên, chỉ **đầu vào** của proxy thay đổi (từ pipeline cũ → pipeline mới qua Frame Router).
+2. **Frame Router:** Giữ con trỏ "pipeline đang active". Pipeline đang chạy đẩy frame từ OSD vào router → router đẩy xuống proxy → rtmp_des.
+3. **Khi PATCH (line-only hoặc rebuild):** Worker merge config → nếu có RTMP output thì gọi `hotSwapPipeline(config_)`: bật last-frame pump → build pipeline mới (output nối vào cùng Frame Router) → **atomic swap** con trỏ active → dừng source pipeline cũ → drain pipeline cũ → start source pipeline mới → tắt pump.
+4. **Line-only + RTMP:** Worker chọn hot swap thay vì `set_lines()` để tránh block/timeout và mất stream; pipeline mới được build với CrossingLines mới từ config.
+
+### Các file / đoạn code then chốt (để biết chỗ cần back lại)
+
+| Vai trò | File | Hàm / vị trí quan trọng |
+|--------|------|---------------------------|
+| Quyết định path (line-only vs rebuild), gọi hot swap | `src/worker/worker_handler_handlers.cpp` | `handleUpdateInstance`: merge config, `onlyLineParamsChanged`, `frame_router_ && output_leg_` → `hotSwapPipeline(config_)`; nếu không thì `checkIfNeedsRebuild` / `applyConfigToPipeline` rồi `hotSwapPipeline` khi cần rebuild. |
+| Thực hiện hot swap (build mới, swap, drain, start mới) | `src/worker/worker_handler_hotswap.cpp` | `hotSwapPipeline`: merge config vào `tempConfig`, giữ RTMP trong tempConfig; `preBuildPipeline(tempConfig)`; `frame_router_->setActivePipeline(newSnapshot)`; `stopSourceNodeForSnapshot`; `drainPipelineSnapshot`; `startSourceNodeForSnapshot`. |
+| Build pipeline (AI leg nối vào frame_router_) | `src/core/pipeline_builder.cpp` (và behavior_analysis, broker, …) | Build với `frame_router_.get()` khi có RTMP; output pipeline nối vào FrameRouterSinkNode → router. |
+| OSD crossline: tránh ghi đè nhiều line thành 1 line | `src/core/pipeline_builder_behavior_analysis_nodes.cpp` | `createBACrosslineOSDNode`: set line từ CrossingLines trước; fallback CROSSLINE_START/END_X/Y **chỉ** chạy khi `!osdLinesSetFromCrossingLines`. |
+| Spawn worker, redirect log worker | `src/worker/worker_supervisor.cpp` | `spawnWorker`: trong nhánh child (pid == 0), redirect stdout/stderr vào `logs/worker_<instance_id>.log` (hoặc `$LOG_DIR/...`). |
+| Merge config PATCH, sync AdditionalParams ↔ additionalParams | `src/worker/worker_handler_handlers.cpp` | `handleUpdateInstance`: `mergeJsonInto(config_, newConfig)`; đồng bộ `additionalParams` ↔ `AdditionalParams`; giữ RtmpUrl/output khi PATCH chỉ gửi line. |
+| Preserve RTMP trong tempConfig khi hot swap | `src/worker/worker_handler_hotswap.cpp` | Đầu `hotSwapPipeline`: copy `config_` → `tempConfig`, merge `newConfig`; nếu tempConfig mất output RTMP thì gán lại từ `config_["additionalParams"]["output"]` và `config_["RtmpUrl"]`. |
+
+### Cách xử lý khi hot swap không hoạt động
+
+1. **Xác định triệu chứng**
+   - PATCH trả 200 nhưng cấu hình không đổi (ví dụ vẫn 1 line thay vì 2 line) → thường do OSD bị ghi đè hoặc config merge thiếu CrossingLines.
+   - PATCH xong stream RTMP mất / ngắt vài giây → có thể swap không dùng zero-downtime path (thiếu frame_router_/output_leg_) hoặc tempConfig mất RTMP.
+   - PATCH timeout hoặc lỗi 500 → preBuild thất bại hoặc worker crash; xem log worker.
+
+2. **Kiểm tra log worker**
+   - File: `logs/worker_<instance_id>.log` hoặc `$LOG_DIR/worker_<instance_id>.log`.
+   - Cần thấy: `UPDATE_INSTANCE received`, `Line-only update but RTMP output present -> hot-swap` (nếu line-only), `Zero-downtime pipeline swap`, `Pre-built pipeline with N nodes`, `Zero-downtime swap done`, hoặc lỗi `Pre-build failed` / `Failed to start new pipeline source`.
+
+3. **Kiểm tra nhanh trong code**
+   - Worker có nhận config đúng không: merge có giữ `additionalParams.CrossingLines` và `additionalParams.output` (RTMP)?
+   - `frame_router_` và `output_leg_` có tồn tại khi instance có RTMP? (nếu không, sẽ đi legacy path stop → build → start.)
+   - OSD: sau khi sửa, fallback CROSSLINE_* có chỉ chạy khi chưa set từ CrossingLines không?
+
+### Cách back lại khi tính năng bị hỏng sau thay đổi code
+
+1. **Xác định phạm vi thay đổi**
+   - Nếu chỉ sửa đúng các file liên quan hot swap (handlers, hotswap, pipeline_builder, behavior_analysis, worker_supervisor), có thể revert từng file hoặc từng commit.
+   - Nếu đã chỉnh nhiều chỗ, ưu tiên revert **theo từng tính năng** (ví dụ chỉ revert phần OSD, hoặc chỉ phần worker log).
+
+2. **Revert theo từng file (git)**
+   ```bash
+   # Xem lịch sử file để chọn commit cần back
+   git log --oneline -- src/worker/worker_handler_handlers.cpp
+   git log --oneline -- src/worker/worker_handler_hotswap.cpp
+   git log --oneline -- src/core/pipeline_builder_behavior_analysis_nodes.cpp
+   git log --oneline -- src/worker/worker_supervisor.cpp
+
+   # Khôi phục một file về phiên bản trước (thay <commit> bằng hash hoặc HEAD~1)
+   git checkout <commit> -- src/worker/worker_handler_hotswap.cpp
+
+   # Hoặc khôi phục toàn bộ thay đổi chưa commit
+   git checkout -- src/worker/worker_handler_handlers.cpp
+   ```
+
+3. **Điểm cần khôi phục thủ công nếu không dùng git**
+   - **OSD nhiều line:** Trong `createBACrosslineOSDNode`, đảm bảo biến `osdLinesSetFromCrossingLines` được set `true` khi đã set line từ CrossingLines, và khối fallback CROSSLINE_START/END_X/Y chỉ chạy khi `if (!osdLinesSetFromCrossingLines) { ... }`.
+   - **Preserve RTMP khi hot swap:** Trong `hotSwapPipeline`, sau khi `mergeJsonInto(tempConfig, newConfig)` phải kiểm tra và gán lại `tempConfig["additionalParams"]["output"]` và `tempConfig["RtmpUrl"]` từ `config_` nếu PATCH không gửi output (ví dụ chỉ gửi CrossingLines).
+   - **Line-only + RTMP → hot swap:** Trong `handleUpdateInstance`, khi `onlyLineParamsChanged == true` và `frame_router_ && output_leg_` thì gọi `hotSwapPipeline(config_)` thay vì chỉ `applyLinesFromParamsToPipeline`.
+
+4. **Sau khi back lại**
+   - Build lại: `cd build && make -j$(nproc)`.
+   - Chạy instance có RTMP, PATCH CrossingLines (2 line), kiểm tra stream không mất và OSD hiển thị đủ 2 line.
+   - Xem log worker trong `logs/worker_<instance_id>.log` để xác nhận dòng "Zero-downtime pipeline swap" và "Zero-downtime swap done".
+
+### Tài liệu tham chiếu
+
+- [ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md](ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md) — thiết kế chi tiết, pseudo-code, threading, memory safety.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — section "Kiến Trúc Hot Swap & Zero-Downtime (Chuyển giao công nghệ)" (diagram, bảng khi nào dùng hot swap, thay đổi code chính).
+
+---
+
 ## ⚠️ Troubleshooting
 
 ### Build Errors
@@ -1023,12 +1107,19 @@ ctest --output-on-failure -V
 lsof -ti:8080 | xargs kill -9
 ```
 
+### Hot Swap không hoạt động / mất stream sau PATCH
+
+- **Triệu chứng:** PATCH instance (ví dụ đổi CrossingLines) trả 200 nhưng cấu hình không đổi, hoặc stream RTMP mất/ngắt sau khi update.
+- **Xử lý nhanh:** Xem log worker `logs/worker_<instance_id>.log` (hoặc `$LOG_DIR/worker_<instance_id>.log`); kiểm tra có dòng `Zero-downtime pipeline swap` và `Zero-downtime swap done` hay không, hoặc lỗi `Pre-build failed` / `Failed to start new pipeline source`.
+- **Back lại code / sửa đúng chỗ:** Làm theo section [Hot Swap (Zero-Downtime Update)](#hot-swap-zero-downtime-update) — mục "Các file / đoạn code then chốt" và "Cách back lại khi tính năng bị hỏng sau thay đổi code".
+
 ---
 
 ## 📚 Tài Liệu Liên Quan
 
 - [Hướng Dẫn Khởi Động](GETTING_STARTED.md)
-- [Architecture](ARCHITECTURE.md)
+- [Architecture](ARCHITECTURE.md) — gồm section Kiến Trúc Hot Swap & Zero-Downtime
+- [Zero-Downtime Atomic Pipeline Swap Design](ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md)
 - [Environment Variables](ENVIRONMENT_VARIABLES.md)
 - [Scripts Documentation](SCRIPTS.md)
 - [Tests Documentation](../tests/README.md)
