@@ -359,7 +359,7 @@ override_dh_usrlocal:
 	:
 
 override_dh_strip:
-	# Strip binaries (without creating separate debug package)
+	# Strip binaries. If objcopy OOM: run with DEB_BUILD_OPTIONS=noautodbgsym dpkg-buildpackage -b
 	dh_strip
 
 .PHONY: override_dh_auto_configure override_dh_auto_build override_dh_auto_install override_dh_shlibdeps override_dh_usrlocal override_dh_strip

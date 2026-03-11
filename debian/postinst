@@ -417,8 +417,9 @@ API_HOST=0.0.0.0
 API_PORT=8080
 LOG_LEVEL=INFO
 # Execution mode: subprocess (isolated workers) or in-process (legacy)
-# Default: subprocess (one worker process per instance - recommended for production)
-EDGE_AI_EXECUTION_MODE=subprocess
+# Changed to in-process for production stability (same as develop mode)
+# In-process mode: no worker spawning, runs directly in main process
+EDGE_AI_EXECUTION_MODE=in-process
 EOF
     chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/config/.env"
     chmod 640 "$INSTALL_DIR/config/.env"
