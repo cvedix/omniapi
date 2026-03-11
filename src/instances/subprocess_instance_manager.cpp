@@ -1,5 +1,6 @@
 #include "instances/subprocess_instance_manager.h"
 #include "core/instance_logging_config.h"
+#include "core/log_manager.h"
 #include "core/resource_manager.h"
 #include "core/runtime_update_log.h"
 #include "core/timeout_constants.h"
@@ -378,6 +379,7 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
             std::lock_guard<std::mutex> lock(instances_mutex_);
             instances_[instanceId] = info;
           }
+          InstanceLoggingConfig::setEnabled(instanceId, info.instanceLoggingEnabled);
           std::cout
               << "[SubprocessInstanceManager] Worker spawned for instance: "
               << instanceId << std::endl;
@@ -402,12 +404,29 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
           std::cerr << "[SubprocessInstanceManager] Failed to spawn worker for "
                        "instance: "
                     << instanceId << std::endl;
+          if (InstanceLoggingConfig::isEnabled(instanceId)) {
+            LogManager::writeInstanceLog(
+                instanceId, "ERROR",
+                "Failed to spawn worker for instance: " + instanceId);
+          }
           return false;
         }
       } else {
+        if (InstanceLoggingConfig::isEnabled(instanceId)) {
+          LogManager::writeInstanceLog(
+              instanceId, "ERROR",
+              "Instance not found in storage, cannot start: " + instanceId);
+        }
         return false;
       }
     } else {
+      if (InstanceLoggingConfig::isEnabled(instanceId)) {
+        LogManager::writeInstanceLog(
+            instanceId, "ERROR",
+            "Worker not ready (state " +
+                std::to_string(static_cast<int>(workerState)) +
+                "), cannot start: " + instanceId);
+      }
       return false;
     }
   }
@@ -453,6 +472,12 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
                     << instanceId << std::endl;
           std::string createError = createResponse.payload.get("error", "Unknown error").asString();
           std::cerr << "[SubprocessInstanceManager] Error: " << createError << std::endl;
+          if (InstanceLoggingConfig::isEnabled(instanceId)) {
+            LogManager::writeInstanceLog(
+                instanceId, "ERROR",
+                "Failed to create pipeline for instance: " + instanceId +
+                    " - " + createError);
+          }
           return false;
         }
         
@@ -469,6 +494,12 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
       } else {
         std::cerr << "[SubprocessInstanceManager] Instance not found in cache: "
                   << instanceId << std::endl;
+        if (InstanceLoggingConfig::isEnabled(instanceId)) {
+          LogManager::writeInstanceLog(
+              instanceId, "ERROR",
+              "Instance not found in cache, cannot build pipeline: " +
+                  instanceId);
+        }
         return false;
       }
     }
@@ -535,6 +566,12 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
               std::cerr << "[SubprocessInstanceManager] Instance " << instanceId
                         << " start failed with error: "
                         << data["last_error"].asString() << std::endl;
+              if (InstanceLoggingConfig::isEnabled(instanceId)) {
+                LogManager::writeInstanceLog(
+                    instanceId, "ERROR",
+                    "Failed to start instance: " + instanceId + " - " +
+                        data["last_error"].asString());
+              }
               // Update local state to reflect failure
               {
                 std::lock_guard<std::mutex> lock(instances_mutex_);
@@ -557,6 +594,11 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
     if (!verified) {
       std::cerr << "[SubprocessInstanceManager] ✗ Failed to verify instance "
                 << instanceId << " is running after start command" << std::endl;
+      if (InstanceLoggingConfig::isEnabled(instanceId)) {
+        LogManager::writeInstanceLog(
+            instanceId, "ERROR",
+            "Failed to verify instance " + instanceId + " is running after start");
+      }
       // Update local state to reflect failure
       {
         std::lock_guard<std::mutex> lock(instances_mutex_);
@@ -607,12 +649,14 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
             info.rtspUrl = storedInfo.rtspUrl;
             info.rtmpUrl = storedInfo.rtmpUrl;
             info.filePath = storedInfo.filePath;
+            info.instanceLoggingEnabled = storedInfo.instanceLoggingEnabled;
             std::cout << "[SubprocessInstanceManager] Loaded instance info "
                          "from storage for "
                       << instanceId << std::endl;
           }
 
           instances_[instanceId] = info;
+          InstanceLoggingConfig::setEnabled(instanceId, info.instanceLoggingEnabled);
           std::cout
               << "[SubprocessInstanceManager] Created cache entry for instance "
               << instanceId << std::endl;
@@ -627,6 +671,22 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
 
     std::cout << "[SubprocessInstanceManager] ✓ Started and verified instance: "
               << instanceId << std::endl;
+    if (InstanceLoggingConfig::isEnabled(instanceId)) {
+      std::string displayName = instanceId;
+      std::string solutionId;
+      {
+        std::lock_guard<std::mutex> lock(instances_mutex_);
+        auto it = instances_.find(instanceId);
+        if (it != instances_.end()) {
+          displayName = it->second.displayName;
+          solutionId = it->second.solutionId;
+        }
+      }
+      LogManager::writeInstanceLog(
+          instanceId, "INFO",
+          "Instance started successfully: " + instanceId + " (" + displayName +
+              ", solution: " + solutionId + ", running: true)");
+    }
     return true;
   }
 
@@ -634,6 +694,13 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
             << " - "
             << response.payload.get("error", "Unknown error").asString()
             << std::endl;
+  if (InstanceLoggingConfig::isEnabled(instanceId)) {
+    std::string err =
+        response.payload.get("error", "Unknown error").asString();
+    LogManager::writeInstanceLog(instanceId, "ERROR",
+                                 "Failed to start instance: " + instanceId +
+                                     " - " + err);
+  }
   return false;
 }
 
@@ -646,6 +713,13 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
     std::cerr << "[SubprocessInstanceManager] Worker not ready: " << instanceId
               << " (state: " << static_cast<int>(workerState) << ")"
               << std::endl;
+    if (InstanceLoggingConfig::isEnabled(instanceId)) {
+      LogManager::writeInstanceLog(
+          instanceId, "ERROR",
+          "Worker not ready (state " +
+              std::to_string(static_cast<int>(workerState)) +
+              "), cannot stop: " + instanceId);
+    }
     return false;
   }
 
@@ -669,6 +743,10 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
       }
     }
 
+    if (InstanceLoggingConfig::isEnabled(instanceId)) {
+      LogManager::writeInstanceLog(instanceId, "INFO",
+                                  "Instance stopped: " + instanceId);
+    }
     std::cout << "[SubprocessInstanceManager] Stopped instance: " << instanceId
               << std::endl;
     return true;
@@ -676,6 +754,12 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
 
   std::cerr << "[SubprocessInstanceManager] Failed to stop: " << instanceId
             << std::endl;
+  if (InstanceLoggingConfig::isEnabled(instanceId)) {
+    LogManager::writeInstanceLog(
+        instanceId, "ERROR",
+        "Failed to stop instance: " + instanceId + " - " +
+            response.payload.get("error", "Unknown error").asString());
+  }
   return false;
 }
 
@@ -775,7 +859,10 @@ std::vector<InstanceInfo> SubprocessInstanceManager::getAllInstances() const {
         // Try to load from storage first
         auto optStoredInfo = instance_storage_.loadInstance(instanceId);
         if (optStoredInfo.has_value()) {
-          instances_[instanceId] = optStoredInfo.value();
+          const auto &storedInfo = optStoredInfo.value();
+          instances_[instanceId] = storedInfo;
+          InstanceLoggingConfig::setEnabled(instanceId,
+                                            storedInfo.instanceLoggingEnabled);
           // Update running status based on worker state
           auto workerState = supervisor_->getWorkerState(instanceId);
           instances_[instanceId].running =
@@ -1107,7 +1194,10 @@ SubprocessInstanceManager::getInstanceStatistics(
 
       auto optStoredInfo = instance_storage_.loadInstance(instanceId);
       if (optStoredInfo.has_value()) {
-        instances_[instanceId] = optStoredInfo.value();
+        const auto &storedInfo = optStoredInfo.value();
+        instances_[instanceId] = storedInfo;
+        InstanceLoggingConfig::setEnabled(instanceId,
+                                         storedInfo.instanceLoggingEnabled);
         std::cout << "[SubprocessInstanceManager] Restored instance "
                   << instanceId << " from storage to cache" << std::endl;
       } else {
@@ -1520,6 +1610,8 @@ Json::Value SubprocessInstanceManager::getInstanceConfig(
     config["RtspUrl"] = it->second.rtspUrl;
     config["RtmpUrl"] = it->second.rtmpUrl;
     config["FilePath"] = it->second.filePath;
+    config["logging"] = Json::objectValue;
+    config["logging"]["enabled"] = it->second.instanceLoggingEnabled;
     return config;
   }
   return Json::Value();
@@ -1583,6 +1675,13 @@ bool SubprocessInstanceManager::mergeConfigIntoCacheAndSave(
     }
     if (normalizedConfig.isMember("additionalParams")) {
       mergeParamsIntoCache(normalizedConfig["additionalParams"]);
+    }
+    if (normalizedConfig.isMember("logging") &&
+        normalizedConfig["logging"].isObject() &&
+        normalizedConfig["logging"].isMember("enabled") &&
+        normalizedConfig["logging"]["enabled"].isBool()) {
+      it->second.instanceLoggingEnabled =
+          normalizedConfig["logging"]["enabled"].asBool();
     }
     infoCopy = it->second;
   }
@@ -1662,6 +1761,7 @@ void SubprocessInstanceManager::loadPersistentInstances() {
       std::lock_guard<std::mutex> lock(instances_mutex_);
       instances_[instanceId] = info;
       loadedCount++;
+      InstanceLoggingConfig::setEnabled(instanceId, info.instanceLoggingEnabled);
 
       // Auto-start if was running before
       if (info.autoStart || info.running) {

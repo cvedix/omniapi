@@ -581,6 +581,100 @@ sequenceDiagram
 
 ---
 
+## Kiến Trúc Hot Swap & Zero-Downtime (Chuyển giao công nghệ)
+
+**Tóm tắt một dòng:** Khi bạn PATCH cấu hình instance (ví dụ đổi vạch kẻ đường), hệ thống **xây pipeline mới song song**, rồi **đổi sang pipeline mới trong một bước** trong khi **giữ nguyên một kết nối RTMP** ra server — luồng phát không bị ngắt, người xem không thấy gián đoạn.
+
+Phần này mô tả **cơ chế cập nhật cấu hình instance (PATCH/PUT) mà không ngắt luồng phát RTMP** — dành cho người mới và người không chuyên lập trình.
+
+### Mục đích (dễ hiểu)
+
+- **Vấn đề:** Khi đổi cấu hình (ví dụ thêm/sửa vạch kẻ đường), nếu tắt pipeline cũ rồi mới bật pipeline mới thì luồng RTMP ra ngoài sẽ bị **ngắt** vài giây.
+- **Mục tiêu:** Cập nhật cấu hình **trong khi luồng RTMP vẫn liên tục** — không ngắt kết nối, người xem không thấy gián đoạn.
+
+### Ý tưởng chính (3 điểm)
+
+1. **Đầu ra RTMP cố định:** Một kết nối RTMP ra server (rtmp_des) và một "cổng" nhận frame (RtmpLastFrameFallbackProxyNode) được **giữ nguyên** khi cập nhật.
+2. **Chỉ đổi "đoạn xử lý AI":** Phần Source → Decoder → Detector → Tracker → OSD được **thay thế** bằng pipeline mới; đầu ra luôn nối vào **Frame Router** rồi vào "cổng" RTMP.
+3. **Bơm frame dự phòng:** Trong lúc chuyển pipeline, hệ thống tạm **bơm frame cuối cùng** vào "cổng" RTMP để server vẫn nhận dữ liệu.
+
+### Sơ đồ luồng dữ liệu trong Worker
+
+**Sơ đồ dạng text** (khi không xem được Mermaid):
+
+```
+  Camera/RTSP ──► Source ──► Decoder ──► [AI Leg: Detector→Tracker→OSD] ──► Frame Router
+                                                                                  │
+  Last-Frame Pump (khi swap) ─────────────────────────────────────────────────────┤
+                                                                                  ▼
+                                                                         Proxy (cố định) ──► rtmp_des ──► Server RTMP
+```
+
+- **AI Leg** có thể là pipeline cũ hoặc mới; **Frame Router** chỉ chọn pipeline đang active và đẩy frame xuống Proxy.
+- **Proxy + rtmp_des** không đổi trong suốt quá trình hot swap.
+
+**Sơ đồ Mermaid:**
+
+```mermaid
+flowchart LR
+    subgraph Worker["Worker Process"]
+        Source[Source] --> Decoder[Decoder]
+        Decoder --> AILeg["AI Leg: Detector → Tracker → OSD"]
+        AILeg --> Router[Frame Router]
+        Router --> Proxy[Proxy cố định]
+        Proxy --> RtmpDes[rtmp_des]
+        Pump[Last-Frame Pump] -.->|khi swap| Proxy
+    end
+    Input[Camera/RTSP] --> Source
+    RtmpDes --> Server[Server RTMP]
+```
+
+### Chuỗi thao tác Hot Swap
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant API as REST API
+    participant Worker as Worker Process
+    participant Router as Frame Router
+    participant Proxy as RTMP Proxy
+    participant OldPipe as Pipeline cũ
+    participant NewPipe as Pipeline mới
+
+    User->>API: PATCH /instance/id (config mới)
+    API->>Worker: UPDATE_INSTANCE
+    Worker->>Worker: Bật Last-Frame Pump
+    Worker->>Worker: Build pipeline mới
+    Worker->>Router: Atomic swap: active = NewPipe
+    Worker->>OldPipe: Dừng source, drain, giải phóng
+    Worker->>NewPipe: Start source
+    Worker->>Worker: Tắt Pump
+    Worker->>API: OK
+    API->>User: HTTP 200 OK
+```
+
+### Khi nào dùng Hot Swap?
+
+| Loại cập nhật | Hành vi |
+|---------------|--------|
+| Chỉ thay đổi line (CrossingLines) và có output RTMP | Hot swap (build mới → swap → drain cũ) |
+| Chỉ thay đổi line, không có RTMP | Áp dụng runtime qua set_lines() |
+| Thay đổi solution, model, source URL... | Hot swap |
+
+### Các thay đổi code chính (hot swap chạy đúng)
+
+1. **Sửa OSD chỉ hiển thị 1 line**  
+   **File:** `src/core/pipeline_builder_behavior_analysis_nodes.cpp`, hàm `createBACrosslineOSDNode`.  
+   Fallback legacy (CROSSLINE_START/END_X/Y) chỉ chạy khi **chưa** set line từ CrossingLines (`!osdLinesSetFromCrossingLines`); tránh ghi đè nhiều line xuống 1 line sau PATCH.
+
+2. **Log worker ra file riêng**  
+   **File:** `src/worker/worker_supervisor.cpp`, trong `spawnWorker` (nhánh child trước `execl`).  
+   Redirect stdout/stderr của worker vào `logs/worker_<instance_id>.log` (hoặc `$LOG_DIR/worker_<instance_id>.log`); dễ xem log `[Worker:...]` (UPDATE_INSTANCE, hot swap, start/stop).
+
+**Chi tiết kỹ thuật (threading, lock, pseudo-code):** [ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md](ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md).
+
+---
+
 ## Subprocess Architecture với Unix Socket IPC
 
 ### Tổng quan
