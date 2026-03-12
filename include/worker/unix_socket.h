@@ -130,11 +130,11 @@ private:
  * @brief Generate unique socket path for a worker instance
  *
  * Uses EDGE_AI_SOCKET_DIR environment variable if set, otherwise defaults to
- * /opt/edge_ai_api/run. Falls back to /tmp if directory cannot be created.
+ * /opt/edgeos-api/run. Falls back to /tmp if directory cannot be created.
  *
  * @param instance_id Instance ID
  * @return Socket path (e.g.,
- * /opt/edge_ai_api/run/edge_ai_worker_<instance_id>.sock)
+ * /opt/edgeos-api/run/edgeos-worker_<instance_id>.sock)
  */
 std::string generateSocketPath(const std::string &instance_id);
 

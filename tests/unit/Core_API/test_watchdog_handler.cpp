@@ -36,9 +36,10 @@ protected:
     watchdog_ = std::make_unique<Watchdog>(5000, 30000);
     health_monitor_ = std::make_unique<HealthMonitor>(1000);
 
-    // Register with handler
+    // Register with handler (device_report not set in this test)
     WatchdogHandler::setWatchdog(watchdog_.get());
     WatchdogHandler::setHealthMonitor(health_monitor_.get());
+    WatchdogHandler::setDeviceWatchdog(nullptr);
   }
 
   void TearDown() override {
@@ -82,10 +83,10 @@ TEST_F(WatchdogHandlerTest, WatchdogEndpointReturnsValidJson) {
   auto json = response->getJsonObject();
   ASSERT_NE(json, nullptr);
 
-  // Check required fields - response has "watchdog" and "health_monitor"
-  // objects
+  // Check required fields - response has "watchdog", "health_monitor", "device_report"
   EXPECT_TRUE(json->isMember("watchdog"));
   EXPECT_TRUE(json->isMember("health_monitor"));
+  EXPECT_TRUE(json->isMember("device_report"));
 
   // Check watchdog object structure
   if ((*json)["watchdog"].isObject() &&

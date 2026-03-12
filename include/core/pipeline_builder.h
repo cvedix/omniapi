@@ -17,6 +17,9 @@ class cvedix_node;
 }
 class AreaManager;
 class SecuRTLineManager;
+namespace edgeos {
+class FrameRouter;
+}
 
 /**
  * @brief Pipeline Builder
@@ -44,12 +47,23 @@ public:
    * @param instanceId Instance ID for node naming
    * @return Vector of pipeline nodes (connected in order)
    */
+  /**
+   * @brief Build pipeline from solution config and request.
+   * @param frameRouter If non-null, zero-downtime mode: rtmp_des is replaced by a
+   *        FrameRouterSinkNode that feeds this router (persistent output leg).
+   */
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>>
   buildPipeline(const SolutionConfig &solution,
                 const CreateInstanceRequest &req,
                 const std::string &instanceId,
-                const std::set<std::string> &existingRTMPStreamKeys = {});
+                const std::set<std::string> &existingRTMPStreamKeys = {},
+                edgeos::FrameRouter* frameRouter = nullptr);
 
+  /**
+   * @brief Ensure CVEDIX SDK logger is initialized (required before creating any
+   *        cvedix nodes, e.g. PersistentOutputLeg / rtmp_des). Safe to call multiple times.
+   */
+  void ensureCVEDIXInitialized();
 
 private:
   // Static pointers for SecuRT integration
@@ -85,7 +99,8 @@ private:
   std::shared_ptr<cvedix_nodes::cvedix_node>
   createNode(const SolutionConfig::NodeConfig &nodeConfig,
              const CreateInstanceRequest &req, const std::string &instanceId,
-             const std::set<std::string> &existingRTMPStreamKeys = {});
+             const std::set<std::string> &existingRTMPStreamKeys = {},
+             std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> *outExtraNodes = nullptr);
 
   // Helper methods for buildPipeline()
   /**
@@ -188,8 +203,11 @@ private:
   // Note: Behavior Analysis node methods have been moved to PipelineBuilderBehaviorAnalysisNodes
   // Note: OSD and Tracking node methods have been moved to PipelineBuilderOtherNodes
 
+  // When non-null, rtmp_des nodes are replaced by FrameRouterSinkNode (zero-downtime swap).
+  edgeos::FrameRouter* frame_router_ = nullptr;
+
   // Note: Utility methods have been moved to separate utility classes:
-  // - PipelineBuilderModelResolver: resolveModelPath, resolveModelByName, 
+  // - PipelineBuilderModelResolver: resolveModelPath, resolveModelByName,
   //   listAvailableModels, mapDetectionSensitivity
   // - PipelineBuilderRequestUtils: getFilePath, getRTMPUrl, getRTSPUrl
 };

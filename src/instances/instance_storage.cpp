@@ -1,6 +1,8 @@
 #include "instances/instance_storage.h"
 #include "core/env_config.h"
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -165,7 +167,7 @@ bool InstanceStorage::saveInstancesFile(const Json::Value &instances) {
     std::ofstream file(filepath);
     if (!file.is_open()) {
       std::cerr << "[InstanceStorage] Error: Failed to open file for writing: "
-                << filepath << std::endl;
+                << filepath << " (" << std::strerror(errno) << ")" << std::endl;
 
       // Check if parent directory exists and is writable
       if (std::filesystem::exists(parent_dir)) {
@@ -179,6 +181,38 @@ bool InstanceStorage::saveInstancesFile(const Json::Value &instances) {
       } else {
         std::cerr << "[InstanceStorage] Parent directory does not exist: "
                   << parent_dir << std::endl;
+      }
+
+      // Fallback: /opt/... may exist but not writable. Try user dir then ./instances
+      std::vector<std::string> tiers =
+          EnvConfig::getAllPossibleDirectories("instances");
+      for (const auto &dir : tiers) {
+        if (dir == storage_dir_) {
+          continue; // already failed above
+        }
+        try {
+          std::filesystem::create_directories(dir);
+        } catch (...) {
+          continue;
+        }
+        std::string fallbackPath = dir + "/instances.json";
+        std::ofstream fallbackFile(fallbackPath);
+        if (fallbackFile.is_open()) {
+          Json::StreamWriterBuilder builder;
+          builder["indentation"] = "    ";
+          std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+          writer->write(instances, &fallbackFile);
+          fallbackFile.close();
+          if (std::filesystem::exists(fallbackPath)) {
+            std::cerr << "[InstanceStorage] ✓ Saved instances to fallback path (no write access to primary): "
+                      << fallbackPath << std::endl;
+            std::cerr << "[InstanceStorage]   Fix permissions on " << storage_dir_
+                      << " or set writable storage; subsequent saves use fallback until restart."
+                      << std::endl;
+            storage_dir_ = dir; // so getInstancesFilePath() and next save use same dir
+            return true;
+          }
+        }
       }
 
       return false;
@@ -310,8 +344,8 @@ bool InstanceStorage::mergeConfigs(
   std::vector<std::string> replaceKeys = {
       "InstanceId",  "DisplayName", "Solution",       "SolutionName",
       "Group",       "ReadOnly",    "SystemInstance", "AutoStart",
-      "AutoRestart", "loaded",      "running",        "fps",
-      "version"};
+      "AutoRestart", "logging",     "loaded",         "running",
+      "fps",         "version"};
 
   // List of keys that should be merged (nested objects)
   std::vector<std::string> mergeKeys = {
@@ -513,6 +547,10 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
 
   // Store AutoRestart
   config["AutoRestart"] = info.autoRestart;
+
+  // Store per-instance logging (API path: logging.enabled)
+  config["logging"] = Json::objectValue;
+  config["logging"]["enabled"] = info.instanceLoggingEnabled;
 
   // Store Input configuration (always include)
   Json::Value input(Json::objectValue);
@@ -834,6 +872,13 @@ InstanceStorage::configJsonToInstanceInfo(const Json::Value &config,
       info.autoRestart = config["AutoRestart"].asBool();
     }
 
+    // Extract per-instance logging (API path: logging.enabled)
+    if (config.isMember("logging") && config["logging"].isObject() &&
+        config["logging"].isMember("enabled") &&
+        config["logging"]["enabled"].isBool()) {
+      info.instanceLoggingEnabled = config["logging"]["enabled"].asBool();
+    }
+
     // Extract Input configuration
     if (config.isMember("Input") && config["Input"].isObject()) {
       const Json::Value &input = config["Input"];
@@ -1024,6 +1069,13 @@ InstanceStorage::configJsonToInstanceInfo(const Json::Value &config,
           // Extract FILE_PATH from additionalParams if not already set
           if (key == "FILE_PATH" && info.filePath.empty()) {
             info.filePath = additionalParams[key].asString();
+          }
+
+          // Extract RTMP output URL: prefer RTMP_DES_URL (output), else RTMP_URL if still unset
+          if (key == "RTMP_DES_URL") {
+            info.rtmpUrl = additionalParams[key].asString();
+          } else if (key == "RTMP_URL" && info.rtmpUrl.empty()) {
+            info.rtmpUrl = additionalParams[key].asString();
           }
         }
       }

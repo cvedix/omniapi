@@ -65,7 +65,7 @@ public:
    * @param worker_executable Path to worker executable
    */
   explicit WorkerSupervisor(
-      const std::string &worker_executable = "edge_ai_worker");
+      const std::string &worker_executable = "edgeos-worker");
   ~WorkerSupervisor();
 
   // Non-copyable
@@ -87,9 +87,11 @@ public:
    * @param instance_id Instance ID
    * @param config Instance configuration (JSON)
    * @param gpu_device_id Optional GPU device ID (-1 to disable GPU, >=0 to use specific GPU)
+   * @param out_error If non-null and spawn fails, set to reason (e.g. "Worker executable not found")
    * @return true if worker spawned successfully
    */
-  bool spawnWorker(const std::string &instance_id, const Json::Value &config, int gpu_device_id = -1);
+  bool spawnWorker(const std::string &instance_id, const Json::Value &config, int gpu_device_id = -1,
+                  std::string *out_error = nullptr);
 
   /**
    * @brief Terminate a worker process

@@ -9,7 +9,7 @@
     "input": {
       "RTMP_SRC_URL": "rtmp://localhost:1935/live/stream",
       "RESIZE_RATIO": "1.0",
-      "MODEL_PATH": "/opt/edge_ai_api/models/face/face_detection_yunet_2022mar.onnx",
+      "MODEL_PATH": "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx",
       "SKIP_INTERVAL": "0"
     }
   }

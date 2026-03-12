@@ -5,6 +5,7 @@
 #include "core/uuid_generator.h"
 #include "instances/instance_manager.h"
 #include "instances/inprocess_instance_manager.h"
+#include "instances/subprocess_instance_manager.h"
 #include <cvedix/nodes/ba/cvedix_ba_area_jam_node.h>
 #include "solutions/solution_registry.h"
 #include <algorithm>
@@ -420,9 +421,9 @@ void JamsHandler::createJam(
     // Reload jams to get generated IDs
     Json::Value savedJams = loadJamsFromConfig(instanceId);
 
-    // Try updating runtime; fallback to restart
+    // Try updating runtime; fallback to hot swap (zero downtime)
     if (!updateJamsRuntime(instanceId, savedJams)) {
-      restartInstanceForJamUpdate(instanceId);
+      applyJamsUpdateViaHotSwap(instanceId, savedJams);
     }
 
     // If single object request, return the created object with generated id
@@ -523,13 +524,13 @@ void JamsHandler::deleteAllJams(const HttpRequestPtr &req, std::function<void(co
                   << "/jams - Jams updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING
             << "[API] DELETE /v1/core/instance/" << instanceId
-            << "/jams - Runtime update failed, falling back to restart";
+            << "/jams - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForJamUpdate(instanceId);
+      applyJamsUpdateViaHotSwap(instanceId, emptyArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -812,13 +813,13 @@ void JamsHandler::updateJam(const HttpRequestPtr &req, std::function<void(const 
                   << jamId << " - Jams updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] PUT /v1/core/instance/" << instanceId
                      << "/jams/" << jamId
-                     << " - Runtime update failed, falling back to restart";
+                     << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForJamUpdate(instanceId);
+      applyJamsUpdateViaHotSwap(instanceId, jamsArray);
     }
 
     // Find updated jam to return
@@ -977,13 +978,13 @@ void JamsHandler::deleteJam(const HttpRequestPtr &req, std::function<void(const 
                   << " - Jams updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] DELETE /v1/core/instance/" << instanceId
                      << "/jams/" << jamId
-                     << " - Runtime update failed, falling back to restart";
+                     << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForJamUpdate(instanceId);
+      applyJamsUpdateViaHotSwap(instanceId, newJamsArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1098,7 +1099,7 @@ void JamsHandler::batchUpdateJams(const HttpRequestPtr &req, std::function<void(
     }
 
     if (!updateJamsRuntime(instanceId, newJams)) {
-      restartInstanceForJamUpdate(instanceId);
+      applyJamsUpdateViaHotSwap(instanceId, newJams);
     }
 
     Json::Value result;
@@ -1216,10 +1217,33 @@ bool JamsHandler::restartInstanceForJamUpdate(const std::string &instanceId) con
   return true;
 }
 
+bool JamsHandler::applyJamsUpdateViaHotSwap(const std::string &instanceId,
+                                             const Json::Value &jamsArray) const {
+  if (!instance_manager_) {
+    return false;
+  }
+  Json::Value patch(Json::objectValue);
+  patch["AdditionalParams"] = Json::Value(Json::objectValue);
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  patch["AdditionalParams"]["JamZones"] = Json::writeString(wb, jamsArray);
+  bool ok = instance_manager_->updateInstanceFromConfig(instanceId, patch);
+  if (isApiLoggingEnabled()) {
+    if (ok) {
+      PLOG_INFO << "[API] applyJamsUpdateViaHotSwap: instance " << instanceId
+                << " updated via hot swap (zero downtime)";
+    } else {
+      PLOG_WARNING << "[API] applyJamsUpdateViaHotSwap: instance " << instanceId
+                   << " update failed, consider manual restart";
+    }
+  }
+  return ok;
+}
+
 std::shared_ptr<cvedix_nodes::cvedix_ba_area_jam_node>
 JamsHandler::findBAJamNode(const std::string &instanceId) const {
   // Note: In subprocess mode, nodes are not directly accessible. This will
-  // return nullptr and let updateJamsRuntime() fallback to restart.
+  // return nullptr and updateJamsRuntime() will fallback to hot swap.
   if (!instance_manager_) {
     return nullptr;
   }
@@ -1360,7 +1384,22 @@ bool JamsHandler::updateJamsRuntime(const std::string &instanceId, const Json::V
                  // next start
   }
 
-  // Find ba_jam_node in pipeline
+  // Subprocess: send UPDATE_JAMS IPC to worker
+  if (instance_manager_->isSubprocessMode()) {
+    auto *sub = dynamic_cast<SubprocessInstanceManager *>(instance_manager_);
+    if (sub && sub->updateJams(instanceId, jamsArray)) {
+      if (isApiLoggingEnabled()) {
+        PLOG_INFO << "[API] updateJamsRuntime: Jams updated via IPC (subprocess) for instance " << instanceId;
+      }
+      return true;
+    }
+    if (isApiLoggingEnabled()) {
+      PLOG_WARNING << "[API] updateJamsRuntime: Subprocess updateJams failed, fallback to restart for instance " << instanceId;
+    }
+    return false; // Fallback to restart
+  }
+
+  // In-process: Find ba_jam_node in pipeline
   auto baJamNode = findBAJamNode(instanceId);
   if (!baJamNode) {
     if (isApiLoggingEnabled()) {

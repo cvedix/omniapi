@@ -66,6 +66,16 @@ private:
   bool validateROI(const Json::Value &roi, std::string &error) const;
 
   bool restartInstanceForJamUpdate(const std::string &instanceId) const;
+
+  /**
+   * Apply jam zone changes via hot swap (zero downtime) when runtime update fails.
+   * @param instanceId Instance ID
+   * @param jamsArray JSON array of jam zone objects (current desired state)
+   * @return true if hot swap applied successfully
+   */
+  bool applyJamsUpdateViaHotSwap(const std::string &instanceId,
+                                 const Json::Value &jamsArray) const;
+
   std::shared_ptr<cvedix_nodes::cvedix_ba_area_jam_node>
   findBAJamNode(const std::string &instanceId) const;
 

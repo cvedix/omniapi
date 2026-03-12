@@ -279,7 +279,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 
 # 4. Chạy server
-./bin/edge_ai_api
+./bin/edgeos-api
 ```
 
 ### Build với Tests
@@ -288,7 +288,7 @@ make -j$(nproc)
 cd build
 cmake .. -DBUILD_TESTS=ON
 make -j$(nproc)
-./bin/edge_ai_api_tests
+./bin/edgeos-api_tests
 ```
 
 ### Kiểm Tra Build
@@ -374,7 +374,7 @@ cd packaging/scripts
 
 # Ví dụ:
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb
 
 # Tùy chọn
 ./packaging/scripts/build_deb_all_in_one.sh --sdk-deb <path> --clean
@@ -396,8 +396,8 @@ cd packaging/scripts
 ### Cài Đặt Package
 
 Sau khi build, file `.deb` sẽ được tạo tại project root:
-- Package thông thường: `edge-ai-api-{VERSION}-amd64.deb`
-- ALL-IN-ONE package: `edge-ai-api-all-in-one-{VERSION}-amd64.deb`
+- Package thông thường: `edgeos-api-{VERSION}-amd64.deb`
+- ALL-IN-ONE package: `edgeos-api-all-in-one-{VERSION}-amd64.deb`
 
 #### Cài Đặt ALL-IN-ONE Package (Khuyến nghị)
 
@@ -480,7 +480,7 @@ sudo apt-get install -y \
 
 ```bash
 # Bước 1: Cài đặt package
-sudo dpkg -i edge-ai-api-all-in-one-*.deb
+sudo dpkg -i edgeos-api-all-in-one-*.deb
 
 # Trong quá trình cài đặt, nếu thiếu OpenCV 4.10, hệ thống sẽ hiển thị:
 # ==========================================
@@ -496,14 +496,14 @@ sudo dpkg -i edge-ai-api-all-in-one-*.deb
 sudo apt-get install -f
 
 # Bước 3: Nếu OpenCV cài đặt bị lỗi hoặc bị gián đoạn, chạy lại script cài đặt:
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
 
 # Bước 4: Khởi động service
-sudo systemctl start edge-ai-api
-sudo systemctl enable edge-ai-api  # Tự động chạy khi khởi động
+sudo systemctl start edgeos-api
+sudo systemctl enable edgeos-api  # Tự động chạy khi khởi động
 
 # Bước 5: Kiểm tra service
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Bước 6: Test API
 curl http://localhost:8080/v1/core/health
@@ -512,7 +512,7 @@ curl http://localhost:8080/v1/core/health
 **Lưu ý về OpenCV:**
 - Nếu package đã bundle OpenCV 4.10, quá trình cài đặt sẽ không yêu cầu cài thêm.
 - Nếu thiếu OpenCV 4.10, quá trình cài đặt sẽ tự động phát hiện và cho phép cài đặt tự động.
-- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh`
+- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/edgeos-api/scripts/build_opencv_safe.sh`
 
 #### Cài Đặt Package Thông Thường
 
@@ -547,17 +547,17 @@ sudo apt-get install -y \
     ffmpeg
 
 # 2. Cài đặt
-sudo dpkg -i edge-ai-api-*.deb
+sudo dpkg -i edgeos-api-*.deb
 
 # 3. Nếu có lỗi dependencies, chạy:
 sudo apt-get install -f
 
 # 4. Khởi động service
-sudo systemctl start edge-ai-api
-sudo systemctl enable edge-ai-api
+sudo systemctl start edgeos-api
+sudo systemctl enable edgeos-api
 
 # 5. Kiểm tra service
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 ```
 
 **Nếu chưa cài OpenCV 4.10, cài sau:**
@@ -571,37 +571,37 @@ sudo apt-get install -y \
     g++ \
     wget \
     ffmpeg
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
-sudo systemctl restart edge-ai-api
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
+sudo systemctl restart edgeos-api
 ```
 
 ### Verify Installation
 
 ```bash
 # Kiểm tra package status
-dpkg -l | grep edge-ai-api
+dpkg -l | grep edgeos-api
 
 # Kiểm tra libraries
-ls -la /opt/edge_ai_api/lib/
+ls -la /opt/edgeos-api/lib/
 
 # Kiểm tra GStreamer plugins (ALL-IN-ONE)
-ls -la /opt/edge_ai_api/lib/gstreamer-1.0/
+ls -la /opt/edgeos-api/lib/gstreamer-1.0/
 
 # Kiểm tra default fonts và models (ALL-IN-ONE)
-ls -la /opt/edge_ai_api/fonts/
-ls -la /opt/edge_ai_api/models/
+ls -la /opt/edgeos-api/fonts/
+ls -la /opt/edgeos-api/models/
 
 # Kiểm tra CVEDIX SDK
 ls -la /opt/cvedix/lib/
 
 # Test executable
-/usr/local/bin/edge_ai_api --help
+/usr/local/bin/edgeos-api --help
 
 # Kiểm tra service status
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Xem log
-sudo journalctl -u edge-ai-api -f
+sudo journalctl -u edgeos-api -f
 
 # Test API
 curl http://localhost:8080/v1/core/health
@@ -612,42 +612,42 @@ curl http://localhost:8080/v1/core/version
 
 Sau khi cài đặt package, các file sẽ được đặt tại:
 
-- **Executable**: `/usr/local/bin/edge_ai_api`
-- **Libraries**: `/opt/edge_ai_api/lib/` (bundled - tự chứa)
-- **GStreamer plugins**: `/opt/edge_ai_api/lib/gstreamer-1.0/` (ALL-IN-ONE)
-- **Config**: `/opt/edge_ai_api/config/`
-- **Data**: `/opt/edge_ai_api/` (instances, solutions, models, logs, etc.)
-- **Fonts**: `/opt/edge_ai_api/fonts/` (default fonts - ALL-IN-ONE)
-- **Models**: `/opt/edge_ai_api/models/` (default models - ALL-IN-ONE)
+- **Executable**: `/usr/local/bin/edgeos-api`
+- **Libraries**: `/opt/edgeos-api/lib/` (bundled - tự chứa)
+- **GStreamer plugins**: `/opt/edgeos-api/lib/gstreamer-1.0/` (ALL-IN-ONE)
+- **Config**: `/opt/edgeos-api/config/`
+- **Data**: `/opt/edgeos-api/` (instances, solutions, models, logs, etc.)
+- **Fonts**: `/opt/edgeos-api/fonts/` (default fonts - ALL-IN-ONE)
+- **Models**: `/opt/edgeos-api/models/` (default models - ALL-IN-ONE)
 - **Service**: `/etc/systemd/system/edgeos-api.service`
 
 ### Quản Lý Service
 
 ```bash
 # Khởi động
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 
 # Dừng
-sudo systemctl stop edge-ai-api
+sudo systemctl stop edgeos-api
 
 # Khởi động lại
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 
 # Xem status
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Xem log
-sudo journalctl -u edge-ai-api -n 100
+sudo journalctl -u edgeos-api -n 100
 ```
 
 ### Gỡ Cài Đặt
 
 ```bash
 # Gỡ package
-sudo dpkg -r edge-ai-api
+sudo dpkg -r edgeos-api
 
 # Hoặc gỡ hoàn toàn (bao gồm config files)
-sudo dpkg -P edge-ai-api
+sudo dpkg -P edgeos-api
 ```
 
 ---
@@ -696,7 +696,7 @@ Xem đầy đủ: [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 | **Build từ source** | `./scripts/dev_setup.sh` | ❌ **KHÔNG** |
 | **Build .deb** | `./build_deb.sh` | ❌ **KHÔNG** |
 | **Cài đặt package** | `sudo dpkg -i *.deb` | ✅ **CÓ** |
-| **Khởi động service** | `sudo systemctl start edge-ai-api` | ✅ **CÓ** |
+| **Khởi động service** | `sudo systemctl start edgeos-api` | ✅ **CÓ** |
 
 ---
 
@@ -722,19 +722,19 @@ sudo apt-get install -y dpkg-dev debhelper
 
 Kiểm tra log:
 ```bash
-sudo journalctl -u edge-ai-api -n 50
+sudo journalctl -u edgeos-api -n 50
 ```
 
 Kiểm tra permissions:
 ```bash
-sudo chown -R edgeai:edgeai /opt/edge_ai_api
+sudo chown -R edgeai:edgeai /opt/edgeos-api
 ```
 
 ### Libraries không được tìm thấy
 
 Kiểm tra ldconfig:
 ```bash
-sudo ldconfig -v | grep edge-ai-api
+sudo ldconfig -v | grep edgeos-api
 ```
 
 Nếu không có, chạy lại:
@@ -919,6 +919,6 @@ Toàn bộ danh sách API, request/response schema và ví dụ `curl` để **t
 
 Nếu gặp vấn đề, vui lòng:
 1. Kiểm tra [Troubleshooting](#-troubleshooting) section
-2. Xem log: `sudo journalctl -u edge-ai-api -n 100`
+2. Xem log: `sudo journalctl -u edgeos-api -n 100`
 3. Liên hệ support team
 

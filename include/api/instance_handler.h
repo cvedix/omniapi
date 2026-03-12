@@ -82,6 +82,10 @@ public:
                 "/v1/core/instance/{instanceId}/config", Get);
   ADD_METHOD_TO(InstanceHandler::setConfig,
                 "/v1/core/instance/{instanceId}/config", Post);
+  ADD_METHOD_TO(InstanceHandler::getInstanceLogConfig,
+                "/v1/core/instance/{instanceId}/log/config", Get);
+  ADD_METHOD_TO(InstanceHandler::putInstanceLogConfig,
+                "/v1/core/instance/{instanceId}/log/config", Put);
   ADD_METHOD_TO(InstanceHandler::getStatistics,
                 "/v1/core/instance/{instanceId}/statistics", Get);
   ADD_METHOD_TO(InstanceHandler::getLastFrame,
@@ -129,6 +133,8 @@ public:
                 "/v1/core/instance/{instanceId}/input", Options);
   ADD_METHOD_TO(InstanceHandler::handleOptions,
                 "/v1/core/instance/{instanceId}/config", Options);
+  ADD_METHOD_TO(InstanceHandler::handleOptions,
+                "/v1/core/instance/{instanceId}/log/config", Options);
   ADD_METHOD_TO(InstanceHandler::handleOptions,
                 "/v1/core/instance/{instanceId}/statistics", Options);
   ADD_METHOD_TO(InstanceHandler::handleOptions,
@@ -285,6 +291,22 @@ public:
    */
   void setConfig(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle GET /v1/core/instance/{instanceId}/log/config
+   * Get per-instance logging config (enabled = write to logs/instance/<id>/).
+   */
+  void getInstanceLogConfig(
+      const HttpRequestPtr &req,
+      std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle PUT /v1/core/instance/{instanceId}/log/config
+   * Set per-instance logging config; applies immediately.
+   */
+  void putInstanceLogConfig(
+      const HttpRequestPtr &req,
+      std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
    * @brief Handle GET /v1/core/instance/{instanceId}/statistics

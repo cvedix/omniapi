@@ -1,0 +1,120 @@
+# API endpoint: /v1/core/instance/{instanceId}/log/config
+# Tag: Instances
+
+/v1/core/instance/{instanceId}/log/config:
+  get:
+    summary: Lấy cấu hình log theo instance
+    description: 'Trả về cấu hình ghi log theo instance. Khi **enabled** là true, log instance được ghi vào `logs/instance/<instance_id>/` (thư mục riêng theo instance).'
+    operationId: getInstanceLogConfig
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance (UUID)
+    responses:
+      '200':
+        description: Cấu hình log theo instance
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                      description: Khi true, log instance ghi vào logs/instance/<instance_id>/
+                _description:
+                  type: object
+                  additionalProperties:
+                    type: string
+            example:
+              config:
+                enabled: false
+              _description:
+                enabled: "Khi true, log instance ghi vào logs/instance/<instance_id>/ (thư mục riêng theo instance)."
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Đặt cấu hình log theo instance
+    description: 'Đặt cấu hình ghi log theo instance. Gửi **enabled** true để ghi log instance vào `logs/instance/<instance_id>/`. Áp dụng ngay; giá trị được lưu cùng cấu hình instance.'
+    operationId: putInstanceLogConfig
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance (UUID)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - enabled
+            properties:
+              enabled:
+                type: boolean
+                description: Khi true, log instance ghi vào logs/instance/<instance_id>/
+          example:
+            enabled: true
+    responses:
+      '200':
+        description: Đã cập nhật cấu hình
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                config:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+      '400':
+        description: Yêu cầu không hợp lệ (JSON sai hoặc thiếu enabled)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  options:
+    summary: CORS preflight cho cấu hình log instance
+    operationId: instanceLogConfigOptions
+    tags:
+    - Instances
+    responses:
+      '200':
+        description: Phản hồi CORS preflight

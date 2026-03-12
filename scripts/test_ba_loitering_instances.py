@@ -8,7 +8,7 @@ import requests
 import json
 import sys
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 # API base URL
 BASE_URL = "http://localhost:8080"
@@ -19,6 +19,10 @@ START_INSTANCE_URL_TEMPLATE = f"{BASE_URL}/v1/core/instance/{{instance_id}}/star
 # Wait for pipeline build (async): poll until status is "ready"
 WAIT_READY_TIMEOUT_SEC = 120
 WAIT_READY_POLL_INTERVAL_SEC = 2
+
+# Wait for instance start (async): after POST start returns 202, poll until running
+WAIT_RUNNING_TIMEOUT_SEC = 60
+WAIT_RUNNING_POLL_INTERVAL_SEC = 2
 
 # Request body template
 INSTANCE_BODY = {
@@ -88,40 +92,47 @@ def create_instance(instance_number: int) -> Optional[Dict]:
         return None
 
 
-def start_instance(instance_id: str, instance_number: int) -> bool:
+def start_instance(instance_id: str, instance_number: int) -> Tuple[bool, bool]:
     """
     Start an instance via API.
-    
+
+    API may return:
+    - 200: Instance already running or started synchronously
+    - 202 Accepted: Start accepted, run in background; client should poll GET instance for status
+
     Args:
         instance_id: The instance ID to start
         instance_number: The instance number (for logging purposes)
-    
+
     Returns:
-        True if successful, False otherwise
+        (success, need_poll): success=True if 200/201/202; need_poll=True if 202 (must poll until running)
     """
     try:
         url = START_INSTANCE_URL_TEMPLATE.format(instance_id=instance_id)
         print(f"[{instance_number}] Starting instance {instance_id}...")
-        
-        # Increased timeout to 60 seconds to allow for pipeline operations
+
         response = requests.post(
             url,
             headers={"Content-Type": "application/json"},
             timeout=60
         )
-        
-        if response.status_code == 200 or response.status_code == 201:
+
+        if response.status_code in (200, 201):
             print(f"[{instance_number}] ✓ Instance started successfully")
-            return True
-        else:
-            print(f"[{instance_number}] ✗ Failed to start instance")
-            print(f"[{instance_number}]   Status Code: {response.status_code}")
-            print(f"[{instance_number}]   Response: {response.text}")
-            return False
-            
+            return True, False
+        if response.status_code == 202:
+            data = response.json() if response.text else {}
+            status = data.get("status", "starting")
+            print(f"[{instance_number}] ✓ Start accepted (status: {status}), polling for running...")
+            return True, True
+        print(f"[{instance_number}] ✗ Failed to start instance")
+        print(f"[{instance_number}]   Status Code: {response.status_code}")
+        print(f"[{instance_number}]   Response: {response.text}")
+        return False, False
+
     except requests.exceptions.RequestException as e:
         print(f"[{instance_number}] ✗ Error starting instance: {str(e)}")
-        return False
+        return False, False
 
 
 def wait_for_instance_ready(
@@ -159,6 +170,37 @@ def wait_for_instance_ready(
             pass
         time.sleep(poll_interval_sec)
     print(f"[{instance_number}] ✗ Timeout waiting for instance ready ({timeout_sec}s)")
+    return False
+
+
+def wait_for_instance_running(
+    instance_id: str,
+    instance_number: int,
+    timeout_sec: int = WAIT_RUNNING_TIMEOUT_SEC,
+    poll_interval_sec: float = WAIT_RUNNING_POLL_INTERVAL_SEC,
+) -> bool:
+    """
+    Poll GET instance until running is True (used after POST start returns 202).
+
+    Returns:
+        True if instance is running, False on timeout or error.
+    """
+    url = GET_INSTANCE_URL_TEMPLATE.format(instance_id=instance_id)
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                time.sleep(poll_interval_sec)
+                continue
+            data = resp.json()
+            if data.get("running") is True:
+                print(f"[{instance_number}] ✓ Instance is running")
+                return True
+        except requests.exceptions.RequestException:
+            pass
+        time.sleep(poll_interval_sec)
+    print(f"[{instance_number}] ✗ Timeout waiting for instance running ({timeout_sec}s)")
     return False
 
 
@@ -220,10 +262,17 @@ def test_instances(num_instances: int) -> Dict[str, List]:
             if not wait_for_instance_ready(instance_id, instance_number):
                 results["failed_start"].append(instance_id)
                 continue
-            if start_instance(instance_id, instance_number):
-                results["started"].append(instance_id)
-            else:
+            success, need_poll = start_instance(instance_id, instance_number)
+            if not success:
                 results["failed_start"].append(instance_id)
+            elif need_poll:
+                # 202 Accepted: poll GET instance until running
+                if wait_for_instance_running(instance_id, instance_number):
+                    results["started"].append(instance_id)
+                else:
+                    results["failed_start"].append(instance_id)
+            else:
+                results["started"].append(instance_id)
             time.sleep(0.5)
     
     return results

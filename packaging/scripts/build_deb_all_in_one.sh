@@ -3,7 +3,7 @@
 # Build All-In-One Debian Package
 # ============================================
 #
-# Script này build package edge-ai-api "all-in-one" - tự chứa TẤT CẢ dependencies:
+# Script này build package edgeos-api "all-in-one" - tự chứa TẤT CẢ dependencies:
 # - CVEDIX SDK runtime (bundled)
 # - OpenCV libraries (bundled)
 # - GStreamer libraries và plugins (bundled)
@@ -104,7 +104,7 @@ update_version_files() {
     # Update debian/changelog
     if [ -f "$changelog_file" ]; then
         # Update first line of changelog
-        sed -i "1s/edge-ai-api ([0-9.]*)/edge-ai-api ($new_version)/" "$changelog_file"
+        sed -i "1s/edgeos-api ([0-9.]*)/edgeos-api ($new_version)/" "$changelog_file"
         echo -e "${GREEN}✓${NC} Updated debian/changelog"
     fi
 }
@@ -208,14 +208,10 @@ else
     echo "    Or ensure CMakeLists.txt creates this file"
 fi
 
-# Copy CVEDIX SDK libraries if available (from extracted SDK)
-# Check both old and new SDK locations for compatibility
-if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-elif [ -d "/opt/cvedix/lib" ]; then
-    cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+# Copy EdgeOS SDK libraries if available (from extracted SDK or system)
+if [ -d "/opt/edgeos-sdk/lib/cvedix" ]; then
+    cp -L /opt/edgeos-sdk/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+    cp -L /opt/edgeos-sdk/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
 fi
 
 # Copy CUDA libraries if available (for GPU acceleration support)
@@ -500,7 +496,7 @@ if [ -f "$WORKER_PATH" ]; then
     collect_libs "$WORKER_PATH"
 fi
 
-CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedge_ai_core.so*
+CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedgeos_core.so*
 if ls $CORE_LIB_PATH 1> /dev/null 2>&1; then
     for core_lib in $CORE_LIB_PATH; do
         if [ -f "$core_lib" ]; then
@@ -701,8 +697,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --help, -h       Show this help"
             echo ""
             echo "Example:"
-            echo "  ./build_deb_with_sdk.sh --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb"
-            echo "  ./build_deb_with_sdk.sh --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb --clean"
+            echo "  ./build_deb_all_in_one.sh --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb"
+            echo "  ./build_deb_all_in_one.sh --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb --clean"
             exit 0
             ;;
         *)
@@ -793,60 +789,33 @@ SDK_PKG_ARCH=$(dpkg-deb -f "$SDK_DEB_FILE" Architecture 2>/dev/null || echo "unk
 echo -e "${GREEN}✓${NC} SDK extracted: $SDK_PKG_NAME ($SDK_PKG_VERSION, $SDK_PKG_ARCH)"
 echo "  SDK contents: $SDK_EXTRACT_DIR"
 
-# CRITICAL: Verify SDK was extracted correctly
+# CRITICAL: Verify SDK was extracted correctly (EdgeOS SDK at /opt/edgeos-sdk)
 SDK_EXTRACT_SUCCESS=false
-if [ -d "$SDK_EXTRACT_DIR/opt/cvedix" ]; then
+if [ -d "$SDK_EXTRACT_DIR/opt/edgeos-sdk" ]; then
     SDK_EXTRACT_SUCCESS=true
-    echo "  SDK directories found:"
-    find "$SDK_EXTRACT_DIR/opt/cvedix" -type d -maxdepth 2 | sed 's|^.*/opt/cvedix/|    - |' | head -10
+    echo "  SDK directories found (/opt/edgeos-sdk):"
+    find "$SDK_EXTRACT_DIR/opt/edgeos-sdk" -type d -maxdepth 2 | sed 's|^.*/opt/edgeos-sdk/|    - |' | head -10
     
-    # Verify critical SDK libraries exist
-    echo "  Verifying SDK libraries..."
-    SDK_LIB_COUNT=$(find "$SDK_EXTRACT_DIR/opt/cvedix/lib" -name "*.so*" -type f 2>/dev/null | wc -l)
+    SDK_LIB_ROOT="$SDK_EXTRACT_DIR/opt/edgeos-sdk/lib"
+    [ -d "$SDK_EXTRACT_DIR/opt/edgeos-sdk/lib/cvedix" ] && SDK_LIB_ROOT="$SDK_EXTRACT_DIR/opt/edgeos-sdk/lib/cvedix"
+    SDK_LIB_COUNT=$(find "$SDK_LIB_ROOT" -name "*.so*" -type f 2>/dev/null | wc -l)
     if [ "$SDK_LIB_COUNT" -gt 0 ]; then
         echo "  SDK libraries found: $SDK_LIB_COUNT"
-        find "$SDK_EXTRACT_DIR/opt/cvedix/lib" -name "*.so*" -type f 2>/dev/null | sed 's|^.*/|    - |' | head -10
+        find "$SDK_LIB_ROOT" -name "*.so*" -type f 2>/dev/null | sed 's|^.*/|    - |' | head -10
     else
-        echo -e "${YELLOW}  ⚠  Warning: No SDK libraries found in /opt/cvedix/lib${NC}"
+        echo -e "${YELLOW}  ⚠  Warning: No SDK libraries found under /opt/edgeos-sdk/lib${NC}"
     fi
     
-    # Verify critical SDK files
-    CRITICAL_SDK_FILES=(
-        "$SDK_EXTRACT_DIR/opt/cvedix/lib/libcvedix_core.so"
-        "$SDK_EXTRACT_DIR/opt/cvedix/lib/libtinyexpr.so"
-    )
-    MISSING_FILES=()
-    for sdk_file in "${CRITICAL_SDK_FILES[@]}"; do
-        if [ ! -f "$sdk_file" ] && [ ! -L "$sdk_file" ]; then
-            # Check for versioned files (e.g., libcvedix_core.so.1.0.0)
-            if ! find "$(dirname "$sdk_file")" -name "$(basename "$sdk_file").*" -type f 2>/dev/null | grep -q .; then
-                MISSING_FILES+=("$(basename "$sdk_file")")
-            fi
-        fi
-    done
-    
-    if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-        echo -e "${YELLOW}  ⚠  Warning: Some critical SDK files may be missing:${NC}"
-        for file in "${MISSING_FILES[@]}"; do
-            echo "    - $file"
-        done
-        echo "  Package will be built but may not work correctly"
+    if ! find "$SDK_EXTRACT_DIR/opt/edgeos-sdk" -name "libcvedix_core.so*" -type f 2>/dev/null | grep -q .; then
+        echo -e "${YELLOW}  ⚠  Warning: libcvedix_core.so not found under /opt/edgeos-sdk${NC}"
     fi
-else
-    echo -e "${YELLOW}  ⚠  Warning: /opt/cvedix not found in SDK package${NC}"
-    echo "  Checking alternative locations..."
+fi
+
+if [ "$SDK_EXTRACT_SUCCESS" = false ]; then
+    echo -e "${YELLOW}  ⚠  Warning: /opt/edgeos-sdk not found in SDK package${NC}"
+    echo "  SDK .deb should install to /opt/edgeos-sdk"
     find "$SDK_EXTRACT_DIR" -type d -maxdepth 3 | head -10
-    
-    # Check if SDK is in a different location
-    if find "$SDK_EXTRACT_DIR" -type d -name "cvedix" 2>/dev/null | grep -q .; then
-        echo "  Found 'cvedix' directory in alternative location:"
-        find "$SDK_EXTRACT_DIR" -type d -name "cvedix" 2>/dev/null | head -5
-        echo -e "${YELLOW}  ⚠  SDK structure may be different than expected${NC}"
-    else
-        echo -e "${RED}  ✗ Error: SDK directory structure not found${NC}"
-        echo "  SDK package may be invalid or corrupted"
-        echo "  Package build will continue but SDK will not be bundled"
-    fi
+    echo -e "${RED}  ✗ Error: SDK directory structure not found. Package build will continue but SDK will not be bundled.${NC}"
 fi
 
 # Final verification
@@ -1186,8 +1155,8 @@ fi
 if [ "$CLEAN_BUILD" = true ]; then
     echo -e "${BLUE}[3/6]${NC} Cleaning build directory..."
     rm -rf build
-    rm -rf debian/edge-ai-api
-    rm -f ../edge-ai-api_*.deb ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo
+    rm -rf debian/edgeos-api
+    rm -f ../edgeos-api_*.deb ../edgeos-api_*.changes ../edgeos-api_*.buildinfo
     echo -e "${GREEN}✓${NC} Cleaned"
     echo ""
 fi
@@ -1319,9 +1288,9 @@ if ! grep -q "SDK_EXTRACT_DIR = \$(CURDIR)/debian/sdk_extract" "$RULES_FILE"; th
     echo "  Adding SDK_EXTRACT_DIR definition..."
     sed -i '/^SERVICE_GROUP = edgeai$/a\
 \
-# SDK configuration\
+# SDK configuration (EdgeOS SDK at /opt/edgeos-sdk)\
 SDK_EXTRACT_DIR = $(CURDIR)/debian/sdk_extract\
-CVEDIX_INSTALL_DIR = /opt/cvedix-ai-runtime' "$RULES_FILE"
+CVEDIX_INSTALL_DIR = /opt/edgeos-sdk' "$RULES_FILE"
 fi
 
 # Verify SDK bundling section exists
@@ -1400,11 +1369,11 @@ if ! grep -q "# Setup CVEDIX SDK library path" "$POSTINST_FILE"; then
     SDK_SETUP_TMP=$(mktemp)
     cat > "$SDK_SETUP_TMP" <<'SDK_SETUP_EOF'
 
-# Setup CVEDIX SDK library path (SDK is bundled in this package)
-echo "Setting up CVEDIX SDK library path..."
-CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+# Setup EdgeOS SDK library path (SDK is bundled in this package)
+echo "Setting up EdgeOS SDK library path..."
+CVEDIX_LIB_DIR="/opt/edgeos-sdk/lib/cvedix"
 if [ -d "$CVEDIX_LIB_DIR" ]; then
-    echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/cvedix.conf
+    echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/edgeos-sdk.conf 2>/dev/null || true
     echo "  ✓ Added $CVEDIX_LIB_DIR to library search path"
     ldconfig 2>&1 | grep -v "is not a symbolic link" || true
 else
@@ -1515,7 +1484,7 @@ SDK_DEPENDS=$(dpkg-deb -f "$SDK_DEB_FILE" Depends 2>/dev/null || echo "")
 # Update control file for ALL-IN-ONE package - minimal dependencies only
 # All libraries (OpenCV, GStreamer, FFmpeg, etc.) are bundled in the package
 cat > "$CONTROL_FILE" <<CONTROL_EOF
-Source: edge-ai-api
+Source: edgeos-api
 Section: net
 Priority: optional
 Maintainer: CVEDIX <support@cvedix.com>
@@ -1561,7 +1530,7 @@ Build-Depends: debhelper (>= 13),
 Standards-Version: 4.6.0
 Homepage: https://github.com/cvedix/edgeos-api
 
-Package: edge-ai-api
+Package: edgeos-api
 Architecture: amd64
 Depends: ${misc:Depends},
          libc6,
@@ -1608,17 +1577,17 @@ if [ -f "debian/changelog" ]; then
     echo "  Updating version in changelog to $VERSION..."
     
     # More robust sed pattern to match any version format
-    # Match: edge-ai-api (VERSION) distribution; urgency=...
-    sed -i "1s/^edge-ai-api ([0-9.]*)/edge-ai-api ($VERSION)/" debian/changelog
+    # Match: edgeos-api (VERSION) distribution; urgency=...
+    sed -i "1s/^edgeos-api ([0-9.]*)/edgeos-api ($VERSION)/" debian/changelog
     
     # Verify version was updated
-    CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edge-ai-api (\([0-9.]*\)).*/\1/p')
+    CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edgeos-api (\([0-9.]*\)).*/\1/p')
     if [ "$CHANGELOG_VERSION" != "$VERSION" ]; then
         echo -e "${YELLOW}  ⚠  Warning: Changelog version ($CHANGELOG_VERSION) does not match expected ($VERSION)${NC}"
         echo "  Attempting to fix..."
         # Try more aggressive replacement
         sed -i "1s/([0-9.]*)/($VERSION)/" debian/changelog
-        CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edge-ai-api (\([0-9.]*\)).*/\1/p')
+        CHANGELOG_VERSION=$(head -1 debian/changelog | sed -n 's/^edgeos-api (\([0-9.]*\)).*/\1/p')
         if [ "$CHANGELOG_VERSION" = "$VERSION" ]; then
             echo -e "${GREEN}  ✓ Fixed changelog version${NC}"
         else
@@ -1662,10 +1631,10 @@ echo "Running dpkg-buildpackage..."
 dpkg-buildpackage -b -us -uc
 
 # Find the generated .deb file
-DEB_FILE=$(find .. -maxdepth 1 -name "edge-ai-api_${VERSION}_${ARCH}.deb" -o -name "edge-ai-api_*.deb" 2>/dev/null | head -1)
+DEB_FILE=$(find .. -maxdepth 1 -name "edgeos-api_${VERSION}_${ARCH}.deb" -o -name "edgeos-api_*.deb" 2>/dev/null | head -1)
 
 if [ -z "$DEB_FILE" ]; then
-    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edge-ai-api | head -1)
+    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edgeos-api | head -1)
 fi
 
 if [ -z "$DEB_FILE" ]; then
@@ -1676,7 +1645,7 @@ fi
 
 # Get absolute path and move to project root with proper name
 DEB_FILE=$(readlink -f "$DEB_FILE")
-FINAL_NAME="edge-ai-api-all-in-one-${VERSION}-${ARCH}.deb"
+FINAL_NAME="edgeos-api-all-in-one-${VERSION}-${ARCH}.deb"
 
 if [ "$(basename "$DEB_FILE")" != "$FINAL_NAME" ]; then
     mv "$DEB_FILE" "$PROJECT_ROOT/$FINAL_NAME"
@@ -1689,10 +1658,10 @@ else
 fi
 
 # Clean up temporary files
-rm -rf debian/edge-ai-api
+rm -rf debian/edgeos-api
 rm -rf debian/sdk_extract
 rm -f debian/opencv_lib_path.txt
-rm -f ../edge-ai-api_*.changes ../edge-ai-api_*.buildinfo 2>/dev/null || true
+rm -f ../edgeos-api_*.changes ../edgeos-api_*.buildinfo 2>/dev/null || true
 
 # Restore original files (cleanup will be handled by trap)
 # Files will be restored automatically on exit via cleanup function
@@ -1757,10 +1726,10 @@ echo "3. Verify installation:"
 echo "   sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose"
 echo ""
 echo "4. Start the service:"
-echo "   sudo systemctl start edge-ai-api"
+echo "   sudo systemctl start edgeos-api"
 echo ""
 echo "5. Check status:"
-echo "   sudo systemctl status edge-ai-api"
+echo "   sudo systemctl status edgeos-api"
 echo ""
 echo "=========================================="
 echo "Note"

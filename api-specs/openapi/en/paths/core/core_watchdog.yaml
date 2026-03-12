@@ -1,4 +1,4 @@
-# API endpoint: /v1/core/watchdog
+# API: /v1/core/watchdog, /v1/core/watchdog/config, /v1/core/watchdog/report-now
 # Tag: Core
 
 /v1/core/watchdog:
@@ -6,7 +6,7 @@
     summary: Get watchdog status
     description: 'Returns watchdog and health monitor statistics including instance health checks,
 
-      restart counts, and monitoring information.
+      restart counts, monitoring information, and device report (OsmAnd/Traccar) status when enabled.
 
       '
     operationId: getWatchdogStatus
@@ -19,5 +19,93 @@
           application/json:
             schema:
               type: object
-              description: Watchdog and health monitor statistics
+              description: Watchdog, health_monitor, and device_report statistics
+              additionalProperties: true
+
+/v1/core/watchdog/config:
+  get:
+    summary: Get device report config
+    description: 'Returns current device report (OsmAnd/Traccar) configuration. Includes _description for each field (user-friendly).'
+    operationId: getDeviceReportConfig
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Config and field descriptions
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config:
+                  type: object
+                  properties:
+                    enabled: { type: boolean }
+                    server_url: { type: string }
+                    device_id: { type: string }
+                    device_type: { type: string }
+                    interval_sec: { type: integer }
+                    latitude: { type: number }
+                    longitude: { type: number }
+                    reachability_timeout_sec: { type: integer }
+                    report_timeout_sec: { type: integer }
+                    _description: { type: object }
+              additionalProperties: true
+  put:
+    summary: Update device report config
+    description: 'Update device report configuration. Send only fields you want to change. Config is applied immediately (device report restarted with new settings).'
+    operationId: putDeviceReportConfig
+    tags:
+    - Core
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              enabled: { type: boolean, description: 'Turn report on/off' }
+              server_url: { type: string, description: 'Traccar server URL (e.g. http://traccar:5055)' }
+              device_id: { type: string, description: 'Device identifier on Traccar; empty = hostname' }
+              device_type: { type: string, description: 'e.g. aibox, omnimedia' }
+              interval_sec: { type: integer, description: 'Report interval in seconds (default 300 = 5 min)' }
+              latitude: { type: number }
+              longitude: { type: number }
+              reachability_timeout_sec: { type: integer }
+              report_timeout_sec: { type: integer }
+            additionalProperties: true
+    responses:
+      '200':
+        description: Updated config applied
+      '400':
+        description: Invalid JSON body
+      '500':
+        description: Update or save failed
+
+/v1/core/watchdog/report-now:
+  get:
+    summary: Send device report now (manual)
+    description: 'Triggers one device report to Traccar (OsmAnd) with event=manual. Only works when device report is enabled and server is reachable.'
+    operationId: watchdogReportNow
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Report sent or error info
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sent:
+                  type: boolean
+                event:
+                  type: string
+                  example: manual
+                report_count:
+                  type: integer
+                last_report:
+                  type: string
+                last_status:
+                  type: string
               additionalProperties: true

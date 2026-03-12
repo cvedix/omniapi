@@ -1,0 +1,14 @@
+{
+  "name": "fire_smoke_detection_file_demo",
+  "group": "demo",
+  "solution": "fire_smoke_detection",
+  "autoStart": false,
+  "additionalParams": {
+    "input": {
+      "FILE_PATH": "./cvedix_data/test_video/smoke2.mp4",
+      "MODEL_PATH": "./cvedix_data/models/det_cls/firesmoke_yolov5s.onnx",
+      "LABELS_PATH": "./cvedix_data/models/det_cls/firesmoke_3classes.txt",
+      "RESIZE_RATIO": "0.5"
+    }
+  }
+}

@@ -397,10 +397,10 @@ case "$COMMAND" in
         echo "Configuration file: $ENV_FILE"
         echo ""
         echo "To apply changes, restart the service:"
-        echo "  sudo systemctl restart edge-ai-api"
+        echo "  sudo systemctl restart edgeos-api"
         echo ""
         echo "To verify, check the service environment:"
-        echo "  sudo systemctl show edge-ai-api | grep GST_PLUGIN_PATH"
+        echo "  sudo systemctl show edgeos-api | grep GST_PLUGIN_PATH"
         ;;
 
     help|--help|-h)

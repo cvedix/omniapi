@@ -1,4 +1,5 @@
 #include "worker/worker_supervisor.h"
+#include "core/shutdown_flag.h"
 #include "core/timeout_constants.h"
 #include <chrono>
 #include <climits> // for PATH_MAX
@@ -66,11 +67,16 @@ void WorkerSupervisor::stop() {
 }
 
 bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
-                                   const Json::Value &config, int gpu_device_id) {
+                                   const Json::Value &config, int gpu_device_id,
+                                   std::string *out_error) {
+  auto setError = [&out_error](const std::string &msg) {
+    if (out_error) *out_error = msg;
+  };
   std::lock_guard<std::timed_mutex> lock(workers_mutex_);
 
   // Check if worker already exists
   if (workers_.find(instance_id) != workers_.end()) {
+    setError("Worker already exists for instance: " + instance_id);
     std::cerr << "[Supervisor] Worker already exists for instance: "
               << instance_id << std::endl;
     return false;
@@ -79,6 +85,8 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   // Find worker executable
   std::string exe_path = findWorkerExecutable();
   if (exe_path.empty()) {
+    setError("Worker executable not found: " + worker_executable_ +
+             " (set EDGE_AI_WORKER_PATH to full path, e.g. ./build/bin/edgeos-worker)");
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] ✗ Worker executable not found: "
               << worker_executable_ << std::endl;
@@ -106,6 +114,7 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   pid_t pid = fork();
 
   if (pid < 0) {
+    setError(std::string("Fork failed: ") + strerror(errno) + " (try: ulimit -u 4096)");
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] ✗ Fork failed: " << strerror(errno) << std::endl;
     std::cerr << "[Supervisor] ========================================" << std::endl;
@@ -123,6 +132,29 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   }
 
   if (pid == 0) {
+    // Redirect worker stdout/stderr to a dedicated log file so [Worker:...] lines
+    // are always visible (they are not written by LogManager/plog).
+    const char *log_dir = std::getenv("LOG_DIR");
+    if (!log_dir || !*log_dir) {
+      log_dir = "logs";
+    }
+    std::string worker_log_path =
+        std::string(log_dir) + "/worker_" + instance_id + ".log";
+    try {
+      std::filesystem::create_directories(
+          std::filesystem::path(worker_log_path).parent_path());
+      int fd = open(worker_log_path.c_str(),
+                    O_WRONLY | O_CREAT | O_APPEND,
+                    0644);
+      if (fd >= 0) {
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+      }
+    } catch (...) {
+      // ignore; worker will keep inherited stdout/stderr
+    }
+
     // Child process - set CUDA_VISIBLE_DEVICES if GPU device ID is specified
     if (gpu_device_id >= 0) {
       std::string cuda_visible_devices = std::to_string(gpu_device_id);
@@ -163,6 +195,8 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
   bool ready = waitForWorkerReady(*worker, worker_startup_timeout_ms_);
 
   if (!ready) {
+    setError("Worker failed to become ready (timeout or worker crash - run worker manually: "
+             "edgeos-worker --instance-id <id> --socket /tmp/edgeos_worker_<id>.sock --config '{}')");
     std::cerr << "[Supervisor] ========================================" << std::endl;
     std::cerr << "[Supervisor] ✗ Worker failed to become ready, killing PID "
               << pid << std::endl;
@@ -178,7 +212,7 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
     std::cerr << "[Supervisor]      sudo mkdir -p " << socket_dir.string() 
               << " && sudo chmod 777 " << socket_dir.string() << std::endl;
     std::cerr << "[Supervisor]   5. Check CVEDIX SDK dependencies:" << std::endl;
-    std::cerr << "[Supervisor]      sudo systemctl restart edge-ai-api" << std::endl;
+    std::cerr << "[Supervisor]      sudo systemctl restart edgeos-api" << std::endl;
     std::cerr << "[Supervisor]   6. Run diagnostic script:" << std::endl;
     std::cerr << "[Supervisor]      ./scripts/diagnose_spawn_worker.sh" << std::endl;
     std::cerr << "[Supervisor] ========================================" << std::endl;
@@ -513,18 +547,22 @@ void WorkerSupervisor::monitorLoop() {
 
           if (result > 0) {
             // Process exited
-            if (WIFEXITED(status)) {
-              int exit_code = WEXITSTATUS(status);
-              std::cout << "[Supervisor] Worker " << instance_id
-                        << " exited with code " << exit_code << std::endl;
-            } else if (WIFSIGNALED(status)) {
-              int sig = WTERMSIG(status);
-              std::cout << "[Supervisor] Worker " << instance_id
-                        << " killed by signal " << sig << std::endl;
+            if (ShutdownFlag::isRequested()) {
+              // Server is shutting down (Ctrl+C): treat as normal stop, do not restart
+              setWorkerState(*worker, WorkerState::STOPPED);
+            } else {
+              if (WIFEXITED(status)) {
+                int exit_code = WEXITSTATUS(status);
+                std::cout << "[Supervisor] Worker " << instance_id
+                          << " exited with code " << exit_code << std::endl;
+              } else if (WIFSIGNALED(status)) {
+                int sig = WTERMSIG(status);
+                std::cout << "[Supervisor] Worker " << instance_id
+                          << " killed by signal " << sig << std::endl;
+              }
+              setWorkerState(*worker, WorkerState::CRASHED);
+              crashed_workers.push_back(instance_id);
             }
-
-            setWorkerState(*worker, WorkerState::CRASHED);
-            crashed_workers.push_back(instance_id);
             continue;
           }
         }
@@ -547,10 +585,14 @@ void WorkerSupervisor::monitorLoop() {
                     .count();
 
             if (elapsed > heartbeat_timeout_ms_) {
-              std::cerr << "[Supervisor] Worker " << instance_id
-                        << " heartbeat timeout" << std::endl;
-              setWorkerState(*worker, WorkerState::CRASHED);
-              crashed_workers.push_back(instance_id);
+              if (ShutdownFlag::isRequested()) {
+                setWorkerState(*worker, WorkerState::STOPPED);
+              } else {
+                std::cerr << "[Supervisor] Worker " << instance_id
+                          << " heartbeat timeout" << std::endl;
+                setWorkerState(*worker, WorkerState::CRASHED);
+                crashed_workers.push_back(instance_id);
+              }
             }
           }
         }
@@ -570,38 +612,35 @@ void WorkerSupervisor::checkWorkerHealth(WorkerInfo &worker) {
 }
 
 void WorkerSupervisor::handleWorkerCrash(const std::string &instance_id) {
-  if (error_callback_) {
-    error_callback_(instance_id, "Worker crashed");
+  bool allow_respawn = false;
+  {
+    std::lock_guard<std::timed_mutex> lock(workers_mutex_);
+    auto it = workers_.find(instance_id);
+    if (it == workers_.end())
+      return;
+
+    WorkerInfo &worker = *it->second;
+
+    if (worker.restart_count < max_restarts_) {
+      std::cout << "[Supervisor] Attempting restart "
+                << (worker.restart_count + 1) << "/" << max_restarts_ << " for "
+                << instance_id << " (manager will respawn worker)" << std::endl;
+
+      cleanupWorker(worker);
+      workers_.erase(it);
+      allow_respawn = true;
+    } else {
+      std::cerr << "[Supervisor] Max restarts reached for " << instance_id
+                << std::endl;
+      cleanupWorker(worker);
+      workers_.erase(it);
+    }
   }
 
-  // Attempt restart if under limit
-  std::lock_guard<std::timed_mutex> lock(workers_mutex_);
-  auto it = workers_.find(instance_id);
-  if (it == workers_.end())
-    return;
+  std::this_thread::sleep_for(std::chrono::milliseconds(restart_delay_ms_));
 
-  WorkerInfo &worker = *it->second;
-
-  if (worker.restart_count < max_restarts_) {
-    std::cout << "[Supervisor] Attempting restart "
-              << (worker.restart_count + 1) << "/" << max_restarts_ << " for "
-              << instance_id << std::endl;
-
-    // Clean up old resources
-    cleanupWorker(worker);
-
-    // Wait before restart
-    std::this_thread::sleep_for(std::chrono::milliseconds(restart_delay_ms_));
-
-    // Note: Full restart would need to re-read config from storage
-    // For now, just increment counter and mark as stopped
-    worker.restart_count++;
-    setWorkerState(worker, WorkerState::STOPPED);
-  } else {
-    std::cerr << "[Supervisor] Max restarts reached for " << instance_id
-              << std::endl;
-    cleanupWorker(worker);
-    workers_.erase(it);
+  if (allow_respawn && error_callback_) {
+    error_callback_(instance_id, "Worker crashed");
   }
 }
 

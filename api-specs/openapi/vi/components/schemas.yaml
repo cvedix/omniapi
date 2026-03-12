@@ -29,7 +29,7 @@ components:
         service:
           type: string
           description: Tên dịch vụ
-          example: edge_ai_api
+          example: edgeos-api
         version:
           type: string
           description: Phiên bản dịch vụ
@@ -90,7 +90,7 @@ components:
         service:
           type: string
           description: Tên dịch vụ
-          example: edge_ai_api
+          example: edgeos-api
     ErrorResponse:
       type: object
       properties:
@@ -123,7 +123,7 @@ components:
         path:
           type: string
           description: Đường dẫn đầy đủ tới file log
-          example: /var/log/edge_ai_api/api_2024-01-01.log
+          example: /var/log/edgeos-api/api_2024-01-01.log
     LogFilesResponse:
       type: object
       required:
@@ -140,11 +140,11 @@ components:
             api:
             - date: '2024-01-01'
               size: 1024
-              path: /var/log/edge_ai_api/api_2024-01-01.log
+              path: /var/log/edgeos-api/api_2024-01-01.log
             instance:
             - date: '2024-01-01'
               size: 2048
-              path: /var/log/edge_ai_api/instance_2024-01-01.log
+              path: /var/log/edgeos-api/instance_2024-01-01.log
     LogEntry:
       type: object
       required:
@@ -182,7 +182,7 @@ components:
         category_dir:
           type: string
           description: Đường dẫn thư mục cho danh mục này
-          example: /var/log/edge_ai_api/api
+          example: /var/log/edgeos-api/api
         files_count:
           type: integer
           description: Số file log trong danh mục này
@@ -239,17 +239,17 @@ components:
       properties:
         type:
           type: string
-          description: Loại nguồn đầu vào
+          description: Loại nguồn đầu vào (File = đường dẫn file video)
           enum:
+          - File
           - RTSP
           - HLS
           - Manual
-          example: Manual
+          example: File
         uri:
           type: string
-          format: uri
-          description: URI nguồn đầu vào (phải hợp lệ)
-          example: http://localhost
+          description: URI hoặc đường dẫn (với type File dùng path local, vd. ./video.mp4)
+          example: ./test_video.mp4
     InstanceConfig:
       type: object
       description: Cấu hình instance (định dạng config, không phải trạng thái runtime)
@@ -421,7 +421,7 @@ components:
             Thư mục sẽ được tạo tự động nếu chưa tồn tại.
 
             '
-          example: /opt/edge_ai_api/record
+          example: /opt/edgeos-api/record
         uri:
           type: string
           format: uri

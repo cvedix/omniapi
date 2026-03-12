@@ -132,7 +132,7 @@ fi
 
 # Port Forwarding cho API
 echo -e "${BLUE}🌐 Đang cấu hình port forwarding...${NC}"
-VBoxManage modifyvm "$VM_NAME" --natpf1 "edge-ai-api,tcp,,8080,,8080" 2>/dev/null || true
+VBoxManage modifyvm "$VM_NAME" --natpf1 "edgeos-api,tcp,,8080,,8080" 2>/dev/null || true
 echo -e "${GREEN}✅ Port forwarding: Host 8080 -> Guest 8080${NC}"
 
 echo ""
@@ -151,6 +151,6 @@ echo "   1. Khởi động VM: VBoxManage startvm '$VM_NAME' --type gui"
 echo "   2. Cài đặt Ubuntu từ ISO"
 echo "   3. Cài Guest Additions (Devices > Insert Guest Additions CD)"
 echo "   4. Copy file .deb từ shared folder: /media/sf_edgeos-api/"
-echo "   5. Cài đặt package: sudo dpkg -i edge-ai-api-with-sdk-*.deb"
+echo "   5. Cài đặt package: sudo dpkg -i edgeos-api-with-sdk-*.deb"
 echo ""
 

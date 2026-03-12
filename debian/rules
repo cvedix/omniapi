@@ -18,16 +18,16 @@ CMAKE_FLAGS = -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
               -DDROGON_USE_FETCHCONTENT=ON
 
 # Package configuration
-PACKAGE_NAME = edge-ai-api
-INSTALL_DIR = /opt/edge_ai_api
+PACKAGE_NAME = edgeos-api
+INSTALL_DIR = /opt/edgeos-api
 BIN_DIR = /usr/local/bin
-LIB_DIR = /opt/edge_ai_api/lib
+LIB_DIR = /opt/edgeos-api/lib
 SERVICE_USER = edgeai
 SERVICE_GROUP = edgeai
 
-# SDK configuration
+# SDK configuration (EdgeOS SDK at /opt/edgeos-sdk)
 SDK_EXTRACT_DIR = $(CURDIR)/debian/sdk_extract
-CVEDIX_INSTALL_DIR = /opt/cvedix-ai-runtime
+CVEDIX_INSTALL_DIR = /opt/edgeos-sdk
 
 %:
 	dh $@
@@ -44,32 +44,32 @@ override_dh_auto_build:
 override_dh_auto_install:
 	# Install executable - check multiple possible locations
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)
-	@if [ -f $(CURDIR)/build/bin/edge_ai_api ]; then \
-		echo "Installing executable from build/bin/edge_ai_api"; \
-		install -m 755 $(CURDIR)/build/bin/edge_ai_api $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_api; \
-	elif [ -f $(CURDIR)/build/edge_ai_api ]; then \
-		echo "Installing executable from build/edge_ai_api"; \
-		install -m 755 $(CURDIR)/build/edge_ai_api $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_api; \
+	@if [ -f $(CURDIR)/build/bin/edgeos-api ]; then \
+		echo "Installing executable from build/bin/edgeos-api"; \
+		install -m 755 $(CURDIR)/build/bin/edgeos-api $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api; \
+	elif [ -f $(CURDIR)/build/edgeos-api ]; then \
+		echo "Installing executable from build/edgeos-api"; \
+		install -m 755 $(CURDIR)/build/edgeos-api $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api; \
 	else \
 		echo "Error: Executable not found in build directory"; \
-		echo "Checked: $(CURDIR)/build/bin/edge_ai_api"; \
-		echo "Checked: $(CURDIR)/build/edge_ai_api"; \
+		echo "Checked: $(CURDIR)/build/bin/edgeos-api"; \
+		echo "Checked: $(CURDIR)/build/edgeos-api"; \
 		ls -la $(CURDIR)/build/bin/ 2>/dev/null || echo "build/bin does not exist"; \
-		ls -la $(CURDIR)/build/edge_ai_api 2>/dev/null || echo "build/edge_ai_api does not exist"; \
+		ls -la $(CURDIR)/build/edgeos-api 2>/dev/null || echo "build/edgeos-api does not exist"; \
 		exit 1; \
 	fi
 
-	# Install edge_ai_worker executable (required for subprocess mode)
-	@if [ -f $(CURDIR)/build/bin/edge_ai_worker ]; then \
-		echo "Installing worker executable from build/bin/edge_ai_worker"; \
-		install -m 755 $(CURDIR)/build/bin/edge_ai_worker $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_worker; \
-	elif [ -f $(CURDIR)/build/edge_ai_worker ]; then \
-		echo "Installing worker executable from build/edge_ai_worker"; \
-		install -m 755 $(CURDIR)/build/edge_ai_worker $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_worker; \
+	# Install edgeos-worker executable (required for subprocess mode)
+	@if [ -f $(CURDIR)/build/bin/edgeos-worker ]; then \
+		echo "Installing worker executable from build/bin/edgeos-worker"; \
+		install -m 755 $(CURDIR)/build/bin/edgeos-worker $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-worker; \
+	elif [ -f $(CURDIR)/build/edgeos-worker ]; then \
+		echo "Installing worker executable from build/edgeos-worker"; \
+		install -m 755 $(CURDIR)/build/edgeos-worker $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-worker; \
 	else \
-		echo "Warning: edge_ai_worker executable not found - subprocess mode will not work"; \
-		echo "Checked: $(CURDIR)/build/bin/edge_ai_worker"; \
-		echo "Checked: $(CURDIR)/build/edge_ai_worker"; \
+		echo "Warning: edgeos-worker executable not found - subprocess mode will not work"; \
+		echo "Checked: $(CURDIR)/build/bin/edgeos-worker"; \
+		echo "Checked: $(CURDIR)/build/edgeos-worker"; \
 	fi
 
 	# Install bundled libraries - bundle directly from executable
@@ -77,24 +77,24 @@ override_dh_auto_install:
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)
 	# Find executable and bundle libraries
 	@EXEC_PATH=""; \
-	if [ -f $(CURDIR)/build/bin/edge_ai_api ]; then \
-		EXEC_PATH="$(CURDIR)/build/bin/edge_ai_api"; \
-	elif [ -f $(CURDIR)/build/edge_ai_api ]; then \
-		EXEC_PATH="$(CURDIR)/build/edge_ai_api"; \
+	if [ -f $(CURDIR)/build/bin/edgeos-api ]; then \
+		EXEC_PATH="$(CURDIR)/build/bin/edgeos-api"; \
+	elif [ -f $(CURDIR)/build/edgeos-api ]; then \
+		EXEC_PATH="$(CURDIR)/build/edgeos-api"; \
 	fi; \
 	if [ -n "$$EXEC_PATH" ] && [ -f "$$EXEC_PATH" ]; then \
 		LIB_TEMP_DIR=$(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR); \
 		$(CURDIR)/debian/bundle_libs.sh "$$EXEC_PATH" "$$LIB_TEMP_DIR" || true; \
-		# Also ensure edge_ai_core library is bundled if it exists \
-		if [ -f $(CURDIR)/build/lib/libedge_ai_core.so* ]; then \
-			echo "Bundling edge_ai_core library..."; \
-			cp -L $(CURDIR)/build/lib/libedge_ai_core.so* "$$LIB_TEMP_DIR/" 2>/dev/null || true; \
+		# Also ensure edgeos_core library is bundled if it exists \
+		if [ -f $(CURDIR)/build/lib/libedgeos_core.so* ]; then \
+			echo "Bundling edgeos_core library..."; \
+			cp -L $(CURDIR)/build/lib/libedgeos_core.so* "$$LIB_TEMP_DIR/" 2>/dev/null || true; \
 		fi; \
 	fi; \
 	# Also try to copy from pre-bundled location if exists (from build_deb.sh, before dh clean)
-	if [ -d $(CURDIR)/debian/edge-ai-api/opt/edge_ai_api/lib ] && [ "$$(ls -A $(CURDIR)/debian/edge-ai-api/opt/edge_ai_api/lib 2>/dev/null)" ]; then \
+	if [ -d $(CURDIR)/debian/edgeos-api/opt/edgeos-api/lib ] && [ "$$(ls -A $(CURDIR)/debian/edgeos-api/opt/edgeos-api/lib 2>/dev/null)" ]; then \
 		echo "Copying pre-bundled libraries..."; \
-		cp -r $(CURDIR)/debian/edge-ai-api/opt/edge_ai_api/lib/* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
+		cp -r $(CURDIR)/debian/edgeos-api/opt/edgeos-api/lib/* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
 	fi
 
 	# Copy libopencv_freetype.so.410 from build/lib (created by CMakeLists.txt or build script)
@@ -111,29 +111,22 @@ override_dh_auto_install:
 				echo "  ✓ libopencv_freetype.so.410 bundled from build/lib"; \
 			fi; \
 		fi; \
-		# Try system OpenCV 4.10 if not found in build/lib (REQUIRED - OpenCV 4.6 is NOT supported) \
+		# Try system OpenCV 4.6 if not found in build/lib \
 		if [ "$$FREETYPE_COPIED" = false ]; then \
-			FREETYPE_SOURCES="/usr/local/lib/libopencv_freetype.so.4.10.0 /usr/local/lib/libopencv_freetype.so.4.10 /usr/local/lib/libopencv_freetype.so.410 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10.0 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.410 /usr/lib/libopencv_freetype.so.4.10.0 /usr/lib/libopencv_freetype.so.4.10 /usr/lib/libopencv_freetype.so.410"; \
+			FREETYPE_SOURCES="/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0 /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.406 /usr/local/lib/libopencv_freetype.so.4.6.0 /usr/local/lib/libopencv_freetype.so.406 /usr/lib/libopencv_freetype.so.4.6.0 /usr/lib/libopencv_freetype.so.406"; \
 			for source in $$FREETYPE_SOURCES; do \
-				if [ -f "$$source" ] || [ -L "$$source" ]; then \
+				if [ -f "$$source" ]; then \
 					echo "Copying libopencv_freetype.so.410 from $$source..."; \
-					# Resolve symlink if needed \
-					if [ -L "$$source" ]; then \
-						resolved=$$(readlink -f "$$source" 2>/dev/null || echo ""); \
-						if [ -n "$$resolved" ] && [ -f "$$resolved" ]; then \
-							source="$$resolved"; \
-						fi; \
-					fi; \
 					cp -L "$$source" "$$LIB_TEMP_DIR/libopencv_freetype.so.410" 2>/dev/null && FREETYPE_COPIED=true && break || true; \
 				fi; \
 			done; \
 			if [ "$$FREETYPE_COPIED" = true ]; then \
-				echo "  ✓ libopencv_freetype.so.410 bundled from system OpenCV 4.10"; \
+				echo "  ✓ libopencv_freetype.so.410 bundled from system OpenCV 4.6"; \
 			fi; \
 		fi; \
 		# Try SDK extract directory if available \
 		if [ "$$FREETYPE_COPIED" = false ] && [ -d $(SDK_EXTRACT_DIR) ]; then \
-			for sdk_source in $(SDK_EXTRACT_DIR)/opt/cvedix/lib/libopencv_freetype.so* $(SDK_EXTRACT_DIR)/usr/lib/x86_64-linux-gnu/libopencv_freetype.so*; do \
+			for sdk_source in $(SDK_EXTRACT_DIR)/opt/edgeos-sdk/lib/libopencv_freetype.so* $(SDK_EXTRACT_DIR)/usr/lib/x86_64-linux-gnu/libopencv_freetype.so*; do \
 				if [ -f "$$sdk_source" ]; then \
 					echo "Copying libopencv_freetype.so.410 from SDK extract..."; \
 					cp -L "$$sdk_source" "$$LIB_TEMP_DIR/libopencv_freetype.so.410" 2>/dev/null && FREETYPE_COPIED=true && break || true; \
@@ -147,7 +140,7 @@ override_dh_auto_install:
 		if [ "$$FREETYPE_COPIED" = false ]; then \
 			echo "  ✗ ERROR: libopencv_freetype.so.410 not found in any source"; \
 			echo "  This file is REQUIRED for CVEDIX SDK compatibility"; \
-			echo "  Please ensure OpenCV 4.10 is installed on build machine (OpenCV 4.6 is NOT supported)"; \
+			echo "  Please ensure OpenCV 4.6 is installed on build machine or file exists in build/lib"; \
 			echo "  The package will be built but service may fail to start"; \
 		fi; \
 	fi; \
@@ -163,34 +156,34 @@ override_dh_auto_install:
 	fi
 
 	# Update RPATH in executables to use bundled libraries
-	# RPATH: /opt/edge_ai_api/lib:/opt/cvedix-ai-runtime/lib/cvedix (relative to executable at /usr/local/bin)
+	# RPATH: /opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix (relative to executable at /usr/local/bin)
 	# CRITICAL: RPATH must be set correctly for bundled libraries to be found
-	@EXPECTED_RPATH="/opt/edge_ai_api/lib:/opt/cvedix-ai-runtime/lib/cvedix"; \
+	@EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"; \
 	if command -v patchelf >/dev/null 2>&1; then \
-		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_api ]; then \
-			echo "Setting RPATH for edge_ai_api..."; \
-			if patchelf --set-rpath "$$EXPECTED_RPATH" $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_api 2>&1; then \
-				VERIFIED_RPATH=$$(patchelf --print-rpath $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_api 2>/dev/null || echo ""); \
+		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api ]; then \
+			echo "Setting RPATH for edgeos-api..."; \
+			if patchelf --set-rpath "$$EXPECTED_RPATH" $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api 2>&1; then \
+				VERIFIED_RPATH=$$(patchelf --print-rpath $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api 2>/dev/null || echo ""); \
 				if [ "$$VERIFIED_RPATH" = "$$EXPECTED_RPATH" ]; then \
-					echo "  ✓ RPATH set successfully for edge_ai_api: $$VERIFIED_RPATH"; \
+					echo "  ✓ RPATH set successfully for edgeos-api: $$VERIFIED_RPATH"; \
 				else \
 					echo "  ⚠  Warning: RPATH may not be set correctly. Expected: $$EXPECTED_RPATH, Got: $$VERIFIED_RPATH"; \
 				fi; \
 			else \
-				echo "  ✗ ERROR: Failed to set RPATH for edge_ai_api"; \
+				echo "  ✗ ERROR: Failed to set RPATH for edgeos-api"; \
 			fi; \
 		fi; \
-		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_worker ]; then \
-			echo "Setting RPATH for edge_ai_worker..."; \
-			if patchelf --set-rpath "$$EXPECTED_RPATH" $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_worker 2>&1; then \
-				VERIFIED_RPATH=$$(patchelf --print-rpath $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edge_ai_worker 2>/dev/null || echo ""); \
+		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-worker ]; then \
+			echo "Setting RPATH for edgeos-worker..."; \
+			if patchelf --set-rpath "$$EXPECTED_RPATH" $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-worker 2>&1; then \
+				VERIFIED_RPATH=$$(patchelf --print-rpath $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-worker 2>/dev/null || echo ""); \
 				if [ "$$VERIFIED_RPATH" = "$$EXPECTED_RPATH" ]; then \
-					echo "  ✓ RPATH set successfully for edge_ai_worker: $$VERIFIED_RPATH"; \
+					echo "  ✓ RPATH set successfully for edgeos-worker: $$VERIFIED_RPATH"; \
 				else \
 					echo "  ⚠  Warning: RPATH may not be set correctly. Expected: $$EXPECTED_RPATH, Got: $$VERIFIED_RPATH"; \
 				fi; \
 			else \
-				echo "  ✗ ERROR: Failed to set RPATH for edge_ai_worker"; \
+				echo "  ✗ ERROR: Failed to set RPATH for edgeos-worker"; \
 			fi; \
 		fi; \
 	else \
@@ -202,9 +195,18 @@ override_dh_auto_install:
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)/etc/systemd/system
 	install -m 644 $(CURDIR)/deploy/edgeos-api.service $(CURDIR)/debian/$(PACKAGE_NAME)/etc/systemd/system/edgeos-api.service
 
-	# Install config files
+	# Install config files (use config.json if present, else config/config.json.example)
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config
-	install -m 644 $(CURDIR)/config.json $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config/config.json
+	@if [ -f $(CURDIR)/config.json ]; then \
+		install -m 644 $(CURDIR)/config.json $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config/config.json; \
+		echo "  Installed config.json"; \
+	elif [ -f $(CURDIR)/config/config.json.example ]; then \
+		install -m 644 $(CURDIR)/config/config.json.example $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config/config.json; \
+		echo "  Installed config/config.json.example as config.json"; \
+	else \
+		echo "  Warning: No config.json or config/config.json.example found"; \
+		exit 1; \
+	fi
 
 	# Create directory structure from directories.conf
 	# Read directories.conf directly (Makefile uses /bin/sh, not bash)
@@ -259,57 +261,35 @@ override_dh_auto_install:
 	if [ -f $(CURDIR)/scripts/build_opencv_safe.sh ]; then \
 		install -m 755 $(CURDIR)/scripts/build_opencv_safe.sh $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/scripts/build_opencv_safe.sh; \
 	fi
-	# Install fix_freetype script for fixing OpenCV freetype library issues
-	if [ -f $(CURDIR)/scripts/fix_freetype.sh ]; then \
-		install -m 755 $(CURDIR)/scripts/fix_freetype.sh $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/scripts/fix_freetype.sh; \
-	fi
 
 	# ============================================
-	# Install CVEDIX SDK from extracted .deb
-	# Copy ALL files from SDK package to edge-ai-api package
-	# Exclude README.md and VERSION to avoid conflicts with cvedix-ai-runtime package
+	# Install EdgeOS SDK from extracted .deb to /opt/edgeos-sdk
 	# ============================================
-	@echo "Installing CVEDIX SDK from extracted package..."; \
-	if [ -d $(SDK_EXTRACT_DIR) ]; then \
-		echo "  Copying entire CVEDIX SDK directory structure..."; \
-		# Copy entire SDK directory structure to /opt/cvedix-ai-runtime \
-		# Note: SDK package may have /opt/cvedix structure, we copy it to /opt/cvedix-ai-runtime \
-		# Exclude README.md and VERSION to avoid conflicts with existing cvedix-ai-runtime package \
-		if [ -d $(SDK_EXTRACT_DIR)/opt/cvedix ]; then \
-			install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR); \
-			# Copy all files/directories except README.md and VERSION \
-			for item in $(SDK_EXTRACT_DIR)/opt/cvedix/*; do \
-				BASENAME_ITEM=$$(basename "$$item"); \
-				if [ -e "$$item" ] && [ "$$BASENAME_ITEM" != "README.md" ] && [ "$$BASENAME_ITEM" != "VERSION" ]; then \
-					cp -r "$$item" $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR)/ 2>/dev/null || true; \
-				fi; \
-			done; \
-			echo "  ✓ CVEDIX SDK fully integrated into package at $(CVEDIX_INSTALL_DIR) (README.md and VERSION excluded to avoid conflicts)"; \
-		elif [ -d $(SDK_EXTRACT_DIR)/opt/cvedix-ai-runtime ]; then \
-			install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR); \
-			# Copy all files/directories except README.md and VERSION \
-			for item in $(SDK_EXTRACT_DIR)/opt/cvedix-ai-runtime/*; do \
-				BASENAME_ITEM=$$(basename "$$item"); \
-				if [ -e "$$item" ] && [ "$$BASENAME_ITEM" != "README.md" ] && [ "$$BASENAME_ITEM" != "VERSION" ]; then \
-					cp -r "$$item" $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR)/ 2>/dev/null || true; \
-				fi; \
-			done; \
-			echo "  ✓ CVEDIX SDK fully integrated into package at $(CVEDIX_INSTALL_DIR) (README.md and VERSION excluded to avoid conflicts)"; \
-		else \
-			echo "  ⚠  Warning: /opt/cvedix or /opt/cvedix-ai-runtime not found in SDK extract directory"; \
-		fi; \
-		# Also copy SDK libraries to bundled lib directory for easier access \
-		if [ -d $(SDK_EXTRACT_DIR)/opt/cvedix/lib ]; then \
+	@echo "Installing EdgeOS SDK from extracted package..."; \
+	if [ -d $(SDK_EXTRACT_DIR) ] && [ -d $(SDK_EXTRACT_DIR)/opt/edgeos-sdk ]; then \
+		SDK_SRC="$(SDK_EXTRACT_DIR)/opt/edgeos-sdk"; \
+		install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR); \
+		for item in $$SDK_SRC/*; do \
+			BASENAME_ITEM=$$(basename "$$item"); \
+			if [ -e "$$item" ] && [ "$$BASENAME_ITEM" != "README.md" ] && [ "$$BASENAME_ITEM" != "VERSION" ]; then \
+				cp -r "$$item" $(CURDIR)/debian/$(PACKAGE_NAME)$(CVEDIX_INSTALL_DIR)/ 2>/dev/null || true; \
+			fi; \
+		done; \
+		echo "  ✓ EdgeOS SDK integrated at $(CVEDIX_INSTALL_DIR)"; \
+		if [ -d $$SDK_SRC/lib ]; then \
 			echo "  Copying SDK libraries to bundled lib directory..."; \
-			cp -L $(SDK_EXTRACT_DIR)/opt/cvedix/lib/*.so* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
+			cp -L $$SDK_SRC/lib/*.so* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
+		fi; \
+		if [ -d $$SDK_SRC/lib/cvedix ]; then \
+			cp -L $$SDK_SRC/lib/cvedix/*.so* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
 		fi; \
 	else \
-		echo "  ⚠  Warning: SDK extract directory not found: $(SDK_EXTRACT_DIR)"; \
+		echo "  ⚠  Warning: /opt/edgeos-sdk not found in SDK extract or extract dir missing"; \
 		echo "  SDK will not be bundled in this package"; \
 	fi
 
 	# Install default data from cvedix_data (fonts and models only)
-	# These will be installed to /opt/edge_ai_api/fonts and /opt/edge_ai_api/models
+	# These will be installed to /opt/edgeos-api/fonts and /opt/edgeos-api/models
 	# as default data for users on fresh installations
 	# NOTE: test_images and test_video are NOT copied to keep package size small
 	@echo "Installing default data from cvedix_data..."; \
@@ -379,7 +359,7 @@ override_dh_usrlocal:
 	:
 
 override_dh_strip:
-	# Strip binaries (without creating separate debug package)
+	# Strip binaries. If objcopy OOM: run with DEB_BUILD_OPTIONS=noautodbgsym dpkg-buildpackage -b
 	dh_strip
 
 .PHONY: override_dh_auto_configure override_dh_auto_build override_dh_auto_install override_dh_shlibdeps override_dh_usrlocal override_dh_strip

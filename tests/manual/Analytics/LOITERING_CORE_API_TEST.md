@@ -212,9 +212,9 @@ RESPONSE=$(curl -s -X POST "${CORE_BASE}" \
     "additionalParams": {
       "input": {
         "FILE_PATH": "./test_video.mp4",
-        "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
         "RESIZE_RATIO": "0.6"
       },
       "output": {
@@ -246,9 +246,9 @@ RESPONSE=$(curl -s -X POST "${CORE_BASE}" \
     "additionalParams": {
       "input": {
         "RTMP_SRC_URL": "rtmp://192.168.1.128:1935/live/camera_demo",
-        "WEIGHTS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt",
+        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
         "RESIZE_RATIO": "1.0",
         "GST_DECODER_NAME": "avdec_h264"
       },
@@ -282,9 +282,9 @@ RESPONSE=$(curl -s -X POST "${CORE_BASE}" \
     \"additionalParams\": {
       \"input\": {
         \"RTSP_URL\": \"${RTSP_URL}\",
-        \"WEIGHTS_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
-        \"CONFIG_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg\",
-        \"LABELS_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt\",
+        \"WEIGHTS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
+        \"CONFIG_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg\",
+        \"LABELS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt\",
         \"RESIZE_RATIO\": \"0.6\",
         \"GST_DECODER_NAME\": \"avdec_h264\"
       },
@@ -346,9 +346,9 @@ RESPONSE=$(curl -s -X POST "${CORE_BASE}" \
     \"additionalParams\": {
       \"input\": {
         \"FILE_PATH\": \"${VIDEO_FILE}\",
-        \"WEIGHTS_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
-        \"CONFIG_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg\",
-        \"LABELS_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt\",
+        \"WEIGHTS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
+        \"CONFIG_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg\",
+        \"LABELS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt\",
         \"RESIZE_RATIO\": \"0.6\"
       },
       \"output\": {
@@ -462,9 +462,9 @@ RESPONSE=$(curl -s -X POST "${CORE_BASE}" \
     \"additionalParams\": {
       \"input\": {
         \"FILE_PATH\": \"./test_video.mp4\",
-        \"WEIGHTS_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
-        \"CONFIG_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3-tiny-2022-0721.cfg\",
-        \"LABELS_PATH\": \"/opt/edge_ai_api/models/det_cls/yolov3_tiny_5classes.txt\",
+        \"WEIGHTS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
+        \"CONFIG_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg\",
+        \"LABELS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt\",
         \"RESIZE_RATIO\": \"0.6\"
       },
       \"output\": {

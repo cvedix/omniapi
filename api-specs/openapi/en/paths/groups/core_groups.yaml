@@ -97,7 +97,7 @@
 
       - Groups are automatically saved to storage
 
-      - Group files are stored in `/var/lib/edge_ai_api/groups` (configurable via `GROUPS_DIR` environment variable)
+      - Group files are stored in `/var/lib/edgeos-api/groups` (configurable via `GROUPS_DIR` environment variable)
 
 
       **Returns:** The created group information including timestamps.

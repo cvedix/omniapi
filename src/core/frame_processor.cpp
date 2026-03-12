@@ -93,71 +93,73 @@ void FrameProcessor::processFrames(const std::string& instanceId, IInstanceManag
   
   FrameDecoder decoder;
   
-  // Find app_src node once
+  // Find app_src node once (only instances that use push-frame API have app_src)
   auto appSrcNode = findAppSrcNode(instanceId, instanceManager);
   if (!appSrcNode) {
-    std::cerr << "[FrameProcessor] Warning: No app_src node found for instance " << instanceId 
-              << ". Frames will be queued but not processed." << std::endl;
-    // Continue anyway - frames will be queued and can be processed later when node is available
+    // RTMP/RTSP/file source pipelines have no app_src — expected; no need to warn
+    if (instanceManager && instanceManager->hasRTMPOutput(instanceId)) {
+      // Instance uses stream source + RTMP out; push-frame queue is unused — silent
+    } else {
+      std::cerr << "[FrameProcessor] Warning: No app_src node found for instance "
+                << instanceId
+                << ". Frames will be queued but not processed." << std::endl;
+    }
   }
   
+  // Use blocking pop with timeout to wake as soon as a frame arrives (no fixed 10ms sleep).
+  constexpr int kPopTimeoutMs = 100;
+
   while (!global_stop_.load()) {
     // Check instance-specific stop flag
     auto it = stop_flags_.find(instanceId);
     if (it != stop_flags_.end() && it->second.load()) {
       break;
     }
-    
-    // Try to pop frame from queue (non-blocking)
+
     FrameData frameData;
-    if (queue.tryPop(frameData)) {
-      // Decode frame
-      cv::Mat decodedFrame;
-      bool decodeSuccess = false;
-      
-      if (frameData.type == FrameType::ENCODED) {
-        decodeSuccess = decoder.decodeEncodedFrame(frameData.data, frameData.codecId, decodedFrame);
-      } else if (frameData.type == FrameType::COMPRESSED) {
-        decodeSuccess = decoder.decodeCompressedFrame(frameData.data, decodedFrame);
+    if (!queue.pop(frameData, kPopTimeoutMs)) {
+      // Timeout or empty: re-check stop and loop (no busy-wait, no fixed 10ms delay)
+      continue;
+    }
+
+    // Decode frame (single decode path)
+    cv::Mat decodedFrame;
+    bool decodeSuccess = false;
+
+    if (frameData.type == FrameType::ENCODED) {
+      decodeSuccess = decoder.decodeEncodedFrame(frameData.data, frameData.codecId, decodedFrame);
+    } else if (frameData.type == FrameType::COMPRESSED) {
+      decodeSuccess = decoder.decodeCompressedFrame(frameData.data, decodedFrame);
+    }
+
+    if (decodeSuccess && !decodedFrame.empty()) {
+      if (!appSrcNode) {
+        appSrcNode = findAppSrcNode(instanceId, instanceManager);
       }
-      
-      if (decodeSuccess && !decodedFrame.empty()) {
-        // Try to find app_src node again if we don't have it
-        if (!appSrcNode) {
-          appSrcNode = findAppSrcNode(instanceId, instanceManager);
-        }
-        
-        // Push frame to node
-        if (appSrcNode) {
-          if (pushFrameToNode(appSrcNode, decodedFrame)) {
-            // Success
-            static thread_local uint64_t frame_count = 0;
-            frame_count++;
-            if (frame_count <= 5 || frame_count % 100 == 0) {
-              std::cout << "[FrameProcessor] Pushed frame #" << frame_count 
-                        << " to instance " << instanceId << std::endl;
-            }
-          } else {
-            std::cerr << "[FrameProcessor] Failed to push frame to app_src node for instance " 
-                      << instanceId << std::endl;
+
+      if (appSrcNode) {
+        if (pushFrameToNode(appSrcNode, decodedFrame)) {
+          static thread_local uint64_t frame_count = 0;
+          frame_count++;
+          if (frame_count <= 5 || frame_count % 100 == 0) {
+            std::cout << "[FrameProcessor] Pushed frame #" << frame_count
+                      << " to instance " << instanceId << std::endl;
           }
         } else {
-          // No app_src node - frames are queued but can't be processed
-          // This is expected if instance doesn't use app_src node
-          static thread_local bool logged_warning = false;
-          if (!logged_warning) {
-            std::cerr << "[FrameProcessor] Warning: No app_src node for instance " << instanceId 
-                      << ". Frames are queued but not being processed. "
-                      << "Instance must use app_src node to process pushed frames." << std::endl;
-            logged_warning = true;
-          }
+          std::cerr << "[FrameProcessor] Failed to push frame to app_src node for instance "
+                    << instanceId << std::endl;
         }
       } else {
-        std::cerr << "[FrameProcessor] Failed to decode frame for instance " << instanceId << std::endl;
+        static thread_local bool logged_warning = false;
+        if (!logged_warning) {
+          std::cerr << "[FrameProcessor] Warning: No app_src node for instance " << instanceId
+                    << ". Frames are queued but not being processed. "
+                    << "Instance must use app_src node to process pushed frames." << std::endl;
+          logged_warning = true;
+        }
       }
     } else {
-      // Queue is empty, sleep a bit
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::cerr << "[FrameProcessor] Failed to decode frame for instance " << instanceId << std::endl;
     }
   }
   

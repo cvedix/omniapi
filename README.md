@@ -1,8 +1,33 @@
 # edgeos-api
 
-REST API server cho CVEDIX Edge AI SDK (EdgeOS SDK), cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên.
+**Nền tảng Edge AI**: REST API + xử lý AI trực tiếp trên thiết bị biên. CVEDIX SDK (EdgeOS SDK) là tầng hỗ trợ — API điều khiển instances, nhận diện khuôn mặt, push frame và metrics qua một lớp thống nhất (AI Runtime).
 
 ![Edge AI Workflow](docs/image.png)
+
+---
+
+## 📌 Định vị sản phẩm
+
+| Thành phần | Vai trò |
+|------------|--------|
+| **Edge AI API** | Nền tảng: REST API + xử lý AI (decode, inference, cache) |
+| **AI Runtime / SDK Helper** | Lớp thống nhất: InferenceSession, AIRuntimeFacade, PipelineHelper |
+| **CVEDIX SDK** | Tay hỗ trợ: pipeline (source → detector → broker → destination) |
+
+Luồng: **API → AI Runtime → CVEDIX SDK**. Chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#api--ai-runtime--sdk).
+
+---
+
+## 🎯 Tính năng chính & Execution mode
+
+- **Instance** — Tạo, start/stop, cấu hình AI instances (pipeline).
+- **Solution** — Quản lý solution templates.
+- **Recognition** — Nhận diện khuôn mặt (REST), face database, register/list/delete.
+- **Lines / Jams / Stops** — Crossline, traffic jam, stop-line (SecuRT, BA).
+- **Push frame** — Đẩy frame (compressed/encoded) vào instance.
+- **Metrics** — Health, version, watchdog, system info, logs.
+
+**Execution mode:** `in-process` (legacy, dev) vs `subprocess` (production, crash isolation). Cấu hình: `EDGE_AI_EXECUTION_MODE=subprocess` hoặc `in-process`. Xem [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) và [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#khi-nào-dùng-mode-nào).
 
 ---
 
@@ -11,8 +36,8 @@ REST API server cho CVEDIX Edge AI SDK (EdgeOS SDK), cho phép điều khiển v
 ![Architecture](asset/architecture.png)
 ```
 [Client] → [REST API Server] → [Instance Manager] → [CVEDIX SDK]
-                                      ↓
-                              [Data Broker] → [Output]
+                    ↓
+              [AI Runtime] → decode / infer / cache
                               
 ```
 
@@ -228,17 +253,18 @@ Xem đầy đủ: [docs/API.md](docs/API.md)
 
 ---
 
-## 🏗️ Kiến Trúc
+## 🏗️ Kiến Trúc (chi tiết)
 
 ```
 [Client] → [REST API Server] → [Instance Manager] → [CVEDIX SDK]
-                                      ↓
-                              [Data Broker] → [Output]
+                    ↓
+              [AI Runtime] → InferenceSession, AIRuntimeFacade, PipelineHelper
 ```
 
 **Thành phần:**
 - **REST API Server**: Drogon Framework HTTP server
-- **Instance Manager**: Quản lý vòng đời instances
+- **Instance Manager**: Quản lý vòng đời instances (in-process hoặc subprocess)
+- **AI Runtime**: Decode, inference, cache (Recognition, Push frame); SDK là tầng hỗ trợ
 - **CVEDIX SDK**: 43+ processing nodes (source, inference, tracker, broker, destination)
 - **Data Broker**: Message routing và output publishing
 
@@ -317,6 +343,9 @@ Lần đầu build mất ~5-10 phút để download Drogon. Các lần sau nhanh
 | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | Env vars |
 | [docs/LOGGING.md](docs/LOGGING.md) | Logging guide |
 | [docs/DEFAULT_SOLUTIONS_REFERENCE.md](docs/DEFAULT_SOLUTIONS_REFERENCE.md) | Default solutions |
+| [docs/VISION_AI_PROCESSING_PLATFORM.md](docs/VISION_AI_PROCESSING_PLATFORM.md) | Vision: nền tảng Edge AI |
+| [docs/AI_RUNTIME_DESIGN.md](docs/AI_RUNTIME_DESIGN.md) | Thiết kế AI Runtime (InferenceSession, Facade) |
+| [task/edgeos-api/00_MASTER_PLAN.md](task/edgeos-api/00_MASTER_PLAN.md) | Master plan & trạng thái phases |
 | [deploy/README.md](deploy/README.md) | Production deployment guide |
 | [packaging/docs/BUILD_DEB.md](packaging/docs/BUILD_DEB.md) | Build Debian package guide |
 | [packaging/docs/BUILD_ALL_IN_ONE.md](packaging/docs/BUILD_ALL_IN_ONE.md) | Build ALL-IN-ONE package guide |

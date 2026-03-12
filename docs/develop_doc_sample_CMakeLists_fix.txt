@@ -1,0 +1,55 @@
+# Thay thế nội dung develop_doc/sample/CMakeLists.txt để tránh lỗi CUDA 12.8
+# Lỗi: "Could NOT find CUDA: Found unsuitable version 12.0", but required is exact version "12.8"
+# Cách sửa: dùng pkg-config cho OpenCV thay vì find_package(OpenCV) để không kích hoạt OpenCVConfig.cmake (yêu cầu CUDA 12.8).
+
+---
+File: develop_doc/sample/CMakeLists.txt
+---
+
+cmake_minimum_required(VERSION 3.14)
+project(ba_area_enter_exit_sample CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+
+set(EDGEOS_SDK_ROOT "/opt/edgeos-sdk" CACHE PATH "EdgeOS SDK root")
+
+if(NOT EXISTS "${EDGEOS_SDK_ROOT}/lib/cvedix/libcvedix_core.so")
+  message(FATAL_ERROR "CVEDIX SDK not found at ${EDGEOS_SDK_ROOT}. Set -DEDGEOS_SDK_ROOT=...")
+endif()
+
+# Dùng pkg-config để tránh OpenCVConfig.cmake yêu cầu CUDA 12.8 (xung đột khi hệ thống chỉ có CUDA 12.0)
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(OpenCV opencv4)
+endif()
+if(NOT OpenCV_FOUND)
+  find_package(OpenCV QUIET)
+endif()
+if(NOT OpenCV_FOUND)
+  message(FATAL_ERROR "OpenCV not found. Install libopencv-dev or ensure pkg-config sees opencv4.")
+endif()
+
+add_executable(ba_area_enter_exit_sample ba_area_enter_exit_sample.cpp)
+
+target_include_directories(ba_area_enter_exit_sample PRIVATE
+  "${EDGEOS_SDK_ROOT}/include"
+  ${OpenCV_INCLUDE_DIRS}
+)
+
+# pkg-config dùng OpenCV_LIBRARIES; find_package dùng OpenCV_LIBS
+if(OpenCV_LIBRARIES)
+  set(OPENCV_LINK_LIBS ${OpenCV_LIBRARIES})
+else()
+  set(OPENCV_LINK_LIBS ${OpenCV_LIBS})
+endif()
+
+target_link_libraries(ba_area_enter_exit_sample
+  "${EDGEOS_SDK_ROOT}/lib/cvedix/libcvedix_core.so"
+  ${OPENCV_LINK_LIBS}
+)
+
+set_target_properties(ba_area_enter_exit_sample PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+  BUILD_RPATH "${EDGEOS_SDK_ROOT}/lib/cvedix"
+  INSTALL_RPATH "${EDGEOS_SDK_ROOT}/lib/cvedix"
+)

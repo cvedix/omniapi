@@ -7,11 +7,11 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "IMAGE_PATH": "/opt/edge_ai_api/test_images/vehicle/%d.jpg",
-      "VEHICLE_DETECTOR_MODEL_PATH": "/opt/edge_ai_api/models/trt/vehicle/vehicle_v8.5.trt",
-      "VEHICLE_COLOR_CLASSIFIER_MODEL_PATH": "/opt/edge_ai_api/models/trt/vehicle/vehicle_color_v8.5.trt",
-      "VEHICLE_TYPE_CLASSIFIER_MODEL_PATH": "/opt/edge_ai_api/models/trt/vehicle/vehicle_type_v8.5.trt",
-      "VEHICLE_FEATURE_ENCODER_MODEL_PATH": "/opt/edge_ai_api/models/trt/vehicle/vehicle_embedding_v8.5.trt",
+      "IMAGE_PATH": "/opt/edgeos-api/test_images/vehicle/%d.jpg",
+      "VEHICLE_DETECTOR_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_v8.5.trt",
+      "VEHICLE_COLOR_CLASSIFIER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_color_v8.5.trt",
+      "VEHICLE_TYPE_CLASSIFIER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_type_v8.5.trt",
+      "VEHICLE_FEATURE_ENCODER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_embedding_v8.5.trt",
       "CLASS_IDS_APPLIED_TO": "0,1,2",
       "CLUSTER_LABELS": "red,white,black,blue,yellow,bus,small_truck,van,tanker",
       "CLUSTER_THRESHOLD": "1000"

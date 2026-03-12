@@ -6,9 +6,9 @@
 set -e
 
 PACKAGE_NAME="edgeos-api"
-INSTALL_DIR="/opt/edge_ai_api"
+INSTALL_DIR="/opt/edgeos-api"
 BIN_DIR="/usr/local/bin"
-LIB_DIR="/opt/edge_ai_api/lib"
+LIB_DIR="/opt/edgeos-api/lib"
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
 SERVICE_NAME="edgeos-api"
@@ -189,7 +189,7 @@ else
 fi
 
 # Setup permissions for external data directories (e.g., cvedix_data)
-# This handles cases where data is stored outside /opt/edge_ai_api
+# This handles cases where data is stored outside /opt/edgeos-api
 echo "Setting up permissions for external data directories..."
 
 # Function to setup external data directory permissions
@@ -249,10 +249,10 @@ setup_external_data_permissions() {
 # Common external data directory locations
 # Check in order of likelihood
 EXTERNAL_DATA_DIRS=(
-    "/home/*/project/edge_ai_api/cvedix_data"
-    "/home/*/edge_ai_api/cvedix_data"
+    "/home/*/project/edgeos-api/cvedix_data"
+    "/home/*/edgeos-api/cvedix_data"
     "/opt/cvedix_data"
-    "/var/lib/edge_ai_api/cvedix_data"
+    "/var/lib/edgeos-api/cvedix_data"
 )
 
 # Also check if CVEDIX_DATA_ROOT environment variable is set in any user's environment
@@ -260,7 +260,7 @@ for user_home in /home/*; do
     if [ -d "$user_home" ]; then
         username=$(basename "$user_home")
         # Check for cvedix_data in common project locations
-        for pattern in "$user_home/project/edge_ai_api/cvedix_data" "$user_home/edge_ai_api/cvedix_data"; do
+        for pattern in "$user_home/project/edgeos-api/cvedix_data" "$user_home/edgeos-api/cvedix_data"; do
             if [ -d "$pattern" ]; then
                 setup_external_data_permissions "$pattern" "User $username data directory"
             fi
@@ -294,7 +294,7 @@ done
 
 echo "External data directory permissions setup completed."
 
-# Note: Record directory (/opt/edge_ai_api/record) is now created automatically
+# Note: Record directory (/opt/edgeos-api/record) is now created automatically
 # by create_directories.sh script from directories.conf configuration
 
 # Bundle libraries
@@ -302,7 +302,7 @@ bundle_libraries
 
 # Setup CVEDIX SDK library path (SDK is bundled in this package)
 echo "Setting up CVEDIX SDK library path..."
-CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+CVEDIX_LIB_DIR="/opt/edgeos-sdk/lib/cvedix"
 if [ -d "$CVEDIX_LIB_DIR" ]; then
     if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
         if echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/cvedix.conf 2>/dev/null; then
@@ -402,7 +402,7 @@ setup_database_file "$INSTALL_DIR/data/$DB_FILENAME" "Production path"
 if id "$SERVICE_USER" &>/dev/null; then
     USER_HOME=$(getent passwd "$SERVICE_USER" | cut -d: -f6)
     if [ -n "$USER_HOME" ] && [ "$USER_HOME" != "/" ]; then
-        USER_DB_PATH="$USER_HOME/.local/share/edge_ai_api/$DB_FILENAME"
+        USER_DB_PATH="$USER_HOME/.local/share/edgeos-api/$DB_FILENAME"
         setup_database_file "$USER_DB_PATH" "User directory"
     fi
 fi
@@ -593,7 +593,7 @@ install_opencv_410() {
     echo "OpenCV 4.10 Installation Required"
     echo "=========================================="
     echo ""
-    echo "OpenCV 4.10 with freetype support is required for edge_ai_api."
+    echo "OpenCV 4.10 with freetype support is required for edgeos-api."
     echo "The installation process will take approximately 30-60 minutes."
     echo ""
     
@@ -831,7 +831,7 @@ echo "Fixing CVEDIX SDK issues..."
 
 fix_cvedix_issues() {
     echo "  [1/4] Fixing libtinyexpr.so symlink..."
-    CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+    CVEDIX_LIB_DIR="/opt/edgeos-sdk/lib/cvedix"
     TINYEXPR_SOURCE="$CVEDIX_LIB_DIR/libtinyexpr.so"
     TINYEXPR_TARGET="/usr/lib/libtinyexpr.so"
     
@@ -855,7 +855,7 @@ fix_cvedix_issues() {
     fi
     
     if [ -n "$CEREAL_SOURCE" ]; then
-        CVEDIX_CEREAL_DIR="/opt/cvedix-ai-runtime/include/cvedix/third_party"
+        CVEDIX_CEREAL_DIR="/opt/edgeos-sdk/include/cvedix/third_party"
         mkdir -p "$CVEDIX_CEREAL_DIR"
         if [ -L "$CVEDIX_CEREAL_DIR/cereal" ] || [ -d "$CVEDIX_CEREAL_DIR/cereal" ]; then
             rm -rf "$CVEDIX_CEREAL_DIR/cereal"
@@ -885,7 +885,7 @@ fix_cvedix_issues() {
     fi
     
     if [ -n "$BASE64_SOURCE" ]; then
-        CVEDIX_BASE64_DIR="/opt/cvedix-ai-runtime/include/cvedix/third_party/cpp_base64"
+        CVEDIX_BASE64_DIR="/opt/edgeos-sdk/include/cvedix/third_party/cpp_base64"
         mkdir -p "$CVEDIX_BASE64_DIR"
         if [ -L "$CVEDIX_BASE64_DIR/base64.h" ] || [ -f "$CVEDIX_BASE64_DIR/base64.h" ]; then
             rm -f "$CVEDIX_BASE64_DIR/base64.h"
@@ -909,12 +909,6 @@ fix_cvedix_issues() {
     FREETYPE_410_TARGET="$INSTALL_DIR/lib/libopencv_freetype.so.410"
     mkdir -p "$INSTALL_DIR/lib"
     
-    # Ensure directory is writable
-    if [ ! -w "$INSTALL_DIR/lib" ]; then
-        echo "    ⚠  Warning: $INSTALL_DIR/lib is not writable, attempting to fix permissions..."
-        chmod 755 "$INSTALL_DIR/lib" 2>/dev/null || true
-    fi
-    
     # Check if file already exists in bundled lib directory (from package)
     if [ -f "$FREETYPE_410_TARGET" ]; then
         echo "    ✓ libopencv_freetype.so.410 already exists in bundled lib directory"
@@ -928,13 +922,7 @@ fix_cvedix_issues() {
         FREETYPE_COPIED=false
         
         # First, try to find from OpenCV 4.10 (preferred) - check after installation attempt
-        # Priority: actual files first, then symlinks (to avoid symlink resolution issues)
         OPENCV_410_FREETYPE_SOURCES=(
-            # Priority 1: Actual files (not symlinks)
-            "/usr/local/lib/libopencv_freetype.so.4.10.0"
-            "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10.0"
-            "/usr/lib/libopencv_freetype.so.4.10.0"
-            # Priority 2: Symlinks (will be resolved)
             "/usr/local/lib/libopencv_freetype.so.4.10"
             "/usr/local/lib/libopencv_freetype.so.410"
             "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10"
@@ -944,32 +932,9 @@ fix_cvedix_issues() {
         )
         
         for source in "${OPENCV_410_FREETYPE_SOURCES[@]}"; do
-            # Check if source exists (file or symlink)
-            if [ -f "$source" ] || [ -L "$source" ]; then
+            if [ -f "$source" ]; then
                 echo "    Copying from OpenCV 4.10: $source"
-                
-                # Resolve symlink to get actual file path
-                if [ -L "$source" ]; then
-                    resolved_source=$(readlink -f "$source" 2>/dev/null || echo "")
-                    if [ -n "$resolved_source" ] && [ -f "$resolved_source" ]; then
-                        echo "    Resolved symlink to: $resolved_source"
-                        source="$resolved_source"
-                    fi
-                fi
-                
-                # Try to copy with verbose error reporting
-                if cp -L "$source" "$FREETYPE_410_TARGET" 2>&1; then
-                    # Verify the copy was successful
-                    if [ -f "$FREETYPE_410_TARGET" ] && [ -r "$FREETYPE_410_TARGET" ]; then
-                        FREETYPE_COPIED=true
-                        echo "    ✓ Successfully copied to $FREETYPE_410_TARGET"
-                        break
-                    else
-                        echo "    ⚠  Copy appeared to succeed but file not found at destination"
-                    fi
-                else
-                    echo "    ⚠  Copy failed, trying next source..."
-                fi
+                cp "$source" "$FREETYPE_410_TARGET" 2>/dev/null && FREETYPE_COPIED=true && break || true
             fi
         done
         
@@ -1032,27 +997,27 @@ fi
 
 # Verify RPATH is set correctly for executables (critical for finding bundled libraries)
 echo "Verifying RPATH configuration..."
-EXPECTED_RPATH="/opt/edge_ai_api/lib:/opt/cvedix-ai-runtime/lib/cvedix"
+EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"
 
 if command -v patchelf >/dev/null 2>&1; then
-    if [ -f "$BIN_DIR/edge_ai_api" ]; then
-        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_api" 2>/dev/null || echo "")
+    if [ -f "$BIN_DIR/edgeos-api" ]; then
+        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
         if [ "$CURRENT_RPATH" != "$EXPECTED_RPATH" ]; then
-            echo "  Setting RPATH for edge_ai_api..."
-            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edge_ai_api" 2>/dev/null || true
-            echo "  ✓ RPATH updated for edge_ai_api"
+            echo "  Setting RPATH for edgeos-api..."
+            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edgeos-api" 2>/dev/null || true
+            echo "  ✓ RPATH updated for edgeos-api"
         else
-            echo "  ✓ RPATH already correct for edge_ai_api"
+            echo "  ✓ RPATH already correct for edgeos-api"
         fi
     fi
-    if [ -f "$BIN_DIR/edge_ai_worker" ]; then
-        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_worker" 2>/dev/null || echo "")
+    if [ -f "$BIN_DIR/edgeos-worker" ]; then
+        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-worker" 2>/dev/null || echo "")
         if [ "$CURRENT_RPATH" != "$EXPECTED_RPATH" ]; then
-            echo "  Setting RPATH for edge_ai_worker..."
-            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edge_ai_worker" 2>/dev/null || true
-            echo "  ✓ RPATH updated for edge_ai_worker"
+            echo "  Setting RPATH for edgeos-worker..."
+            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edgeos-worker" 2>/dev/null || true
+            echo "  ✓ RPATH updated for edgeos-worker"
         else
-            echo "  ✓ RPATH already correct for edge_ai_worker"
+            echo "  ✓ RPATH already correct for edgeos-worker"
         fi
     fi
 else
@@ -1127,10 +1092,10 @@ if [ -f "$INSTALL_DIR/scripts/validate_installation.sh" ]; then
 else
     # Fallback to basic verification
     echo "Verifying executable..."
-    if [ -f "$BIN_DIR/edge_ai_api" ]; then
+    if [ -f "$BIN_DIR/edgeos-api" ]; then
         # Check if executable can find libraries
         if command -v ldd >/dev/null 2>&1; then
-            MISSING_LIBS=$(ldd "$BIN_DIR/edge_ai_api" 2>&1 | grep "not found" || true)
+            MISSING_LIBS=$(ldd "$BIN_DIR/edgeos-api" 2>&1 | grep "not found" || true)
             if [ -n "$MISSING_LIBS" ]; then
                 echo "Warning: Some libraries may be missing:"
                 echo "$MISSING_LIBS"
@@ -1139,7 +1104,7 @@ else
 
         # Check RPATH
         if command -v patchelf >/dev/null 2>&1; then
-            RPATH=$(patchelf --print-rpath "$BIN_DIR/edge_ai_api" 2>/dev/null || echo "")
+            RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
             echo "Executable RPATH: ${RPATH:-not set}"
         fi
     fi
@@ -1171,7 +1136,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -d "/etc/systemd/system" ]; then
 else
     echo "⚠  Warning: systemctl not found or systemd not available"
     echo "Service management commands will not work. Please start the service manually:"
-    echo "  $BIN_DIR/edge_ai_api"
+    echo "  $BIN_DIR/edgeos-api"
 fi
 
 echo "Installation completed successfully!"
@@ -1217,9 +1182,9 @@ echo ""
 echo "4. If OpenCV 4.10 is NOT installed, install it using the build script:"
 echo "   # Download the build script if not available:"
 echo "   cd /tmp"
-echo "   wget https://raw.githubusercontent.com/cvedix/edge_ai_api/main/scripts/build_opencv_safe.sh"
+echo "   wget https://raw.githubusercontent.com/cvedix/edgeos-api/main/scripts/build_opencv_safe.sh"
 echo "   # Or use the script from package source:"
-echo "   # cd /path/to/edge_ai_api"
+echo "   # cd /path/to/edgeos-api"
 echo "   # sudo ./scripts/build_opencv_safe.sh"
 echo ""
 echo "   # Make script executable and run:"
@@ -1229,7 +1194,8 @@ echo ""
 echo "   # After installation, copy the freetype library:"
 echo "   sudo cp /usr/local/lib/libopencv_freetype.so.4.10 $INSTALL_DIR/lib/libopencv_freetype.so.410"
 echo ""
-echo "5. OpenCV 4.6 is NOT supported. You MUST use OpenCV 4.10."
+echo "5. Fallback: If OpenCV 4.6 is available (not recommended):"
+echo "   sudo cp /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0 $INSTALL_DIR/lib/libopencv_freetype.so.410"
 echo ""
 echo "6. Set correct permissions:"
 echo "   sudo chmod 644 $INSTALL_DIR/lib/libopencv_freetype.so.410"

@@ -7,9 +7,9 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/opt/edge_ai_api/test_video/vehicle.mp4",
-      "VEHICLE_DETECTOR_MODEL_PATH": "/opt/edge_ai_api/models/trt/vehicle/vehicle_v8.5.trt",
-      "VEHICLE_TYPE_CLASSIFIER_MODEL_PATH": "/opt/edge_ai_api/models/trt/vehicle/vehicle_type_v8.5.trt",
+      "FILE_PATH": "/opt/edgeos-api/test_video/vehicle.mp4",
+      "VEHICLE_DETECTOR_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_v8.5.trt",
+      "VEHICLE_TYPE_CLASSIFIER_MODEL_PATH": "/opt/edgeos-api/models/trt/vehicle/vehicle_type_v8.5.trt",
       "CLASS_IDS_APPLIED_TO": "0,1,2"
     }
   },

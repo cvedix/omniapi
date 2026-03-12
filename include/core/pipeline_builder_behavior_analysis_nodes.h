@@ -67,6 +67,14 @@ public:
                            const std::map<std::string, std::string> &params,
                            const CreateInstanceRequest &req);
 
+  /**
+   * @brief Create BA crowding node
+   */
+  static std::shared_ptr<cvedix_nodes::cvedix_node>
+  createBACrowdingNode(const std::string &nodeName,
+                       const std::map<std::string, std::string> &params,
+                       const CreateInstanceRequest &req);
+
   // ========== Behavior Analysis OSD Nodes ==========
 
   /**
@@ -104,5 +112,12 @@ public:
   static std::shared_ptr<cvedix_nodes::cvedix_node>
   createBAAreaEnterExitOSDNode(const std::string &nodeName,
                                const std::map<std::string, std::string> &params);
+
+  /**
+   * @brief Create BA crowding OSD node
+   */
+  static std::shared_ptr<cvedix_nodes::cvedix_node>
+  createBACrowdingOSDNode(const std::string &nodeName,
+                          const std::map<std::string, std::string> &params);
 };
 

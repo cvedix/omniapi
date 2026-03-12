@@ -237,7 +237,7 @@ Example tạo polygon area với nhiều điểm (5 điểm).
 ### Xem Logs
 ```bash
 # Xem logs của instance
-tail -f /var/log/edge_ai_api/instance-${INSTANCE_ID}.log
+tail -f /var/log/edgeos-api/instance-${INSTANCE_ID}.log
 ```
 
 ## ⚙️ Cấu Hình Nâng Cao

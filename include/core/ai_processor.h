@@ -7,6 +7,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <opencv2/core.hpp>
 
 /**
  * @brief AI Processor Manager
@@ -93,6 +94,12 @@ public:
    */
   bool isHealthy(uint64_t max_latency_ms = 1000, double min_fps = 1.0) const;
 
+  /**
+   * @brief Submit a frame for inference (optional). Next processFrame() will run infer on it.
+   * @param frame BGR image (e.g. from camera or push API)
+   */
+  void submitFrame(const cv::Mat &frame);
+
 private:
   /**
    * @brief AI processing loop (runs on separate thread)
@@ -135,4 +142,8 @@ private:
   // Timing for FPS calculation
   std::chrono::steady_clock::time_point last_fps_calc_time_;
   uint64_t frame_count_since_last_calc_;
+
+  // Phase 3: InferenceSession for face inference
+  struct SessionHolder;
+  std::unique_ptr<SessionHolder> session_holder_;
 };

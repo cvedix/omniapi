@@ -30,12 +30,10 @@ fi
 # Copy CVEDIX SDK libraries if available
 # Copy CVEDIX SDK libraries if available
 # Check both old and new SDK locations for compatibility
-if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-elif [ -d "/opt/cvedix/lib" ]; then
-    cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+# EdgeOS SDK at /opt/edgeos-sdk
+if [ -d "/opt/edgeos-sdk/lib/cvedix" ]; then
+    cp -L /opt/edgeos-sdk/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+    cp -L /opt/edgeos-sdk/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
 fi
 
 # Copy CUDA libraries if available (for GPU acceleration support)
@@ -139,15 +137,15 @@ collect_libs() {
 echo "Collecting libraries from main executable..."
 collect_libs "$EXEC_PATH"
 
-# Also check edge_ai_worker if it exists
-WORKER_PATH=$(dirname "$EXEC_PATH")/edge_ai_worker
+# Also check edgeos-worker if it exists
+WORKER_PATH=$(dirname "$EXEC_PATH")/edgeos-worker
 if [ -f "$WORKER_PATH" ]; then
-    echo "Collecting libraries from edge_ai_worker..."
+    echo "Collecting libraries from edgeos-worker..."
     collect_libs "$WORKER_PATH"
 fi
 
-# Also check edge_ai_core library if it exists
-CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedge_ai_core.so*
+# Also check edgeos_core library if it exists
+CORE_LIB_PATH=$(dirname "$EXEC_PATH")/../lib/libedgeos_core.so*
 if ls $CORE_LIB_PATH 1> /dev/null 2>&1; then
     for core_lib in $CORE_LIB_PATH; do
         if [ -f "$core_lib" ]; then

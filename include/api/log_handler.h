@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config/system_config.h"
 #include "core/log_manager.h"
 #include <drogon/HttpController.h>
 #include <drogon/HttpRequest.h>
@@ -23,10 +24,13 @@ class LogHandler : public drogon::HttpController<LogHandler> {
 public:
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(LogHandler::listLogFiles, "/v1/core/log", Get);
+  ADD_METHOD_TO(LogHandler::getLogConfig, "/v1/core/log/config", Get);
+  ADD_METHOD_TO(LogHandler::putLogConfig, "/v1/core/log/config", Put);
   ADD_METHOD_TO(LogHandler::getLogsByCategory, "/v1/core/log/{category}", Get);
   ADD_METHOD_TO(LogHandler::getLogsByCategoryAndDate,
                 "/v1/core/log/{category}/{date}", Get);
   ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log", Options);
+  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log/config", Options);
   ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log/{category}", Options);
   ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log/{category}/{date}",
                 Options);
@@ -35,11 +39,22 @@ public:
   /**
    * @brief Handle GET /v1/core/log
    * List all log files organized by category
-   *
-   * @param req HTTP request
-   * @param callback Response callback
    */
   void listLogFiles(const HttpRequestPtr &req,
+                    std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle GET /v1/core/log/config
+   * Get current logging configuration (enabled, log_level, per-category flags).
+   */
+  void getLogConfig(const HttpRequestPtr &req,
+                    std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
+   * @brief Handle PUT /v1/core/log/config
+   * Update logging configuration; category flags apply immediately.
+   */
+  void putLogConfig(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**

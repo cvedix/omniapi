@@ -1,6 +1,8 @@
 #include "core/pipeline_builder.h"
 #include "config/system_config.h"
 #include "core/cvedix_validator.h"
+#include "core/frame_router.h"
+#include "core/frame_router_sink_node.h"
 #include "core/env_config.h"
 #include "core/platform_detector.h"
 #include "core/area_manager.h"
@@ -51,6 +53,8 @@
 #include <cvedix/utils/cvedix_utils.h>
 #include <json/reader.h>
 #include <json/value.h>
+#include <json/writer.h>
+#include <chrono>
 #include <opencv2/core.hpp> // For cv::Exception
 
 // TensorRT Inference Nodes
@@ -102,6 +106,7 @@
 #include <cvedix/nodes/infers/cvedix_trt_insight_face_recognition_node.h>
 #endif
 #include <atomic>
+#include <functional>
 #include <tuple>
 #include <vector>
 
@@ -311,7 +316,7 @@ static __attribute__((unused)) void logGPUAvailability() {
 }
 
 // Initialize CVEDIX SDK logger (required before creating nodes)
-static void ensureCVEDIXInitialized() {
+static void initCVEDIXLoggerOnce() {
   std::call_once(cvedix_init_flag, []() {
     try {
       // Configure GStreamer RTSP transport protocol if specified
@@ -403,10 +408,11 @@ static void ensureCVEDIXInitialized() {
       }
 
       // Set CVEDIX log level (can be overridden via CVEDIX_LOG_LEVEL env var)
-      // Default: INFO to show all important logs (WARNING and above)
+      // Default: WARN so SDK does not flood stderr and worker logs remain visible.
+      // Set CVEDIX_LOG_LEVEL=INFO or DEBUG if you need SDK diagnostics.
       // Options: ERROR, WARNING, INFO, DEBUG (case-insensitive)
       cvedix_utils::cvedix_log_level cvedix_log_level =
-          cvedix_utils::cvedix_log_level::INFO;
+          cvedix_utils::cvedix_log_level::WARN;
       const char *env_cvedix_log = std::getenv("CVEDIX_LOG_LEVEL");
       if (env_cvedix_log) {
         std::string log_level_str = env_cvedix_log;
@@ -425,7 +431,7 @@ static void ensureCVEDIXInitialized() {
       CVEDIX_SET_LOG_LEVEL(cvedix_log_level);
       CVEDIX_LOGGER_INIT();
       std::string log_level_name =
-          env_cvedix_log ? std::string(env_cvedix_log) : "INFO (default)";
+          env_cvedix_log ? std::string(env_cvedix_log) : "WARN (default)";
       std::cerr
           << "[PipelineBuilder] CVEDIX SDK logger initialized (log level: "
           << log_level_name << ")" << std::endl;
@@ -449,35 +455,48 @@ static void ensureCVEDIXInitialized() {
   });
 }
 
+void PipelineBuilder::ensureCVEDIXInitialized() {
+  initCVEDIXLoggerOnce();
+}
+
 std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>>
 PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                                const CreateInstanceRequest &req,
                                const std::string &instanceId,
-                               const std::set<std::string> &existingRTMPStreamKeys) {
+                               const std::set<std::string> &existingRTMPStreamKeys,
+                               edgeos::FrameRouter* frameRouter) {
 
-  // Ensure CVEDIX SDK is initialized before creating nodes
-  ensureCVEDIXInitialized();
-
-  std::cerr << "[PipelineBuilder] ========================================"
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Building pipeline for solution: "
-            << solution.solutionId << std::endl;
-  std::cerr << "[PipelineBuilder] Solution name: " << solution.solutionName
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Instance ID: " << instanceId << std::endl;
-  std::cerr << "[PipelineBuilder] NOTE: This may be a new instance or "
-               "rebuilding after stop/restart"
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Pipeline will contain "
-            << solution.pipeline.size() << " nodes:" << std::endl;
-  for (size_t i = 0; i < solution.pipeline.size(); ++i) {
-    const auto &nodeConfig = solution.pipeline[i];
-    std::cerr << "[PipelineBuilder]   " << (i + 1) << ". "
-              << nodeConfig.nodeType << " (" << nodeConfig.nodeName << ")"
+  frame_router_ = frameRouter;
+  if (frame_router_) {
+    std::cerr << "[PipelineBuilder] Zero-downtime mode: rtmp_des will use FrameRouterSinkNode"
               << std::endl;
   }
-  std::cerr << "[PipelineBuilder] ========================================"
-            << std::endl;
+
+  // Ensure CVEDIX SDK is initialized before creating nodes
+  initCVEDIXLoggerOnce();
+
+  if (EnvConfig::getBool("EDGE_AI_VERBOSE", false)) {
+    std::cerr << "[PipelineBuilder] ========================================"
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Building pipeline for solution: "
+              << solution.solutionId << std::endl;
+    std::cerr << "[PipelineBuilder] Solution name: " << solution.solutionName
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Instance ID: " << instanceId << std::endl;
+    std::cerr << "[PipelineBuilder] NOTE: This may be a new instance or "
+                 "rebuilding after stop/restart"
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Pipeline will contain "
+              << solution.pipeline.size() << " nodes:" << std::endl;
+    for (size_t i = 0; i < solution.pipeline.size(); ++i) {
+      const auto &nodeConfig = solution.pipeline[i];
+      std::cerr << "[PipelineBuilder]   " << (i + 1) << ". "
+                << nodeConfig.nodeType << " (" << nodeConfig.nodeName << ")"
+                << std::endl;
+    }
+    std::cerr << "[PipelineBuilder] ========================================"
+              << std::endl;
+  }
 
   // ========================================================================
   // SecuRT Integration: Load areas and lines from managers
@@ -518,6 +537,36 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     }
   }
 
+  // Effective input type: only use destination node that matches input for optimization.
+  // file_des only when input is a local file path; RTMP/RTSP/HLS/HTTP use rtmp_des/rtsp_des etc.
+  std::string effectiveInputType = "file";
+  if (hasCustomSourceNodes) {
+    if (multipleSourceType == "file_src") effectiveInputType = "file";
+    else if (multipleSourceType == "rtsp_src") effectiveInputType = "rtsp";
+    else if (multipleSourceType == "rtmp_src") effectiveInputType = "rtmp";
+    else effectiveInputType = "file";
+  } else {
+    auto rtmpSrcIt = mutableReq.additionalParams.find("RTMP_SRC_URL");
+    if (rtmpSrcIt != mutableReq.additionalParams.end() && !rtmpSrcIt->second.empty()) {
+      effectiveInputType = "rtmp";
+    } else {
+      auto rtspSrcIt = mutableReq.additionalParams.find("RTSP_URL");
+      if (rtspSrcIt != mutableReq.additionalParams.end() && !rtspSrcIt->second.empty()) {
+        effectiveInputType = "rtsp";
+      } else {
+        auto filePathIt = mutableReq.additionalParams.find("FILE_PATH");
+        if (filePathIt != mutableReq.additionalParams.end() && !filePathIt->second.empty()) {
+          std::string fp = filePathIt->second;
+          fp.erase(0, fp.find_first_not_of(" \t\n\r"));
+          fp.erase(fp.find_last_not_of(" \t\n\r") + 1);
+          if (!fp.empty()) {
+            effectiveInputType = PipelineBuilderSourceNodes::detectInputType(fp);
+          }
+        }
+      }
+    }
+  }
+
   // Build nodes in pipeline order
   for (const auto &nodeConfig : solution.pipeline) {
     try {
@@ -546,26 +595,57 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         continue;
       }
       
-      // Skip ba_crossline and ba_crossline_osd nodes if no CrossingLines are provided
+      // Skip ba_crossline and ba_crossline_osd nodes if no CrossingLines (or line params) are provided
       // This allows running only ba_loitering without ba_crossline
       if (nodeConfig.nodeType == "ba_crossline" || nodeConfig.nodeType == "ba_crossline_osd") {
         auto crossingLinesIt = mutableReq.additionalParams.find("CrossingLines");
         bool hasCrossingLines = (crossingLinesIt != mutableReq.additionalParams.end() &&
                                 !crossingLinesIt->second.empty());
-        
+        if (!hasCrossingLines) {
+          auto sx = mutableReq.additionalParams.find("CROSSLINE_START_X");
+          auto sy = mutableReq.additionalParams.find("CROSSLINE_START_Y");
+          auto ex = mutableReq.additionalParams.find("CROSSLINE_END_X");
+          auto ey = mutableReq.additionalParams.find("CROSSLINE_END_Y");
+          if (sx != mutableReq.additionalParams.end() && !sx->second.empty() &&
+              sy != mutableReq.additionalParams.end() && !sy->second.empty() &&
+              ex != mutableReq.additionalParams.end() && !ex->second.empty() &&
+              ey != mutableReq.additionalParams.end() && !ey->second.empty()) {
+            hasCrossingLines = true;
+          }
+        }
         if (!hasCrossingLines) {
           std::cerr << "[PipelineBuilder] Skipping " << nodeConfig.nodeType 
-                    << " node (no CrossingLines provided - running ba_loitering only)"
+                    << " node (no CrossingLines or CROSSLINE_* params - running ba_loitering only)"
                     << std::endl;
           continue;
         }
       }
-      
+
+      // Input-type routing: file_des only when input is a local file path.
+      // Other input types (RTMP, RTSP, HLS, HTTP, UDP) use the matching destination node only.
+      if (nodeConfig.nodeType == "file_des" && effectiveInputType != "file") {
+        std::cerr << "[PipelineBuilder] Skipping file_des (input is " << effectiveInputType
+                  << "; use " << effectiveInputType << "_des only. file_des only for file path input.)"
+                  << std::endl;
+        continue;
+      }
+
       // Use mutableReq for SecuRT integration (has areas/lines loaded)
-      auto node = createNode(modifiedNodeConfig, mutableReq, instanceId, existingRTMPStreamKeys);
+      std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> extraNodes;
+      auto node = createNode(modifiedNodeConfig, mutableReq, instanceId, existingRTMPStreamKeys, &extraNodes);
       if (node) {
         nodes.push_back(node);
-        nodeTypes.push_back(nodeConfig.nodeType);
+        for (const auto &extra : extraNodes) {
+          nodes.push_back(extra);
+        }
+        if (!extraNodes.empty()) {
+          nodeTypes.push_back("rtmp_lastframe_proxy");
+          for (size_t i = 0; i < extraNodes.size(); ++i) {
+            nodeTypes.push_back("rtmp_des");
+          }
+        } else {
+          nodeTypes.push_back(nodeConfig.nodeType);
+        }
 
         // Connect to previous node(s)
         // For nodes that should attach to multiple sources (detector, tracker), attach to all source nodes
@@ -739,21 +819,23 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           // If no OSD node found or not RTMP node, use default logic
           if (!attachTarget) {
             // Find the node to attach to
-            // If current node is a destination node and previous node is also a
-            // destination node, attach to the node before the previous one (to
-            // allow multiple destinations from same source)
+            // When rtmp_des returns extraNodes (proxy + rtmp node), "node" is the proxy;
+            // we must attach it to the node *before* the proxy, not to the last pushed node.
             size_t attachIndex = nodes.size() - 2;
+            if (isDestNode && !extraNodes.empty()) {
+              attachIndex = nodes.size() - 2 - extraNodes.size();
+            }
             if (isDestNode && attachIndex > 0) {
               // Check if previous node is also a destination node
               bool prevIsDestNode = (nodeTypes[attachIndex] == "file_des" ||
-                                     nodeTypes[attachIndex] == "rtmp_des" ||
+                                     nodeTypes[attachIndex] == "rtmp_des" || nodeTypes[attachIndex] == "frame_router_sink" ||
                                      nodeTypes[attachIndex] == "rtsp_des" ||
                                      nodeTypes[attachIndex] == "screen_des");
               if (prevIsDestNode) {
                 // Find the last non-destination node
                 for (int i = static_cast<int>(attachIndex) - 1; i >= 0; --i) {
                   bool nodeIsDest = (nodeTypes[i] == "file_des" ||
-                                     nodeTypes[i] == "rtmp_des" ||
+                                     nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
                                      nodeTypes[i] == "rtsp_des" ||
                                      nodeTypes[i] == "screen_des");
                   if (!nodeIsDest) {
@@ -958,7 +1040,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         if (!attachTarget) {
           for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
             bool isDestNode = (nodeTypes[i] == "file_des" ||
-                               nodeTypes[i] == "rtmp_des" ||
+                               nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
                                nodeTypes[i] == "rtsp_des" ||
                                nodeTypes[i] == "screen_des" ||
                                nodeTypes[i] == "app_des");
@@ -1084,7 +1166,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         if (!attachTarget) {
           for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
             bool isDestNode = (nodeTypes[i] == "file_des" ||
-                               nodeTypes[i] == "rtmp_des" ||
+                               nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
                                nodeTypes[i] == "rtsp_des" ||
                                nodeTypes[i] == "screen_des" ||
                                nodeTypes[i] == "app_des");
@@ -1419,7 +1501,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     // For other brokers, find last non-DES node (excluding app_des)
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       // Also exclude broker nodes (they should be in sequence, not parallel)
       bool isBrokerNode = (nodeTypes[i] == "json_mqtt_broker" ||
@@ -1450,7 +1532,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     // For other brokers, find last non-DES node (excluding app_des)
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       // Also exclude broker nodes (they should be in sequence, not parallel)
       bool isBrokerNode = (nodeTypes[i] == "json_mqtt_broker" ||
@@ -1481,7 +1563,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     // For other brokers, find last non-DES node (excluding app_des)
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       // Also exclude broker nodes (they should be in sequence, not parallel)
       bool isBrokerNode = (nodeTypes[i] == "json_mqtt_broker" ||
@@ -1500,7 +1582,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
       [&nodes, &nodeTypes]() -> std::shared_ptr<cvedix_nodes::cvedix_node> {
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       if (!isDestNode) {
         return nodes[i];
@@ -1544,19 +1626,9 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           mqttConfig.nodeName = "json_crossline_mqtt_broker_{instanceId}";
           mqttConfig.parameters = {};
 
-          std::string mqttNodeName = mqttConfig.nodeName;
-          size_t pos = mqttNodeName.find("{instanceId}");
-          while (pos != std::string::npos) {
-            mqttNodeName.replace(pos, 12, instanceId);
-            pos = mqttNodeName.find("{instanceId}", pos + instanceId.length());
-          }
-
-          // TEMPORARILY DISABLED: cereal/rapidxml macro conflict issue in CVEDIX SDK
-          std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker is temporarily disabled due to CVEDIX SDK cereal/rapidxml issue"
-                    << std::endl;
-          // auto mqttNode = PipelineBuilderBrokerNodes::createJSONCrosslineMQTTBrokerNode(
-          //     mqttNodeName, mqttConfig.parameters, req, instanceId);
-          std::shared_ptr<cvedix_nodes::cvedix_node> mqttNode = nullptr;
+          std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> mqttExtraNodes;
+          std::shared_ptr<cvedix_nodes::cvedix_node> mqttNode =
+              createNode(mqttConfig, mutableReq, instanceId, existingRTMPStreamKeys, &mqttExtraNodes);
           if (mqttNode) {
             // Find ba_crossline node to attach to (like in sample code)
             auto attachTarget = findAttachTargetForBrokerCrossline(true);
@@ -1798,9 +1870,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     rtmpUrl.erase(0, rtmpUrl.find_first_not_of(" \t\n\r"));
     rtmpUrl.erase(rtmpUrl.find_last_not_of(" \t\n\r") + 1);
 
-    if (!rtmpUrl.empty() && !hasNodeType("rtmp_des")) {
+    if (!rtmpUrl.empty() && !hasNodeType("rtmp_des") &&
+        !(frame_router_ && hasNodeType("frame_router_sink"))) {
       std::cerr
-          << "[PipelineBuilder] Auto-adding rtmp_des node (" << rtmpUrlParamName << " detected)"
+          << "[PipelineBuilder] Auto-adding rtmp_des/frame_router_sink node (" << rtmpUrlParamName << " detected)"
           << std::endl;
       try {
         // Check if pipeline has OSD node (face_osd_v2, osd_v3,
@@ -1872,6 +1945,53 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           }
         }
 
+        // Zero-downtime mode: use FrameRouterSinkNode instead of rtmp_des (output leg is persistent)
+        if (frame_router_) {
+          std::string sinkName = "frame_router_sink_" + instanceId;
+          auto sinkNode = std::make_shared<edgeos::FrameRouterSinkNode>(sinkName, frame_router_);
+          std::shared_ptr<cvedix_nodes::cvedix_node> attachTarget = nullptr;
+          if (hasOSDNode) {
+            for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
+              auto node = nodes[i];
+              bool isOSDNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_face_osd_node_v2>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_enter_exit_osd_node>(node);
+              if (isOSDNode) {
+                attachTarget = node;
+                break;
+              }
+            }
+          }
+          if (!attachTarget) {
+            for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
+              auto node = nodes[i];
+              bool isDestNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_des_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_screen_des_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_des_node>(node) ||
+                  std::dynamic_pointer_cast<edgeos::FrameRouterSinkNode>(node);
+              if (!isDestNode) {
+                attachTarget = node;
+                break;
+              }
+            }
+          }
+          if (!attachTarget && !nodes.empty()) {
+            attachTarget = nodes.back();
+          }
+          if (attachTarget) {
+            sinkNode->attach_to({attachTarget});
+            nodes.push_back(sinkNode);
+            nodeTypes.push_back("frame_router_sink");
+            std::cerr << "[PipelineBuilder] ✓ Auto-added frame_router_sink (zero-downtime)"
+                      << std::endl;
+          }
+        } else {
         SolutionConfig::NodeConfig rtmpConfig;
         rtmpConfig.nodeType = "rtmp_des";
         rtmpConfig.nodeName = "rtmp_des_{instanceId}";
@@ -1898,10 +2018,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         }
         
         std::string actualRtmpUrl;
+        std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> rtmpExtraNodes;
         auto rtmpNode =
-            PipelineBuilderDestinationNodes::createRTMPDestinationNode(rtmpNodeName, rtmpConfig.parameters, req, instanceId, existingRTMPStreamKeys, actualRtmpUrl);
+            PipelineBuilderDestinationNodes::createRTMPDestinationNode(rtmpNodeName, rtmpConfig.parameters, req, instanceId, existingRTMPStreamKeys, actualRtmpUrl, &rtmpExtraNodes);
         if (rtmpNode) {
-          // Store actual RTMP URL (may have been modified for conflict resolution)
           if (!actualRtmpUrl.empty()) {
             actual_rtmp_urls_[instanceId] = actualRtmpUrl;
             std::cerr << "[PipelineBuilder] Stored actual RTMP URL for instance " << instanceId << ": '" << actualRtmpUrl << "'" << std::endl;
@@ -1985,6 +2105,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           if (attachTarget) {
             rtmpNode->attach_to({attachTarget});
             nodes.push_back(rtmpNode);
+            for (const auto &extra : rtmpExtraNodes) {
+              nodes.push_back(extra);
+            }
+            nodeTypes.push_back("rtmp_lastframe_proxy");
             nodeTypes.push_back("rtmp_des");
             std::cerr
                 << "[PipelineBuilder] ✓ Auto-added rtmp_des node (attached to "
@@ -2005,6 +2129,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           std::cerr << "[PipelineBuilder] This usually means RTMP_URL was empty or invalid"
                     << std::endl;
         }
+        }  // end else (non-frame_router_ rtmp_des path)
       } catch (const std::exception &e) {
         std::cerr << "[PipelineBuilder] ⚠ Failed to auto-add rtmp_des: "
                   << e.what() << std::endl;
@@ -2091,14 +2216,29 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
 
   std::cerr << "[PipelineBuilder] Successfully built pipeline with "
             << nodes.size() << " nodes" << std::endl;
+  edgeos::FrameRouter* unused = frame_router_;
+  frame_router_ = nullptr;
+  (void)unused;
   return nodes;
 }
+
+#ifdef CVEDIX_WITH_MQTT
+namespace pipeline_builder_crossline_mqtt {
+std::shared_ptr<cvedix_nodes::cvedix_node> createCrosslineMQTTBrokerNode(
+    const std::string &nodeName,
+    std::function<void(const std::string &)> mqtt_publish_func,
+    const std::string &instance_id, const std::string &instance_name,
+    const std::string &zone_id, const std::string &zone_name,
+    const std::string &crossing_lines_json);
+}
+#endif
 
 std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
                             const CreateInstanceRequest &req,
                             const std::string &instanceId,
-                            const std::set<std::string> &existingRTMPStreamKeys) {
+                            const std::set<std::string> &existingRTMPStreamKeys,
+                            std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> *outExtraNodes) {
 
   // Get node name with instanceId substituted
   std::string nodeName = substituteNodeName(nodeConfig.nodeName, instanceId);
@@ -2255,6 +2395,8 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderBehaviorAnalysisNodes::createBAAreaEnterExitNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "ba_line_counting") {
       return PipelineBuilderBehaviorAnalysisNodes::createBALineCountingNode(nodeName, params, req);
+    } else if (nodeConfig.nodeType == "ba_crowding") {
+      return PipelineBuilderBehaviorAnalysisNodes::createBACrowdingNode(nodeName, params, req);
     }
     // OSD nodes
     else if (nodeConfig.nodeType == "face_osd_v2") {
@@ -2271,6 +2413,8 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderBehaviorAnalysisNodes::createBALoiteringOSDNode(nodeName, params);
     } else if (nodeConfig.nodeType == "ba_area_enter_exit_osd") {
       return PipelineBuilderBehaviorAnalysisNodes::createBAAreaEnterExitOSDNode(nodeName, params);
+    } else if (nodeConfig.nodeType == "ba_crowding_osd") {
+      return PipelineBuilderBehaviorAnalysisNodes::createBACrowdingOSDNode(nodeName, params);
     }
     // Broker nodes
     else if (nodeConfig.nodeType == "json_console_broker") {
@@ -2298,12 +2442,92 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
 #endif
     } else if (nodeConfig.nodeType == "json_crossline_mqtt_broker") {
 #ifdef CVEDIX_WITH_MQTT
-      // TEMPORARILY DISABLED: cereal/rapidxml macro conflict issue in CVEDIX SDK
-      std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker is temporarily disabled due to CVEDIX SDK cereal/rapidxml issue"
-                << std::endl;
-      return nullptr;
-      // return PipelineBuilderBrokerNodes::createJSONCrosslineMQTTBrokerNode(nodeName, params, req,
-      //                                          instanceId);
+      // Create crossline MQTT broker node inline (class is defined in this file)
+      // Supports CrossingLines from additionalParams (top-level or from input/output merge)
+      std::string instance_id = instanceId;
+      std::string instance_name = req.name.empty() ? instanceId : req.name;
+      std::string zone_id = "default_zone";
+      std::string zone_name = "CrosslineZone";
+      auto zoneIdIt = req.additionalParams.find("ZONE_ID");
+      if (zoneIdIt != req.additionalParams.end() && !zoneIdIt->second.empty())
+        zone_id = zoneIdIt->second;
+      auto zoneNameIt = req.additionalParams.find("ZONE_NAME");
+      if (zoneNameIt != req.additionalParams.end() && !zoneNameIt->second.empty())
+        zone_name = zoneNameIt->second;
+
+      std::string mqtt_broker;
+      int mqtt_port = 1883;
+      std::string mqtt_topic = "events";
+      std::string mqtt_username, mqtt_password;
+      auto brokerIt = req.additionalParams.find("MQTT_BROKER_URL");
+      if (brokerIt != req.additionalParams.end() && !brokerIt->second.empty()) {
+        mqtt_broker = brokerIt->second;
+        size_t p = mqtt_broker.find_first_not_of(" \t\n\r");
+        if (p != std::string::npos) {
+          size_t q = mqtt_broker.find_last_not_of(" \t\n\r");
+          mqtt_broker = mqtt_broker.substr(p, q != std::string::npos ? q - p + 1 : std::string::npos);
+        }
+      }
+      auto portIt = req.additionalParams.find("MQTT_PORT");
+      if (portIt != req.additionalParams.end() && !portIt->second.empty()) {
+        try { mqtt_port = std::stoi(portIt->second); } catch (...) {}
+      }
+      auto topicIt = req.additionalParams.find("MQTT_TOPIC");
+      if (topicIt != req.additionalParams.end() && !topicIt->second.empty())
+        mqtt_topic = topicIt->second;
+      auto usernameIt = req.additionalParams.find("MQTT_USERNAME");
+      if (usernameIt != req.additionalParams.end()) mqtt_username = usernameIt->second;
+      auto passwordIt = req.additionalParams.find("MQTT_PASSWORD");
+      if (passwordIt != req.additionalParams.end()) mqtt_password = passwordIt->second;
+
+      std::string crossing_lines_json;
+      auto crossingLinesIt = req.additionalParams.find("CrossingLines");
+      if (crossingLinesIt != req.additionalParams.end() && !crossingLinesIt->second.empty())
+        crossing_lines_json = crossingLinesIt->second;
+
+      if (mqtt_broker.empty()) {
+        std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker: MQTT_BROKER_URL empty, skipping"
+                  << std::endl;
+        return nullptr;
+      }
+
+      std::string client_id = "edgeos_api_" + instance_id;
+      auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
+          mqtt_broker, mqtt_port, client_id, 60);
+      mqtt_client->set_auto_reconnect(true, 5000);
+      bool connected = mqtt_client->connect(mqtt_username, mqtt_password);
+      if (connected)
+        std::cerr << "[PipelineBuilder] [MQTT] Crossline broker connected to " << mqtt_broker << ":"
+                  << mqtt_port << std::endl;
+      else
+        std::cerr << "[PipelineBuilder] [MQTT] Crossline broker connection pending (auto-reconnect)"
+                  << std::endl;
+
+      static std::mutex mqtt_crossline_publish_mutex;
+      auto mqtt_client_ptr = std::shared_ptr<cvedix_utils::cvedix_mqtt_client>(mqtt_client.release());
+      auto mqtt_publish_func = [mqtt_client_ptr, mqtt_topic](const std::string &json_message) {
+        std::lock_guard<std::mutex> lock(mqtt_crossline_publish_mutex);
+        if (!mqtt_client_ptr || !mqtt_client_ptr->is_ready()) return;
+        if (json_message.empty()) return;
+        mqtt_client_ptr->publish(mqtt_topic, json_message, 1, false);
+        std::cerr << "[MQTT] ✓ Published crossline event to " << mqtt_topic << std::endl;
+      };
+
+      try {
+        auto node = pipeline_builder_crossline_mqtt::createCrosslineMQTTBrokerNode(
+            nodeName, mqtt_publish_func, instance_id, instance_name, zone_id, zone_name,
+            crossing_lines_json);
+        if (node) {
+          std::cerr << "[PipelineBuilder] ✓ json_crossline_mqtt_broker created (topic: "
+                    << mqtt_topic << ", CrossingLines: " << (crossing_lines_json.empty() ? "none" : "set")
+                    << ")" << std::endl;
+        }
+        return node;
+      } catch (const std::exception &e) {
+        std::cerr << "[PipelineBuilder] Failed to create json_crossline_mqtt_broker: " << e.what()
+                  << std::endl;
+        return nullptr;
+      }
 #else
       std::cerr << "[PipelineBuilder] json_crossline_mqtt_broker requires "
                    "CVEDIX_WITH_MQTT to be enabled"
@@ -2375,9 +2599,17 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
     else if (nodeConfig.nodeType == "file_des") {
       return PipelineBuilderDestinationNodes::createFileDestinationNode(nodeName, params, instanceId);
     } else if (nodeConfig.nodeType == "rtmp_des") {
+      if (frame_router_) {
+        std::string sinkName = "frame_router_sink_" + instanceId;
+        auto sinkNode = std::make_shared<edgeos::FrameRouterSinkNode>(sinkName, frame_router_);
+        std::cerr << "[PipelineBuilder] Created FrameRouterSinkNode (zero-downtime) instead of rtmp_des"
+                  << std::endl;
+        return sinkNode;
+      }
       std::string actualRtmpUrl;
-      auto node = PipelineBuilderDestinationNodes::createRTMPDestinationNode(nodeName, params, req, instanceId, existingRTMPStreamKeys, actualRtmpUrl);
-      // Store actual RTMP URL (may have been modified for conflict resolution)
+      auto node = PipelineBuilderDestinationNodes::createRTMPDestinationNode(
+          nodeName, params, req, instanceId, existingRTMPStreamKeys,
+          actualRtmpUrl, outExtraNodes);
       if (!actualRtmpUrl.empty()) {
         actual_rtmp_urls_[instanceId] = actualRtmpUrl;
         std::cerr << "[PipelineBuilder] Stored actual RTMP URL for instance " << instanceId << ": '" << actualRtmpUrl << "'" << std::endl;
@@ -3523,6 +3755,8 @@ struct event_message {
   std::vector<line_count> line_counts;
   std::string instance_id;
   std::string instance_name;
+  /** Timestamp (ms, system_clock) when crossline was detected / message built. Used for detection-to-MQTT latency. */
+  int64_t detection_ts_ms = 0;
 
   template <typename Archive> void serialize(Archive &archive) {
     archive(cereal::make_nvp("events", events),
@@ -3532,7 +3766,8 @@ struct event_message {
             cereal::make_nvp("system_timestamp", system_timestamp),
             cereal::make_nvp("line_counts", line_counts),
             cereal::make_nvp("instance_id", instance_id),
-            cereal::make_nvp("instance_name", instance_name));
+            cereal::make_nvp("instance_name", instance_name),
+            cereal::make_nvp("detection_ts_ms", detection_ts_ms));
   }
 };
 } // namespace crossline_event_format
@@ -3563,6 +3798,12 @@ private:
         msg = "";
         return;
       }
+      // Ghi nhận thời điểm ngay khi có kết quả crossline (đầu format_msg) để đo
+      // chính xác toàn bộ thời gian từ detect → gửi MQTT (build message + serialize + publish).
+      const int64_t detection_ts_ms_at_start = static_cast<int64_t>(
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now().time_since_epoch())
+              .count());
 
       crossline_event_format::event_message event_msg;
       bool has_events = false;
@@ -3716,6 +3957,7 @@ private:
       event_msg.system_timestamp = get_current_timestamp();
       event_msg.instance_id = instance_id_;     // UUID thực sự
       event_msg.instance_name = instance_name_; // Tên instance
+      event_msg.detection_ts_ms = detection_ts_ms_at_start;
 
       // Add line counts summary
       {
@@ -3774,10 +4016,44 @@ private:
       return;
     }
     try {
+      const int64_t mqtt_sent_ts_ms = static_cast<int64_t>(
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now().time_since_epoch())
+              .count());
+      std::string out_msg = msg;
+      // Nhẹ: đọc detection_ts_ms từ chuỗi + chèn 2 field, không parse/serialize
+      // toàn bộ JSON → tránh ảnh hưởng hiệu năng (payload có thể rất lớn do base64).
+      const std::string key = "\"detection_ts_ms\":";
+      const size_t key_pos = msg.find(key);
+      int64_t detection_ts = 0;
+      if (key_pos != std::string::npos) {
+        const size_t val_start = key_pos + key.size();
+        size_t val_end = val_start;
+        while (val_end < msg.size() &&
+               (std::isdigit(static_cast<unsigned char>(msg[val_end])) ||
+                msg[val_end] == '-')) {
+          ++val_end;
+        }
+        if (val_end > val_start) {
+          try {
+            detection_ts = std::stoll(msg.substr(val_start, val_end - val_start));
+          } catch (...) {
+          }
+        }
+      }
+      const int64_t d2m_ms = mqtt_sent_ts_ms - detection_ts;
+      const std::string suffix =
+          ",\"mqtt_sent_ts_ms\":" + std::to_string(mqtt_sent_ts_ms) +
+          ",\"detection_to_mqtt_ms\":" + std::to_string(d2m_ms) + "}";
+      const size_t insert_pos = msg.rfind("}]");
+      if (insert_pos != std::string::npos) {
+        out_msg.reserve(msg.size() + suffix.size());
+        out_msg = msg.substr(0, insert_pos + 1) + suffix + msg.substr(insert_pos + 1);
+      }
       std::cerr
           << "[MQTT] [broke_msg] Calling mqtt_publisher_ with message length: "
-          << msg.length() << std::endl;
-      mqtt_publisher_(msg);
+          << out_msg.length() << std::endl;
+      mqtt_publisher_(out_msg);
     } catch (const std::exception &e) {
       std::cerr << "[MQTT] ⚠ Exception in mqtt_publisher_: " << e.what()
                 << std::endl;
@@ -3836,6 +4112,21 @@ public:
     }
   }
 };
+
+#ifdef CVEDIX_WITH_MQTT
+namespace pipeline_builder_crossline_mqtt {
+std::shared_ptr<cvedix_nodes::cvedix_node> createCrosslineMQTTBrokerNode(
+    const std::string &nodeName,
+    std::function<void(const std::string &)> mqtt_publish_func,
+    const std::string &instance_id, const std::string &instance_name,
+    const std::string &zone_id, const std::string &zone_name,
+    const std::string &crossing_lines_json) {
+  return std::make_shared<cvedix_json_crossline_mqtt_broker_node>(
+      nodeName, mqtt_publish_func, instance_id, instance_name, zone_id, zone_name,
+      crossing_lines_json);
+}
+}
+#endif
 
 // ========== Helper Functions for Jam MQTT Broker ==========
 namespace {} // namespace

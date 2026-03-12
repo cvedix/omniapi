@@ -5,6 +5,7 @@
 ### [Version information](#get-version-information)
 ### [System info](#get-system-hardware-information)
 ### [System status](#get-system-status)
+### [Resource status](#get-resource-status)
 ### [Watchdog](#get-watchdog-status)
 ### [Endpoints statistics](#get-endpoints-statistics)
 ### [Metrics](#get-prometheus-format-metrics)
@@ -15,6 +16,7 @@
 ### [Get logs by category and date](#get-logs-by-category-and-date)
 
 ## [Config API](#config-api)
+See also **[Server settings and monitoring API](SERVER_SETTINGS_AND_MONITORING_API.md)** for a full list of config paths (threads, cores, RAM/CPU monitoring, log retention, etc.) and which APIs to use.
 ### [Get system configuration](#get-system-configuration)
 ### [Create or update configuration (merge)](#create-or-update-configuration-merge)
 ### [Replace entire configuration](#replace-entire-configuration)
@@ -300,6 +302,55 @@ curl -X 'GET' \
     "uptime_seconds": 86400
   }
   ```
+* 500 - Server error
+  ```
+  {
+    "error": "string",
+    "code": 0,
+    "message": "string"
+  }
+  ```
+### Get resource status
+Returns configured resource limits (max_running_instances, max_cpu_percent, max_ram_percent), current usage (instance_count, cpu_usage_percent, ram_usage_percent), and over-limit flags. Use this to monitor and tune limits via config; when limits are exceeded, creating new instances returns 503. \
+API path: /v1/core/system/resource-status
+
+**No parameter**
+
+**No request body**
+
+**Request schema**
+```
+curl -X 'GET' \
+  'http://localhost:8080/v1/core/system/resource-status' \
+  -H 'accept: application/json'
+```
+**Responses schema**
+* 200 - Resource limits, current usage, and over-limit flags
+  ```
+  {
+    "limits": {
+      "max_running_instances": 0,
+      "max_cpu_percent": 0,
+      "max_ram_percent": 0,
+      "thread_num": 0,
+      "min_threads": 16,
+      "max_threads": 64
+    },
+    "current": {
+      "instance_count": 0,
+      "cpu_usage_percent": 12.5,
+      "ram_usage_percent": 45.2
+    },
+    "over_limits": {
+      "at_instance_limit": false,
+      "over_cpu_limit": false,
+      "over_ram_limit": false
+    }
+  }
+  ```
+  * `limits.max_running_instances`: 0 = unlimited. When > 0, new instance creation returns 429 when instance_count >= limit.
+  * `limits.max_cpu_percent` / `limits.max_ram_percent`: 0 = disabled. When > 0, new instance creation returns 503 when system CPU or RAM usage >= limit. Configure via `system.monitoring` (GET/POST /v1/core/config).
+  * `limits.thread_num`, `limits.min_threads`, `limits.max_threads`: HTTP server thread limits. thread_num 0 = auto. Configure via `system.performance` (GET/PATCH /v1/core/config?path=system/performance); change takes effect after server restart.
 * 500 - Server error
   ```
   {

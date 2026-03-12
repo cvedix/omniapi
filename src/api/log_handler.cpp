@@ -1,4 +1,6 @@
 #include "api/log_handler.h"
+#include "config/system_config.h"
+#include "core/apply_logging_config.h"
 #include "core/log_manager.h"
 #include "core/metrics_interceptor.h"
 #include <algorithm>
@@ -12,6 +14,110 @@
 #include <sstream>
 
 namespace fs = std::filesystem;
+
+void LogHandler::getLogConfig(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  MetricsInterceptor::setHandlerStartTime(req);
+  try {
+    auto &config = SystemConfig::getInstance();
+    auto logConfig = config.getLoggingConfig();
+    Json::Value out;
+    out["enabled"] = logConfig.enabled;
+    out["log_level"] = logConfig.logLevel;
+    out["api_enabled"] = logConfig.apiEnabled;
+    out["instance_enabled"] = logConfig.instanceEnabled;
+    out["sdk_output_enabled"] = logConfig.sdkOutputEnabled;
+    out["log_dir"] = logConfig.logDir;
+    out["current_log_dir"] = LogManager::getBaseDir();
+    out["log_file"] = logConfig.logFile;
+    out["max_log_file_size"] = static_cast<Json::Int64>(logConfig.maxLogFileSize);
+    out["max_log_files"] = logConfig.maxLogFiles;
+    out["retention_days"] = logConfig.retentionDays;
+    out["max_disk_usage_percent"] = logConfig.maxDiskUsagePercent;
+    out["cleanup_interval_hours"] = logConfig.cleanupIntervalHours;
+    out["_description"] = Json::objectValue;
+    out["_description"]["enabled"] = "Master switch: when false, all logging categories are effectively off.";
+    out["_description"]["log_level"] = "Minimum level: none, fatal, error, warning, info, debug, verbose. Restart may be required for full effect.";
+    out["_description"]["api_enabled"] = "Log API requests/responses (applies immediately).";
+    out["_description"]["instance_enabled"] = "Log instance start/stop/status (applies immediately).";
+    out["_description"]["sdk_output_enabled"] = "Log SDK output when instances process data (applies immediately).";
+    out["_description"]["log_dir"] = "Configured log directory (from config or env); may differ from current_log_dir until restart.";
+    out["_description"]["current_log_dir"] = "Actual base directory where log files are written at runtime. Use this to verify log location.";
+    Json::Value response;
+    response["config"] = out;
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k200OK);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+  } catch (const std::exception &e) {
+    auto err = createErrorResponse(k500InternalServerError, "Internal server error", e.what());
+    MetricsInterceptor::callWithMetrics(req, err, std::move(callback));
+  }
+}
+
+void LogHandler::putLogConfig(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  MetricsInterceptor::setHandlerStartTime(req);
+  try {
+    auto json = req->getJsonObject();
+    if (!json) {
+      callback(createErrorResponse(k400BadRequest, "Invalid request", "Request body must be valid JSON"));
+      return;
+    }
+    auto &config = SystemConfig::getInstance();
+    auto current = config.getLoggingConfig();
+    if (json->isMember("enabled") && (*json)["enabled"].isBool())
+      current.enabled = (*json)["enabled"].asBool();
+    if (json->isMember("log_level") && (*json)["log_level"].isString())
+      current.logLevel = (*json)["log_level"].asString();
+    if (json->isMember("api_enabled") && (*json)["api_enabled"].isBool())
+      current.apiEnabled = (*json)["api_enabled"].asBool();
+    if (json->isMember("instance_enabled") && (*json)["instance_enabled"].isBool())
+      current.instanceEnabled = (*json)["instance_enabled"].asBool();
+    if (json->isMember("sdk_output_enabled") && (*json)["sdk_output_enabled"].isBool())
+      current.sdkOutputEnabled = (*json)["sdk_output_enabled"].asBool();
+    if (json->isMember("log_dir") && (*json)["log_dir"].isString())
+      current.logDir = (*json)["log_dir"].asString();
+    if (json->isMember("log_file") && (*json)["log_file"].isString())
+      current.logFile = (*json)["log_file"].asString();
+    if (json->isMember("max_log_file_size") && (*json)["max_log_file_size"].isInt())
+      current.maxLogFileSize = static_cast<size_t>((*json)["max_log_file_size"].asInt());
+    if (json->isMember("max_log_files") && (*json)["max_log_files"].isInt())
+      current.maxLogFiles = (*json)["max_log_files"].asInt();
+    if (json->isMember("retention_days") && (*json)["retention_days"].isInt())
+      current.retentionDays = (*json)["retention_days"].asInt();
+    if (json->isMember("max_disk_usage_percent") && (*json)["max_disk_usage_percent"].isInt())
+      current.maxDiskUsagePercent = (*json)["max_disk_usage_percent"].asInt();
+    if (json->isMember("cleanup_interval_hours") && (*json)["cleanup_interval_hours"].isInt())
+      current.cleanupIntervalHours = (*json)["cleanup_interval_hours"].asInt();
+    config.setLoggingConfig(current);
+    config.saveConfig();
+    applyLoggingConfig(current);
+    Json::Value response;
+    response["message"] = "Logging configuration updated and applied (category flags apply immediately; log_level may require restart).";
+    response["config"] = Json::objectValue;
+    response["config"]["enabled"] = current.enabled;
+    response["config"]["log_level"] = current.logLevel;
+    response["config"]["api_enabled"] = current.apiEnabled;
+    response["config"]["instance_enabled"] = current.instanceEnabled;
+    response["config"]["sdk_output_enabled"] = current.sdkOutputEnabled;
+    response["config"]["log_dir"] = current.logDir;
+    response["config"]["current_log_dir"] = LogManager::getBaseDir();
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k200OK);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+  } catch (const std::exception &e) {
+    auto err = createErrorResponse(k500InternalServerError, "Internal server error", e.what());
+    MetricsInterceptor::callWithMetrics(req, err, std::move(callback));
+  }
+}
 
 void LogHandler::listLogFiles(
     const HttpRequestPtr &req,

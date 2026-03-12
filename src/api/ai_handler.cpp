@@ -1754,14 +1754,14 @@ void InstanceHandler::setInstanceInput(
     std::string uri = (*json)["uri"].asString();
 
     // Validate type
-    if (type != "RTSP" && type != "HLS" && type != "Manual") {
+    if (type != "File" && type != "RTSP" && type != "HLS" && type != "Manual") {
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] POST /v1/core/instance/" << instanceId
                      << "/input - Error: Invalid type: " << type;
       }
       callback(createErrorResponse(
           400, "Bad request",
-          "Field 'type' must be one of: RTSP, HLS, Manual"));
+          "Field 'type' must be one of: File, RTSP, HLS, Manual"));
       return;
     }
 
@@ -1806,7 +1806,10 @@ void InstanceHandler::setInstanceInput(
     input["media_format"] = mediaFormat;
 
     // Set media_type and uri based on type
-    if (type == "RTSP") {
+    if (type == "File") {
+      input["media_type"] = "File";
+      input["uri"] = uri;
+    } else if (type == "RTSP") {
       input["media_type"] = "IP Camera";
 
       // Check if user wants to use urisourcebin format (for
@@ -1926,6 +1929,24 @@ void InstanceHandler::setInstanceInput(
     }
 
     inputConfig["Input"] = input;
+
+    // Set AdditionalParams for pipeline builder (same as SecuRT)
+    Json::Value additionalParams(Json::objectValue);
+    if (type == "File") {
+      additionalParams["FILE_PATH"] = uri;
+    } else if (type == "RTSP") {
+      additionalParams["RTSP_SRC_URL"] = uri;
+    } else if (type == "HLS") {
+      additionalParams["HLS_URL"] = uri;
+    }
+    if (json->isMember("additionalParams") &&
+        (*json)["additionalParams"].isObject()) {
+      const Json::Value &reqAdditionalParams = (*json)["additionalParams"];
+      for (const auto &key : reqAdditionalParams.getMemberNames()) {
+        additionalParams[key] = reqAdditionalParams[key];
+      }
+    }
+    inputConfig["AdditionalParams"] = additionalParams;
 
     // Update instance using updateInstanceFromConfig
     if (instance_manager_->updateInstanceFromConfig(instanceId, inputConfig)) {
@@ -3982,14 +4003,29 @@ void InstanceHandler::getInstanceOutput(
 
     if (hasRTMP) {
       output["type"] = "RTMP_STREAM";
+      std::string rtmpUrlVal;
       if (!info.rtmpUrl.empty()) {
-        output["rtmpUrl"] = info.rtmpUrl;
+        rtmpUrlVal = info.rtmpUrl;
       } else if (info.additionalParams.find("RTMP_DES_URL") !=
                  info.additionalParams.end()) {
-        output["rtmpUrl"] = info.additionalParams.at("RTMP_DES_URL");
+        rtmpUrlVal = info.additionalParams.at("RTMP_DES_URL");
       } else if (info.additionalParams.find("RTMP_URL") !=
                  info.additionalParams.end()) {
-        output["rtmpUrl"] = info.additionalParams.at("RTMP_URL");
+        rtmpUrlVal = info.additionalParams.at("RTMP_URL");
+      }
+      output["rtmpUrl"] = rtmpUrlVal;
+      if (!rtmpUrlVal.empty()) {
+        size_t lastSlash = rtmpUrlVal.find_last_of('/');
+        if (lastSlash != std::string::npos && lastSlash + 1 < rtmpUrlVal.size()) {
+          std::string streamKey = rtmpUrlVal.substr(lastSlash + 1);
+          if (streamKey.size() >= 2 && streamKey.substr(streamKey.size() - 2) != "_0") {
+            output["rtmpPlaybackUrl"] = rtmpUrlVal + "_0";
+          } else {
+            output["rtmpPlaybackUrl"] = rtmpUrlVal;
+          }
+        } else {
+          output["rtmpPlaybackUrl"] = rtmpUrlVal;
+        }
       }
       if (!info.rtspUrl.empty()) {
         output["rtspUrl"] = info.rtspUrl;

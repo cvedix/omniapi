@@ -8,8 +8,8 @@
   "additionalParams": {
     "input": {
       "RTSP_URL": "rtsp://localhost:8554/stream",
-      "FACE_DETECTION_MODEL_PATH": "/opt/edge_ai_api/models/face/yunet.onnx",
-      "FACE_RECOGNITION_MODEL_PATH": "/opt/edge_ai_api/models/face/insightface.onnx",
+      "FACE_DETECTION_MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx",
+      "FACE_RECOGNITION_MODEL_PATH": "/opt/edgeos-api/models/face/insightface.onnx",
       "SAVE_DIR": "/tmp/output/insightface_recognition"
     }
   }

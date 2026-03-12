@@ -14,13 +14,13 @@
 ### Cài Đặt Package
 ```bash
 # Chỉ cần một lệnh (ALL-IN-ONE không cần dependencies!)
-sudo dpkg -i edge-ai-api-all-in-one-*.deb
+sudo dpkg -i edgeos-api-all-in-one-*.deb
 
 # Nếu có lỗi (hiếm)
 sudo apt-get install -f
 
 # Khởi động service
-sudo systemctl start edge-ai-api
+sudo systemctl start edgeos-api
 ```
 
 ### Khắc Phục Lỗi
@@ -190,7 +190,7 @@ Checking OpenCV 4.10 installation...
 OpenCV 4.10 Installation Required
 ==========================================
 
-OpenCV 4.10 with freetype support is required for edge_ai_api.
+OpenCV 4.10 with freetype support is required for edgeos-api.
 The installation process will take approximately 30-60 minutes.
 
 Checking disk space...
@@ -207,7 +207,7 @@ Choose an option:
 **Nếu cài đặt bị lỗi hoặc bị gián đoạn**, bạn có thể chạy lại script cài đặt tự động:
 
 ```bash
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
 ```
 
 Script này sẽ tự động:
@@ -257,16 +257,16 @@ cd packaging/scripts
 ```bash
 # Build với SDK
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb
 
 # Clean build
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb \
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb \
     --clean
 
 # Chỉ tạo package từ build có sẵn
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb \
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb \
     --no-build
 ```
 
@@ -275,7 +275,7 @@ cd packaging/scripts
 Sau khi build, file `.deb` sẽ được tạo tại project root:
 
 ```
-edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
+edgeos-api-all-in-one-2026.0.1.22-amd64.deb
 ```
 
 ### Cài Đặt
@@ -359,7 +359,7 @@ sudo apt-get install -y \
 
 ```bash
 # Bước 1: Cài đặt package
-sudo dpkg -i edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
+sudo dpkg -i edgeos-api-all-in-one-2026.0.1.22-amd64.deb
 
 # Trong quá trình cài đặt, nếu thiếu OpenCV 4.10, hệ thống sẽ hiển thị:
 # ==========================================
@@ -375,11 +375,11 @@ sudo dpkg -i edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
 sudo apt-get install -f
 
 # Bước 3: Nếu OpenCV cài đặt bị lỗi hoặc bị gián đoạn, chạy lại script cài đặt:
-sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
 
 # Bước 4: Khởi động service
-sudo systemctl start edge-ai-api
-sudo systemctl enable edge-ai-api  # Tự động chạy khi khởi động
+sudo systemctl start edgeos-api
+sudo systemctl enable edgeos-api  # Tự động chạy khi khởi động
 
 # Bước 5: (Tùy chọn) Cài đặt GStreamer plugins nếu cần
 # Xem [Cài Đặt GStreamer Plugins](#-cài-đặt-gstreamer-plugins) để biết chi tiết
@@ -395,34 +395,34 @@ sudo apt-get install -y \
 **Lưu ý về OpenCV:**
 - Nếu package đã bundle OpenCV 4.10, quá trình cài đặt sẽ không yêu cầu cài thêm.
 - Nếu thiếu OpenCV 4.10, quá trình cài đặt sẽ tự động phát hiện và cho phép cài đặt tự động.
-- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh`
+- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/edgeos-api/scripts/build_opencv_safe.sh`
 
 ### Verify Installation
 
 ```bash
 # Kiểm tra package status
-dpkg -l | grep edge-ai-api
+dpkg -l | grep edgeos-api
 
 # Kiểm tra libraries
-ls -la /opt/edge_ai_api/lib/
+ls -la /opt/edgeos-api/lib/
 
 # Kiểm tra GStreamer plugins
-ls -la /opt/edge_ai_api/lib/gstreamer-1.0/
+ls -la /opt/edgeos-api/lib/gstreamer-1.0/
 
 # Kiểm tra default fonts
-ls -la /opt/edge_ai_api/fonts/
+ls -la /opt/edgeos-api/fonts/
 
 # Kiểm tra default models
-ls -la /opt/edge_ai_api/models/
+ls -la /opt/edgeos-api/models/
 
 # Kiểm tra CVEDIX SDK
 ls -la /opt/cvedix/lib/
 
 # Test executable
-/usr/local/bin/edge_ai_api --help
+/usr/local/bin/edgeos-api --help
 
 # Kiểm tra service
-sudo systemctl status edge-ai-api
+sudo systemctl status edgeos-api
 
 # Test API
 curl http://localhost:8080/v1/core/health
@@ -449,7 +449,7 @@ Trước khi cài đặt, kiểm tra plugins đã có:
 
 ```bash
 # Kiểm tra plugins trong bundled directory
-export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
 gst-inspect-1.0 isomp4
 gst-inspect-1.0 h264parse
 gst-inspect-1.0 avdec_h264
@@ -494,14 +494,14 @@ find /usr/lib -name "libgstav.so" 2>/dev/null
 
 # Copy plugins vào bundled directory (nếu cần)
 sudo cp /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstisomp4.so \
-    /opt/edge_ai_api/lib/gstreamer-1.0/
+    /opt/edgeos-api/lib/gstreamer-1.0/
 sudo cp /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgsth264parse.so \
-    /opt/edge_ai_api/lib/gstreamer-1.0/
+    /opt/edgeos-api/lib/gstreamer-1.0/
 sudo cp /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstav.so \
-    /opt/edge_ai_api/lib/gstreamer-1.0/
+    /opt/edgeos-api/lib/gstreamer-1.0/
 
 # Update GStreamer registry
-export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
 gst-inspect-1.0 > /dev/null 2>&1
 ```
 
@@ -511,16 +511,16 @@ Sau khi cài đặt, kiểm tra lại:
 
 ```bash
 # Kiểm tra plugins
-export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
 gst-inspect-1.0 isomp4 | head -5
 gst-inspect-1.0 h264parse | head -5
 gst-inspect-1.0 avdec_h264 | head -5
 
 # Restart service để áp dụng thay đổi
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 
 # Kiểm tra logs để xác nhận không còn lỗi thiếu plugins
-sudo journalctl -u edge-ai-api -n 50 | grep -i "plugin\|gstreamer"
+sudo journalctl -u edgeos-api -n 50 | grep -i "plugin\|gstreamer"
 ```
 
 ### Lỗi Thường Gặp
@@ -544,11 +544,11 @@ Nếu gặp lỗi này khi start instance với file source:
 3. Đảm bảo `GST_PLUGIN_PATH` trỏ đến bundled directory:
    ```bash
    # Kiểm tra .env file
-   cat /opt/edge_ai_api/config/.env | grep GST_PLUGIN_PATH
+   cat /opt/edgeos-api/config/.env | grep GST_PLUGIN_PATH
    ```
 4. Restart service:
    ```bash
-   sudo systemctl restart edge-ai-api
+   sudo systemctl restart edgeos-api
    ```
 
 #### Lỗi: "GStreamer: pipeline have not been created"
@@ -561,14 +561,14 @@ Lỗi này thường xảy ra khi:
 
 ```bash
 # Bước 1: Update GStreamer registry
-export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
 gst-inspect-1.0 > /dev/null 2>&1
 
 # Bước 2: Kiểm tra plugins
 gst-inspect-1.0 isomp4
 
 # Bước 3: Restart service
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 ```
 
 #### Lỗi: "Internal data stream error" từ qtdemux
@@ -587,13 +587,13 @@ Lỗi này xảy ra khi:
 
 2. Kiểm tra plugins:
    ```bash
-   export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+   export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
    gst-inspect-1.0 isomp4
    ```
 
 3. Test với gst-launch:
    ```bash
-   export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+   export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
    gst-launch-1.0 filesrc location=/path/to/video.mp4 ! \
        qtdemux ! h264parse ! avdec_h264 ! fakesink
    ```
@@ -603,7 +603,7 @@ Lỗi này xảy ra khi:
 Service tự động kiểm tra plugins khi khởi động. Xem logs:
 
 ```bash
-sudo journalctl -u edge-ai-api | grep -i "gstreamer\|plugin"
+sudo journalctl -u edgeos-api | grep -i "gstreamer\|plugin"
 ```
 
 Nếu thấy warning về missing plugins, cài đặt theo hướng dẫn trên.
@@ -630,7 +630,7 @@ sudo apt-get install -y \
 sudo apt-get install -f
 
 # Bước 3: Thử cài lại package
-sudo dpkg -i edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
+sudo dpkg -i edgeos-api-all-in-one-2026.0.1.22-amd64.deb
 ```
 
 #### Lỗi: "dpkg: error processing package"
@@ -640,8 +640,8 @@ sudo dpkg -i edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
 sudo dpkg --configure -a
 
 # Bước 2: Nếu package bị broken, remove và cài lại
-sudo dpkg --remove --force-remove-reinstreq edge-ai-api
-sudo dpkg -i edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
+sudo dpkg --remove --force-remove-reinstreq edgeos-api
+sudo dpkg -i edgeos-api-all-in-one-2026.0.1.22-amd64.deb
 
 # Bước 3: Fix dependencies
 sudo apt-get install -f
@@ -659,22 +659,22 @@ sudo rm /var/cache/apt/archives/lock
 sudo dpkg --configure -a
 
 # Bước 3: Cài lại package
-sudo dpkg -i edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
+sudo dpkg -i edgeos-api-all-in-one-2026.0.1.22-amd64.deb
 ```
 
 #### Lỗi: "Package is in a very bad inconsistent state"
 
 ```bash
 # Bước 1: Remove package hoàn toàn
-sudo dpkg --remove --force-remove-reinstreq edge-ai-api
-sudo apt-get purge edge-ai-api
+sudo dpkg --remove --force-remove-reinstreq edgeos-api
+sudo apt-get purge edgeos-api
 
 # Bước 2: Clean up
 sudo apt-get autoremove
 sudo apt-get autoclean
 
 # Bước 3: Cài lại từ đầu
-sudo dpkg -i edge-ai-api-all-in-one-2026.0.1.22-amd64.deb
+sudo dpkg -i edgeos-api-all-in-one-2026.0.1.22-amd64.deb
 sudo apt-get install -f
 ```
 
@@ -697,14 +697,14 @@ Script tự động tìm và bundle GStreamer plugins từ:
 - `/usr/local/lib/gstreamer-1.0`
 - `/usr/lib/gstreamer-1.0`
 
-Plugins được copy vào `/opt/edge_ai_api/lib/gstreamer-1.0/`
+Plugins được copy vào `/opt/edgeos-api/lib/gstreamer-1.0/`
 
 ### 3. Bundle Default Data (Fonts and Models)
 
 Nếu project có `cvedix_data/font` và `cvedix_data/models`, chúng sẽ được tự động bundle vào package:
 
-- **Fonts**: `cvedix_data/font/*` → `/opt/edge_ai_api/fonts/`
-- **Models**: `cvedix_data/models/*` → `/opt/edge_ai_api/models/`
+- **Fonts**: `cvedix_data/font/*` → `/opt/edgeos-api/fonts/`
+- **Models**: `cvedix_data/models/*` → `/opt/edgeos-api/models/`
 
 Đây là default data cho users trên máy mới, không cần upload thủ công.
 
@@ -723,7 +723,7 @@ Tất cả libraries khác đều được bundle trong package.
 Executables được cấu hình với RPATH:
 
 ```
-/opt/edge_ai_api/lib:/opt/cvedix/lib
+/opt/edgeos-api/lib:/opt/cvedix/lib
 ```
 
 Đảm bảo tìm libraries từ bundled directory trước.
@@ -742,7 +742,7 @@ Package ALL-IN-ONE sẽ lớn hơn do bundle nhiều libraries:
 3. **Disk space**: Cần đủ disk space để bundle libraries và data (ít nhất 5GB free)
 4. **GStreamer plugins**: Plugins được bundle từ system, đảm bảo system có đầy đủ plugins
 5. **⚠️ OpenCV version**: **BẮT BUỘC** phải có OpenCV 4.10 trên máy build. Package sẽ không hoạt động với các phiên bản OpenCV khác. Xem [Bước 8: Cài Đặt OpenCV 4.10](#bước-8-cài-đặt-opencv-410-bắt-buộc) để cài đặt đúng version.
-6. **Default data**: Nếu `cvedix_data/font` và `cvedix_data/models` tồn tại trong project, chúng sẽ được tự động bundle vào package và cài đặt vào `/opt/edge_ai_api/fonts/` và `/opt/edge_ai_api/models/` làm default data
+6. **Default data**: Nếu `cvedix_data/font` và `cvedix_data/models` tồn tại trong project, chúng sẽ được tự động bundle vào package và cài đặt vào `/opt/edgeos-api/fonts/` và `/opt/edgeos-api/models/` làm default data
 7. **Dependencies**: Tất cả dependencies trong phần [Yêu Cầu Hệ Thống](#-yêu-cầu-hệ-thống-prerequisites) phải được cài đặt đầy đủ trước khi build package
 
 ## 🔍 Troubleshooting
@@ -752,7 +752,7 @@ Package ALL-IN-ONE sẽ lớn hơn do bundle nhiều libraries:
 Nếu package quá lớn, có thể:
 - Kiểm tra xem có bundle duplicate libraries không
 - Xem xét không bundle một số libraries không cần thiết
-- Kiểm tra package size: `du -h edge-ai-api-all-in-one-*.deb`
+- Kiểm tra package size: `du -h edgeos-api-all-in-one-*.deb`
 
 ### Missing libraries
 
@@ -761,22 +761,22 @@ Nếu thiếu libraries sau khi cài đặt:
 **Kiểm tra libraries:**
 ```bash
 # Kiểm tra libraries trong package
-ls -la /opt/edge_ai_api/lib/
+ls -la /opt/edgeos-api/lib/
 
 # Kiểm tra dependencies của executable
-ldd /usr/local/bin/edge_ai_api | grep "not found"
+ldd /usr/local/bin/edgeos-api | grep "not found"
 
 # Kiểm tra RPATH
-readelf -d /usr/local/bin/edge_ai_api | grep RPATH
+readelf -d /usr/local/bin/edgeos-api | grep RPATH
 ```
 
 **Nếu thiếu libraries:**
 ```bash
 # Kiểm tra bundle_libs.sh có chạy đúng không (trong build log)
-# Verify libraries trong /opt/edge_ai_api/lib/
+# Verify libraries trong /opt/edgeos-api/lib/
 # Kiểm tra ldconfig
 sudo ldconfig
-sudo ldconfig -v | grep edge-ai-api
+sudo ldconfig -v | grep edgeos-api
 ```
 
 ### GStreamer plugins không hoạt động
@@ -785,17 +785,17 @@ sudo ldconfig -v | grep edge-ai-api
 
 **Kiểm tra GST_PLUGIN_PATH:**
 ```bash
-cat /opt/edge_ai_api/config/.env | grep GST_PLUGIN_PATH
+cat /opt/edgeos-api/config/.env | grep GST_PLUGIN_PATH
 ```
 
 **Kiểm tra plugins:**
 ```bash
-ls -la /opt/edge_ai_api/lib/gstreamer-1.0/
+ls -la /opt/edgeos-api/lib/gstreamer-1.0/
 ```
 
 **Kiểm tra registry:**
 ```bash
-export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
 gst-inspect-1.0 filesrc
 gst-inspect-1.0 appsink
 gst-inspect-1.0 isomp4
@@ -817,18 +817,18 @@ gst-inspect-1.0 h264parse
 
 2. **Update GStreamer registry:**
    ```bash
-   export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+   export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
    gst-inspect-1.0 > /dev/null 2>&1
    ```
 
 3. **Restart service:**
    ```bash
-   sudo systemctl restart edge-ai-api
+   sudo systemctl restart edgeos-api
    ```
 
 4. **Check logs:**
    ```bash
-   sudo journalctl -u edge-ai-api -n 50
+   sudo journalctl -u edgeos-api -n 50
    ```
 
 **Lỗi: "cannot find appsink in manual pipeline" hoặc "gst_bin_iterate_elements: assertion failed"**
@@ -837,18 +837,18 @@ gst-inspect-1.0 h264parse
 
 ```bash
 # Bước 1: Đảm bảo GST_PLUGIN_PATH được set đúng
-echo "GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0" | \
-    sudo tee -a /opt/edge_ai_api/config/.env
+echo "GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0" | \
+    sudo tee -a /opt/edgeos-api/config/.env
 
 # Bước 2: Update registry
-export GST_PLUGIN_PATH=/opt/edge_ai_api/lib/gstreamer-1.0
+export GST_PLUGIN_PATH=/opt/edgeos-api/lib/gstreamer-1.0
 gst-inspect-1.0 filesrc > /dev/null 2>&1
 
 # Bước 3: Restart service
-sudo systemctl restart edge-ai-api
+sudo systemctl restart edgeos-api
 
 # Bước 4: Kiểm tra logs
-sudo journalctl -u edge-ai-api -f
+sudo journalctl -u edgeos-api -f
 ```
 
 **Lỗi: "Missing required plugins" khi start instance**
@@ -859,25 +859,25 @@ Nếu gặp lỗi này, xem chi tiết trong [Cài Đặt GStreamer Plugins - L�
 
 **Kiểm tra log:**
 ```bash
-sudo journalctl -u edge-ai-api -n 100
-sudo journalctl -u edge-ai-api -f  # Follow logs
+sudo journalctl -u edgeos-api -n 100
+sudo journalctl -u edgeos-api -f  # Follow logs
 ```
 
 **Kiểm tra permissions:**
 ```bash
-sudo chown -R edgeai:edgeai /opt/edge_ai_api
-sudo chmod -R 755 /opt/edge_ai_api
+sudo chown -R edgeai:edgeai /opt/edgeos-api
+sudo chmod -R 755 /opt/edgeos-api
 ```
 
 **Kiểm tra executable:**
 ```bash
-ls -la /usr/local/bin/edge_ai_api
-file /usr/local/bin/edge_ai_api
+ls -la /usr/local/bin/edgeos-api
+file /usr/local/bin/edgeos-api
 ```
 
 **Kiểm tra libraries:**
 ```bash
-ldd /usr/local/bin/edge_ai_api | grep "not found"
+ldd /usr/local/bin/edgeos-api | grep "not found"
 ```
 
 ### OpenCV không được tìm thấy
@@ -887,13 +887,13 @@ ldd /usr/local/bin/edge_ai_api | grep "not found"
 **Kiểm tra OpenCV libraries:**
 ```bash
 # Kiểm tra OpenCV libraries trong package
-ls -la /opt/edge_ai_api/lib/libopencv*.so*
+ls -la /opt/edgeos-api/lib/libopencv*.so*
 
 # Kiểm tra OpenCV version (nếu có pkg-config)
 ldconfig -p | grep opencv
 
 # Kiểm tra OpenCV core library
-find /opt/edge_ai_api/lib -name "libopencv_core.so*"
+find /opt/edgeos-api/lib -name "libopencv_core.so*"
 ```
 
 **Nếu thiếu OpenCV hoặc không phải version 4.10:**
@@ -902,7 +902,7 @@ find /opt/edge_ai_api/lib -name "libopencv_core.so*"
 
 1. **Cài đặt OpenCV 4.10 tự động:**
    ```bash
-   sudo /opt/edge_ai_api/scripts/build_opencv_safe.sh
+   sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
    ```
    Script này sẽ tự động:
    - Kiểm tra disk space và network connectivity
@@ -918,7 +918,7 @@ find /opt/edge_ai_api/lib -name "libopencv_core.so*"
 
 3. **Restart service sau khi cài OpenCV:**
    ```bash
-   sudo systemctl restart edge-ai-api
+   sudo systemctl restart edgeos-api
    ```
 
 **Trên máy build (trước khi build package):**
@@ -953,23 +953,23 @@ ldconfig -p | grep cvedix
 
 **Kiểm tra RPATH:**
 ```bash
-readelf -d /usr/local/bin/edge_ai_api | grep RPATH
+readelf -d /usr/local/bin/edgeos-api | grep RPATH
 ```
 
 **Kiểm tra libraries:**
 ```bash
 # Tìm libraries bị thiếu
-ldd /usr/local/bin/edge_ai_api | grep "not found"
+ldd /usr/local/bin/edgeos-api | grep "not found"
 
 # Kiểm tra xem libraries có trong bundled directory không
-ls -la /opt/edge_ai_api/lib/ | grep <missing-library-name>
+ls -la /opt/edgeos-api/lib/ | grep <missing-library-name>
 ```
 
 **Nếu libraries bị thiếu:**
 ```bash
 # Có thể cần rebuild package với đầy đủ dependencies
 # Hoặc copy libraries từ system vào bundled directory
-sudo cp /usr/lib/x86_64-linux-gnu/<missing-library> /opt/edge_ai_api/lib/
+sudo cp /usr/lib/x86_64-linux-gnu/<missing-library> /opt/edgeos-api/lib/
 sudo ldconfig
 ```
 
@@ -983,9 +983,9 @@ groups edgeai
 
 **Fix permissions:**
 ```bash
-sudo chown -R edgeai:edgeai /opt/edge_ai_api
-sudo chmod -R 755 /opt/edge_ai_api
-sudo chmod 640 /opt/edge_ai_api/config/.env
+sudo chown -R edgeai:edgeai /opt/edgeos-api
+sudo chmod -R 755 /opt/edgeos-api
+sudo chmod 640 /opt/edgeos-api/config/.env
 ```
 
 ### Port already in use
@@ -999,17 +999,17 @@ sudo lsof -i :8080
 **Nếu port đang được sử dụng:**
 ```bash
 # Stop service
-sudo systemctl stop edge-ai-api
+sudo systemctl stop edgeos-api
 
 # Hoặc thay đổi port trong config
-sudo nano /opt/edge_ai_api/config/config.json
+sudo nano /opt/edgeos-api/config/config.json
 ```
 
 ### Kiểm tra toàn bộ cài đặt
 
 **Script validation:**
 ```bash
-sudo /opt/edge_ai_api/scripts/validate_installation.sh --verbose
+sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose
 ```
 
 Script này sẽ kiểm tra:

@@ -229,6 +229,11 @@ private:
   void registerBALineCountingSolution();
 
   /**
+   * @brief Register ba_crowding solution
+   */
+  void registerBACrowdingSolution();
+
+  /**
    * @brief Register securt solution
    */
   void registerSecuRTSolution();

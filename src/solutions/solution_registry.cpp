@@ -128,6 +128,7 @@ void SolutionRegistry::initializeDefaultSolutions() {
   registerBALoiteringSolution();                // ba_loitering
   registerBAAreaEnterExitSolution();            // ba_area_enter_exit
   registerBALineCountingSolution();            // ba_line_counting
+  registerBACrowdingSolution();                 // ba_crowding
   registerSecuRTSolution();                     // securt
 
   // Register specialized detection solutions
@@ -395,14 +396,17 @@ void SolutionRegistry::registerBACrosslineSolution() {
   sortTrack.nodeName = "sort_tracker_{instanceId}";
   config.pipeline.push_back(sortTrack);
 
-  // BA Crossline Node
+  // BA Crossline Node (use placeholders so instance additionalParams.input
+  // CROSSLINE_* are applied; fallback in pipeline builder also reads CROSSLINE_*
+  // from additionalParams when solution has no line_channel)
   SolutionConfig::NodeConfig baCrossline;
   baCrossline.nodeType = "ba_crossline";
   baCrossline.nodeName = "ba_crossline_{instanceId}";
-  baCrossline.parameters["line_start_x"] = "1500";
-  baCrossline.parameters["line_start_y"] = "1500";
-  baCrossline.parameters["line_end_x"] = "1000";
-  baCrossline.parameters["line_end_y"] = "1000";
+  baCrossline.parameters["line_channel"] = "0";
+  baCrossline.parameters["line_start_x"] = "${CROSSLINE_START_X}";
+  baCrossline.parameters["line_start_y"] = "${CROSSLINE_START_Y}";
+  baCrossline.parameters["line_end_x"] = "${CROSSLINE_END_X}";
+  baCrossline.parameters["line_end_y"] = "${CROSSLINE_END_Y}";
   config.pipeline.push_back(baCrossline);
 
   // BA Crossline OSD Node
@@ -1922,6 +1926,70 @@ void SolutionRegistry::registerBALineCountingSolution() {
   config.defaults["detectionSensitivity"] = "0.7";
   config.defaults["sensorModality"] = "RGB";
   config.defaults["RESIZE_RATIO"] = "0.4";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerBACrowdingSolution() {
+  SolutionConfig config;
+  config.solutionId = "ba_crowding";
+  config.solutionName = "Behavior Analysis - Crowding Detection";
+  config.solutionType = "behavior_analysis";
+  config.isDefault = true;
+
+  // File Source Node
+  SolutionConfig::NodeConfig fileSrc;
+  fileSrc.nodeType = "file_src";
+  fileSrc.nodeName = "file_src_{instanceId}";
+  fileSrc.parameters["file_path"] = "${FILE_PATH}";
+  fileSrc.parameters["channel"] = "0";
+  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(fileSrc);
+
+  // YOLO Detector Node
+  SolutionConfig::NodeConfig yoloDetector;
+  yoloDetector.nodeType = "yolo_detector";
+  yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
+  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
+  yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  config.pipeline.push_back(yoloDetector);
+
+  // SORT Tracker Node
+  SolutionConfig::NodeConfig sortTrack;
+  sortTrack.nodeType = "sort_track";
+  sortTrack.nodeName = "sort_tracker_{instanceId}";
+  config.pipeline.push_back(sortTrack);
+
+  // BA Crowding Node
+  SolutionConfig::NodeConfig baCrowding;
+  baCrowding.nodeType = "ba_crowding";
+  baCrowding.nodeName = "ba_crowding_{instanceId}";
+  baCrowding.parameters["CrowdingZones"] = "${CROWDING_ZONES_JSON}";
+  baCrowding.parameters["check_interval"] = "${CROWDING_CHECK_INTERVAL}";
+  config.pipeline.push_back(baCrowding);
+
+  // BA Crowding OSD Node
+  SolutionConfig::NodeConfig baCrowdingOSD;
+  baCrowdingOSD.nodeType = "ba_crowding_osd";
+  baCrowdingOSD.nodeName = "ba_crowding_osd_{instanceId}";
+  config.pipeline.push_back(baCrowdingOSD);
+
+  // File Destination Node
+  SolutionConfig::NodeConfig fileDes;
+  fileDes.nodeType = "file_des";
+  fileDes.nodeName = "file_des_{instanceId}";
+  fileDes.parameters["save_dir"] = "./output/{instanceId}";
+  fileDes.parameters["name_prefix"] = "ba_crowding";
+  fileDes.parameters["osd"] = "true";
+  config.pipeline.push_back(fileDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.5";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+  config.defaults["CROWDING_CHECK_INTERVAL"] = "30";
 
   registerSolution(config);
 }

@@ -25,7 +25,7 @@ NC='\033[0m'
 BIN_DIR="/usr/local/bin"
 INSTALL_DIR="/opt/edgeos-api"
 LIB_DIR="$INSTALL_DIR/lib"
-SERVICE_NAME="edge-ai-api"
+SERVICE_NAME="edgeos-api"
 EXECUTABLE="$BIN_DIR/edgeos-api"
 WORKER="$BIN_DIR/edgeos-worker"
 
@@ -294,7 +294,7 @@ CRITICAL_LIBS=(
     "libopencv"
     "libgstreamer"
     "libcvedix"
-    "libedge_ai_core"
+    "libedgeos_core"
 )
 
 for lib_pattern in "${CRITICAL_LIBS[@]}"; do

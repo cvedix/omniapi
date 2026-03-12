@@ -31,6 +31,8 @@ set(TEST_SOURCES
     unit/Core_API/test_system_config_manager.cpp
     unit/Core_API/test_preferences_manager.cpp
     unit/Core_API/test_decoder_detector.cpp
+    unit/Core_API/test_inference_session.cpp
+    unit/Core_API/test_ai_processor.cpp
     unit/Core_API/test_metrics_handler.cpp
     
     # Instance Management tests
@@ -69,8 +71,8 @@ set(TEST_SOURCES
     unit/test_main.cpp
 )
 
-# Create test executable
-add_executable(edgeos_api_tests ${TEST_SOURCES})
+# Create test executable (EXCLUDE_FROM_ALL so default 'make' does not fail if test link is incomplete)
+add_executable(edgeos_api_tests EXCLUDE_FROM_ALL ${TEST_SOURCES})
 
 # Link libraries
 # Note: We use gtest (not gtest_main) because we have our own main() in test_main.cpp
@@ -78,6 +80,9 @@ add_executable(edgeos_api_tests ${TEST_SOURCES})
 target_link_libraries(edgeos_api_tests PRIVATE
     gtest
 )
+
+# Link edgeos_core (e.g. logRuntimeUpdate used by subprocess_instance_manager)
+target_link_libraries(edgeos_api_tests PRIVATE edgeos_core)
 
 # Link Drogon (same as main project)
 if(TARGET Drogon::Drogon)
@@ -103,6 +108,7 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/system_config_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/preferences_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/decoder_detector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/instance_logging_config.cpp
     ${CMAKE_SOURCE_DIR}/src/api/metrics_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/node_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/group_handler.cpp
@@ -116,6 +122,8 @@ target_sources(edgeos_api_tests PRIVATE
     # ${CMAKE_SOURCE_DIR}/src/api/ai_handler.cpp  # Commented out: requires C++20 for counting_semaphore, but project uses C++17
     ${CMAKE_SOURCE_DIR}/src/core/watchdog.cpp
     ${CMAKE_SOURCE_DIR}/src/core/health_monitor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/device_report_collector.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/device_watchdog.cpp
     ${CMAKE_SOURCE_DIR}/src/core/endpoint_monitor.cpp
     ${CMAKE_SOURCE_DIR}/src/core/request_middleware.cpp
     ${CMAKE_SOURCE_DIR}/src/core/metrics_interceptor.cpp
@@ -124,8 +132,24 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/codec_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/frame_decoder.cpp
     ${CMAKE_SOURCE_DIR}/src/core/frame_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/inference_session.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_runtime_facade.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/pipeline_helper.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_processor.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ai_cache.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_storage.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_retry.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_update_config.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_stop_list.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_update.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_start_pipeline.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_stop_pipeline.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_rebuild.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_rtmp_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_video_loop.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_statistics.cpp
+    ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_frame_cache.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_registry_rtmp_monitor.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/instance_state_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/instances/inprocess_instance_manager.cpp
@@ -139,6 +163,7 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_request_utils.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_source_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_destination_nodes.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/rtmp_lastframe_fallback_proxy_node.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_detector_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_broker_nodes.cpp
     ${CMAKE_SOURCE_DIR}/src/core/pipeline_builder_behavior_analysis_nodes.cpp

@@ -121,6 +121,9 @@ Trong giao diện Scalar:
 
 Chi tiết đầy đủ xem trong file `openapi.yaml` hoặc qua Scalar documentation.
 
+**Hướng dẫn thao tác (cho người vận hành / non-dev):**
+- **Cấu hình bind (chỉ local hay public) và restart server:** [CONFIG_BIND_AND_RESTART_MANUAL_TEST.md](../tests/manual/Core_API/CONFIG_BIND_AND_RESTART_MANUAL_TEST.md) — xem/sửa `system.web_server` (bind_mode, ip_address, port), dùng `auto_restart=true` để áp dụng ngay.
+
 ## Cấu trúc tagGroups
 
 API được tổ chức thành 3 topic chính:

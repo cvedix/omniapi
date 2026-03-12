@@ -1,5 +1,8 @@
 #pragma once
 
+#include "core/frame_router.h"
+#include "core/persistent_output_leg.h"
+#include "core/pipeline_snapshot.h"
 #include "worker/config_file_watcher.h"
 #include "worker/ipc_protocol.h"
 #include "worker/unix_socket.h"
@@ -85,9 +88,19 @@ private:
   std::unique_ptr<ConfigFileWatcher> config_watcher_;
   std::string config_file_path_;
 
-  // Pipeline state
-  std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipeline_nodes_;
+  // Pipeline state: atomic pipeline pointer for zero-downtime swap (Atomic Pipeline Swap pattern)
+  using PipelineSnapshotPtr = std::shared_ptr<PipelineSnapshot>;
+  mutable std::shared_mutex active_pipeline_mutex_;
+  PipelineSnapshotPtr active_pipeline_;
   std::atomic<bool> pipeline_running_{false};
+
+  // Zero-downtime: persistent RTMP output leg + frame router (when RTMP URL is set)
+  std::shared_ptr<edgeos::PersistentOutputLeg> output_leg_;
+  std::unique_ptr<edgeos::FrameRouter> frame_router_;
+  // Last-frame pump during swap (keeps RTMP alive)
+  std::thread last_frame_pump_thread_;
+  std::atomic<bool> last_frame_pump_running_{false};
+  std::atomic<bool> last_frame_pump_stop_{false};
 
   // State management - use shared_mutex to allow concurrent reads
   // (GET_STATISTICS/GET_STATUS) while writes (state updates) are exclusive
@@ -97,10 +110,9 @@ private:
   std::string current_state_ = "stopped";
   std::string last_error_;
 
-  // Hot swap pipeline for zero downtime
+  // Hot swap: pre-build new pipeline, then atomic swap (no mutex blocking worker loop)
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> new_pipeline_nodes_;
   std::atomic<bool> building_new_pipeline_{false};
-  std::mutex pipeline_swap_mutex_;
 
   // Background thread for starting pipeline (to avoid blocking IPC server)
   std::thread start_pipeline_thread_;
@@ -156,6 +168,9 @@ private:
   IPCMessage handleStopInstance(const IPCMessage &msg);
   IPCMessage handleUpdateInstance(const IPCMessage &msg);
   IPCMessage handleUpdateLines(const IPCMessage &msg);
+  IPCMessage handleUpdateJams(const IPCMessage &msg);
+  IPCMessage handleUpdateStops(const IPCMessage &msg);
+  IPCMessage handlePushFrame(const IPCMessage &msg);
   IPCMessage handleGetStatus(const IPCMessage &msg);
   IPCMessage handleGetStatistics(const IPCMessage &msg);
   IPCMessage handleGetLastFrame(const IPCMessage &msg);
@@ -191,6 +206,18 @@ private:
    * @brief Cleanup pipeline resources
    */
   void cleanupPipeline();
+
+  /**
+   * @brief Get active pipeline snapshot (shared lock; never blocks swap long)
+   * Used by worker runtime loop and all readers.
+   */
+  PipelineSnapshotPtr getActivePipeline() const;
+
+  /**
+   * @brief Set active pipeline (unique lock). Returns previous pipeline for graceful stop.
+   * Swap is O(1); callers must stop old pipeline's source and release returned ptr.
+   */
+  PipelineSnapshotPtr setActivePipeline(PipelineSnapshotPtr newPipeline);
 
   /**
    * @brief Send WORKER_READY message to supervisor
@@ -255,6 +282,53 @@ private:
    * @return true if successful
    */
   bool preBuildPipeline(const Json::Value &newConfig);
+
+  /**
+   * @brief Get flattened AdditionalParams from config (supports
+   * AdditionalParams, additionalParams, and nested input/output).
+   */
+  Json::Value getParamsFromConfig(const Json::Value &config) const;
+
+  /**
+   * @brief Apply CrossingLines or CROSSLINE_* from params to running pipeline
+   * (runtime update, no restart). Used for instance update hot-reload.
+   * @param params Flattened params (from getParamsFromConfig)
+   * @return true if lines were applied or no line config present
+   */
+  bool applyLinesFromParamsToPipeline(const Json::Value &params);
+
+  /**
+   * @brief Start source node of a pipeline snapshot (for atomic swap: start new before swap)
+   */
+  bool startSourceNodeForSnapshot(PipelineSnapshotPtr snapshot);
+
+  /**
+   * @brief Stop source node of a pipeline snapshot (after swap: stop old pipeline).
+   * @param releaseSnapshot If true (default), resets snapshot after stop; if false, caller drains then resets.
+   */
+  void stopSourceNodeForSnapshot(PipelineSnapshotPtr &snapshot, bool releaseSnapshot = true);
+
+  /**
+   * @brief Ensure output_leg_ and frame_router_ exist when config has RTMP URL (for zero-downtime).
+   * @param req Parsed create request (for RTMP URL and params)
+   * @return true if created or already exist; false on error
+   */
+  bool ensureOutputLegForRtmp(const CreateInstanceRequest &req);
+
+  /**
+   * @brief Start last-frame pump thread (injects last frame into proxy during swap).
+   */
+  void startLastFramePumpThread();
+
+  /**
+   * @brief Stop last-frame pump thread.
+   */
+  void stopLastFramePumpThread();
+
+  /**
+   * @brief Drain in-flight frames in old pipeline snapshot before destruction.
+   */
+  void drainPipelineSnapshot(PipelineSnapshotPtr &snapshot);
 
   /**
    * @brief Check if config changes require pipeline rebuild
