@@ -3916,6 +3916,84 @@ paths:
       responses:
         '200':
           description: CORS preflight response
+  /v1/core/system/resource-status:
+    get:
+      summary: Get resource limits and current usage
+      description: 'Returns configured resource limits (max_running_instances, max_cpu_percent, max_ram_percent,
+
+        thread_num, min_threads, max_threads), current usage, and over-limit flags.
+
+        Use this to monitor and tune all limits via config (system.performance, system.monitoring).
+
+        '
+      operationId: getResourceStatus
+      tags:
+      - Core
+      responses:
+        '200':
+          description: Resource limits, current usage, and over-limit flags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  limits:
+                    type: object
+                    description: Configured limits (0 = disabled)
+                    properties:
+                      max_running_instances:
+                        type: integer
+                        description: Max instances (0 = unlimited)
+                      max_cpu_percent:
+                        type: integer
+                        description: Reject new instances when system CPU >= this (0 = disabled)
+                      max_ram_percent:
+                        type: integer
+                        description: Reject new instances when system RAM >= this (0 = disabled)
+                      thread_num:
+                        type: integer
+                        description: HTTP server thread count (0 = auto)
+                      min_threads:
+                        type: integer
+                        description: Min HTTP server threads
+                      max_threads:
+                        type: integer
+                        description: Max HTTP server threads
+                  current:
+                    type: object
+                    properties:
+                      instance_count:
+                        type: integer
+                      cpu_usage_percent:
+                        type: number
+                        format: double
+                      ram_usage_percent:
+                        type: number
+                        format: double
+                  over_limits:
+                    type: object
+                    description: true when current usage meets or exceeds configured limit
+                    properties:
+                      at_instance_limit:
+                        type: boolean
+                      over_cpu_limit:
+                        type: boolean
+                      over_ram_limit:
+                        type: boolean
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight for resource-status
+      operationId: getResourceStatusOptions
+      tags:
+      - Core
+      responses:
+        '200':
+          description: CORS preflight response
   /v1/core/system/shutdown:
     post:
       summary: Shutdown system
@@ -7970,7 +8048,7 @@ paths:
         schema:
           type: string
         description: Instance ID (UUID)
-        example: '{threshold}'
+        example: ba_crossline_demo
       requestBody:
         required: true
         content:
@@ -8291,123 +8369,6 @@ paths:
     options:
       summary: CORS preflight for set config
       operationId: setConfigOptions
-      tags:
-      - Instances
-      responses:
-        '200':
-          description: CORS preflight response
-  /v1/core/instance/{instanceId}/log/config:
-    get:
-      summary: Get per-instance logging config
-      description: 'Returns per-instance logging configuration. When **enabled** is true, instance logs are written to `logs/instance/<instance_id>/` (per-instance folder).'
-      operationId: getInstanceLogConfig
-      tags:
-      - Instances
-      parameters:
-      - name: instanceId
-        in: path
-        required: true
-        schema:
-          type: string
-        description: Unique identifier of the instance (UUID)
-      responses:
-        '200':
-          description: Per-instance logging config
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  config:
-                    type: object
-                    properties:
-                      enabled:
-                        type: boolean
-                        description: When true, instance logs are written to logs/instance/<instance_id>/
-                  _description:
-                    type: object
-                    additionalProperties:
-                      type: string
-              example:
-                config:
-                  enabled: false
-                _description:
-                  enabled: "When true, instance logs are written to logs/instance/<instance_id>/ (per-instance folder)."
-        '404':
-          description: Instance not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      summary: Set per-instance logging config
-      description: 'Sets per-instance logging. Send **enabled** true to write instance logs to `logs/instance/<instance_id>/`. Applies immediately; value is persisted with instance config.'
-      operationId: putInstanceLogConfig
-      tags:
-      - Instances
-      parameters:
-      - name: instanceId
-        in: path
-        required: true
-        schema:
-          type: string
-        description: Unique identifier of the instance (UUID)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - enabled
-              properties:
-                enabled:
-                  type: boolean
-                  description: When true, instance logs are written to logs/instance/<instance_id>/
-            example:
-              enabled: true
-      responses:
-        '200':
-          description: Config updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  config:
-                    type: object
-                    properties:
-                      enabled:
-                        type: boolean
-        '400':
-          description: Bad request (invalid JSON or missing enabled)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Instance not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    options:
-      summary: CORS preflight for instance log config
-      operationId: instanceLogConfigOptions
       tags:
       - Instances
       responses:
@@ -8901,6 +8862,125 @@ paths:
     options:
       summary: CORS preflight for load instance
       operationId: loadInstanceOptions
+      tags:
+      - Instances
+      responses:
+        '200':
+          description: CORS preflight response
+  /v1/core/instance/{instanceId}/log/config:
+    get:
+      summary: Get per-instance logging config
+      description: Returns per-instance logging configuration. When **enabled** is true, instance logs are written to `logs/instance/<instance_id>/`
+        (per-instance folder).
+      operationId: getInstanceLogConfig
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the instance (UUID)
+      responses:
+        '200':
+          description: Per-instance logging config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        description: When true, instance logs are written to logs/instance/<instance_id>/
+                  _description:
+                    type: object
+                    additionalProperties:
+                      type: string
+              example:
+                config:
+                  enabled: false
+                _description:
+                  enabled: When true, instance logs are written to logs/instance/<instance_id>/ (per-instance folder).
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Set per-instance logging config
+      description: Sets per-instance logging. Send **enabled** true to write instance logs to `logs/instance/<instance_id>/`.
+        Applies immediately; value is persisted with instance config.
+      operationId: putInstanceLogConfig
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the instance (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: When true, instance logs are written to logs/instance/<instance_id>/
+            example:
+              enabled: true
+      responses:
+        '200':
+          description: Config updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+        '400':
+          description: Bad request (invalid JSON or missing enabled)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight for instance log config
+      operationId: instanceLogConfigOptions
       tags:
       - Instances
       responses:
@@ -11362,19 +11442,19 @@ paths:
                   api:
                   - date: '2024-01-01'
                     size: 1024
-                    path: /var/log/edgeos-api/api_2024-01-01.log
+                    path: /var/log/edge_ai_api/api_2024-01-01.log
                   instance:
                   - date: '2024-01-01'
                     size: 2048
-                    path: /var/log/edgeos-api/instance_2024-01-01.log
+                    path: /var/log/edge_ai_api/instance_2024-01-01.log
                   sdk_output:
                   - date: '2024-01-01'
                     size: 512
-                    path: /var/log/edgeos-api/sdk_output_2024-01-01.log
+                    path: /var/log/edge_ai_api/sdk_output_2024-01-01.log
                   general:
                   - date: '2024-01-01'
                     size: 4096
-                    path: /var/log/edgeos-api/general_2024-01-01.log
+                    path: /var/log/edge_ai_api/general_2024-01-01.log
         '500':
           description: Server error
           content:
@@ -11465,7 +11545,7 @@ paths:
                 $ref: '#/components/schemas/LogsResponse'
               example:
                 category: api
-                category_dir: /var/log/edgeos-api/api
+                category_dir: /var/log/edge_ai_api/api
                 files_count: 1
                 total_lines: 1000
                 filtered_lines: 500
