@@ -2125,11 +2125,42 @@ void SubprocessInstanceManager::onWorkerError(const std::string &instanceId,
   std::cerr << "[SubprocessInstanceManager] Worker " << instanceId
             << " error: " << error << std::endl;
 
-  std::lock_guard<std::mutex> lock(instances_mutex_);
-  auto it = instances_.find(instanceId);
-  if (it != instances_.end()) {
-    it->second.running = false;
-    it->second.retryCount++;
+  bool was_running = false;
+  {
+    std::lock_guard<std::mutex> lock(instances_mutex_);
+    auto it = instances_.find(instanceId);
+    if (it != instances_.end()) {
+      was_running = it->second.running;
+      it->second.running = false;
+      it->second.retryCount++;
+    }
+  }
+
+  if (error == "Worker crashed" && was_running) {
+    std::cout << "[SubprocessInstanceManager] Auto-recovery: respawning worker and restarting instance "
+              << instanceId << std::endl;
+    std::thread([this, instanceId]() {
+      try {
+        {
+          std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
+          auto it = gpu_allocations_.find(instanceId);
+          if (it != gpu_allocations_.end()) {
+            ResourceManager::getInstance().releaseGPU(it->second);
+            gpu_allocations_.erase(it);
+            std::cout << "[SubprocessInstanceManager] Released GPU for crashed worker " << instanceId << std::endl;
+          }
+        }
+        if (startInstance(instanceId, true)) {
+          std::cout << "[SubprocessInstanceManager] Auto-recovery: instance " << instanceId << " restarted" << std::endl;
+        } else {
+          std::cerr << "[SubprocessInstanceManager] Auto-recovery: failed to start instance " << instanceId << std::endl;
+        }
+      } catch (const std::exception &e) {
+        std::cerr << "[SubprocessInstanceManager] Auto-recovery exception: " << e.what() << std::endl;
+      } catch (...) {
+        std::cerr << "[SubprocessInstanceManager] Auto-recovery: unknown exception" << std::endl;
+      }
+    }).detach();
   }
 }
 

@@ -1,6 +1,8 @@
 #include "instances/instance_storage.h"
 #include "core/env_config.h"
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -165,7 +167,7 @@ bool InstanceStorage::saveInstancesFile(const Json::Value &instances) {
     std::ofstream file(filepath);
     if (!file.is_open()) {
       std::cerr << "[InstanceStorage] Error: Failed to open file for writing: "
-                << filepath << std::endl;
+                << filepath << " (" << std::strerror(errno) << ")" << std::endl;
 
       // Check if parent directory exists and is writable
       if (std::filesystem::exists(parent_dir)) {
@@ -179,6 +181,38 @@ bool InstanceStorage::saveInstancesFile(const Json::Value &instances) {
       } else {
         std::cerr << "[InstanceStorage] Parent directory does not exist: "
                   << parent_dir << std::endl;
+      }
+
+      // Fallback: /opt/... may exist but not writable. Try user dir then ./instances
+      std::vector<std::string> tiers =
+          EnvConfig::getAllPossibleDirectories("instances");
+      for (const auto &dir : tiers) {
+        if (dir == storage_dir_) {
+          continue; // already failed above
+        }
+        try {
+          std::filesystem::create_directories(dir);
+        } catch (...) {
+          continue;
+        }
+        std::string fallbackPath = dir + "/instances.json";
+        std::ofstream fallbackFile(fallbackPath);
+        if (fallbackFile.is_open()) {
+          Json::StreamWriterBuilder builder;
+          builder["indentation"] = "    ";
+          std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+          writer->write(instances, &fallbackFile);
+          fallbackFile.close();
+          if (std::filesystem::exists(fallbackPath)) {
+            std::cerr << "[InstanceStorage] ✓ Saved instances to fallback path (no write access to primary): "
+                      << fallbackPath << std::endl;
+            std::cerr << "[InstanceStorage]   Fix permissions on " << storage_dir_
+                      << " or set writable storage; subsequent saves use fallback until restart."
+                      << std::endl;
+            storage_dir_ = dir; // so getInstancesFilePath() and next save use same dir
+            return true;
+          }
+        }
       }
 
       return false;

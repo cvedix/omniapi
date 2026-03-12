@@ -1,4 +1,5 @@
 #include "worker/worker_supervisor.h"
+#include "core/shutdown_flag.h"
 #include "core/timeout_constants.h"
 #include <chrono>
 #include <climits> // for PATH_MAX
@@ -546,18 +547,22 @@ void WorkerSupervisor::monitorLoop() {
 
           if (result > 0) {
             // Process exited
-            if (WIFEXITED(status)) {
-              int exit_code = WEXITSTATUS(status);
-              std::cout << "[Supervisor] Worker " << instance_id
-                        << " exited with code " << exit_code << std::endl;
-            } else if (WIFSIGNALED(status)) {
-              int sig = WTERMSIG(status);
-              std::cout << "[Supervisor] Worker " << instance_id
-                        << " killed by signal " << sig << std::endl;
+            if (ShutdownFlag::isRequested()) {
+              // Server is shutting down (Ctrl+C): treat as normal stop, do not restart
+              setWorkerState(*worker, WorkerState::STOPPED);
+            } else {
+              if (WIFEXITED(status)) {
+                int exit_code = WEXITSTATUS(status);
+                std::cout << "[Supervisor] Worker " << instance_id
+                          << " exited with code " << exit_code << std::endl;
+              } else if (WIFSIGNALED(status)) {
+                int sig = WTERMSIG(status);
+                std::cout << "[Supervisor] Worker " << instance_id
+                          << " killed by signal " << sig << std::endl;
+              }
+              setWorkerState(*worker, WorkerState::CRASHED);
+              crashed_workers.push_back(instance_id);
             }
-
-            setWorkerState(*worker, WorkerState::CRASHED);
-            crashed_workers.push_back(instance_id);
             continue;
           }
         }
@@ -580,10 +585,14 @@ void WorkerSupervisor::monitorLoop() {
                     .count();
 
             if (elapsed > heartbeat_timeout_ms_) {
-              std::cerr << "[Supervisor] Worker " << instance_id
-                        << " heartbeat timeout" << std::endl;
-              setWorkerState(*worker, WorkerState::CRASHED);
-              crashed_workers.push_back(instance_id);
+              if (ShutdownFlag::isRequested()) {
+                setWorkerState(*worker, WorkerState::STOPPED);
+              } else {
+                std::cerr << "[Supervisor] Worker " << instance_id
+                          << " heartbeat timeout" << std::endl;
+                setWorkerState(*worker, WorkerState::CRASHED);
+                crashed_workers.push_back(instance_id);
+              }
             }
           }
         }
@@ -603,38 +612,35 @@ void WorkerSupervisor::checkWorkerHealth(WorkerInfo &worker) {
 }
 
 void WorkerSupervisor::handleWorkerCrash(const std::string &instance_id) {
-  if (error_callback_) {
-    error_callback_(instance_id, "Worker crashed");
+  bool allow_respawn = false;
+  {
+    std::lock_guard<std::timed_mutex> lock(workers_mutex_);
+    auto it = workers_.find(instance_id);
+    if (it == workers_.end())
+      return;
+
+    WorkerInfo &worker = *it->second;
+
+    if (worker.restart_count < max_restarts_) {
+      std::cout << "[Supervisor] Attempting restart "
+                << (worker.restart_count + 1) << "/" << max_restarts_ << " for "
+                << instance_id << " (manager will respawn worker)" << std::endl;
+
+      cleanupWorker(worker);
+      workers_.erase(it);
+      allow_respawn = true;
+    } else {
+      std::cerr << "[Supervisor] Max restarts reached for " << instance_id
+                << std::endl;
+      cleanupWorker(worker);
+      workers_.erase(it);
+    }
   }
 
-  // Attempt restart if under limit
-  std::lock_guard<std::timed_mutex> lock(workers_mutex_);
-  auto it = workers_.find(instance_id);
-  if (it == workers_.end())
-    return;
+  std::this_thread::sleep_for(std::chrono::milliseconds(restart_delay_ms_));
 
-  WorkerInfo &worker = *it->second;
-
-  if (worker.restart_count < max_restarts_) {
-    std::cout << "[Supervisor] Attempting restart "
-              << (worker.restart_count + 1) << "/" << max_restarts_ << " for "
-              << instance_id << std::endl;
-
-    // Clean up old resources
-    cleanupWorker(worker);
-
-    // Wait before restart
-    std::this_thread::sleep_for(std::chrono::milliseconds(restart_delay_ms_));
-
-    // Note: Full restart would need to re-read config from storage
-    // For now, just increment counter and mark as stopped
-    worker.restart_count++;
-    setWorkerState(worker, WorkerState::STOPPED);
-  } else {
-    std::cerr << "[Supervisor] Max restarts reached for " << instance_id
-              << std::endl;
-    cleanupWorker(worker);
-    workers_.erase(it);
+  if (allow_respawn && error_callback_) {
+    error_callback_(instance_id, "Worker crashed");
   }
 }
 

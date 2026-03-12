@@ -653,6 +653,17 @@ sequenceDiagram
     API->>User: HTTP 200 OK
 ```
 
+### Hot Swap là cơ chế đặc trưng của hệ thống
+
+Hệ thống **ưu tiên hot swap (zero downtime)** cho mọi cập nhật cấu hình instance; **restart chỉ là biện pháp cuối** khi hot swap không khả dụng (ví dụ instance chưa chạy).
+
+- **PATCH/PUT instance:** Worker dùng hot swap khi cần rebuild (zone, model, source, line…); line-only có thể dùng `set_lines()` tại runtime, hoặc hot swap nếu có RTMP.
+- **Lines / Jams / Stops (API chuyên biệt):** Cập nhật runtime (IPC hoặc set_lines/set_jams) được thử trước; **nếu thất bại thì fallback là hot swap** (gửi UPDATE_INSTANCE với config đã merge), **không còn fallback restart** trong luồng thường.
+- **SecuRT Lines:** Tương tự — update qua IPC trước, thất bại thì áp dụng qua hot swap (CrossingLines từ SecuRT).
+- **Worker UPDATE_LINES:** Nếu `set_lines()` thất bại hoặc exception, worker tự fallback hot swap (merge CrossingLines vào config và gọi `hotSwapPipeline`), trả về thành công thay vì lỗi.
+
+Nhờ đó, **mọi thay đổi line/zone đều đi qua hot swap** khi có thể, giữ stream RTMP và trải nghiệm người dùng liên tục.
+
 ### Khi nào dùng Hot Swap?
 
 | Loại cập nhật | Hành vi |
@@ -660,6 +671,7 @@ sequenceDiagram
 | Chỉ thay đổi line (CrossingLines) và có output RTMP | Hot swap (build mới → swap → drain cũ) |
 | Chỉ thay đổi line, không có RTMP | Áp dụng runtime qua set_lines() |
 | Thay đổi solution, model, source URL... | Hot swap |
+| Lines/Jams/Stops API: runtime update thất bại | Fallback **hot swap** (updateInstanceFromConfig), không restart |
 
 ### Các thay đổi code chính (hot swap chạy đúng)
 

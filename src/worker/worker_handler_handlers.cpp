@@ -594,24 +594,93 @@ IPCMessage WorkerHandler::handleUpdateLines(const IPCMessage &msg) {
       Json::Value data;
       data["lines_count"] = static_cast<int>(lines.size());
       response.payload["data"] = data;
-    } else {
-      std::cout << "[Worker:" << instance_id_
-                << "] Failed to update lines via SDK API" << std::endl;
-      response.payload = createErrorResponse("Failed to update lines via SDK API",
-                                              ResponseStatus::INTERNAL_ERROR);
+      return response;
     }
+    // set_lines() failed: fallback to hot swap (zero downtime, no restart)
+    std::cout << "[Worker:" << instance_id_
+              << "] set_lines() failed, applying via hot swap (zero downtime)"
+              << std::endl;
+    Json::Value oldConfig = config_;
+    if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+      config_["AdditionalParams"] = Json::Value(Json::objectValue);
+    }
+    Json::StreamWriterBuilder wb;
+    wb["indentation"] = "";
+    config_["AdditionalParams"]["CrossingLines"] =
+        Json::writeString(wb, msg.payload["lines"]);
+    if (hotSwapPipeline(config_)) {
+      std::cout << "[Worker:" << instance_id_
+                << "] ✓ Lines updated via hot swap (zero downtime)" << std::endl;
+      response.payload = createResponse(ResponseStatus::OK,
+                                          "Lines updated via hot swap (zero downtime)");
+      Json::Value data;
+      data["lines_count"] = static_cast<int>(lines.size());
+      response.payload["data"] = data;
+    } else {
+      config_ = oldConfig;
+      std::cerr << "[Worker:" << instance_id_
+                << "] Hot swap fallback failed for lines update" << std::endl;
+      response.payload = createErrorResponse(
+          "Failed to update lines (hot swap fallback failed)",
+          ResponseStatus::INTERNAL_ERROR);
+    }
+    return response;
   } catch (const std::exception &e) {
     std::cerr << "[Worker:" << instance_id_
-              << "] Exception updating lines: " << e.what() << std::endl;
-    response.payload = createErrorResponse("Exception updating lines: " + std::string(e.what()),
-                                           ResponseStatus::INTERNAL_ERROR);
+              << "] Exception updating lines: " << e.what()
+              << ", trying hot swap fallback" << std::endl;
+    Json::Value oldConfig = config_;
+    if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+      config_["AdditionalParams"] = Json::Value(Json::objectValue);
+    }
+    Json::StreamWriterBuilder wb;
+    wb["indentation"] = "";
+    config_["AdditionalParams"]["CrossingLines"] =
+        Json::writeString(wb, msg.payload["lines"]);
+    if (hotSwapPipeline(config_)) {
+      std::cout << "[Worker:" << instance_id_
+                << "] ✓ Lines updated via hot swap after exception (zero downtime)"
+                << std::endl;
+      response.payload = createResponse(ResponseStatus::OK,
+                                          "Lines updated via hot swap (zero downtime)");
+      Json::Value data;
+      data["lines_count"] = static_cast<int>(lines.size());
+      response.payload["data"] = data;
+    } else {
+      config_ = oldConfig;
+      response.payload = createErrorResponse(
+          "Exception updating lines: " + std::string(e.what()),
+          ResponseStatus::INTERNAL_ERROR);
+    }
+    return response;
   } catch (...) {
     std::cerr << "[Worker:" << instance_id_
-              << "] Unknown exception updating lines" << std::endl;
-    response.payload = createErrorResponse("Unknown exception updating lines",
-                                           ResponseStatus::INTERNAL_ERROR);
+              << "] Unknown exception updating lines, trying hot swap fallback"
+              << std::endl;
+    Json::Value oldConfig = config_;
+    if (!config_.isMember("AdditionalParams") || !config_["AdditionalParams"].isObject()) {
+      config_["AdditionalParams"] = Json::Value(Json::objectValue);
+    }
+    Json::StreamWriterBuilder wb;
+    wb["indentation"] = "";
+    config_["AdditionalParams"]["CrossingLines"] =
+        Json::writeString(wb, msg.payload["lines"]);
+    if (hotSwapPipeline(config_)) {
+      std::cout << "[Worker:" << instance_id_
+                << "] ✓ Lines updated via hot swap after exception (zero downtime)"
+                << std::endl;
+      response.payload = createResponse(ResponseStatus::OK,
+                                        "Lines updated via hot swap (zero downtime)");
+      Json::Value data;
+      data["lines_count"] = static_cast<int>(lines.size());
+      response.payload["data"] = data;
+    } else {
+      config_ = oldConfig;
+      response.payload = createErrorResponse("Unknown exception updating lines",
+                                             ResponseStatus::INTERNAL_ERROR);
+    }
+    return response;
   }
-  return response;
 }
 
 IPCMessage WorkerHandler::handleUpdateJams(const IPCMessage &msg) {

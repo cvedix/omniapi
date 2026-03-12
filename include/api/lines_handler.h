@@ -190,11 +190,20 @@ private:
   bool validateColor(const Json::Value &color, std::string &error) const;
 
   /**
-   * @brief Restart instance to apply line changes
+   * @brief Restart instance to apply line changes (last resort when hot swap unavailable)
    * @param instanceId Instance ID
    * @return true if restart initiated successfully
    */
   bool restartInstanceForLineUpdate(const std::string &instanceId) const;
+
+  /**
+   * @brief Apply line changes via hot swap (zero downtime); used when runtime update fails
+   * @param instanceId Instance ID
+   * @param linesArray JSON array of line objects (current desired state)
+   * @return true if hot swap applied successfully
+   */
+  bool applyLinesUpdateViaHotSwap(const std::string &instanceId,
+                                   const Json::Value &linesArray) const;
 
   /**
    * @brief Find ba_crossline_node in running instance pipeline

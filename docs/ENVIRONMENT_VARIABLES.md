@@ -203,6 +203,7 @@ Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa
 | `EDGE_AI_HEALTH_CHECK_INTERVAL` | Khoảng kiểm tra health worker (ms) | (trong code) | `src/worker/worker_supervisor.cpp` |
 | `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` | Thư mục ghi log **runtime update** (PATCH/PUT instance, merge, apply line, rebuild). File: `runtime_update.log`. Dùng khi dev để kiểm tra lỗi. Nếu không set thì dùng `LOG_DIR`; nếu cả hai không set thì dùng **`/tmp`** (file: `/tmp/runtime_update.log`). | (dùng `LOG_DIR` hoặc `/tmp`) | `src/worker/worker_handler.cpp` |
 | `EDGE_AI_HOTSWAP_DELAY_SEC` | **Chỉ để test:** Sau khi stop pipeline cũ trong hot-swap, sleep N giây rồi mới start pipeline mới. Ví dụ `5` = delay 5s. Không set hoặc `0` = không delay. | `0` (không delay) | `src/worker/worker_handler.cpp` |
+| `EDGE_AI_SIGABRT_IMMEDIATE_EXIT` | Khi `1`: nhận SIGABRT (vd. `free(): corrupted unsorted chunks`) thì **thoát ngay** (`_Exit(134)`), không chạy recovery. Tránh treo và Ctrl+C không thoát khi develop sau heap corruption. | (tắt — recovery như cũ) | `src/main.cpp` |
 
 **Lưu ý về Socket Directory:**
 - **Default**: `/opt/edgeos-api/run` (tự động tạo nếu chưa tồn tại)

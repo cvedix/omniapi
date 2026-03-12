@@ -85,6 +85,14 @@ private:
 
   bool restartInstanceForStopUpdate(const std::string &instanceId) const;
 
+  /**
+   * Apply stop zone changes via hot swap (zero downtime) when runtime update fails.
+   * @param instanceId Instance ID
+   * @param stopsArray JSON array of stop zone objects (current desired state)
+   * @return true if hot swap applied successfully
+   */
+  bool applyStopsUpdateViaHotSwap(const std::string &instanceId,
+                                  const Json::Value &stopsArray) const;
 
   std::shared_ptr<cvedix_nodes::cvedix_ba_stop_node>
   findBAStopNode(const std::string &instanceId) const;

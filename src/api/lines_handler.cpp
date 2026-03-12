@@ -736,13 +736,13 @@ void LinesHandler::createLine(
                   << "/lines - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING
             << "[API] POST /v1/core/instance/" << instanceId
-            << "/lines - Runtime update failed, falling back to restart";
+            << "/lines - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, linesArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -865,13 +865,13 @@ void LinesHandler::deleteAllLines(
                   << "/lines - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING
             << "[API] DELETE /v1/core/instance/" << instanceId
-            << "/lines - Runtime update failed, falling back to restart";
+            << "/lines - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, emptyArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1246,13 +1246,13 @@ void LinesHandler::updateLine(
                   << lineId << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] PUT /v1/core/instance/" << instanceId
                      << "/lines/" << lineId
-                     << " - Runtime update failed, falling back to restart";
+                     << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, linesArray);
     }
 
     // Find updated line to return
@@ -1415,13 +1415,13 @@ void LinesHandler::deleteLine(
                   << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] DELETE /v1/core/instance/" << instanceId
                      << "/lines/" << lineId
-                     << " - Runtime update failed, falling back to restart";
+                     << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, newLinesArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1638,13 +1638,12 @@ void LinesHandler::batchUpdateLines(
                   << "/lines/batch - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] POST /v1/core/instance/" << instanceId
-                     << "/lines/batch - Runtime update failed, falling back to "
-                        "restart";
+                     << "/lines/batch - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, linesArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1784,12 +1783,35 @@ bool LinesHandler::restartInstanceForLineUpdate(
   return true;
 }
 
+bool LinesHandler::applyLinesUpdateViaHotSwap(const std::string &instanceId,
+                                               const Json::Value &linesArray) const {
+  if (!instance_manager_) {
+    return false;
+  }
+  Json::Value patch(Json::objectValue);
+  patch["AdditionalParams"] = Json::Value(Json::objectValue);
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  patch["AdditionalParams"]["CrossingLines"] = Json::writeString(wb, linesArray);
+  bool ok = instance_manager_->updateInstanceFromConfig(instanceId, patch);
+  if (isApiLoggingEnabled()) {
+    if (ok) {
+      PLOG_INFO << "[API] applyLinesUpdateViaHotSwap: instance " << instanceId
+                << " updated via hot swap (zero downtime)";
+    } else {
+      PLOG_WARNING << "[API] applyLinesUpdateViaHotSwap: instance " << instanceId
+                   << " update failed, consider manual restart";
+    }
+  }
+  return ok;
+}
+
 std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node>
 LinesHandler::findBACrosslineNode(const std::string &instanceId) const {
   // Note: In subprocess mode, we cannot access nodes directly
   // as they run in separate worker processes.
   // This method will return nullptr in subprocess mode,
-  // and updateLinesRuntime() will fallback to restart.
+  // and updateLinesRuntime() will fallback to hot swap or restart.
 
   if (!instance_manager_) {
     return nullptr;

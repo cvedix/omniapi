@@ -666,6 +666,19 @@ void signalHandler(int signal) {
       std::abort();
     }
 
+    // Heap corruption (e.g. "free(): corrupted unsorted chunks") calls abort()
+    // → SIGABRT. Recovery below uses mutex/async and may deadlock; returning
+    // leaves the process in undefined state so Ctrl+C often cannot exit cleanly
+    // during develop. When set, exit immediately without recovery.
+    // Usage: EDGE_AI_SIGABRT_IMMEDIATE_EXIT=1 ./build/bin/edgeos-api
+    {
+      const char *sigabrt_exit = std::getenv("EDGE_AI_SIGABRT_IMMEDIATE_EXIT");
+      if (sigabrt_exit && sigabrt_exit[0] == '1' && sigabrt_exit[1] == '\0') {
+        // _Exit(134) = 128 + SIGABRT(6); async-signal-safe, no cleanup
+        std::_Exit(134);
+      }
+    }
+
     // SIGABRT can be triggered by:
     // 1. OpenCV DNN shape mismatch (recover by stopping instances)
     // 2. Qt display error in analysis board (don't stop instances, just disable

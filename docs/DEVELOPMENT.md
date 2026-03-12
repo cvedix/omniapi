@@ -951,11 +951,14 @@ resp->addHeader("Access-Control-Allow-Origin", "*");
 
 ## Hot Swap (Zero-Downtime Update)
 
+**Hot swap là cơ chế đặc trưng của hệ thống:** Mọi cập nhật cấu hình instance (line, jam, stop, PATCH) đều **ưu tiên hot swap (zero downtime)**; restart chỉ dùng khi hot swap không khả dụng (ví dụ instance chưa chạy).
+
 Phần này mô tả **tính năng hot swap** (cập nhật cấu hình instance không ngắt luồng RTMP), **cách thức hoạt động**, **cách xử lý khi tính năng bị hỏng** và **cách back lại code** để khôi phục.
 
 ### Mô tả
 
 - **Hot swap** cho phép PATCH/PUT cấu hình instance (ví dụ đổi CrossingLines, zone, model) trong khi **luồng phát RTMP ra server không bị ngắt**.
+- **Fallback thống nhất:** Khi cập nhật Lines/Jams/Stops (hoặc SecuRT lines) qua API chuyên biệt mà runtime update (IPC/set_lines) thất bại, hệ thống **áp dụng qua hot swap** (`updateInstanceFromConfig` với patch tương ứng) thay vì restart instance. Worker UPDATE_LINES: nếu `set_lines()` thất bại hoặc exception thì worker tự fallback hot swap và vẫn trả về thành công.
 - **Điều kiện:** Instance đang chạy ở **subprocess mode** (`EDGE_AI_EXECUTION_MODE=subprocess`), có output RTMP; khi chỉ đổi line hoặc khi cần rebuild pipeline thì worker dùng **atomic swap** (build pipeline mới → đổi con trỏ active → drain pipeline cũ) thay vì stop → build → start (gây mất stream vài giây).
 - **Tài liệu thiết kế:** [ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md](ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md). **Tóm tắt kiến trúc (diagram):** [ARCHITECTURE.md](ARCHITECTURE.md) — section "Kiến Trúc Hot Swap & Zero-Downtime".
 
@@ -1106,6 +1109,21 @@ ctest --output-on-failure -V
 # Hoặc thủ công
 lsof -ti:8080 | xargs kill -9
 ```
+
+### Không thoát được bằng Ctrl+C khi develop (SIGABRT / heap corruption)
+
+Khi log xuất hiện `free(): corrupted unsorted chunks` hoặc `[RECOVERY] Received SIGABRT`, libc đã phát hiện heap corruption và gọi `abort()` → **SIGABRT**. Handler mặc định cố “recovery” (dừng instance rồi **tiếp tục chạy**); sau corruption trạng thái process không còn an toàn, dễ **treo** hoặc **Ctrl+C không có tác dụng**.
+
+**Cách thoát ngay khi develop** (không chờ recovery):
+
+```bash
+# Thoát ngay khi SIGABRT (không recovery) — khuyến nghị khi develop
+EDGE_AI_SIGABRT_IMMEDIATE_EXIT=1 sudo LD_PRELOAD=... EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api
+```
+
+Hoặc sau khi process treo: **`kill -9 <pid>`** (hoặc `kill -ABRT` chỉ gửi lại SIGABRT, có thể vẫn vào recovery).
+
+**Gốc lỗi:** cần sửa double-free/use-after-free hoặc race trong pipeline/thread (không chỉ tắt recovery).
 
 ### Hot Swap không hoạt động / mất stream sau PATCH
 
