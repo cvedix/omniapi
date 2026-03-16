@@ -1,6 +1,8 @@
 #include "instances/instance_storage.h"
 #include "core/env_config.h"
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -161,11 +163,17 @@ bool InstanceStorage::saveInstancesFile(const Json::Value &instances) {
       }
     }
 
-    // Try to open file for writing
-    std::ofstream file(filepath);
+    // Try to open file for writing with explicit flags
+    // Use truncate mode to overwrite existing file
+    std::ofstream file(filepath, std::ios::out | std::ios::trunc);
     if (!file.is_open()) {
       std::cerr << "[InstanceStorage] Error: Failed to open file for writing: "
                 << filepath << std::endl;
+      
+      // Get detailed error information
+      int errno_save = errno;
+      std::cerr << "[InstanceStorage] errno: " << errno_save << " ("
+                << strerror(errno_save) << ")" << std::endl;
 
       // Check if parent directory exists and is writable
       if (std::filesystem::exists(parent_dir)) {
@@ -176,6 +184,14 @@ bool InstanceStorage::saveInstancesFile(const Json::Value &instances) {
         std::cerr << "[InstanceStorage] Parent directory permissions: "
                   << std::oct << static_cast<int>(perms) << std::dec
                   << std::endl;
+        
+        // Check if file exists and its permissions
+        if (std::filesystem::exists(filepath)) {
+          auto file_perms = std::filesystem::status(filepath).permissions();
+          std::cerr << "[InstanceStorage] File exists with permissions: "
+                    << std::oct << static_cast<int>(file_perms) << std::dec
+                    << std::endl;
+        }
       } else {
         std::cerr << "[InstanceStorage] Parent directory does not exist: "
                   << parent_dir << std::endl;

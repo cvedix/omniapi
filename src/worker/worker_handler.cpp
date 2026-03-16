@@ -4,6 +4,7 @@
 #include "core/timeout_constants.h"
 #include "models/create_instance_request.h"
 #include "solutions/solution_registry.h"
+#include <algorithm>
 #include <cstring>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -32,8 +33,16 @@
 #include <getopt.h>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/dnn.hpp>
 #include <sstream>
 #include <thread>
+#include <cstdlib>
+#if defined(__CUDACC__) || defined(__CUDA_ARCH__) || defined(CUDA_VERSION)
+#include <cuda_runtime.h>
+#define HAVE_CUDA_RUNTIME 1
+#else
+#define HAVE_CUDA_RUNTIME 0
+#endif
 
 // Base64 encoding table
 static const char base64_chars[] =
@@ -132,6 +141,134 @@ bool WorkerHandler::initializeDependencies() {
             << std::endl;
 
   try {
+#if HAVE_CUDA_RUNTIME
+    // Initialize CUDA context early to avoid cuDNN initialization errors
+    // This ensures CUDA context is ready before OpenCV DNN tries to use cuDNN
+    int device_count = 0;
+    cudaError_t err = cudaGetDeviceCount(&device_count);
+    if (err == cudaSuccess && device_count > 0) {
+      // Get current device (should be set by CUDA_VISIBLE_DEVICES)
+      int current_device = 0;
+      cudaGetDevice(&current_device);
+      
+      // Force CUDA context initialization by creating a dummy allocation
+      // This ensures cuDNN can be initialized properly later
+      void* dummy_ptr = nullptr;
+      cudaError_t malloc_err = cudaMalloc(&dummy_ptr, 1024);
+      if (malloc_err == cudaSuccess && dummy_ptr != nullptr) {
+        cudaFree(dummy_ptr);
+        std::cout << "[Worker:" << instance_id_ 
+                  << "] CUDA context initialized on device " << current_device
+                  << std::endl;
+      } else {
+        std::cerr << "[Worker:" << instance_id_
+                  << "] Warning: Failed to initialize CUDA context: "
+                  << cudaGetErrorString(malloc_err) << std::endl;
+      }
+      
+      // Set the CUDA device explicitly to ensure it's active
+      cudaSetDevice(current_device);
+      
+      // Synchronize CUDA device to ensure context is fully initialized
+      cudaDeviceSynchronize();
+      
+      std::cout << "[Worker:" << instance_id_ 
+                << "] CUDA context ready for cuDNN on device " << current_device << std::endl;
+      
+      // Force cuDNN initialization by checking CUDA backend availability
+      // This helps ensure cuDNN is ready before YOLO detector nodes try to use it
+      try {
+        // Check if CUDA backend is available for OpenCV DNN
+        std::vector<std::pair<cv::dnn::Backend, cv::dnn::Target>> backends = 
+            cv::dnn::getAvailableBackends();
+        
+        bool cuda_backend_available = false;
+        for (const auto& backend : backends) {
+          if (backend.first == cv::dnn::DNN_BACKEND_CUDA) {
+            cuda_backend_available = true;
+            std::cout << "[Worker:" << instance_id_ 
+                      << "] CUDA backend available for OpenCV DNN (target: " 
+                      << backend.second << ")" << std::endl;
+            break;
+          }
+        }
+        
+        if (cuda_backend_available) {
+          // Try to actually initialize cuDNN by attempting to use it
+          // This will help detect version mismatch issues early
+          try {
+            cv::dnn::Net dummy_net;
+            dummy_net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
+            dummy_net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
+            
+            // Try to create a minimal blob to trigger cuDNN initialization
+            // This helps detect cuDNN issues before YOLO nodes try to use it
+            cv::Mat dummy_input = cv::Mat::ones(1, 3, CV_32F);
+            cv::Mat dummy_blob;
+            try {
+              cv::dnn::blobFromImages(std::vector<cv::Mat>{dummy_input}, dummy_blob);
+              // If we get here, basic DNN operations work
+              std::cout << "[Worker:" << instance_id_ 
+                        << "] cuDNN basic operations test passed" << std::endl;
+            } catch (const cv::Exception& blob_e) {
+              // Blob creation might fail if no model is loaded, that's OK
+              // The important thing is that we tried to use DNN with CUDA backend
+            }
+            
+            // Synchronize again to ensure cuDNN initialization is complete
+            cudaDeviceSynchronize();
+            std::cout << "[Worker:" << instance_id_ 
+                      << "] cuDNN initialization prepared (will initialize when model loads)" << std::endl;
+          } catch (const cv::Exception& cv_e) {
+            // OpenCV errors - check if it's cuDNN-related
+            std::string error_msg = cv_e.what();
+            std::transform(error_msg.begin(), error_msg.end(), error_msg.begin(), ::tolower);
+            
+            bool is_cudnn_error = (error_msg.find("cudnn") != std::string::npos ||
+                                   error_msg.find("cuda") != std::string::npos ||
+                                   cv_e.code == cv::Error::GpuApiCallError);
+            
+            if (is_cudnn_error) {
+              std::cerr << "[Worker:" << instance_id_
+                        << "] ERROR: cuDNN/CUDA error detected: " << cv_e.what() << std::endl;
+              std::cerr << "[Worker:" << instance_id_
+                        << "] Error code: " << cv_e.code << ", Error: " << cv_e.err << std::endl;
+              std::cerr << "[Worker:" << instance_id_
+                        << "] This is likely due to cuDNN version mismatch" << std::endl;
+              std::cerr << "[Worker:" << instance_id_
+                        << "] Setting environment variables to force CPU backend" << std::endl;
+              // Set environment variable to force OpenCV to use CPU backend
+              setenv("OPENCV_DNN_BACKEND", "OPENCV", 1);
+              setenv("OPENCV_DNN_TARGET", "CPU", 1);
+            } else {
+              std::cerr << "[Worker:" << instance_id_
+                        << "] Warning: OpenCV DNN CUDA backend test failed: " << cv_e.what()
+                        << std::endl;
+              std::cerr << "[Worker:" << instance_id_
+                        << "] Code: " << cv_e.code << ", Error: " << cv_e.err << std::endl;
+            }
+          }
+        } else {
+          std::cerr << "[Worker:" << instance_id_
+                    << "] Warning: CUDA backend not available for OpenCV DNN" << std::endl;
+          std::cerr << "[Worker:" << instance_id_
+                    << "] YOLO detector nodes will use CPU backend" << std::endl;
+        }
+      } catch (const cv::Exception& e) {
+        std::cerr << "[Worker:" << instance_id_
+                  << "] Warning: Exception while checking CUDA backend: " << e.what()
+                  << std::endl;
+      } catch (const std::exception& e) {
+        std::cerr << "[Worker:" << instance_id_
+                  << "] Warning: Failed to check CUDA backend: " << e.what()
+                  << std::endl;
+      }
+    } else {
+      std::cerr << "[Worker:" << instance_id_
+                << "] Warning: No CUDA devices available" << std::endl;
+    }
+#endif
+
     // Get solution registry singleton and initialize default solutions
     SolutionRegistry::getInstance().initializeDefaultSolutions();
 

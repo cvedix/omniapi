@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <opencv2/dnn.hpp>
 #include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_yolo_detector_node.h>
@@ -1668,14 +1669,37 @@ PipelineBuilderDetectorNodes::createYOLODetectorNode(
     std::cerr << "  Name: '" << nodeName << "'" << std::endl;
     std::cerr << "  Model path: '" << modelPath << "'" << std::endl;
 
-    auto node = std::make_shared<cvedix_nodes::cvedix_yolo_detector_node>(
-        nodeName, modelPath, modelConfigPath, labelsPath, inputWidth,
-        inputHeight, batchSize, classIdOffset, scoreThreshold,
-        confidenceThreshold, nmsThreshold);
+    try {
+      auto node = std::make_shared<cvedix_nodes::cvedix_yolo_detector_node>(
+          nodeName, modelPath, modelConfigPath, labelsPath, inputWidth,
+          inputHeight, batchSize, classIdOffset, scoreThreshold,
+          confidenceThreshold, nmsThreshold);
 
-    std::cerr << "[PipelineBuilderDetectorNodes] ✓ YOLO detector node created successfully"
-              << std::endl;
-    return node;
+      std::cerr << "[PipelineBuilderDetectorNodes] ✓ YOLO detector node created successfully"
+                << std::endl;
+      return node;
+    } catch (const cv::Exception& cv_e) {
+      // Check if it's a cuDNN-related error
+      std::string error_msg = cv_e.what();
+      std::transform(error_msg.begin(), error_msg.end(), error_msg.begin(), ::tolower);
+      
+      if (error_msg.find("cudnn") != std::string::npos ||
+          error_msg.find("cuda") != std::string::npos ||
+          cv_e.code == cv::Error::GpuApiCallError) {
+        std::cerr << "[PipelineBuilderDetectorNodes] ERROR: cuDNN/CUDA error when creating YOLO detector node: "
+                  << cv_e.what() << std::endl;
+        std::cerr << "[PipelineBuilderDetectorNodes] Error code: " << cv_e.code 
+                  << ", Error: " << cv_e.err << std::endl;
+        std::cerr << "[PipelineBuilderDetectorNodes] This is likely due to:" << std::endl;
+        std::cerr << "  1. cuDNN version mismatch (OpenCV built with different cuDNN version)" << std::endl;
+        std::cerr << "  2. CUDA context not properly initialized" << std::endl;
+        std::cerr << "[PipelineBuilderDetectorNodes] Suggestion: Set OPENCV_DNN_BACKEND=OPENCV and OPENCV_DNN_TARGET=CPU" << std::endl;
+        throw;
+      } else {
+        // Re-throw other OpenCV exceptions
+        throw;
+      }
+    }
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderDetectorNodes] Exception in createYOLODetectorNode: "
               << e.what() << std::endl;
