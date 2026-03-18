@@ -60,6 +60,16 @@ public:
    */
   static void setSolutionRegistry(SolutionRegistry *registry);
 
+  /**
+   * @brief Parse JSON request body và build CreateInstanceRequest (dùng chung)
+   *
+   * Được dùng bởi:
+   * - QuickInstanceHandler (POST /v1/core/instance/quick)
+   * - SecuRTHandler (POST /v1/securt/instance với full-config body)
+   */
+  bool parseQuickRequest(const Json::Value &json, CreateInstanceRequest &req,
+                         std::string &error);
+
 private:
   static IInstanceManager *instance_manager_;
   static SolutionRegistry *solution_registry_;
@@ -93,12 +103,6 @@ private:
   getDefaultParams(const std::string &solutionType,
                    const std::string &inputType,
                    const std::string &outputType) const;
-
-  /**
-   * @brief Parse JSON request body and build CreateInstanceRequest
-   */
-  bool parseQuickRequest(const Json::Value &json, CreateInstanceRequest &req,
-                         std::string &error);
 
   /**
    * @brief Convert InstanceInfo to JSON response

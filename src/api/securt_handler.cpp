@@ -10,6 +10,7 @@
 #include "core/securt_instance_manager.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
+#include "api/quick_instance_handler.h"
 #include <algorithm>
 #include <chrono>
 #include <drogon/HttpResponse.h>
@@ -100,26 +101,96 @@ void SecuRTHandler::createInstance(
       }
     }
 
-    // Parse SecuRTInstanceWrite
-    SecuRTInstanceWrite write = SecuRTInstanceWrite::fromJson(*json);
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[API] POST /v1/securt/instance - Parsed instance data - name: " << write.name
-                 << ", detectorMode: " << write.detectorMode;
-    }
+    // Detect "full-config" SecuRT request: body giống quick instance (có solution/additionalParams, v.v.)
+    bool hasFullConfigKeys =
+        json->isMember("solution") || json->isMember("additionalParams") ||
+        json->isMember("input") || json->isMember("output") ||
+        json->isMember("lines") || json->isMember("areas");
 
-    // Use default name if not provided
-    if (write.name.empty()) {
-      write.name = "SecuRT Instance " + (instanceId.empty() ? "" : instanceId.substr(0, 8));
+    std::string createdId;
+
+    if (hasFullConfigKeys && core_instance_manager_) {
+      // Full-config mode: dùng QuickInstanceHandler::parseQuickRequest để build CreateInstanceRequest
       if (isApiLoggingEnabled()) {
-        PLOG_DEBUG << "[API] POST /v1/securt/instance - No name provided, using default: " << write.name;
+        PLOG_DEBUG << "[API] POST /v1/securt/instance - Detected full-config body, using QuickInstance parser";
       }
-    }
 
-    // Create instance
-    if (isApiLoggingEnabled()) {
-      PLOG_DEBUG << "[API] POST /v1/securt/instance - Calling instance_manager_->createInstance()";
+      QuickInstanceHandler quickHandler;
+      CreateInstanceRequest coreReq;
+      std::string parseError;
+      if (!quickHandler.parseQuickRequest(*json, coreReq, parseError)) {
+        if (isApiLoggingEnabled()) {
+          PLOG_WARNING << "[API] POST /v1/securt/instance - Full-config parse error: "
+                       << parseError;
+        }
+        callback(createErrorResponse(400, "Invalid request", parseError));
+        return;
+      }
+
+      // Force solution to "securt" nếu chưa set
+      if (coreReq.solution.empty()) {
+        coreReq.solution = "securt";
+      }
+
+      // Create core instance trực tiếp
+      try {
+        createdId = core_instance_manager_->createInstance(coreReq);
+      } catch (const std::exception &e) {
+        if (isApiLoggingEnabled()) {
+          PLOG_ERROR << "[API] POST /v1/securt/instance - Full-config core create exception: "
+                     << e.what();
+        }
+        callback(createErrorResponse(500, "Internal server error", e.what()));
+        return;
+      }
+
+      if (createdId.empty()) {
+        callback(createErrorResponse(409, "Conflict",
+                                     "Instance already exists or creation failed"));
+        return;
+      }
+
+      // Auto-register vào SecuRT registry thông qua hasInstance (sẽ gọi autoRegisterInstance)
+      if (!instance_manager_->hasInstance(createdId)) {
+        if (isApiLoggingEnabled()) {
+          PLOG_WARNING << "[API] POST /v1/securt/instance - Core instance created but not compatible with SecuRT: "
+                       << createdId;
+        }
+        callback(createErrorResponse(500, "Internal server error",
+                                     "Instance created but not compatible with SecuRT"));
+        return;
+      }
+
+      if (isApiLoggingEnabled()) {
+        PLOG_INFO << "[API] POST /v1/securt/instance - Full-config SecuRT instance created: "
+                  << createdId;
+      }
+
+    } else {
+      // Legacy / simple mode: chỉ cấu hình SecuRTInstanceWrite (detectorMode, sensitivity, ...)
+      // Parse SecuRTInstanceWrite
+      SecuRTInstanceWrite write = SecuRTInstanceWrite::fromJson(*json);
+      if (isApiLoggingEnabled()) {
+        PLOG_DEBUG << "[API] POST /v1/securt/instance - Parsed instance data - name: "
+                   << write.name << ", detectorMode: " << write.detectorMode;
+      }
+
+      // Use default name if not provided
+      if (write.name.empty()) {
+        write.name =
+            "SecuRT Instance " + (instanceId.empty() ? "" : instanceId.substr(0, 8));
+        if (isApiLoggingEnabled()) {
+          PLOG_DEBUG << "[API] POST /v1/securt/instance - No name provided, using default: "
+                     << write.name;
+        }
+      }
+
+      // Create instance qua SecuRTInstanceManager (sẽ tạo core instance cơ bản)
+      if (isApiLoggingEnabled()) {
+        PLOG_DEBUG << "[API] POST /v1/securt/instance - Calling instance_manager_->createInstance()";
+      }
+      createdId = instance_manager_->createInstance(instanceId, write);
     }
-    std::string createdId = instance_manager_->createInstance(instanceId, write);
 
     if (createdId.empty()) {
       auto end_time = std::chrono::steady_clock::now();
