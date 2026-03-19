@@ -78,6 +78,7 @@
 #include <csetjmp>
 #include <csignal>
 #include <cstdlib>
+#include <cstring>
 #include <cvedix/nodes/src/cvedix_file_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtsp_src_node.h>
 #include <cvedix/utils/analysis_board/cvedix_analysis_board.h>
@@ -1198,6 +1199,22 @@ void recoveryAction() {
   // For now, we just log the event
 }
 
+/** API + instance logs to files (api/, instance/<id>/) — env EDGEOS_LOG_FILES=1 */
+static void applyEdgeosLogFilesFromEnv() {
+  const char *e = std::getenv("EDGEOS_LOG_FILES");
+  if (!e || !e[0]) {
+    return;
+  }
+  std::string v(e);
+  std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+  if (v == "1" || v == "true" || v == "yes" || v == "on") {
+    g_log_api = true;
+    g_log_instance = true;
+    std::cerr << "[Main] EDGEOS_LOG_FILES: writing API + instance logs to files"
+              << std::endl;
+  }
+}
+
 /**
  * @brief Parse command line arguments
  * @param argc Argument count
@@ -1221,6 +1238,14 @@ bool parseArguments(int argc, char *argv[]) {
     } else if (arg == "--log-sdk-output" || arg == "--debug-sdk-output") {
       g_log_sdk_output = true;
       std::cerr << "[Main] SDK output logging enabled" << std::endl;
+    } else if (arg == "--log-files") {
+      g_log_api = true;
+      g_log_instance = true;
+      std::cerr << "[Main] File logging: API + instance (see logs/api/, "
+                   "logs/instance/)"
+                << std::endl;
+    } else if (arg == "--dev") {
+      // Đã xử lý ở đầu main (load .env / .env.example từ project root)
     } else if (arg == "--help" || arg == "-h") {
       std::cerr << "Usage: " << argv[0] << " [OPTIONS]" << std::endl;
       std::cerr << "Options:" << std::endl;
@@ -1235,6 +1260,12 @@ bool parseArguments(int argc, char *argv[]) {
                 << std::endl;
       std::cerr << "  --log-sdk-output, --debug-sdk-output    Enable SDK "
                    "output logging (when SDK returns results)"
+                << std::endl;
+      std::cerr << "  --log-files                  Write API + instance logs to "
+                   "files (easy inspection)"
+                << std::endl;
+      std::cerr << "  --dev                        Load .env (or .env.example) "
+                   "from project root, override existing env"
                 << std::endl;
       std::cerr << "  --help, -h                     Show this help message"
                 << std::endl;
@@ -1917,6 +1948,26 @@ static void setupGStreamerPluginPath(bool enable_find_search = false) {
 
 int main(int argc, char *argv[]) {
   try {
+    // --dev: ưu tiên load .env / .env.example từ project root, setenv ghi đè giá trị có sẵn
+    bool dev_flag = false;
+    for (int i = 1; i < argc; ++i) {
+      if (std::strcmp(argv[i], "--dev") == 0) {
+        dev_flag = true;
+        break;
+      }
+    }
+    if (dev_flag) {
+      if (EnvConfig::loadDotenvFromProjectRootOrExample(argv[0])) {
+        std::cerr << "[Main] --dev: loaded env from project .env or .env.example"
+                  << std::endl;
+      } else {
+        std::cerr << "[Main] --dev: no .env or .env.example found from executable path"
+                  << std::endl;
+      }
+    } else {
+      EnvConfig::tryLoadDotenvForDev(argv[0]);
+    }
+
     // CRITICAL: Disable problematic GStreamer plugins FIRST, before anything
     // else VA plugin (libgstva.so) can crash on systems with broken GPU drivers
     // (nouveau, etc.) Must be done BEFORE GStreamer initializes (which happens
@@ -1980,6 +2031,7 @@ int main(int argc, char *argv[]) {
     if (!parseArguments(argc, argv)) {
       return 0; // Help was requested, exit normally
     }
+    applyEdgeosLogFilesFromEnv();
 
     // CRITICAL: Setup GStreamer plugin path BEFORE any GStreamer operations
     // This ensures plugins can be found even when running directly (not via
@@ -1995,9 +2047,42 @@ int main(int argc, char *argv[]) {
                 << std::endl;
     }
 
-    // Initialize categorized logger first (before any logging)
-    // This sets up log directories, daily rotation, and cleanup
-    CategorizedLogger::init();
+    std::string configPath = EnvConfig::resolveConfigPath();
+    auto &systemConfig = SystemConfig::getInstance();
+    systemConfig.loadConfig(configPath);
+
+    auto loggingCfg = systemConfig.getLoggingConfig();
+    LogManagerInitParams logParams;
+    logParams.resolved_log_root =
+        systemConfig.resolveLogBaseDirectory(argv[0]);
+    logParams.max_file_bytes = loggingCfg.maxLogFileSize;
+    logParams.max_disk_usage_percent = loggingCfg.maxDiskUsagePercent;
+    logParams.cleanup_interval_hours = loggingCfg.cleanupIntervalHours;
+    logParams.suspend_disk_percent = loggingCfg.suspendDiskPercent;
+    logParams.resume_disk_percent = loggingCfg.resumeDiskPercent;
+    logParams.retention_days = loggingCfg.retentionDays;
+
+    plog::Severity plogSev = plog::info;
+    {
+      std::string u = loggingCfg.logLevel;
+      std::transform(u.begin(), u.end(), u.begin(), ::toupper);
+      if (u == "NONE" || u == "SILENT")
+        plogSev = plog::none;
+      else if (u == "FATAL")
+        plogSev = plog::fatal;
+      else if (u == "ERROR")
+        plogSev = plog::error;
+      else if (u == "WARN" || u == "WARNING")
+        plogSev = plog::warning;
+      else if (u == "INFO")
+        plogSev = plog::info;
+      else if (u == "DEBUG" || u == "TRACE")
+        plogSev = plog::debug;
+      else if (u == "VERBOSE")
+        plogSev = plog::verbose;
+    }
+
+    CategorizedLogger::init(logParams, plogSev, true);
 
     PLOG_INFO << "========================================";
     PLOG_INFO << "Edge AI API Server";
@@ -2046,14 +2131,7 @@ int main(int argc, char *argv[]) {
     // Register terminate handler for uncaught exceptions
     std::set_terminate(terminateHandler);
 
-    // Load system configuration first (needed for web_server config)
-    // Use intelligent path resolution with 3-tier fallback
-    std::string configPath = EnvConfig::resolveConfigPath();
-
-    auto &systemConfig = SystemConfig::getInstance();
-    systemConfig.loadConfig(configPath);
-
-    // Get server configuration (config.json with env var override handled by
+    // Get server configuration (config.json loaded before logger init)
     // SystemConfig)
     auto webServerConfig = systemConfig.getWebServerConfig();
     std::string host = webServerConfig.ipAddress;

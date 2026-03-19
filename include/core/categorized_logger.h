@@ -11,29 +11,11 @@
 #include <plog/Log.h>
 #include <string>
 
-/**
- * @brief Categorized Logger with automatic log routing
- *
- * Automatically routes logs to appropriate category based on log prefix:
- * - [API] -> api/ directory
- * - [Instance] -> instance/ directory
- * - [SDKOutput] -> sdk_output/ directory
- * - Others -> general/ directory
- */
 namespace CategorizedLogger {
 
-/**
- * @brief Initialize categorized logger
- *
- * @param log_dir Base directory for logs (default: ./logs)
- * @param log_level Log level (default: INFO)
- * @param enable_console Whether to also log to console (default: true)
- */
-inline void init(const std::string &log_dir = "",
-                 plog::Severity log_level = plog::info,
+inline void init(const LogManagerInitParams &lm, plog::Severity log_level,
                  bool enable_console = true) {
 
-  // Get log level from environment if not specified
   std::string log_level_str = EnvConfig::getString("LOG_LEVEL", "");
   if (!log_level_str.empty()) {
     std::string upper = log_level_str;
@@ -55,13 +37,10 @@ inline void init(const std::string &log_dir = "",
       log_level = plog::verbose;
   }
 
-  // Initialize log manager
-  LogManager::init(log_dir);
+  LogManager::init(lm);
 
-  // Get console appender if enabled
   static plog::ConsoleAppender<plog::TxtFormatter> consoleAppender;
 
-  // Initialize PLOG with console appender
   plog::Logger<0> *logger = nullptr;
   if (enable_console) {
     logger = &plog::init<0>(log_level, &consoleAppender);
@@ -69,65 +48,50 @@ inline void init(const std::string &log_dir = "",
     logger = &plog::init<0>(log_level);
   }
 
-  // Add appenders based on logging flags
   if (isApiLoggingEnabled()) {
-    auto *api_appender = LogManager::getAppender(LogManager::Category::API);
-    if (api_appender) {
-      logger->addAppender(api_appender);
-    }
-  }
-
-  if (isInstanceLoggingEnabled()) {
-    auto *instance_appender =
-        LogManager::getAppender(LogManager::Category::INSTANCE);
-    if (instance_appender) {
-      logger->addAppender(instance_appender);
+    auto *a = LogManager::getAppender(LogManager::Category::API);
+    if (a) {
+      logger->addAppender(a);
     }
   }
 
   if (isSdkOutputLoggingEnabled()) {
-    auto *sdk_appender =
-        LogManager::getAppender(LogManager::Category::SDK_OUTPUT);
-    if (sdk_appender) {
-      logger->addAppender(sdk_appender);
+    auto *s = LogManager::getAppender(LogManager::Category::SDK_OUTPUT);
+    if (s) {
+      logger->addAppender(s);
     }
   }
 
-  // Always add general appender
-  auto *general_appender =
-      LogManager::getAppender(LogManager::Category::GENERAL);
-  if (general_appender) {
-    logger->addAppender(general_appender);
+  auto *g = LogManager::getAppender(LogManager::Category::GENERAL);
+  if (g) {
+    logger->addAppender(g);
   }
 
-  std::string log_dir_display = log_dir.empty() ? "./logs" : log_dir;
   PLOG_INFO << "========================================";
   PLOG_INFO << "Categorized Logger initialized";
-  PLOG_INFO << "Log directory: " << log_dir_display;
-  PLOG_INFO << "Log categories:";
+  PLOG_INFO << "Log root: " << lm.resolved_log_root;
+  PLOG_INFO << "Max log file size: " << (lm.max_file_bytes / (1024 * 1024))
+            << " MB";
   if (isApiLoggingEnabled()) {
-    PLOG_INFO << "  - API logs: "
+    PLOG_INFO << "  API logs: "
               << LogManager::getCategoryDir(LogManager::Category::API);
   }
   if (isInstanceLoggingEnabled()) {
-    PLOG_INFO << "  - Instance logs: "
-              << LogManager::getCategoryDir(LogManager::Category::INSTANCE);
+    PLOG_INFO << "  Instance logs: "
+              << LogManager::getCategoryDir(LogManager::Category::INSTANCE)
+              << "/<instance_id>/YYYY-MM-DD.log";
   }
   if (isSdkOutputLoggingEnabled()) {
-    PLOG_INFO << "  - SDK output logs: "
+    PLOG_INFO << "  SDK output: "
               << LogManager::getCategoryDir(LogManager::Category::SDK_OUTPUT);
   }
-  PLOG_INFO << "  - General logs: "
+  PLOG_INFO << "  General: "
             << LogManager::getCategoryDir(LogManager::Category::GENERAL);
-  PLOG_INFO << "Log rotation: Daily (YYYY-MM-DD format)";
-  PLOG_INFO << "Cleanup: Monthly (auto-delete logs older than 30 days)";
-  PLOG_INFO << "Disk space monitoring: Enabled (cleanup when > 85% full)";
+  PLOG_INFO << "Disk suspend logging >= " << lm.suspend_disk_percent
+            << "% used, resume <= " << lm.resume_disk_percent << "%";
   PLOG_INFO << "========================================";
 }
 
-/**
- * @brief Shutdown logger and cleanup thread
- */
 inline void shutdown() { LogManager::stopCleanupThread(); }
 
 } // namespace CategorizedLogger
