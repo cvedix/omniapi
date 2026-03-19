@@ -1,6 +1,7 @@
 #include "config/system_config.h"
 #include "core/env_config.h"
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -291,6 +292,13 @@ void SystemConfig::initializeDefaults() {
   logging["retention_days"] = 30;
   logging["max_disk_usage_percent"] = 85;
   logging["cleanup_interval_hours"] = 24;
+  logging["log_paths_mode"] = "";
+  logging["log_dir_production"] = "/opt/edgeos-api/logs";
+  logging["log_dir_development"] = "./logs";
+  logging["suspend_disk_percent"] = 95;
+  logging["resume_disk_percent"] = 88;
+  logging["max_log_file_size"] = 104857600;
+  logging["cvedix_log_level"] = "warning";
   system["logging"] = logging;
 
   // monitoring
@@ -574,9 +582,17 @@ SystemConfig::LoggingConfig SystemConfig::getLoggingConfig() const {
       config.logLevel = log["log_level"].asString();
       hasLogLevel = true;
     }
-    if (log.isMember("max_log_file_size") && log["max_log_file_size"].isInt()) {
-      config.maxLogFileSize =
-          static_cast<size_t>(log["max_log_file_size"].asInt());
+    if (log.isMember("max_log_file_size")) {
+      if (log["max_log_file_size"].isInt64()) {
+        config.maxLogFileSize =
+            static_cast<size_t>(log["max_log_file_size"].asInt64());
+      } else if (log["max_log_file_size"].isInt()) {
+        config.maxLogFileSize =
+            static_cast<size_t>(log["max_log_file_size"].asInt());
+      } else if (log["max_log_file_size"].isUInt64()) {
+        config.maxLogFileSize =
+            static_cast<size_t>(log["max_log_file_size"].asUInt64());
+      }
     }
     if (log.isMember("max_log_files") && log["max_log_files"].isInt()) {
       config.maxLogFiles = log["max_log_files"].asInt();
@@ -592,6 +608,29 @@ SystemConfig::LoggingConfig SystemConfig::getLoggingConfig() const {
     }
     if (log.isMember("cleanup_interval_hours") && log["cleanup_interval_hours"].isInt()) {
       config.cleanupIntervalHours = log["cleanup_interval_hours"].asInt();
+    }
+    if (log.isMember("log_paths_mode") && log["log_paths_mode"].isString()) {
+      config.logPathsMode = log["log_paths_mode"].asString();
+    }
+    if (log.isMember("log_dir_production") &&
+        log["log_dir_production"].isString()) {
+      config.logDirProduction = log["log_dir_production"].asString();
+    }
+    if (log.isMember("log_dir_development") &&
+        log["log_dir_development"].isString()) {
+      config.logDirDevelopment = log["log_dir_development"].asString();
+    }
+    if (log.isMember("suspend_disk_percent") &&
+        log["suspend_disk_percent"].isInt()) {
+      config.suspendDiskPercent = log["suspend_disk_percent"].asInt();
+    }
+    if (log.isMember("resume_disk_percent") &&
+        log["resume_disk_percent"].isInt()) {
+      config.resumeDiskPercent = log["resume_disk_percent"].asInt();
+    }
+    if (log.isMember("cvedix_log_level") &&
+        log["cvedix_log_level"].isString()) {
+      config.cvedixLogLevel = log["cvedix_log_level"].asString();
     }
   }
 
@@ -624,6 +663,33 @@ SystemConfig::LoggingConfig SystemConfig::getLoggingConfig() const {
   return config;
 }
 
+std::string SystemConfig::resolveLogBaseDirectory(const char *argv0) const {
+  LoggingConfig c = getLoggingConfig();
+  const char *env_ld = std::getenv("LOG_DIR");
+  if (env_ld && env_ld[0]) {
+    return std::string(env_ld);
+  }
+  std::string mode = c.logPathsMode;
+  std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
+  if (mode == "auto") {
+    std::string p = argv0 ? argv0 : "";
+    if (p.find("/opt/edgeos-api") != std::string::npos) {
+      return c.logDirProduction;
+    }
+    return c.logDirDevelopment;
+  }
+  if (mode == "production") {
+    return c.logDirProduction;
+  }
+  if (mode == "development") {
+    return c.logDirDevelopment;
+  }
+  if (!c.logDir.empty()) {
+    return c.logDir;
+  }
+  return "./logs";
+}
+
 void SystemConfig::setLoggingConfig(const LoggingConfig &config) {
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -641,6 +707,12 @@ void SystemConfig::setLoggingConfig(const LoggingConfig &config) {
   logging["retention_days"] = config.retentionDays;
   logging["max_disk_usage_percent"] = config.maxDiskUsagePercent;
   logging["cleanup_interval_hours"] = config.cleanupIntervalHours;
+  logging["log_paths_mode"] = config.logPathsMode;
+  logging["log_dir_production"] = config.logDirProduction;
+  logging["log_dir_development"] = config.logDirDevelopment;
+  logging["suspend_disk_percent"] = config.suspendDiskPercent;
+  logging["resume_disk_percent"] = config.resumeDiskPercent;
+  logging["cvedix_log_level"] = config.cvedixLogLevel;
 
   config_json_["system"]["logging"] = logging;
 }

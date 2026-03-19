@@ -27,6 +27,26 @@ export API_PORT=8080
 ./build/edgeos-api
 ```
 
+### Cơ chế khi chạy Dev (load .env / config)
+
+**Cách đơn giản — dùng cờ `--dev`:**
+
+```bash
+./build/bin/edgeos-api --dev
+```
+
+Khi có **`--dev`**, server sẽ:
+
+1. Tìm thư mục gốc project (đi từ thư mục chứa binary lên vài cấp).
+2. Ưu tiên load **`.env`** trong thư mục đó; nếu không có thì load **`.env.example`**.
+3. Gán vào môi trường với **`setenv(..., 1)`** → **ghi đè** mọi giá trị env đã có trước (từ shell hoặc systemd).
+
+Không cần chạy `load_env.sh` hay `source .env`; chỉ cần có `.env` hoặc `.env.example` trong repo và chạy với `--dev`.
+
+**Nếu không dùng `--dev`:** khi binary không nằm dưới `/opt/edgeos-api`, app vẫn tự thử load `.env` (theo CWD hoặc `EDGEOS_DOTENV_PATH`). Set `EDGEOS_LOAD_DOTENV=1` để bắt buộc load.
+
+**Script `./scripts/load_env.sh`**: load `.env` rồi chạy server từ project root (CWD = repo) → `./config.json` trong repo được dùng. Có thể dùng thay cho `--dev` nếu muốn.
+
 ### Cách 2: Sử Dụng File .env với Script
 
 1. Copy `.env.example` thành `.env`:
@@ -93,10 +113,13 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 #### Logging Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `LOG_DIR` | Thư mục lưu log files | Override thư mục của `config.json["system"]["logging"]["log_file"]` | `src/config/system_config.cpp` |
+| `EDGEOS_LOG_FILES` | `1` / `true` / `yes` — bật ghi file **API + instance** (giống `--log-files`) | (tắt) | `src/main.cpp` |
+| `LOG_DIR` | Thư mục gốc log (`api/`, `general/`, `instance/`, `sdk_output/`) | Nếu set → **ghi đè** mọi `log_paths_mode` / `log_dir` trong config | `SystemConfig::resolveLogBaseDirectory` |
 | `LOG_RETENTION_DAYS` | Số ngày giữ logs (tự động xóa sau thời gian này) | `30` | `src/core/log_manager.cpp` |
 | `LOG_MAX_DISK_USAGE_PERCENT` | Ngưỡng dung lượng đĩa để trigger cleanup (%) | `85` | `src/core/log_manager.cpp` |
 | `LOG_CLEANUP_INTERVAL_HOURS` | Khoảng thời gian kiểm tra và cleanup (giờ) | `24` | `src/core/log_manager.cpp` |
+
+Dev cố định thư mục project: `LOG_DIR=/home/you/project/edge_ai_api/logs` hoặc trong config: `"log_paths_mode":"development"`, `"log_dir_development":"/abs/path/logs"`. Production: `"log_paths_mode":"auto"` (binary dưới `/opt/edgeos-api/...`) hoặc `"log_paths_mode":"production"`.
 
 #### Performance Optimization Settings
 | Biến | Mô tả | Mặc định | File sử dụng |

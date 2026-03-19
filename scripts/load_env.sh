@@ -264,8 +264,9 @@ echo "Starting Edge AI API Server..."
 echo "=========================================="
 echo "Executable: $EXECUTABLE"
 echo "Environment file: $ENV_FILE"
+echo "Working directory: $PROJECT_ROOT (so ./config.json is used when present)"
 echo ""
 
-# Run the server
-cd "$(dirname "$EXECUTABLE")" || exit 1
-./$(basename "$EXECUTABLE")
+# Run the server from project root so resolveConfigPath() finds ./config.json
+cd "$PROJECT_ROOT" || exit 1
+./$EXECUTABLE

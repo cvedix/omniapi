@@ -115,14 +115,25 @@ public:
   struct LoggingConfig {
     std::string logFile = "logs/api.log";
     std::string logLevel = "debug";
-    size_t maxLogFileSize = 52428800; // 50MB
+    size_t maxLogFileSize = 104857600; // 100MB default
     int maxLogFiles = 3;
     std::string logDir = "./logs";
     int retentionDays = 30;
     int maxDiskUsagePercent = 85;
     int cleanupIntervalHours = 24;
+    /** empty = legacy (use log_dir); auto | production | development */
+    std::string logPathsMode;
+    std::string logDirProduction = "/opt/edgeos-api/logs";
+    std::string logDirDevelopment = "./logs";
+    int suspendDiskPercent = 95;
+    int resumeDiskPercent = 88;
+    /** CVEDIX SDK console: error | warning | info | debug — default quiet */
+    std::string cvedixLogLevel = "warning";
   };
   LoggingConfig getLoggingConfig() const;
+
+  /** Effective log root: LOG_DIR env > log_paths_mode > log_dir */
+  std::string resolveLogBaseDirectory(const char *argv0) const;
 
   /**
    * @brief Set logging configuration

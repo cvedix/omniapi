@@ -6,11 +6,73 @@ Tài liệu này mô tả các tính năng logging của edgeos-api Server, bao 
 
 edgeos-api Server cung cấp các tính năng logging chi tiết để giúp bạn theo dõi và debug hệ thống. Các tính năng logging có thể được bật/tắt thông qua command-line arguments khi khởi động server.
 
-**✅ Kết Luận Quan Trọng:** Hệ thống logging đã được thiết kế với nhiều cơ chế bảo vệ để **ngăn chặn tràn bộ nhớ**:
-- ✅ Log rotation (50MB/file, daily rotation)
-- ✅ Automatic cleanup (30 ngày mặc định)
-- ✅ Disk space monitoring (85% threshold)
-- ✅ Size-based rolling
+**✅ Kết Luận Quan Trọng:** Hệ thống logging đã được thiết kế với nhiều cơ chế bảo vệ để **ngăn chặn tràn đĩa / tràn log**:
+- ✅ Theo ngày (`YYYY-MM-DD.log`), tối đa **100MB/file** (cấu hình `max_log_file_size`)
+- ✅ **Tự ngắt ghi file** khi đĩa gần đầy (`suspend_disk_percent` / `resume_disk_percent`)
+- ✅ Cleanup log cũ (retention + khi đĩa > `max_disk_usage_percent`)
+- ✅ Thư mục gốc log: **production** vs **development** (`log_paths_mode`)
+
+### Cấu hình `system.logging` (config.json)
+
+| Khóa | Mô tả | Mặc định |
+|------|--------|----------|
+| `log_paths_mode` | `auto` \| `production` \| `development` — rỗng = legacy (dùng `log_dir`) | (rỗng) |
+| `log_dir_production` | Thư mục log khi production | `/opt/edgeos-api/logs` |
+| `log_dir_development` | Thư mục log khi development | `./logs` |
+| `log_dir` | Legacy / override khi không dùng mode | `./logs` |
+| `max_log_file_size` | Bytes tối đa mỗi file (API/general/sdk + mỗi instance) | `104857600` (100MB) |
+| `suspend_disk_percent` | % đĩa đã dùng → **dừng ghi log ra file** | `95` |
+| `resume_disk_percent` | % đĩa đã dùng ≤ giá trị này → ghi lại | `88` |
+| `max_disk_usage_percent` | Ngưỡng cleanup mạnh | `85` |
+| `retention_days` | Xóa file log cũ hơn N ngày | `30` |
+
+**`auto`:** binary chạy từ đường dẫn chứa `/opt/edgeos-api` → `log_dir_production`, ngược lại → `log_dir_development` (ví dụ chạy trong repo → `./logs`).
+
+**Ưu tiên:** biến môi trường `LOG_DIR` (nếu set) **luôn thắt** mọi giá trị trên.
+
+**Tắt log file theo instance:** trong JSON instance thêm:
+```json
+"Logging": { "file_enabled": false }
+```
+(vẫn cần `--log-instance` để bật nhánh instance; khi `file_enabled: false` không ghi file cho instance đó).
+
+**API đọc log instance:** bắt buộc query `instance_id`, ví dụ:
+`GET /v1/core/log/instance?instance_id=<uuid>&tail=100`
+
+### Log console từ CVEDIX SDK (`cvedix_node`, meta queue…)
+
+Các dòng kiểu `[Debug] ... before handling meta, in_queue.size()` là **log nội bộ SDK**, không phải plog của API.
+
+- **`system.logging.cvedix_log_level`**: `warning` (mặc định) | `error` | `info` | `debug` — mặc định **warning** để **ẩn DEBUG/INFO** ồn ào.
+- **`CVEDIX_LOG_LEVEL`** (env): nếu set thì **ghi đè** config (DEBUG / INFO / WARNING / ERROR).
+
+Ví dụ tắt hẳn log SDK trừ lỗi: giữ `cvedix_log_level: "warning"` hoặc `"error"`. Cần debug pipeline: `CVEDIX_LOG_LEVEL=DEBUG` hoặc `cvedix_log_level: "debug"`.
+
+---
+
+## Ghi log ra file (dễ kiểm tra)
+
+**Cách nhanh nhất** — khi chạy server thêm một trong hai:
+
+```bash
+./build/bin/edgeos-api --log-files
+```
+
+hoặc (ví dụ systemd / docker):
+
+```bash
+export EDGEOS_LOG_FILES=1
+./build/bin/edgeos-api
+```
+
+Khi đó sẽ ghi:
+
+- **`logs/api/YYYY-MM-DD.log`** — log có prefix `[API]` (request/handler).
+- **`logs/instance/<InstanceId>/YYYY-MM-DD.log`** — vòng đời instance (start/stop…), cần instance đang bật file log (mặc định bật).
+
+Thư mục gốc: `LOG_DIR` hoặc `system.logging` (`log_paths_mode`, `log_dir_development`…). Luôn còn **`logs/general/`** cho log không gắn prefix API/instance/SDK.
+
+SDK output (rất lớn): chỉ bật khi cần: `--log-sdk-output`.
 
 ---
 
@@ -78,7 +140,7 @@ Log các sự kiện liên quan đến vòng đời của instance (start, stop,
 [Instance] Instance stopped successfully: xyz-789 (Face Detection File Source, solution: face_detection)
 ```
 
-**File location:** `logs/instance/YYYY-MM-DD.log`
+**File location:** `logs/instance/<InstanceId>/YYYY-MM-DD.log` (và `YYYY-MM-DD.1.log` khi vượt `max_log_file_size`)
 
 **Cách sử dụng:**
 ```bash

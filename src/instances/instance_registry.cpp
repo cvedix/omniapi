@@ -2,6 +2,7 @@
 #include "core/adaptive_queue_size_manager.h"
 #include "core/backpressure_controller.h"
 #include "core/cvedix_validator.h"
+#include "core/instance_file_logger.h"
 #include "core/logger.h"
 #include "core/logging_flags.h"
 #include "core/resource_manager.h"
@@ -328,6 +329,8 @@ bool InstanceRegistry::deleteInstance(const std::string &instanceId) {
     instances_.erase(it);
   } // Release lock - stopPipeline and storage operations don't need it
 
+  InstanceFileLogger::removeInstance(instanceId);
+
   std::cerr << "[InstanceRegistry] ========================================"
             << std::endl;
   std::cerr << "[InstanceRegistry] Deleting instance " << instanceId << "..."
@@ -653,6 +656,9 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
     }
   } // Release lock
 
+  InstanceFileLogger::setInstanceFileLogging(
+      instanceId, existingInfo.instanceFileLoggingEnabled);
+
   // Stop pipeline if it was running and not skipping auto-stop (do this outside
   // lock) Use full cleanup to ensure OpenCV DNN state is cleared
   if (wasRunning && !skipAutoStop && !pipelineToStop.empty()) {
@@ -671,9 +677,11 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
             << std::endl;
 
   if (isInstanceLoggingEnabled()) {
-    PLOG_INFO << "[Instance] Starting instance: " << instanceId << " ("
-              << existingInfo.displayName
-              << ", solution: " << existingInfo.solutionId << ")";
+    std::string im = "Starting instance: " + instanceId + " (" +
+                     existingInfo.displayName +
+                     ", solution: " + existingInfo.solutionId + ")";
+    InstanceFileLogger::log(instanceId, plog::info, im);
+    PLOG_INFO << "[Instance] " << im;
   }
 
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> pipelineCopy;
@@ -1391,16 +1399,20 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
 
         if (isInstanceLoggingEnabled()) {
           const auto &info = instanceIt->second;
-          PLOG_INFO << "[Instance] Instance started successfully: "
-                    << instanceId << " (" << info.displayName
-                    << ", solution: " << info.solutionId << ", running: true)";
+          std::string im = "Instance started successfully: " + instanceId +
+                           " (" + info.displayName +
+                           ", solution: " + info.solutionId + ", running: true)";
+          InstanceFileLogger::log(instanceId, plog::info, im);
+          PLOG_INFO << "[Instance] " << im;
         }
       } else {
         std::cerr << "[InstanceRegistry] ✗ Failed to start instance "
                   << instanceId << std::endl;
         if (isInstanceLoggingEnabled()) {
-          PLOG_ERROR << "[Instance] Failed to start instance: " << instanceId
-                     << " (" << existingInfo.displayName << ")";
+          std::string im = "Failed to start instance: " + instanceId + " (" +
+                           existingInfo.displayName + ")";
+          InstanceFileLogger::log(instanceId, plog::error, im);
+          PLOG_ERROR << "[Instance] " << im;
         }
         // Cleanup pipeline if start failed to prevent resource leak
         pipelines_.erase(instanceId);
@@ -1415,8 +1427,9 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
                 << " was deleted during start - cleaned up pipeline"
                 << std::endl;
       if (isInstanceLoggingEnabled()) {
-        PLOG_WARNING << "[Instance] Instance was deleted during start: "
-                     << instanceId;
+        std::string im = "Instance was deleted during start: " + instanceId;
+        InstanceFileLogger::log(instanceId, plog::warning, im);
+        PLOG_WARNING << "[Instance] " << im;
       }
     }
   }
@@ -1522,9 +1535,12 @@ bool InstanceRegistry::stopInstance(const std::string &instanceId) {
             << std::endl;
 
   if (isInstanceLoggingEnabled()) {
-    PLOG_INFO << "[Instance] Stopping instance: " << instanceId << " ("
-              << displayName << ", solution: " << solutionId
-              << ", was running: " << (wasRunning ? "true" : "false") << ")";
+    std::string im =
+        "Stopping instance: " + instanceId + " (" + displayName +
+        ", solution: " + solutionId +
+        ", was running: " + std::string(wasRunning ? "true" : "false") + ")";
+    InstanceFileLogger::log(instanceId, plog::info, im);
+    PLOG_INFO << "[Instance] " << im;
   }
 
   // CRITICAL: Stop monitoring threads FIRST (before any other cleanup)
@@ -1767,8 +1783,10 @@ bool InstanceRegistry::stopInstance(const std::string &instanceId) {
   }
 
   if (isInstanceLoggingEnabled()) {
-    PLOG_INFO << "[Instance] Instance stopped successfully: " << instanceId
-              << " (" << displayName << ", solution: " << solutionId << ")";
+    std::string im = "Instance stopped successfully: " + instanceId + " (" +
+                     displayName + ", solution: " + solutionId + ")";
+    InstanceFileLogger::log(instanceId, plog::info, im);
+    PLOG_INFO << "[Instance] " << im;
   }
 
   return true;
@@ -4631,8 +4649,12 @@ int InstanceRegistry::checkAndHandleRetryLimits() {
                           << " reached retry limit (" << info.maxRetryCount
                           << " retries) after " << timeSinceStart
                           << " seconds - stopping instance" << std::endl;
-                PLOG_WARNING << "[Instance] Instance " << instanceId
-                             << " reached retry limit - stopping";
+                {
+                  std::string im =
+                      "Instance " + instanceId + " reached retry limit - stopping";
+                  InstanceFileLogger::log(instanceId, plog::warning, im);
+                  PLOG_WARNING << "[Instance] " << im;
+                }
 
                 // Mark as not running (will be stopped outside lock)
                 info.running = false;
@@ -4885,6 +4907,9 @@ bool InstanceRegistry::updateInstanceFromConfig(const std::string &instanceId,
 
     // Update all fields from merged config
     info = updatedInfo;
+
+    InstanceFileLogger::setInstanceFileLogging(
+        instanceId, info.instanceFileLoggingEnabled);
 
     std::cerr << "[InstanceRegistry] ✓ Instance info updated in registry"
               << std::endl;

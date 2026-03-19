@@ -314,6 +314,8 @@ QuickInstanceHandler::mapSolutionTypeToId(const std::string &solutionType,
     } else {
       return "mask_rcnn_detection_default";
     }
+  } else if (type == "securt") {
+    return "securt";
   }
 
   // If not found, return empty string
@@ -501,12 +503,16 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
   }
   req.name = json["name"].asString();
 
-  // Required field: solutionType
-  if (!json.isMember("solutionType") || !json["solutionType"].isString()) {
-    error = "Missing required field: solutionType";
+  // Required field: solutionType or solution
+  std::string solutionType;
+  if (json.isMember("solutionType") && json["solutionType"].isString()) {
+    solutionType = json["solutionType"].asString();
+  } else if (json.isMember("solution") && json["solution"].isString()) {
+    solutionType = json["solution"].asString();
+  } else {
+    error = "Missing required field: solutionType or solution";
     return false;
   }
-  std::string solutionType = json["solutionType"].asString();
 
   // Optional: input and output types
   std::string inputType = "file";
@@ -559,13 +565,24 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
   std::map<std::string, std::string> defaultParams =
       getDefaultParams(solutionType, inputType, outputType);
 
-  // Parse input parameters
+  // Parse input parameters (support both top-level and additionalParams.input)
+  Json::Value inputObj;
   if (json.isMember("input") && json["input"].isObject()) {
-    for (const auto &key : json["input"].getMemberNames()) {
-      if (json["input"][key].isString()) {
-        std::string value = json["input"][key].asString();
+    inputObj = json["input"];
+  } else if (json.isMember("additionalParams") && 
+             json["additionalParams"].isObject() &&
+             json["additionalParams"].isMember("input") &&
+             json["additionalParams"]["input"].isObject()) {
+    inputObj = json["additionalParams"]["input"];
+  }
+  
+  if (!inputObj.isNull()) {
+    for (const auto &key : inputObj.getMemberNames()) {
+      if (inputObj[key].isString()) {
+        std::string value = inputObj[key].asString();
         // Convert path to production if needed
-        if (key == "FILE_PATH" || key == "RTSP_URL" || key == "MODEL_PATH" ||
+        if (key == "FILE_PATH" || key == "RTSP_URL" || key == "RTSP_SRC_URL" || 
+            key == "RTMP_SRC_URL" || key == "MODEL_PATH" ||
             key == "WEIGHTS_PATH" || key == "CONFIG_PATH" ||
             key == "LABELS_PATH") {
           value = convertPathToProduction(value);
@@ -575,11 +592,21 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     }
   }
 
-  // Parse output parameters
+  // Parse output parameters (support both top-level and additionalParams.output)
+  Json::Value outputObj;
   if (json.isMember("output") && json["output"].isObject()) {
-    for (const auto &key : json["output"].getMemberNames()) {
-      if (json["output"][key].isString()) {
-        std::string value = json["output"][key].asString();
+    outputObj = json["output"];
+  } else if (json.isMember("additionalParams") && 
+             json["additionalParams"].isObject() &&
+             json["additionalParams"].isMember("output") &&
+             json["additionalParams"]["output"].isObject()) {
+    outputObj = json["additionalParams"]["output"];
+  }
+  
+  if (!outputObj.isNull()) {
+    for (const auto &key : outputObj.getMemberNames()) {
+      if (outputObj[key].isString()) {
+        std::string value = outputObj[key].asString();
         // Convert path to production if needed
         if (key == "RTMP_URL" || key == "FILE_PATH") {
           value = convertPathToProduction(value);

@@ -407,6 +407,9 @@ set(SOURCES
     src/core/uuid_generator.cpp
     src/core/platform_detector.cpp
     src/core/log_manager.cpp
+    src/core/log_disk_guard.cpp
+    src/core/daily_prefix_appender.cpp
+    src/core/instance_file_logger.cpp
     src/core/onvif_camera_registry.cpp
     src/core/onvif_credentials_manager.cpp
     src/core/onvif_discovery.cpp

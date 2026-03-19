@@ -312,6 +312,11 @@ bool InstanceStorage::validateConfigJson(const Json::Value &config,
     return false;
   }
 
+  if (config.isMember("Logging") && !config["Logging"].isObject()) {
+    error = "Logging must be a JSON object";
+    return false;
+  }
+
   return true;
 }
 
@@ -326,8 +331,8 @@ bool InstanceStorage::mergeConfigs(
   std::vector<std::string> replaceKeys = {
       "InstanceId",  "DisplayName", "Solution",       "SolutionName",
       "Group",       "ReadOnly",    "SystemInstance", "AutoStart",
-      "AutoRestart", "loaded",      "running",        "fps",
-      "version"};
+      "AutoRestart", "Logging",       "loaded",         "running",
+      "fps",         "version"};
 
   // List of keys that should be merged (nested objects)
   std::vector<std::string> mergeKeys = {
@@ -529,6 +534,10 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
 
   // Store AutoRestart
   config["AutoRestart"] = info.autoRestart;
+
+  Json::Value logging(Json::objectValue);
+  logging["file_enabled"] = info.instanceFileLoggingEnabled;
+  config["Logging"] = logging;
 
   // Store Input configuration (always include)
   Json::Value input(Json::objectValue);
@@ -848,6 +857,14 @@ InstanceStorage::configJsonToInstanceInfo(const Json::Value &config,
     // Extract AutoRestart
     if (config.isMember("AutoRestart") && config["AutoRestart"].isBool()) {
       info.autoRestart = config["AutoRestart"].asBool();
+    }
+
+    info.instanceFileLoggingEnabled = true;
+    if (config.isMember("Logging") && config["Logging"].isObject()) {
+      const Json::Value &lg = config["Logging"];
+      if (lg.isMember("file_enabled") && lg["file_enabled"].isBool()) {
+        info.instanceFileLoggingEnabled = lg["file_enabled"].asBool();
+      }
     }
 
     // Extract Input configuration

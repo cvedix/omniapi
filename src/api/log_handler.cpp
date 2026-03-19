@@ -31,6 +31,20 @@ void LogHandler::listLogFiles(
         {LogManager::Category::GENERAL, "general"}};
 
     for (const auto &[category, name] : categoryList) {
+      if (category == LogManager::Category::INSTANCE) {
+        auto instFiles = LogManager::listInstanceLogTree();
+        Json::Value categoryFiles(Json::arrayValue);
+        for (const auto &e : instFiles) {
+          Json::Value fileInfo;
+          fileInfo["instance_id"] = e.instance_id;
+          fileInfo["date"] = e.date;
+          fileInfo["size"] = static_cast<Json::Int64>(e.size);
+          fileInfo["path"] = e.path;
+          categoryFiles.append(fileInfo);
+        }
+        categories[name] = categoryFiles;
+        continue;
+      }
       auto files = LogManager::listLogFiles(category);
       Json::Value categoryFiles(Json::arrayValue);
 
@@ -133,7 +147,8 @@ void LogHandler::getLogsByCategory(
       return;
     }
 
-    // Get query parameters
+    std::string instance_id_param = req->getParameter("instance_id");
+
     std::string level_filter = req->getParameter("level");
     std::string from_timestamp = req->getParameter("from");
     std::string to_timestamp = req->getParameter("to");
@@ -149,9 +164,57 @@ void LogHandler::getLogsByCategory(
       }
     }
 
-    // Get all log files for this category
+    if (category == LogManager::Category::INSTANCE && instance_id_param.empty()) {
+      callback(createErrorResponse(
+          k400BadRequest, "Bad request",
+          "instance_id query parameter is required for category instance"));
+      return;
+    }
+
     std::string category_dir = LogManager::getCategoryDir(category);
-    auto files = LogManager::listLogFiles(category);
+    if (category == LogManager::Category::INSTANCE) {
+      category_dir += "/" + instance_id_param;
+    }
+
+    std::vector<std::pair<std::string, uint64_t>> files;
+    if (category == LogManager::Category::INSTANCE) {
+      if (fs::exists(category_dir) && fs::is_directory(category_dir)) {
+        for (const auto &entry : fs::directory_iterator(category_dir)) {
+          if (!fs::is_regular_file(entry)) {
+            continue;
+          }
+          std::string fn = entry.path().filename().string();
+          if (fn.size() < 5 || fn.substr(fn.size() - 4) != ".log") {
+            continue;
+          }
+          std::string base = fn.substr(0, fn.size() - 4);
+          size_t dotp = base.find('.');
+          if (dotp != std::string::npos) {
+            base = base.substr(0, dotp);
+          }
+          if (base.size() == 10 && base[4] == '-' && base[7] == '-') {
+            bool dup = false;
+            for (const auto &pr : files) {
+              if (pr.first == base) {
+                dup = true;
+                break;
+              }
+            }
+            if (!dup) {
+              try {
+                files.push_back({base, fs::file_size(entry.path())});
+              } catch (...) {
+              }
+            }
+          }
+        }
+        std::sort(files.begin(), files.end(), [](const auto &a, const auto &b) {
+          return a.first > b.first;
+        });
+      }
+    } else {
+      files = LogManager::listLogFiles(category);
+    }
 
     // Build response (declare once)
     Json::Value response;
@@ -179,18 +242,36 @@ void LogHandler::getLogsByCategory(
 
     // If tail is specified, only read from the latest file
     if (tail_count > 0 && !files.empty()) {
-      std::string latest_file =
-          LogManager::getLogFilePath(category, files[0].first);
+      std::string latest_file;
+      if (category == LogManager::Category::INSTANCE) {
+        latest_file = category_dir + "/" + files[0].first + ".log";
+      } else {
+        latest_file = LogManager::getLogFilePath(category, files[0].first);
+      }
       auto logs = readLogFile(latest_file, tail_count);
       allLogs.insert(allLogs.end(), logs.begin(), logs.end());
       totalLines = static_cast<int>(logs.size());
     } else {
-      // Read from all files
       for (const auto &[date, size] : files) {
-        std::string file_path = LogManager::getLogFilePath(category, date);
-        auto logs = readLogFile(file_path, 0);
-        allLogs.insert(allLogs.end(), logs.begin(), logs.end());
-        totalLines += static_cast<int>(logs.size());
+        std::vector<std::string> paths;
+        if (category == LogManager::Category::INSTANCE) {
+          std::string p0 = category_dir + "/" + date + ".log";
+          paths.push_back(p0);
+          for (int p = 1; p < 20; ++p) {
+            std::string pp =
+                category_dir + "/" + date + "." + std::to_string(p) + ".log";
+            if (fs::exists(pp)) {
+              paths.push_back(pp);
+            }
+          }
+        } else {
+          paths.push_back(LogManager::getLogFilePath(category, date));
+        }
+        for (const auto &fp : paths) {
+          auto logs = readLogFile(fp, 0);
+          allLogs.insert(allLogs.end(), logs.begin(), logs.end());
+          totalLines += static_cast<int>(logs.size());
+        }
       }
     }
 
@@ -254,7 +335,14 @@ void LogHandler::getLogsByCategoryAndDate(
       return;
     }
 
-    // Get query parameters
+    std::string inst_id2 = req->getParameter("instance_id");
+    if (category == LogManager::Category::INSTANCE && inst_id2.empty()) {
+      callback(createErrorResponse(
+          k400BadRequest, "Bad request",
+          "instance_id query parameter is required for category instance"));
+      return;
+    }
+
     std::string level_filter = req->getParameter("level");
     std::string from_timestamp = req->getParameter("from");
     std::string to_timestamp = req->getParameter("to");
@@ -270,18 +358,42 @@ void LogHandler::getLogsByCategoryAndDate(
       }
     }
 
-    // Get log file path
-    std::string file_path = LogManager::getLogFilePath(category, date_str);
-
-    // Check if file exists
-    if (!fs::exists(file_path)) {
-      callback(createErrorResponse(k404NotFound, "Not found",
-                                   "Log file not found for date: " + date_str));
-      return;
+    std::vector<Json::Value> logs;
+    if (category == LogManager::Category::INSTANCE) {
+      std::string idir = LogManager::getCategoryDir(
+                             LogManager::Category::INSTANCE) +
+                         "/" + inst_id2;
+      std::vector<std::string> paths;
+      std::string p0 = idir + "/" + date_str + ".log";
+      if (fs::exists(p0)) {
+        paths.push_back(p0);
+      }
+      for (int p = 1; p < 50; ++p) {
+        std::string pp =
+            idir + "/" + date_str + "." + std::to_string(p) + ".log";
+        if (fs::exists(pp)) {
+          paths.push_back(pp);
+        }
+      }
+      if (paths.empty()) {
+        callback(createErrorResponse(k404NotFound, "Not found",
+                                     "Log file not found for date: " + date_str));
+        return;
+      }
+      for (const auto &fp : paths) {
+        auto part = readLogFile(fp, 0);
+        logs.insert(logs.end(), part.begin(), part.end());
+      }
+    } else {
+      std::string file_path = LogManager::getLogFilePath(category, date_str);
+      if (!fs::exists(file_path)) {
+        callback(createErrorResponse(k404NotFound, "Not found",
+                                     "Log file not found for date: " + date_str));
+        return;
+      }
+      logs = readLogFile(file_path, tail_count);
     }
 
-    // Read log file
-    auto logs = readLogFile(file_path, tail_count);
     int totalLines = static_cast<int>(logs.size());
 
     // Apply filters

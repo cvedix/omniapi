@@ -405,40 +405,52 @@ static void ensureCVEDIXInitialized() {
                   << std::endl;
       }
 
-      // Set CVEDIX log level (can be overridden via CVEDIX_LOG_LEVEL env var)
-      // Default: INFO to show all important logs (WARNING and above)
-      // Options: ERROR, WARNING, INFO, DEBUG (case-insensitive)
-      cvedix_utils::cvedix_log_level cvedix_log_level =
-          cvedix_utils::cvedix_log_level::INFO;
-      const char *env_cvedix_log = std::getenv("CVEDIX_LOG_LEVEL");
-      if (env_cvedix_log) {
-        std::string log_level_str = env_cvedix_log;
-        std::transform(log_level_str.begin(), log_level_str.end(),
-                       log_level_str.begin(), ::toupper);
-        if (log_level_str == "DEBUG") {
-          cvedix_log_level = cvedix_utils::cvedix_log_level::DEBUG;
-        } else if (log_level_str == "INFO") {
-          cvedix_log_level = cvedix_utils::cvedix_log_level::INFO;
-        } else if (log_level_str == "WARNING" || log_level_str == "WARN") {
-          cvedix_log_level = cvedix_utils::cvedix_log_level::WARN;
-        } else if (log_level_str == "ERROR") {
-          cvedix_log_level = cvedix_utils::cvedix_log_level::ERROR;
+      // CVEDIX SDK (cvedix_node meta/queue spam = DEBUG). Default: WARNING.
+      // config: system.logging.cvedix_log_level — env CVEDIX_LOG_LEVEL overrides.
+      auto parse_cvedix = [](const char *s) {
+        cvedix_utils::cvedix_log_level lv =
+            cvedix_utils::cvedix_log_level::WARN;
+        if (!s || !s[0]) {
+          return lv;
         }
+        std::string u(s);
+        std::transform(u.begin(), u.end(), u.begin(), ::toupper);
+        if (u == "DEBUG") {
+          return cvedix_utils::cvedix_log_level::DEBUG;
+        }
+        if (u == "INFO") {
+          return cvedix_utils::cvedix_log_level::INFO;
+        }
+        if (u == "WARNING" || u == "WARN") {
+          return cvedix_utils::cvedix_log_level::WARN;
+        }
+        if (u == "ERROR") {
+          return cvedix_utils::cvedix_log_level::ERROR;
+        }
+        return lv;
+      };
+
+      std::string cfg_level =
+          SystemConfig::getInstance().getLoggingConfig().cvedixLogLevel;
+      cvedix_utils::cvedix_log_level cvedix_log_level =
+          parse_cvedix(cfg_level.c_str());
+      const char *env_cvedix_log = std::getenv("CVEDIX_LOG_LEVEL");
+      std::string log_level_src;
+      if (env_cvedix_log && env_cvedix_log[0]) {
+        cvedix_log_level = parse_cvedix(env_cvedix_log);
+        log_level_src =
+            std::string(env_cvedix_log) + " (CVEDIX_LOG_LEVEL env)";
+      } else {
+        log_level_src = cfg_level + " (config cvedix_log_level)";
       }
+
       CVEDIX_SET_LOG_LEVEL(cvedix_log_level);
       CVEDIX_LOGGER_INIT();
-      std::string log_level_name =
-          env_cvedix_log ? std::string(env_cvedix_log) : "INFO (default)";
-      std::cerr
-          << "[PipelineBuilder] CVEDIX SDK logger initialized (log level: "
-          << log_level_name << ")" << std::endl;
+      std::cerr << "[PipelineBuilder] CVEDIX SDK logger initialized (level: "
+                << log_level_src << ")" << std::endl;
       if (cvedix_log_level == cvedix_utils::cvedix_log_level::ERROR) {
-        std::cerr << "[PipelineBuilder] NOTE: WARNING logs (e.g., 'queue full, "
-                     "dropping meta!') are suppressed"
-                  << std::endl;
-        std::cerr << "[PipelineBuilder] NOTE: Set CVEDIX_LOG_LEVEL=INFO to see "
-                     "all logs"
-                  << std::endl;
+        std::cerr << "[PipelineBuilder] NOTE: WARNING logs suppressed; set "
+                     "cvedix_log_level=warning or CVEDIX_LOG_LEVEL=WARNING\n";
       }
     } catch (const std::exception &e) {
       std::cerr

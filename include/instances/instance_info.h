@@ -37,6 +37,8 @@ struct InstanceInfo {
   bool autoStart = false;
   bool autoRestart = false;
   bool systemInstance = false;
+  /** Per-instance file log under logs/instance/<id>/ (requires --log-instance) */
+  bool instanceFileLoggingEnabled = true;
 
   // Retry limit configuration
   int maxRetryCount =

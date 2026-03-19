@@ -211,7 +211,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start([main.cpp Start]) --> LoadEnv[Load Environment Variables<br/>.env file hoặc system env]
+    Start([main.cpp Start]) --> LoadEnv[Load Environment Variables<br/>xem Luồng load biến môi trường bên dưới]
     LoadEnv --> ValidateConfig[Validate Configuration<br/>Host, Port, Threads]
     ValidateConfig --> ConfigInvalid{Config<br/>Hợp Lệ?}
     ConfigInvalid -->|Không| ExitError[Exit với Error Code]
@@ -235,6 +235,76 @@ flowchart TD
     ExitError --> End([Kết Thúc])
     Running --> End
 ```
+
+## Luồng load biến môi trường (Dev vs Production)
+
+Biến môi trường được load **ngay đầu `main()`**, trước khi parse config và khởi tạo logging. Có hai nhánh chính: **Dev** (có `--dev` hoặc chạy ngoài production) và **Production** (binary dưới `/opt/edgeos-api`, không `--dev`).
+
+### Sơ đồ quyết định load env
+
+```mermaid
+flowchart TD
+    Start([main argc, argv]) --> ScanArgv[Quét argv có --dev?]
+    ScanArgv --> HasDev{Có --dev?}
+    HasDev -->|Có| DevPath[Dev path: load từ project root]
+    HasDev -->|Không| TryDev[tryLoadDotenvForDev]
+    DevPath --> FindRoot[Tìm project root<br/>từ thư mục chứa binary, đi lên tối đa 5 cấp]
+    FindRoot --> TryEnv[Thử load .env tại mỗi cấp]
+    TryEnv --> EnvOk{.env tồn tại<br/>và đọc được?}
+    EnvOk -->|Có| LoadEnv[loadDotenv .env<br/>setenv overwrite = 1]
+    EnvOk -->|Không| TryExample[Thử .env.example tại cấp đó]
+    TryExample --> ExampleOk{.env.example<br/>đọc được?}
+    ExampleOk -->|Có| LoadExample[loadDotenv .env.example<br/>setenv overwrite = 1]
+    ExampleOk -->|Không| UpLevel[Lên cấp thư mục cha]
+    UpLevel --> TryEnv
+    LoadEnv --> Done([Env đã sẵn sàng])
+    LoadExample --> Done
+    TryDev --> IsProd{Binary nằm dưới<br/>/opt/edgeos-api?}
+    IsProd -->|Có| NoDotenv[Không load .env<br/>dùng env từ system / systemd]
+    IsProd -->|Không| ForceCheck{EDGEOS_LOAD_DOTENV<br/>= 1 / true / yes?}
+    ForceCheck -->|Có| LoadOptional[Load .env: EDGEOS_DOTENV_PATH<br/>hoặc CWD hoặc đi lên từ exe]
+    ForceCheck -->|Không| LoadOptional
+    LoadOptional --> LoadOptionalFile[Thử từng path .env<br/>setenv overwrite = 1]
+    LoadOptionalFile --> Done
+    NoDotenv --> Done
+```
+
+### Luồng Dev (có `--dev`)
+
+| Bước | Mô tả |
+|------|--------|
+| 1 | Ứng dụng quét `argv` ngay đầu `main()`; nếu có `--dev` → gọi `EnvConfig::loadDotenvFromProjectRootOrExample(argv[0])`. |
+| 2 | Tìm **project root**: từ thư mục chứa executable (ví dụ `build/bin/`) đi lên tối đa 5 cấp. |
+| 3 | Tại mỗi cấp: thử đọc **`.env`**; nếu không có hoặc không đọc được → thử **`.env.example`**. |
+| 4 | Đọc từng dòng `KEY=VALUE`, bỏ comment và dòng trống; gọi `setenv(KEY, VALUE, 1)` → **ghi đè** mọi giá trị env đã có. |
+| 5 | Không cần chạy `load_env.sh` hay `source .env`; chỉ cần chạy `./build/bin/edgeos-api --dev`. |
+
+**Nguồn config file khi dev:** Nếu chạy từ project root (CWD = repo), `resolveConfigPath()` sẽ ưu tiên `./config.json`. Có thể set `CONFIG_FILE` để trỏ tới file khác.
+
+### Luồng Production (không `--dev`)
+
+| Bước | Mô tả |
+|------|--------|
+| 1 | Không có `--dev` → gọi `EnvConfig::tryLoadDotenvForDev(argv[0])`. |
+| 2 | Nếu binary nằm dưới **`/opt/edgeos-api`** → **không** load file `.env`; môi trường lấy từ **system** (systemd service, `Environment=` / `EnvironmentFile=`, hoặc env của user khi chạy tay). |
+| 3 | Nếu cài đặt bằng .deb: thường có `/opt/edgeos-api/config/.env` hoặc env được set trong systemd; app đọc trực tiếp từ process environment. |
+| 4 | Config file: ưu tiên `CONFIG_FILE`; nếu không set thì dùng `/opt/edgeos-api/config/config.json` (khi binary dưới `/opt/edgeos-api`). |
+
+### Trường hợp không `--dev` nhưng chạy từ repo (dev không dùng cờ)
+
+- Binary **không** nằm dưới `/opt/edgeos-api` → `tryLoadDotenvForDev` vẫn chạy.
+- Thứ tự tìm `.env`: `EDGEOS_DOTENV_PATH` (nếu set) → **CWD** `.env` → đi lên từ thư mục chứa executable (tối đa 3 cấp), thử `.env` tại mỗi cấp.
+- Set **`EDGEOS_LOAD_DOTENV=1`** để bắt buộc load `.env` kể cả khi binary nằm dưới `/opt/edgeos-api` (ít dùng).
+
+### Tóm tắt nguồn env theo ngữ cảnh
+
+| Ngữ cảnh | Cờ / Điều kiện | Nguồn biến môi trường |
+|----------|-----------------|------------------------|
+| **Dev** | `--dev` | `.env` hoặc `.env.example` từ **project root** (tìm từ đường dẫn executable), **ghi đè** env hiện có. |
+| **Production** | Không `--dev`, binary dưới `/opt/edgeos-api` | System / systemd (không đọc file `.env` trong repo). |
+| **Dev không cờ** | Không `--dev`, binary không dưới `/opt` | `tryLoadDotenvForDev`: có thể load `.env` từ `EDGEOS_DOTENV_PATH`, CWD, hoặc thư mục cha của exe. |
+
+Sau khi env đã load, ứng dụng đọc **config file** (JSON) qua `resolveConfigPath()`; các giá trị trong config (ví dụ logging, execution mode) có thể bị override bởi env tương ứng (xem [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)).
 
 ## Background Services Flow
 
@@ -695,6 +765,7 @@ graph TB
 
 ## 📚 Xem Thêm
 
+- [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) - Biến môi trường và cơ chế load .env (dev/production)
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Hướng dẫn phát triển chi tiết
 - [API_document.md](API_document.md) - Tài liệu tham khảo API đầy đủ
 - [AI_RUNTIME_DESIGN.md](AI_RUNTIME_DESIGN.md) - Thiết kế AI Runtime (InferenceSession, Facade)
