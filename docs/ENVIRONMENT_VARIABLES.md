@@ -200,10 +200,16 @@ Các timeout khác (RTSP stop, RTMP reconnect, destination finalize, v.v.) nằm
 
 Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa hai lần restart cho cùng instance; ngưỡng queue full và cửa sổ giám sát xem `QueueMonitor` trong code.
 
+#### Thư mục gốc cài đặt / dữ liệu
+| Biến | Mô tả | Mặc định | File sử dụng |
+|------|-------|----------|--------------|
+| `EDGEOS_API_INSTALL_DIR` | Thư mục gốc cho `instances`, `models`, `nodes`, `solutions`, `groups`, `logs` (qua `resolveDataDir`), socket `…/run` (khi không set `EDGE_AI_SOCKET_DIR`) | `/opt/edgeos-api` | `env_config.h`, `main.cpp`, `unix_socket.cpp` |
+| `EDGEOS_HOME` | Alias tương thích cho `EDGEOS_API_INSTALL_DIR` (ưu tiên thấp hơn nếu cả hai được set — chỉ dùng khi `EDGEOS_API_INSTALL_DIR` trống) | — | `env_config.h` |
+
 #### Subprocess Worker Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `EDGE_AI_EXECUTION_MODE` | Execution mode: `in-process` (legacy/dev) hoặc `subprocess` (production) | `in-process` | `src/main.cpp` |
+| `EDGE_AI_EXECUTION_MODE` | Mặc định **subprocess**. Chỉ chạy in-process khi đặt `inprocess`, `in-process`, `legacy`, hoặc `main` | *(unset → subprocess)* | `instance_manager_factory.cpp` |
 | `EDGE_AI_WORKER_PATH` | Đường dẫn đến worker executable | `edgeos-worker` | `src/worker/worker_supervisor.cpp` |
 | `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/edgeos-api/run` | `src/worker/unix_socket.cpp` |
 | `EDGE_AI_MAX_RESTARTS` | Số lần restart worker tối đa (subprocess) | (trong code) | `src/worker/worker_supervisor.cpp` |
@@ -259,7 +265,7 @@ export API_PORT=9000
 
 ## Deployment / Operations (khuyến nghị)
 
-- **Production:** Dùng `EDGE_AI_EXECUTION_MODE=subprocess`, cấu hình `EDGE_AI_WORKER_PATH` và `EDGE_AI_SOCKET_DIR`. Xem [ARCHITECTURE.md](ARCHITECTURE.md#khi-nào-dùng-mode-nào).
+- **Production:** Mặc định đã là subprocess (có thể bỏ qua biến này). Cấu hình `EDGE_AI_WORKER_PATH` và `EDGE_AI_SOCKET_DIR`. In-process chỉ khi cần legacy: `EDGE_AI_EXECUTION_MODE=in-process`. Xem [ARCHITECTURE.md](ARCHITECTURE.md#khi-nào-dùng-mode-nào).
 - **Timeout:** Điều chỉnh `IPC_*_TIMEOUT_MS`, `REGISTRY_MUTEX_TIMEOUT_MS` nếu hệ thống chậm.
 - **Queue monitor:** Bật `EDGE_AI_QUEUE_MONITOR_ENABLED=true` để tự restart instance khi FPS=0 hoặc queue đầy.
 - **Thread pool:** `THREAD_NUM=0` (auto) hoặc giá trị cố định cho Drogon.

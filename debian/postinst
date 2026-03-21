@@ -416,10 +416,10 @@ if [ ! -f "$INSTALL_DIR/config/.env" ]; then
 API_HOST=0.0.0.0
 API_PORT=8080
 LOG_LEVEL=INFO
-# Execution mode: subprocess (isolated workers) or in-process (legacy)
-# Changed to in-process for production stability (same as develop mode)
-# In-process mode: no worker spawning, runs directly in main process
-EDGE_AI_EXECUTION_MODE=in-process
+# Runtime data root (instances, models, nodes, solutions, groups, default logs path)
+EDGEOS_API_INSTALL_DIR=$INSTALL_DIR
+# Default in binary is subprocess; set explicitly for clarity in deployments
+EDGE_AI_EXECUTION_MODE=subprocess
 EOF
     chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/config/.env"
     chmod 640 "$INSTALL_DIR/config/.env"
