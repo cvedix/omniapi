@@ -611,11 +611,17 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
         return false;
       }
 
-      // ✅ ASYNC BUILD CHECK: Kiểm tra pipeline đã được build chưa
+      // ✅ Pipeline trong map: sau stopInstance() pipeline đã bị erase — đó là
+      // trạng thái bình thường trước khi rebuild. Chỉ coi là lỗi "chưa build"
+      // khi không có solution (không thể rebuild). Nếu có solutionId, luồng
+      // phía dưới sẽ gọi rebuildPipelineFromInstanceInfo().
       auto pipelineIt = pipelines_.find(instanceId);
-      if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+      const bool havePipeline =
+          pipelineIt != pipelines_.end() && !pipelineIt->second.empty();
+      if (!havePipeline && existingInfo.solutionId.empty()) {
         std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
-                  << ": Pipeline not built yet" << std::endl;
+                  << ": Pipeline not built yet (no solution configured)"
+                  << std::endl;
         std::cerr << "[InstanceRegistry] If instance was just created, pipeline "
                      "may still be building in background"
                   << std::endl;
