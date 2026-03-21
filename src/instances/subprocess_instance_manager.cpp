@@ -590,20 +590,32 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
   auto response = supervisor_->sendToWorker(
       instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
 
-  if (response.type == worker::MessageType::STOP_INSTANCE_RESPONSE &&
-      response.payload.get("success", false).asBool()) {
-
-    // Update local state
-    {
-      std::lock_guard<std::mutex> lock(instances_mutex_);
-      if (instances_.count(instanceId)) {
-        instances_[instanceId].running = false;
+  if (response.type == worker::MessageType::STOP_INSTANCE_RESPONSE) {
+    if (response.payload.get("success", false).asBool()) {
+      {
+        std::lock_guard<std::mutex> lock(instances_mutex_);
+        if (instances_.count(instanceId)) {
+          instances_[instanceId].running = false;
+        }
       }
+      std::cout << "[SubprocessInstanceManager] Stopped instance: " << instanceId
+                << std::endl;
+      return true;
     }
-
-    std::cout << "[SubprocessInstanceManager] Stopped instance: " << instanceId
-              << std::endl;
-    return true;
+    // Idempotent stop: worker already idle (e.g. crash, duplicate stop, or race
+    // after pipeline finished stopping).
+    std::string err = response.payload.get("error", "").asString();
+    if (err.find("not running") != std::string::npos) {
+      {
+        std::lock_guard<std::mutex> lock(instances_mutex_);
+        if (instances_.count(instanceId)) {
+          instances_[instanceId].running = false;
+        }
+      }
+      std::cout << "[SubprocessInstanceManager] Stop no-op (already stopped): "
+                << instanceId << std::endl;
+      return true;
+    }
   }
 
   std::cerr << "[SubprocessInstanceManager] Failed to stop: " << instanceId
