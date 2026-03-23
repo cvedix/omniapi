@@ -237,11 +237,8 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
     // Trim whitespace from RTMP URL to prevent GStreamer pipeline errors
     rtmpUrl = trim(rtmpUrl);
 
-    // CRITICAL FIX: Make RTMP URL unique per instance ONLY if stream key conflicts
-    // with existing instances. This prevents "Could not open resource for writing"
-    // errors when multiple instances try to use the same RTMP stream key.
-    // Only modify URL if conflict is detected - this preserves user's original URL
-    // when no conflict exists.
+    // Make RTMP URL deterministic per instance by always appending instanceId(8).
+    // Final published key becomes "<base>_<id8>_0" because RTMP node appends "_0".
     if (!rtmpUrl.empty() && !instanceId.empty()) {
       // Extract stream key from RTMP URL
       std::string streamKey = extractRTMPStreamKey(rtmpUrl);
@@ -261,9 +258,8 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
         }
       }
       
-      // Check if this stream key conflicts with existing instances
-      if (!streamKey.empty() && existingRTMPStreamKeys.find(streamKey) != existingRTMPStreamKeys.end()) {
-        // Conflict detected - make URL unique by appending instance ID
+      if (!streamKey.empty()) {
+        // Always make URL unique by appending instance ID
         size_t protocolPos = rtmpUrl.find("rtmp://");
         if (protocolPos != std::string::npos) {
           // Find the last '/' to locate stream key
@@ -284,19 +280,10 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
             // Append instance ID to stream key: stream_key -> stream_key_<shortId>
             std::string uniqueStreamKey = originalStreamKey + "_" + shortId;
             rtmpUrl = baseUrl + uniqueStreamKey;
-            std::cerr << "[PipelineBuilderDestinationNodes] RTMP stream key conflict detected: '"
-                      << streamKey << "'" << std::endl;
-            std::cerr << "[PipelineBuilderDestinationNodes] Made RTMP URL unique per instance: '"
+            std::cerr << "[PipelineBuilderDestinationNodes] RTMP URL normalized per instance: '"
                       << rtmpUrl << "'" << std::endl;
-            std::cerr << "[PipelineBuilderDestinationNodes] Original stream key was appended with instance ID: '"
-                      << shortId << "'" << std::endl;
           }
         }
-      } else if (!streamKey.empty()) {
-        // No conflict - keep original URL unchanged
-        std::cerr << "[PipelineBuilderDestinationNodes] RTMP stream key '"
-                  << streamKey << "' has no conflicts, using original URL: '"
-                  << rtmpUrl << "'" << std::endl;
       }
     }
 

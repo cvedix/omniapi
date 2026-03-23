@@ -3,7 +3,6 @@
 #include "core/logger.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
-#include "core/pipeline_builder_destination_nodes.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
 #include "models/create_instance_request.h"
@@ -674,6 +673,20 @@ std::string CreateInstanceHandler::convertPathToProduction(
 Json::Value
 CreateInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   Json::Value json;
+  auto ensureStreamKeySuffixZero = [](const std::string &url) -> std::string {
+    if (url.empty()) {
+      return url;
+    }
+    size_t lastSlash = url.find_last_of('/');
+    if (lastSlash == std::string::npos || lastSlash >= url.length() - 1) {
+      return url;
+    }
+    std::string streamKey = url.substr(lastSlash + 1);
+    if (streamKey.length() >= 2 && streamKey.substr(streamKey.length() - 2) == "_0") {
+      return url;
+    }
+    return url + "_0";
+  };
   json["instanceId"] = info.instanceId;
   json["displayName"] = info.displayName;
   json["group"] = info.group;
@@ -717,17 +730,22 @@ CreateInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
 
   // Add streaming URLs if available
   if (!info.rtmpUrl.empty()) {
-    json["rtmpUrl"] = info.rtmpUrl;
-    
-    // Extract RTMP prefix (stream key without _0 suffix)
-    // RTMP node automatically adds _0 suffix, so we extract the original stream key
-    std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(info.rtmpUrl);
+    std::string normalizedRtmpUrl = ensureStreamKeySuffixZero(info.rtmpUrl);
+    json["rtmpUrl"] = normalizedRtmpUrl;
+
+    // Keep the actual stream key from URL path (including suffix such as "_0")
+    // to match the real publish path used by RTMP output.
+    std::string streamKey;
+    size_t lastSlash = normalizedRtmpUrl.find_last_of('/');
+    if (lastSlash != std::string::npos && lastSlash < normalizedRtmpUrl.length() - 1) {
+      streamKey = normalizedRtmpUrl.substr(lastSlash + 1);
+    }
     if (!streamKey.empty()) {
       json["prefix"] = streamKey;
     }
   }
   if (!info.rtspUrl.empty()) {
-    json["rtspUrl"] = info.rtspUrl;
+    json["rtspUrl"] = ensureStreamKeySuffixZero(info.rtspUrl);
   }
 
   return json;
