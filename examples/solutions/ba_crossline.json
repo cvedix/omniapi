@@ -17,9 +17,11 @@
       "nodeType": "yolo_detector",
       "nodeName": "yolo_detector_{instanceId}",
       "parameters": {
-        "weights_path": "${WEIGHTS_PATH}",
-        "config_path": "${CONFIG_PATH}",
-        "labels_path": "${LABELS_PATH}"
+        "model_path": "${MODEL_PATH}",
+        "labels_path": "${LABELS_PATH}",
+        "backend_type": "${BACKEND_TYPE}",
+        "score_threshold": "${detectionSensitivity}",
+        "nms_threshold": "0.4"
       }
     },
     {
@@ -68,6 +70,7 @@
   "defaults": {
     "detectorMode": "SmartDetection",
     "detectionSensitivity": "0.7",
-    "sensorModality": "RGB"
+    "sensorModality": "RGB",
+    "BACKEND_TYPE": "tensorrt"
   }
 }

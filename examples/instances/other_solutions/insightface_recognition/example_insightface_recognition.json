@@ -7,10 +7,10 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "RTSP_URL": "rtsp://localhost:8554/stream",
       "FACE_DETECTION_MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx",
       "FACE_RECOGNITION_MODEL_PATH": "/opt/edgeos-api/models/face/insightface.onnx",
-      "SAVE_DIR": "/tmp/output/insightface_recognition"
+      "SAVE_DIR": "/tmp/output/insightface_recognition",
+      "RTSP_SRC_URL": "rtsp://localhost:8554/stream"
     }
   }
 }

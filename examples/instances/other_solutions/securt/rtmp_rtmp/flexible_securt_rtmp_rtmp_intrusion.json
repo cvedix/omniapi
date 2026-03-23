@@ -14,7 +14,6 @@
   "statisticsMode": true,
   "diagnosticsMode": false,
   "debugMode": false,
-
   "detectorModelFile": "pva_det_full_frame_512",
   "animalConfidenceThreshold": 0.3,
   "personConfidenceThreshold": 0.3,
@@ -23,15 +22,13 @@
   "licensePlateConfidenceThreshold": 0.1,
   "confThreshold": 0.2,
   "detectorThermalModelFile": "pva_det_mosaic_320",
-
   "additionalParams": {
     "input": {
       "RTMP_SRC_URL": "rtmp://localhost:1935/live/securt_input",
-      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
       "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
       "RESIZE_RATIO": "1.0",
-      "SKIP_INTERVAL": "0"
+      "SKIP_INTERVAL": "0",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
     },
     "output": {
       "RTMP_URL": "rtmp://localhost:1935/live/securt_output",
@@ -41,4 +38,3 @@
     "IntrusionAreas": "[{\"id\":\"area1\",\"name\":\"RTMP Restricted Zone\",\"coordinates\":[{\"x\":200,\"y\":200},{\"x\":400,\"y\":200},{\"x\":400,\"y\":300},{\"x\":200,\"y\":300}],\"classes\":[\"Person\"],\"color\":[255,0,0,128]}]"
   }
 }
-

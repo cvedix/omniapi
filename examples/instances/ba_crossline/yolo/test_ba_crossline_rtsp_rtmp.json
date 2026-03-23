@@ -8,9 +8,7 @@
   "additionalParams": {
     "input": {
       "RTSP_SRC_URL": "rtsp://localhost:8554/mystream",
-      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
       "CROSSLINE_START_X": "0",
       "CROSSLINE_START_Y": "250",
       "CROSSLINE_END_X": "700",
@@ -18,12 +16,16 @@
       "RESIZE_RATIO": "1.0",
       "GST_DECODER_NAME": "avdec_h264",
       "SKIP_INTERVAL": "0",
-      "CODEC_TYPE": "h264"
+      "CODEC_TYPE": "h264",
+      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "RTMP_URL": "rtmp://localhost:1935/live/ba_crossline_stream",
       "RTMP_DES_URL": "rtmp://localhost:1935/live/ba_crossline_stream",
       "ENABLE_SCREEN_DES": "false"
     }
+  },
+  "defaults": {
+    "BACKEND_TYPE": "tensorrt"
   }
 }

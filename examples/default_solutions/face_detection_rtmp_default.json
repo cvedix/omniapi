@@ -46,12 +46,12 @@
         "RESIZE_RATIO": "1.0"
     },
     "requiredParams": {
-        "FILE_PATH": "Đường dẫn file video input (hoặc dùng RTSP_URL)",
+        "FILE_PATH": "Đường dẫn file video input (hoặc dùng RTSP_SRC_URL)",
         "RTMP_URL": "URL RTMP server để stream output",
         "MODEL_PATH": "Đường dẫn model face detection (yunet)"
     },
     "optionalParams": {
-        "RTSP_URL": "URL RTSP stream (thay thế FILE_PATH)",
+        "RTSP_SRC_URL": "URL RTSP stream (thay thế FILE_PATH)",
         "RESIZE_RATIO": "Tỷ lệ resize video (0.0-1.0), mặc định 1.0"
     }
 }

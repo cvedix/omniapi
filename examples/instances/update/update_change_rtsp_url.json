@@ -1,7 +1,7 @@
 {
   "additionalParams": {
     "input": {
-      "RTSP_URL": "rtsp://localhost:8554/live/new_stream"
+      "RTSP_SRC_URL": "rtsp://localhost:8554/live/new_stream"
     }
   }
 }

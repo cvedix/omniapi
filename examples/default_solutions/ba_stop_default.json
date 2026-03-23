@@ -17,9 +17,11 @@
             "nodeType": "yolo_detector",
             "nodeName": "yolo_detector_{instanceId}",
             "parameters": {
-                "weights_path": "${WEIGHTS_PATH}",
-                "config_path": "${CONFIG_PATH}",
-                "labels_path": "${LABELS_PATH}"
+                "model_path": "${MODEL_PATH}",
+                "labels_path": "${LABELS_PATH}",
+                "backend_type": "${BACKEND_TYPE}",
+                "score_threshold": "${detectionSensitivity}",
+                "nms_threshold": "0.4"
             }
         },
         {
@@ -72,6 +74,7 @@
         "MIN_STOP_SECONDS": "3",
         "CHECK_INTERVAL_FRAMES": "20",
         "CHECK_MIN_HIT_FRAMES": "50",
-        "CHECK_MAX_DISTANCE": "5"
+        "CHECK_MAX_DISTANCE": "5",
+        "BACKEND_TYPE": "tensorrt"
     }
 }

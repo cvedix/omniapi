@@ -15,8 +15,8 @@
         "image": "base64_encoded_image_string",
         "position": {
           "x": 0.35,
-          "y": 0.40,
-          "width": 0.20,
+          "y": 0.4,
+          "width": 0.2,
           "height": 0.25
         },
         "timestamp": 189.27
@@ -24,8 +24,8 @@
       "extra": {
         "bbox": {
           "x": 0.35,
-          "y": 0.40,
-          "width": 0.20,
+          "y": 0.4,
+          "width": 0.2,
           "height": 0.25
         },
         "class": "Car",
@@ -38,7 +38,12 @@
       "tracks": [
         {
           "track_id": "VehicleTracker_123",
-          "bbox": {"x": 0.35, "y": 0.40, "width": 0.20, "height": 0.25},
+          "bbox": {
+            "x": 0.35,
+            "y": 0.4,
+            "width": 0.2,
+            "height": 0.25
+          },
           "confidence": 0.88,
           "class": "Car"
         }
@@ -50,5 +55,8 @@
   "frame_id": 5678,
   "frame_time": 189.27,
   "system_date": "Mon Jan 15 14:35:42 2025",
-  "system_timestamp": "1736940942000"
+  "system_timestamp": "1736940942000",
+  "defaults": {
+    "BACKEND_TYPE": "tensorrt"
+  }
 }
