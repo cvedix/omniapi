@@ -113,7 +113,8 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 #### Logging Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `EDGEOS_LOG_FILES` | `1` / `true` / `yes` — bật ghi file **API + instance** (giống `--log-files`) | (tắt) | `src/main.cpp` |
+| `EDGEOS_LOG_FILES` | `1` / `true` / `yes` — bật ghi file **API + instance** (giống `--log-files`). `logs/instance/` chỉ có nội dung khi **in-process** (`EDGE_AI_EXECUTION_MODE=in-process`). | (tắt) | `src/main.cpp` |
+| `EDGEOS_LOG_SDK_OUTPUT` | `1` / `true` / `yes` — ghi **logs/sdk_output/** (giống `--log-sdk-output`) | (tắt) | `src/main.cpp` |
 | `LOG_DIR` | Thư mục gốc log (`api/`, `general/`, `instance/`, `sdk_output/`) | Nếu set → **ghi đè** mọi `log_paths_mode` / `log_dir` trong config | `SystemConfig::resolveLogBaseDirectory` |
 | `LOG_RETENTION_DAYS` | Số ngày giữ logs (tự động xóa sau thời gian này) | `30` | `src/core/log_manager.cpp` |
 | `LOG_MAX_DISK_USAGE_PERCENT` | Ngưỡng dung lượng đĩa để trigger cleanup (%) | `85` | `src/core/log_manager.cpp` |

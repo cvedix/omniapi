@@ -1199,20 +1199,34 @@ void recoveryAction() {
   // For now, we just log the event
 }
 
-/** API + instance logs to files (api/, instance/<id>/) — env EDGEOS_LOG_FILES=1 */
-static void applyEdgeosLogFilesFromEnv() {
-  const char *e = std::getenv("EDGEOS_LOG_FILES");
+static bool envFlagTruthy(const char *e) {
   if (!e || !e[0]) {
-    return;
+    return false;
   }
   std::string v(e);
   std::transform(v.begin(), v.end(), v.begin(), ::tolower);
-  if (v == "1" || v == "true" || v == "yes" || v == "on") {
-    g_log_api = true;
-    g_log_instance = true;
-    std::cerr << "[Main] EDGEOS_LOG_FILES: writing API + instance logs to files"
-              << std::endl;
+  return v == "1" || v == "true" || v == "yes" || v == "on";
+}
+
+/** API + instance logs to files — EDGEOS_LOG_FILES=1 → logs/api/, logs/instance/ */
+static void applyEdgeosLogFilesFromEnv() {
+  if (!envFlagTruthy(std::getenv("EDGEOS_LOG_FILES"))) {
+    return;
   }
+  g_log_api = true;
+  g_log_instance = true;
+  std::cerr << "[Main] EDGEOS_LOG_FILES: writing API + instance logs to files"
+            << std::endl;
+}
+
+/** SDK output to logs/sdk_output/ — EDGEOS_LOG_SDK_OUTPUT=1 (same as --log-sdk-output) */
+static void applyEdgeosLogSdkOutputFromEnv() {
+  if (!envFlagTruthy(std::getenv("EDGEOS_LOG_SDK_OUTPUT"))) {
+    return;
+  }
+  g_log_sdk_output = true;
+  std::cerr << "[Main] EDGEOS_LOG_SDK_OUTPUT: writing SDK output logs to files"
+            << std::endl;
 }
 
 /**
@@ -2032,6 +2046,7 @@ int main(int argc, char *argv[]) {
       return 0; // Help was requested, exit normally
     }
     applyEdgeosLogFilesFromEnv();
+    applyEdgeosLogSdkOutputFromEnv();
 
     // CRITICAL: Setup GStreamer plugin path BEFORE any GStreamer operations
     // This ensures plugins can be found even when running directly (not via
