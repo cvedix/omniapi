@@ -78,10 +78,11 @@ const std::map<std::string, NodeTemplateRegistry::NodeTypeMetadata>
           "Detect faces using YuNet model"}},
         {"yolo_detector",
          {"detector",
-          {"weights_path", "config_path"},
-          {"labels_path"},
+          {"model_path"},
+          {"labels_path", "backend_type", "score_threshold",
+           "confidence_threshold", "nms_threshold", "class_id_offset"},
           "YOLO Detector",
-          "Object detection using YOLO"}},
+          "Object detection using plugin backend (TensorRT/ONNX/OpenVINO)"}},
         {"yolov11_detector",
          {"detector",
           {"model_path"},
@@ -171,9 +172,10 @@ const std::map<std::string, NodeTemplateRegistry::NodeTypeMetadata>
         {"trt_yolov11_plate_detector",
          {"detector",
           {"model_path"},
-          {"conf_threshold", "nms_threshold"},
+          {"labels_path", "conf_threshold", "nms_threshold"},
           "TensorRT YOLOv11 Plate Detector",
-          "License plate detection using TensorRT YOLOv11"}},
+          "License plate detection (alias of yolo_detector with TensorRT "
+          "backend)"}},
 
         // RKNN Detectors
         {"rknn_yolov8_detector",

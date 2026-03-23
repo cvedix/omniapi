@@ -27,8 +27,12 @@
 #ifdef CVEDIX_WITH_GSTREAMER
 #include <cvedix/nodes/des/cvedix_rtsp_des_node.h>
 #endif
+#ifdef CVEDIX_USE_SFACE_FEATURE_ENCODER
 #include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
+#else
+#include <cvedix/nodes/infers/cvedix_feature_encoder_node.h>
+#endif
+#include <cvedix/nodes/infers/cvedix_face_detector_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
@@ -85,11 +89,15 @@
 #include <cvedix/nodes/infers/cvedix_classifier_node.h>
 #include <cvedix/nodes/infers/cvedix_enet_seg_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
+#ifdef CVEDIX_HAS_OPENPOSE
 #include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
-// Note: cvedix_feature_encoder_node is abstract - use
-// cvedix_sface_feature_encoder_node or cvedix_trt_vehicle_feature_encoder
-// instead #include <cvedix/nodes/infers/cvedix_feature_encoder_node.h>
+#endif
+// Generic embedding encoder (SDK: cvedix_feature_encoder_node; older SDKs used
+// cvedix_sface_feature_encoder_node). Vehicle TRT path uses
+// cvedix_trt_vehicle_feature_encoder separately.
+#ifdef CVEDIX_HAS_FACE_SWAP
 #include <cvedix/nodes/infers/cvedix_face_swap_node.h>
+#endif
 #include <cvedix/nodes/infers/cvedix_lane_detector_node.h>
 #ifdef CVEDIX_WITH_LLM
 #include <cvedix/nodes/infers/cvedix_mllm_analyser_node.h>
@@ -97,7 +105,9 @@
 #ifdef CVEDIX_WITH_PADDLE
 #include <cvedix/nodes/infers/cvedix_ppocr_text_detector_node.h>
 #endif
+#ifdef CVEDIX_HAS_RESTORATION
 #include <cvedix/nodes/infers/cvedix_restoration_node.h>
+#endif
 
 // TensorRT Additional Inference Nodes
 #ifdef CVEDIX_WITH_TRT
@@ -2282,7 +2292,12 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
     } else if (nodeConfig.nodeType == "mask_rcnn_detector") {
       return PipelineBuilderDetectorNodes::createMaskRCNNDetectorNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "openpose_detector") {
+#ifdef CVEDIX_HAS_OPENPOSE
       return PipelineBuilderDetectorNodes::createOpenPoseDetectorNode(nodeName, params, req);
+#else
+      throw std::runtime_error(
+          "openpose_detector is not available in this EdgeOS/CVEDIX SDK build");
+#endif
     } else if (nodeConfig.nodeType == "classifier") {
       return PipelineBuilderDetectorNodes::createClassifierNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "feature_encoder") {
@@ -2296,9 +2311,19 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
     } else if (nodeConfig.nodeType == "lane_detector") {
       return PipelineBuilderDetectorNodes::createLaneDetectorNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "face_swap") {
+#ifdef CVEDIX_HAS_FACE_SWAP
       return PipelineBuilderDetectorNodes::createFaceSwapNode(nodeName, params, req);
+#else
+      throw std::runtime_error(
+          "face_swap is not available in this EdgeOS/CVEDIX SDK build");
+#endif
     } else if (nodeConfig.nodeType == "insight_face_recognition") {
+#ifdef CVEDIX_HAS_FACENET
       return PipelineBuilderDetectorNodes::createInsightFaceRecognitionNode(nodeName, params, req);
+#else
+      throw std::runtime_error(
+          "insight_face_recognition is not available in this EdgeOS/CVEDIX SDK build");
+#endif
 #ifdef CVEDIX_WITH_LLM
     } else if (nodeConfig.nodeType == "mllm_analyser") {
       return PipelineBuilderDetectorNodes::createMLLMAnalyserNode(nodeName, params, req);
@@ -2308,7 +2333,12 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderDetectorNodes::createPaddleOCRTextDetectorNode(nodeName, params, req);
 #endif
     } else if (nodeConfig.nodeType == "restoration") {
+#ifdef CVEDIX_HAS_RESTORATION
       return PipelineBuilderDetectorNodes::createRestorationNode(nodeName, params, req);
+#else
+      throw std::runtime_error(
+          "restoration is not available in this EdgeOS/CVEDIX SDK build");
+#endif
     } else if (nodeConfig.nodeType == "frame_fusion") {
       return PipelineBuilderOtherNodes::createFrameFusionNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "record") {
@@ -2613,7 +2643,7 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
       std::ostringstream oss;
       oss << req.frameRateLimit;
       value = oss.str();
-    } else if (value == "${RTSP_URL}") {
+    } else if (value == "${RTSP_URL}" || value == "${RTSP_SRC_URL}") {
       value = PipelineBuilderRequestUtils::getRTSPUrl(req);
     } else if (value == "${FILE_PATH}") {
       value = PipelineBuilderRequestUtils::getFilePath(req);
@@ -2623,6 +2653,12 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
       auto it = req.additionalParams.find("WEIGHTS_PATH");
       if (it != req.additionalParams.end() && !it->second.empty()) {
         value = it->second;
+      } else {
+        // Backward compatibility: many requests provide MODEL_PATH only.
+        auto modelIt = req.additionalParams.find("MODEL_PATH");
+        if (modelIt != req.additionalParams.end() && !modelIt->second.empty()) {
+          value = modelIt->second;
+        }
       }
     } else if (value == "${CONFIG_PATH}") {
       auto it = req.additionalParams.find("CONFIG_PATH");
