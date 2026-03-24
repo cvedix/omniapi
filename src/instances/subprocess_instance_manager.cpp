@@ -525,6 +525,19 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
           worker::MessageType::GET_INSTANCE_STATUS_RESPONSE) {
         if (statusResponse.payload.isMember("data")) {
           const auto &data = statusResponse.payload["data"];
+          // Worker sets this after pipeline build (includes rtmp_des "_0" suffix).
+          if (data.isMember("rtmp_playback_url")) {
+            std::string playback = data["rtmp_playback_url"].asString();
+            if (!playback.empty()) {
+              std::lock_guard<std::mutex> lock(instances_mutex_);
+              if (instances_.count(instanceId)) {
+                instances_[instanceId].rtmpUrl = playback;
+                instances_[instanceId].additionalParams["RTMP_URL"] = playback;
+                instances_[instanceId].additionalParams["RTMP_DES_URL"] =
+                    playback;
+              }
+            }
+          }
           bool running = data.get("running", false).asBool();
           std::string state = data.get("state", "").asString();
 

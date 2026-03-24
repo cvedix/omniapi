@@ -1100,10 +1100,12 @@ IPCMessage WorkerHandler::handleGetStatus(const IPCMessage & /*msg*/) {
   // Writers (state updates) still get exclusive access
   std::string state_copy;
   std::string error_copy;
+  std::string rtmpPlayback;
   {
     std::shared_lock<std::shared_mutex> lock(state_mutex_);
     state_copy = current_state_;
     error_copy = last_error_;
+    rtmpPlayback = published_rtmp_playback_url_;
   }
 
   Json::Value data;
@@ -1113,6 +1115,9 @@ IPCMessage WorkerHandler::handleGetStatus(const IPCMessage & /*msg*/) {
   data["has_pipeline"] = !pipeline_nodes_.empty();
   if (!error_copy.empty()) {
     data["last_error"] = error_copy;
+  }
+  if (!rtmpPlayback.empty()) {
+    data["rtmp_playback_url"] = rtmpPlayback;
   }
 
   response.payload = createResponse(ResponseStatus::OK, "", data);
@@ -1639,8 +1644,14 @@ bool WorkerHandler::buildPipeline() {
 
     if (pipeline_nodes_.empty()) {
       last_error_ = "Pipeline builder returned empty pipeline";
+      {
+        std::lock_guard<std::shared_mutex> lock(state_mutex_);
+        published_rtmp_playback_url_.clear();
+      }
       return false;
     }
+
+    syncPublishedRtmpUrlAfterPipelineBuild();
 
     {
       std::lock_guard<std::shared_mutex> lock(state_mutex_);
@@ -1654,6 +1665,10 @@ bool WorkerHandler::buildPipeline() {
     last_error_ = e.what();
     std::cerr << "[Worker:" << instance_id_
               << "] Failed to build pipeline: " << e.what() << std::endl;
+    {
+      std::lock_guard<std::shared_mutex> lock(state_mutex_);
+      published_rtmp_playback_url_.clear();
+    }
     return false;
   }
 }
@@ -2144,7 +2159,47 @@ void WorkerHandler::cleanupPipeline() {
   {
     std::lock_guard<std::shared_mutex> lock(state_mutex_);
     current_state_ = "stopped";
+    published_rtmp_playback_url_.clear();
   }
+}
+
+void WorkerHandler::syncPublishedRtmpUrlAfterPipelineBuild() {
+  std::string actual = PipelineBuilder::getActualRTMPUrl(instance_id_);
+  if (actual.empty()) {
+    std::lock_guard<std::shared_mutex> lock(state_mutex_);
+    published_rtmp_playback_url_.clear();
+    PipelineBuilder::clearActualRTMPUrl(instance_id_);
+    return;
+  }
+
+  std::string finalUrl = actual;
+  size_t lastSlash = finalUrl.find_last_of('/');
+  if (lastSlash != std::string::npos && lastSlash < finalUrl.length() - 1) {
+    const std::string streamKey = finalUrl.substr(lastSlash + 1);
+    if (streamKey.length() < 2 ||
+        streamKey.substr(streamKey.length() - 2) != "_0") {
+      finalUrl += "_0";
+    }
+  }
+
+  {
+    std::lock_guard<std::shared_mutex> lock(state_mutex_);
+    published_rtmp_playback_url_ = finalUrl;
+  }
+
+  if (config_.isMember("AdditionalParams") &&
+      config_["AdditionalParams"].isObject()) {
+    config_["AdditionalParams"]["RTMP_URL"] = finalUrl;
+    config_["AdditionalParams"]["RTMP_DES_URL"] = finalUrl;
+  }
+  config_["RtmpUrl"] = finalUrl;
+
+  PipelineBuilder::clearActualRTMPUrl(instance_id_);
+
+  std::cout << "[Worker:" << instance_id_
+            << "] RTMP playback URL (use this in ffplay/VLC; matches rtmp_des "
+               "publish path): '"
+            << finalUrl << "'" << std::endl;
 }
 
 void WorkerHandler::sendReadySignal() {
@@ -3128,6 +3183,8 @@ bool WorkerHandler::preBuildPipeline(const Json::Value &newConfig) {
       last_error_ = "Pipeline builder returned empty pipeline";
       return false;
     }
+
+    syncPublishedRtmpUrlAfterPipelineBuild();
 
     std::cout << "[Worker:" << instance_id_ << "] Pre-built pipeline with "
               << new_pipeline_nodes_.size() << " nodes" << std::endl;

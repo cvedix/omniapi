@@ -424,11 +424,11 @@ QuickInstanceHandler::getDefaultParams(const std::string &solutionType,
     if (input == "file" || input == "video") {
       defaults["FILE_PATH"] = "/opt/edgeos-api/videos/face.mp4";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx";
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
     } else if (input == "rtsp" || input == "stream") {
       defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx";
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
     }
     defaults["RESIZE_RATIO"] = "1.0";
   }
@@ -542,6 +542,11 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
   }
   req.solution = solutionId;
 
+  // Face detection sample/pipeline uses YuNet detector only (no SFace encoder).
+  // Ignore SFACE_MODEL_PATH for face_detection* solutions to keep API payload aligned.
+  const bool isFaceDetectionSolution =
+      solutionId.rfind("face_detection", 0) == 0;
+
   // Optional fields
   if (json.isMember("group") && json["group"].isString()) {
     req.group = json["group"].asString();
@@ -624,6 +629,11 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     if (req.additionalParams.find(key) == req.additionalParams.end()) {
       req.additionalParams[key] = value;
     }
+  }
+
+  if (isFaceDetectionSolution) {
+    req.additionalParams.erase("SFACE_MODEL_PATH");
+    req.additionalParams.erase("SFACE_MODEL_NAME");
   }
 
   // Parse lines parameter for BA Crossline (UI-friendly format)

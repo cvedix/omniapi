@@ -1598,8 +1598,6 @@ API path: /v1/core/instance/{instanceId}
   "MODEL_PATH": "./models/yunet.onnx",
   "FILE_PATH": "/path/to/video.mp4",
   "RTMP_URL": "rtmp://localhost:1935/live/stream",
-  "SFACE_MODEL_PATH": "string",
-  "SFACE_MODEL_NAME": "string",
   "additionalParams": {
     "additionalProp1": "string",
     "additionalProp2": "string",
@@ -1635,8 +1633,6 @@ curl -X 'PUT' \
   "MODEL_PATH": "./models/yunet.onnx",
   "FILE_PATH": "/path/to/video.mp4",
   "RTMP_URL": "rtmp://localhost:1935/live/stream",
-  "SFACE_MODEL_PATH": "string",
-  "SFACE_MODEL_NAME": "string",
   "additionalParams": {
     "additionalProp1": "string",
     "additionalProp2": "string",

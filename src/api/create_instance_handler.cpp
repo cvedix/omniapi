@@ -7,6 +7,7 @@
 #include "instances/instance_manager.h"
 #include "models/create_instance_request.h"
 #include "solutions/solution_registry.h"
+#include <cctype>
 #include <chrono>
 #include <drogon/HttpResponse.h>
 #include <json/json.h>
@@ -583,6 +584,52 @@ bool CreateInstanceHandler::parseRequest(const Json::Value &json,
     if (it != req.additionalParams.end() && !it->second.empty()) {
       error = "Invalid additionalParam: " + k + " must not be provided at instance level; specify per zone in JamZones or StopZones";
       return false;
+    }
+  }
+
+  // Align with face detection sample/pipeline: YuNet detector only.
+  // If caller sends SFace keys for face_detection* solutions, ignore them.
+  if (!req.solution.empty() && req.solution.rfind("face_detection", 0) == 0) {
+    req.additionalParams.erase("SFACE_MODEL_PATH");
+    req.additionalParams.erase("SFACE_MODEL_NAME");
+  }
+
+  // Smart resolution for generic face_detection solution:
+  // choose a concrete pipeline variant based on input/output parameters so
+  // clients can keep using "solution": "face_detection".
+  if (req.solution == "face_detection") {
+    auto hasNonEmpty = [&req](const std::string &k) -> bool {
+      auto it = req.additionalParams.find(k);
+      return it != req.additionalParams.end() && !it->second.empty();
+    };
+
+    // Determine input type (rtsp/rtmp/file) from explicit keys first, then FILE_PATH URI.
+    std::string inputType = "file";
+    if (hasNonEmpty("RTSP_SRC_URL") || hasNonEmpty("RTSP_URL")) {
+      inputType = "rtsp";
+    } else if (hasNonEmpty("RTMP_SRC_URL")) {
+      inputType = "rtmp";
+    } else if (hasNonEmpty("FILE_PATH")) {
+      std::string filePath = req.additionalParams["FILE_PATH"];
+      std::string lower = filePath;
+      std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+      if (lower.rfind("rtsp://", 0) == 0) {
+        inputType = "rtsp";
+      } else if (lower.rfind("rtmp://", 0) == 0) {
+        inputType = "rtmp";
+      }
+    }
+
+    // Determine output type from output keys.
+    const bool wantsRtmpOutput = hasNonEmpty("RTMP_DES_URL") || hasNonEmpty("RTMP_URL");
+    const bool wantsRtspOutput = hasNonEmpty("RTSP_DES_PORT") || hasNonEmpty("RTSP_DES_NAME");
+
+    if (wantsRtmpOutput) {
+      req.solution = "face_detection_rtmp_default";
+    } else if (inputType == "rtsp" || wantsRtspOutput) {
+      req.solution = "face_detection_rtsp_default";
+    } else {
+      req.solution = "face_detection_file_default";
     }
   }
 

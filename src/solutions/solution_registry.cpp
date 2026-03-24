@@ -322,9 +322,7 @@ void SolutionRegistry::registerFaceDetectionRTMPSolution() {
   config.pipeline.push_back(fileSrc);
 
   // YuNet Face Detector Node
-  // NOTE: YuNet 2022mar model may have issues with dynamic input sizes
-  // If you encounter shape mismatch errors, consider using YuNet 2023mar model
-  // which has better support for variable input sizes
+  // Use YuNet detector only to align with face-detection-only pipeline.
   SolutionConfig::NodeConfig faceDetector;
   faceDetector.nodeType = "yunet_face_detector";
   faceDetector.nodeName = "yunet_face_detector_{instanceId}";
@@ -333,13 +331,6 @@ void SolutionRegistry::registerFaceDetectionRTMPSolution() {
   faceDetector.parameters["nms_threshold"] = "0.5";
   faceDetector.parameters["top_k"] = "50";
   config.pipeline.push_back(faceDetector);
-
-  // SFace Feature Encoder Node
-  SolutionConfig::NodeConfig sfaceEncoder;
-  sfaceEncoder.nodeType = "sface_feature_encoder";
-  sfaceEncoder.nodeName = "sface_face_encoder_{instanceId}";
-  sfaceEncoder.parameters["model_path"] = "${SFACE_MODEL_PATH}";
-  config.pipeline.push_back(sfaceEncoder);
 
   // Face OSD v2 Node
   SolutionConfig::NodeConfig faceOSD;
