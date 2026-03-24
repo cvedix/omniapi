@@ -845,6 +845,33 @@ void signalHandler(int signal) {
   }
 }
 
+static void signalInfoHandler(int signal, siginfo_t *info,
+                              void * /*ucontext*/) {
+  pid_t senderPid = info ? info->si_pid : -1;
+  uid_t senderUid = info ? info->si_uid : static_cast<uid_t>(-1);
+  int signalCode = info ? info->si_code : 0;
+
+  std::cerr << "[SHUTDOWN] Signal " << signal << " received (sender pid="
+            << senderPid << ", uid=" << senderUid
+            << ", code=" << signalCode << ")" << std::endl;
+  PLOG_WARNING << "[Signal] signal=" << signal << ", sender_pid=" << senderPid
+               << ", sender_uid=" << senderUid << ", code=" << signalCode;
+
+  signalHandler(signal);
+}
+
+static void registerShutdownSignalHandlers() {
+  struct sigaction sa;
+  std::memset(&sa, 0, sizeof(sa));
+  sa.sa_sigaction = signalInfoHandler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_SIGINFO;
+
+  sigaction(SIGINT, &sa, nullptr);
+  sigaction(SIGTERM, &sa, nullptr);
+  sigaction(SIGABRT, &sa, nullptr);
+}
+
 // Terminate handler for uncaught exceptions
 void terminateHandler() {
   std::string error_msg;
@@ -2138,10 +2165,7 @@ int main(int argc, char *argv[]) {
     // CRITICAL: Register BEFORE Drogon initializes to ensure our handler is
     // used Drogon may register its own handlers, but ours should take
     // precedence
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGTERM, signalHandler);
-    std::signal(SIGABRT, signalHandler); // Catch assertion failures (like
-                                         // OpenCV DNN shape mismatch)
+    registerShutdownSignalHandlers(); // Capture sender pid/uid for shutdown signals
 
     // Register terminate handler for uncaught exceptions
     std::set_terminate(terminateHandler);
@@ -3320,9 +3344,7 @@ int main(int argc, char *argv[]) {
     // CRITICAL: Re-register signal handlers AFTER Drogon setup to ensure
     // they're not overridden Drogon may register its own handlers during
     // initialization, so we register again here
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGTERM, signalHandler);
-    std::signal(SIGABRT, signalHandler);
+    registerShutdownSignalHandlers(); // Drogon may override handlers, register again
     std::signal(
         SIGSEGV,
         segfaultHandler); // Catch segmentation faults from GStreamer crashes

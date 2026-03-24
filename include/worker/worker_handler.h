@@ -104,6 +104,7 @@ private:
 
   // Background thread for starting pipeline (to avoid blocking IPC server)
   std::thread start_pipeline_thread_;
+  std::mutex start_pipeline_thread_mutex_; // Protect start thread lifecycle
   std::atomic<bool> starting_pipeline_{false};
   std::mutex start_pipeline_mutex_;
   std::condition_variable

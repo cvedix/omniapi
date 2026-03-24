@@ -356,6 +356,27 @@ bool SubprocessInstanceManager::deleteInstance(const std::string &instanceId) {
 
 bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
                                               bool /*skipAutoStop*/) {
+  auto sendWithBusyRetry = [this, &instanceId](const worker::IPCMessage &message,
+                                                int timeoutMs,
+                                                int maxRetries = 8,
+                                                int retryDelayMs = 150)
+      -> worker::IPCMessage {
+    worker::IPCMessage response;
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      response = supervisor_->sendToWorker(instanceId, message, timeoutMs);
+      std::string error = response.payload.get("error", "").asString();
+      bool busyError =
+          (response.type == worker::MessageType::ERROR_RESPONSE) &&
+          (error.find("busy") != std::string::npos ||
+           error.find("BUSY") != std::string::npos);
+      if (!busyError || attempt == maxRetries - 1) {
+        return response;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+    }
+    return response;
+  };
+
   // Check worker state - accept both READY and BUSY states
   // BUSY is OK because worker can handle multiple commands
   auto workerState = supervisor_->getWorkerState(instanceId);
@@ -424,8 +445,8 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
   msg.type = worker::MessageType::START_INSTANCE;
   msg.payload["instance_id"] = instanceId;
 
-  auto response = supervisor_->sendToWorker(
-      instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
+  auto response = sendWithBusyRetry(
+      msg, TimeoutConstants::getIpcStartStopTimeoutMs());
 
   // If start failed with "No pipeline configured", build pipeline first
   if (response.type == worker::MessageType::START_INSTANCE_RESPONSE &&
@@ -449,8 +470,8 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
         createMsg.type = worker::MessageType::CREATE_INSTANCE;
         createMsg.payload["config"] = config;
         
-        auto createResponse = supervisor_->sendToWorker(
-            instanceId, createMsg, TimeoutConstants::getIpcStartStopTimeoutMs());
+        auto createResponse = sendWithBusyRetry(
+            createMsg, TimeoutConstants::getIpcStartStopTimeoutMs());
         
         if (createResponse.type != worker::MessageType::CREATE_INSTANCE_RESPONSE ||
             !createResponse.payload.get("success", false).asBool()) {
@@ -470,8 +491,8 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
         msg.type = worker::MessageType::START_INSTANCE;
         msg.payload["instance_id"] = instanceId;
         
-        response = supervisor_->sendToWorker(
-            instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
+        response = sendWithBusyRetry(
+            msg, TimeoutConstants::getIpcStartStopTimeoutMs());
       } else {
         std::cerr << "[SubprocessInstanceManager] Instance not found in cache: "
                   << instanceId << std::endl;
@@ -644,6 +665,27 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
 }
 
 bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
+  auto sendWithBusyRetry = [this, &instanceId](const worker::IPCMessage &message,
+                                                int timeoutMs,
+                                                int maxRetries = 10,
+                                                int retryDelayMs = 150)
+      -> worker::IPCMessage {
+    worker::IPCMessage response;
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      response = supervisor_->sendToWorker(instanceId, message, timeoutMs);
+      std::string error = response.payload.get("error", "").asString();
+      bool busyError =
+          (response.type == worker::MessageType::ERROR_RESPONSE) &&
+          (error.find("busy") != std::string::npos ||
+           error.find("BUSY") != std::string::npos);
+      if (!busyError || attempt == maxRetries - 1) {
+        return response;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+    }
+    return response;
+  };
+
   // Check worker state - accept both READY and BUSY states
   // BUSY is OK because worker can handle multiple commands
   auto workerState = supervisor_->getWorkerState(instanceId);
@@ -661,8 +703,8 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
   msg.type = worker::MessageType::STOP_INSTANCE;
   msg.payload["instance_id"] = instanceId;
 
-  auto response = supervisor_->sendToWorker(
-      instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
+  auto response = sendWithBusyRetry(
+      msg, TimeoutConstants::getIpcStartStopTimeoutMs());
 
   if (response.type == worker::MessageType::STOP_INSTANCE_RESPONSE) {
     if (response.payload.get("success", false).asBool()) {
@@ -1680,9 +1722,23 @@ int SubprocessInstanceManager::checkAndHandleRetryLimits() {
     // In subprocess mode, retry limit is typically handled by WorkerSupervisor
     // But we can check local retry count if needed
     if (info.retryCount > 0 && info.retryLimitReached) {
-      // Stop the instance
-      stopInstance(instanceId);
-      stoppedCount++;
+      // Handle this instance only once to avoid repeated noisy logs every cycle.
+      // If worker is already STOPPED/CRASHED, there is nothing left to stop.
+      bool handled = false;
+      auto workerState = supervisor_->getWorkerState(instanceId);
+      if (workerState == worker::WorkerState::READY ||
+          workerState == worker::WorkerState::BUSY) {
+        stopInstance(instanceId);
+        handled = true;
+      } else if (workerState == worker::WorkerState::STOPPED ||
+                 workerState == worker::WorkerState::CRASHED) {
+        handled = true;
+      }
+
+      if (handled) {
+        info.retryLimitReached = false;
+        stoppedCount++;
+      }
     }
   }
 

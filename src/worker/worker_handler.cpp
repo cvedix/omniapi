@@ -102,6 +102,7 @@ WorkerHandler::~WorkerHandler() {
   // Wait for start pipeline thread to finish if running
   // Use condition variable to wait for completion naturally
   if (starting_pipeline_.load()) {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
     if (start_pipeline_thread_.joinable()) {
       std::unique_lock<std::mutex> lock(start_pipeline_mutex_);
       // Wait for start pipeline to complete with configurable timeout
@@ -357,6 +358,7 @@ int WorkerHandler::run() {
   // Wait for start pipeline thread to finish if running
   // Use condition variable to wait for completion naturally
   if (starting_pipeline_.load()) {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
     if (start_pipeline_thread_.joinable()) {
       std::cout << "[Worker:" << instance_id_
                 << "] Waiting for start pipeline thread to finish..."
@@ -1811,6 +1813,17 @@ void WorkerHandler::startPipelineAsync() {
   // Note: starting_pipeline_ is already set to true by handleStartInstance
   // before this function is called, so we don't need to set it again here
 
+  // If a previous start thread finished but was never joined, joining here
+  // prevents std::terminate when assigning a new std::thread object.
+  // At this point, handleStartInstance has already ensured there is no active
+  // concurrent start operation.
+  {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
+    if (start_pipeline_thread_.joinable()) {
+      start_pipeline_thread_.join();
+    }
+  }
+
   // Check if shutdown was requested
   if (shutdown_requested_.load()) {
     {
@@ -1826,7 +1839,9 @@ void WorkerHandler::startPipelineAsync() {
   }
 
   // Start pipeline in background thread
-  start_pipeline_thread_ = std::thread([this]() {
+  {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
+    start_pipeline_thread_ = std::thread([this]() {
     try {
       // Check shutdown flag before starting pipeline
       if (shutdown_requested_.load()) {
@@ -1862,7 +1877,8 @@ void WorkerHandler::startPipelineAsync() {
                 << std::endl;
       start_pipeline_cv_.notify_all(); // Notify waiters even on error
     }
-  });
+    });
+  }
 }
 
 void WorkerHandler::stopPipelineAsync() {

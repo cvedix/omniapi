@@ -20,7 +20,9 @@
 #include "worker/worker_handler.h"
 #include <csignal>
 #include <cstdlib>
+#include <execinfo.h>
 #include <iostream>
+#include <unistd.h>
 
 // Global handler for signal handling
 static worker::WorkerHandler *g_handler = nullptr;
@@ -33,6 +35,23 @@ static void signalHandler(int signum) {
   }
 }
 
+static void crashSignalHandler(int signum, siginfo_t *info, void * /*ucontext*/) {
+  void *frames[64];
+  int frameCount = backtrace(frames, 64);
+  pid_t senderPid = info ? info->si_pid : -1;
+  void *faultAddr = info ? info->si_addr : nullptr;
+
+  std::cerr << "\n[Worker] CRASH signal " << signum
+            << " received. sender_pid=" << senderPid
+            << ", fault_addr=" << faultAddr << std::endl;
+  std::cerr << "[Worker] Backtrace (" << frameCount << " frames):" << std::endl;
+  backtrace_symbols_fd(frames, frameCount, STDERR_FILENO);
+
+  // Re-raise with default handler so OS/core-dump tooling can capture crash.
+  std::signal(signum, SIG_DFL);
+  raise(signum);
+}
+
 static void setupSignalHandlers() {
   struct sigaction sa;
   sa.sa_handler = signalHandler;
@@ -41,6 +60,13 @@ static void setupSignalHandlers() {
 
   sigaction(SIGTERM, &sa, nullptr);
   sigaction(SIGINT, &sa, nullptr);
+
+  struct sigaction crash_sa;
+  crash_sa.sa_sigaction = crashSignalHandler;
+  sigemptyset(&crash_sa.sa_mask);
+  crash_sa.sa_flags = SA_SIGINFO | SA_RESETHAND;
+  sigaction(SIGSEGV, &crash_sa, nullptr);
+  sigaction(SIGABRT, &crash_sa, nullptr);
 
   // Ignore SIGPIPE (broken pipe)
   signal(SIGPIPE, SIG_IGN);

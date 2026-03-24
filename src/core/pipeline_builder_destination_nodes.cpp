@@ -259,7 +259,8 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
       }
       
       if (!streamKey.empty()) {
-        // Always make URL unique by appending instance ID
+        // Make URL unique by appending instance ID only when missing.
+        // Subprocess mode may already normalize stream key upstream.
         size_t protocolPos = rtmpUrl.find("rtmp://");
         if (protocolPos != std::string::npos) {
           // Find the last '/' to locate stream key
@@ -277,11 +278,24 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
             // Generate short unique ID from instanceId (use first 8 chars)
             std::string shortId = instanceId.substr(0, 8);
             
-            // Append instance ID to stream key: stream_key -> stream_key_<shortId>
-            std::string uniqueStreamKey = originalStreamKey + "_" + shortId;
-            rtmpUrl = baseUrl + uniqueStreamKey;
-            std::cerr << "[PipelineBuilderDestinationNodes] RTMP URL normalized per instance: '"
-                      << rtmpUrl << "'" << std::endl;
+            // Append instance ID only if stream key does not already end with it.
+            // Avoid double suffix like: stream_<id8>_<id8>.
+            std::string suffix = "_" + shortId;
+            bool alreadySuffixed =
+                originalStreamKey.length() >= suffix.length() &&
+                originalStreamKey.compare(
+                    originalStreamKey.length() - suffix.length(),
+                    suffix.length(), suffix) == 0;
+
+            if (!alreadySuffixed) {
+              std::string uniqueStreamKey = originalStreamKey + suffix;
+              rtmpUrl = baseUrl + uniqueStreamKey;
+              std::cerr << "[PipelineBuilderDestinationNodes] RTMP URL normalized per instance: '"
+                        << rtmpUrl << "'" << std::endl;
+            } else {
+              std::cerr << "[PipelineBuilderDestinationNodes] RTMP URL already normalized: '"
+                        << rtmpUrl << "'" << std::endl;
+            }
           }
         }
       }
