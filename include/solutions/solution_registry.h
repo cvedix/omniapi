@@ -164,6 +164,16 @@ private:
   void registerFaceDetectionRTMPDefaultSolution();
 
   /**
+   * @brief Register face_detection_rtsp_rtmp_default solution
+   */
+  void registerFaceDetectionRTSPRTMPDefaultSolution();
+
+  /**
+   * @brief Register face_detection_rtmp_rtmp_default solution
+   */
+  void registerFaceDetectionRTMPRTMPDefaultSolution();
+
+  /**
    * @brief Register face_detection_rtsp_default solution
    */
   void registerFaceDetectionRTSPDefaultSolution();

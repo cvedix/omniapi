@@ -115,6 +115,8 @@ void SolutionRegistry::initializeDefaultSolutions() {
   registerFaceDetectionFileSolution();          // face_detection_file_default
   registerFaceDetectionDefaultSolution();       // face_detection_default
   registerFaceDetectionRTMPDefaultSolution();   // face_detection_rtmp_default
+  registerFaceDetectionRTSPRTMPDefaultSolution(); // face_detection_rtsp_rtmp_default
+  registerFaceDetectionRTMPRTMPDefaultSolution(); // face_detection_rtmp_rtmp_default
   registerFaceDetectionRTSPDefaultSolution();   // face_detection_rtsp_default
   registerRTSPFaceDetectionDefaultSolution();   // rtsp_face_detection_default
   registerMinimalDefaultSolution();             // minimal_default
@@ -1115,6 +1117,104 @@ void SolutionRegistry::registerFaceDetectionRTSPDefaultSolution() {
   // Default configurations
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.6";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerFaceDetectionRTSPRTMPDefaultSolution() {
+  SolutionConfig config;
+  config.solutionId = "face_detection_rtsp_rtmp_default";
+  config.solutionName = "Face Detection - RTSP to RTMP";
+  config.solutionType = "face_detection";
+  config.isDefault = true;
+
+  // RTSP Source Node
+  SolutionConfig::NodeConfig rtspSrc;
+  rtspSrc.nodeType = "rtsp_src";
+  rtspSrc.nodeName = "rtsp_src_{instanceId}";
+  rtspSrc.parameters["rtsp_url"] = "${RTSP_URL}";
+  rtspSrc.parameters["channel"] = "0";
+  rtspSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(rtspSrc);
+
+  // YuNet Face Detector Node
+  SolutionConfig::NodeConfig faceDetector;
+  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeName = "face_detector_{instanceId}";
+  faceDetector.parameters["model_path"] = "${MODEL_PATH}";
+  faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  faceDetector.parameters["nms_threshold"] = "0.5";
+  faceDetector.parameters["top_k"] = "50";
+  config.pipeline.push_back(faceDetector);
+
+  // Face OSD v2 Node
+  SolutionConfig::NodeConfig faceOsd;
+  faceOsd.nodeType = "face_osd_v2";
+  faceOsd.nodeName = "face_osd_{instanceId}";
+  config.pipeline.push_back(faceOsd);
+
+  // RTMP Destination Node
+  SolutionConfig::NodeConfig rtmpDes;
+  rtmpDes.nodeType = "rtmp_des";
+  rtmpDes.nodeName = "rtmp_des_{instanceId}";
+  rtmpDes.parameters["rtmp_url"] = "${RTMP_URL}";
+  rtmpDes.parameters["channel"] = "0";
+  config.pipeline.push_back(rtmpDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.7";
+  config.defaults["sensorModality"] = "RGB";
+  config.defaults["RESIZE_RATIO"] = "1.0";
+
+  registerSolution(config);
+}
+
+void SolutionRegistry::registerFaceDetectionRTMPRTMPDefaultSolution() {
+  SolutionConfig config;
+  config.solutionId = "face_detection_rtmp_rtmp_default";
+  config.solutionName = "Face Detection - RTMP to RTMP";
+  config.solutionType = "face_detection";
+  config.isDefault = true;
+
+  // RTMP Source Node
+  SolutionConfig::NodeConfig rtmpSrc;
+  rtmpSrc.nodeType = "rtmp_src";
+  rtmpSrc.nodeName = "rtmp_src_{instanceId}";
+  rtmpSrc.parameters["rtmp_url"] = "${RTMP_SRC_URL}";
+  rtmpSrc.parameters["channel"] = "0";
+  rtmpSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
+  config.pipeline.push_back(rtmpSrc);
+
+  // YuNet Face Detector Node
+  SolutionConfig::NodeConfig faceDetector;
+  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeName = "face_detector_{instanceId}";
+  faceDetector.parameters["model_path"] = "${MODEL_PATH}";
+  faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  faceDetector.parameters["nms_threshold"] = "0.5";
+  faceDetector.parameters["top_k"] = "50";
+  config.pipeline.push_back(faceDetector);
+
+  // Face OSD v2 Node
+  SolutionConfig::NodeConfig faceOsd;
+  faceOsd.nodeType = "face_osd_v2";
+  faceOsd.nodeName = "face_osd_{instanceId}";
+  config.pipeline.push_back(faceOsd);
+
+  // RTMP Destination Node
+  SolutionConfig::NodeConfig rtmpDes;
+  rtmpDes.nodeType = "rtmp_des";
+  rtmpDes.nodeName = "rtmp_des_{instanceId}";
+  rtmpDes.parameters["rtmp_url"] = "${RTMP_URL}";
+  rtmpDes.parameters["channel"] = "0";
+  config.pipeline.push_back(rtmpDes);
+
+  // Default configurations
+  config.defaults["detectorMode"] = "SmartDetection";
+  config.defaults["detectionSensitivity"] = "0.7";
   config.defaults["sensorModality"] = "RGB";
   config.defaults["RESIZE_RATIO"] = "1.0";
 

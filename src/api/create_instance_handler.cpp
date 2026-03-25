@@ -594,6 +594,38 @@ bool CreateInstanceHandler::parseRequest(const Json::Value &json,
     req.additionalParams.erase("SFACE_MODEL_NAME");
   }
 
+  // Global source key normalization for all solutions:
+  // infer stream type from FILE_PATH when caller uses FILE_PATH for URLs.
+  auto hasNonEmptyParam = [&req](const std::string &k) -> bool {
+    auto it = req.additionalParams.find(k);
+    return it != req.additionalParams.end() && !it->second.empty();
+  };
+  auto toLowerCopy = [](std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    return s;
+  };
+  if (hasNonEmptyParam("FILE_PATH")) {
+    const std::string filePath = req.additionalParams["FILE_PATH"];
+    const std::string lower = toLowerCopy(filePath);
+    if (lower.rfind("rtsp://", 0) == 0) {
+      if (!hasNonEmptyParam("RTSP_SRC_URL")) {
+        req.additionalParams["RTSP_SRC_URL"] = filePath;
+      }
+      if (!hasNonEmptyParam("RTSP_URL")) {
+        req.additionalParams["RTSP_URL"] = filePath;
+      }
+    } else if (lower.rfind("rtmp://", 0) == 0) {
+      if (!hasNonEmptyParam("RTMP_SRC_URL")) {
+        req.additionalParams["RTMP_SRC_URL"] = filePath;
+      }
+    } else if (lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0 ||
+               lower.find(".m3u8") != std::string::npos) {
+      if (!hasNonEmptyParam("HLS_URL")) {
+        req.additionalParams["HLS_URL"] = filePath;
+      }
+    }
+  }
+
   // Smart resolution for generic face_detection solution:
   // choose a concrete pipeline variant based on input/output parameters so
   // clients can keep using "solution": "face_detection".
@@ -603,20 +635,39 @@ bool CreateInstanceHandler::parseRequest(const Json::Value &json,
       return it != req.additionalParams.end() && !it->second.empty();
     };
 
-    // Determine input type (rtsp/rtmp/file) from explicit keys first, then FILE_PATH URI.
+    auto toLower = [](std::string s) {
+      std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+      return s;
+    };
+
+    // Determine input type from explicit keys first, then FILE_PATH URI.
+    // Supported: file, rtsp, rtmp, hls/http(s).
     std::string inputType = "file";
     if (hasNonEmpty("RTSP_SRC_URL") || hasNonEmpty("RTSP_URL")) {
       inputType = "rtsp";
     } else if (hasNonEmpty("RTMP_SRC_URL")) {
       inputType = "rtmp";
     } else if (hasNonEmpty("FILE_PATH")) {
-      std::string filePath = req.additionalParams["FILE_PATH"];
-      std::string lower = filePath;
-      std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+      const std::string filePath = req.additionalParams["FILE_PATH"];
+      const std::string lower = toLower(filePath);
       if (lower.rfind("rtsp://", 0) == 0) {
         inputType = "rtsp";
       } else if (lower.rfind("rtmp://", 0) == 0) {
         inputType = "rtmp";
+      } else if (lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0 ||
+                 lower.find(".m3u8") != std::string::npos) {
+        inputType = "hls";
+      }
+    }
+
+    // Backfill source-specific URLs from FILE_PATH when caller only provides FILE_PATH.
+    // This ensures placeholders like ${RTSP_URL}/${RTMP_SRC_URL} are resolvable.
+    if (hasNonEmpty("FILE_PATH")) {
+      const std::string filePath = req.additionalParams["FILE_PATH"];
+      if (inputType == "rtsp" && !hasNonEmpty("RTSP_URL") && !hasNonEmpty("RTSP_SRC_URL")) {
+        req.additionalParams["RTSP_URL"] = filePath;
+      } else if (inputType == "rtmp" && !hasNonEmpty("RTMP_SRC_URL")) {
+        req.additionalParams["RTMP_SRC_URL"] = filePath;
       }
     }
 
@@ -625,9 +676,18 @@ bool CreateInstanceHandler::parseRequest(const Json::Value &json,
     const bool wantsRtspOutput = hasNonEmpty("RTSP_DES_PORT") || hasNonEmpty("RTSP_DES_NAME");
 
     if (wantsRtmpOutput) {
-      req.solution = "face_detection_rtmp_default";
+      if (inputType == "rtsp") {
+        req.solution = "face_detection_rtsp_rtmp_default";
+      } else if (inputType == "rtmp") {
+        req.solution = "face_detection_rtmp_rtmp_default";
+      } else {
+        // file/hls/http inputs keep file_src path for broad URI compatibility
+        req.solution = "face_detection_rtmp_default";
+      }
     } else if (inputType == "rtsp" || wantsRtspOutput) {
       req.solution = "face_detection_rtsp_default";
+    } else if (inputType == "rtmp") {
+      req.solution = "face_detection_rtmp_rtmp_default";
     } else {
       req.solution = "face_detection_file_default";
     }

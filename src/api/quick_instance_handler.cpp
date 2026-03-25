@@ -288,12 +288,21 @@ QuickInstanceHandler::mapSolutionTypeToId(const std::string &solutionType,
 
   // Map solution types to solution IDs
   if (type == "face_detection" || type == "face") {
+    if (output == "rtmp") {
+      if (input == "rtsp" || input == "stream") {
+        return "face_detection_rtsp_rtmp_default";
+      } else if (input == "rtmp") {
+        return "face_detection_rtmp_rtmp_default";
+      }
+      return "face_detection_rtmp_default";
+    }
+
     if (input == "file" || input == "video") {
       return "face_detection_file_default";
     } else if (input == "rtsp" || input == "stream") {
       return "face_detection_rtsp_default";
     } else if (input == "rtmp") {
-      return "face_detection_rtmp_default";
+      return "face_detection_rtmp_rtmp_default";
     } else {
       // Default to file input
       return "face_detection_file_default";
@@ -429,6 +438,10 @@ QuickInstanceHandler::getDefaultParams(const std::string &solutionType,
       defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
       defaults["MODEL_PATH"] =
           "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
+    } else if (input == "rtmp") {
+      defaults["RTMP_SRC_URL"] = "rtmp://localhost:1935/live/stream";
+      defaults["MODEL_PATH"] =
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
     }
     defaults["RESIZE_RATIO"] = "1.0";
   }
@@ -531,6 +544,53 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     }
   } else if (json.isMember("outputType") && json["outputType"].isString()) {
     outputType = json["outputType"].asString();
+  }
+
+  // If input type was not explicitly provided, infer it from FILE_PATH when possible.
+  auto inferInputTypeFromPath = [](const std::string &path) -> std::string {
+    if (path.empty()) {
+      return "file";
+    }
+    std::string lower = path;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower.rfind("rtsp://", 0) == 0) {
+      return "rtsp";
+    }
+    if (lower.rfind("rtmp://", 0) == 0) {
+      return "rtmp";
+    }
+    if (lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0 ||
+        lower.find(".m3u8") != std::string::npos) {
+      return "hls";
+    }
+    return "file";
+  };
+
+  if (inputType == "file") {
+    const auto inferFromValue = [&](const std::string &value) {
+      std::string inferred = inferInputTypeFromPath(value);
+      if (inferred != "file") {
+        inputType = inferred;
+      }
+    };
+
+    if (json.isMember("input") && json["input"].isObject()) {
+      if (json["input"].isMember("FILE_PATH") && json["input"]["FILE_PATH"].isString()) {
+        inferFromValue(json["input"]["FILE_PATH"].asString());
+      }
+    } else if (json.isMember("additionalParams") && json["additionalParams"].isObject()) {
+      if (json["additionalParams"].isMember("input") &&
+          json["additionalParams"]["input"].isObject() &&
+          json["additionalParams"]["input"].isMember("FILE_PATH") &&
+          json["additionalParams"]["input"]["FILE_PATH"].isString()) {
+        inferFromValue(json["additionalParams"]["input"]["FILE_PATH"].asString());
+      } else if (json["additionalParams"].isMember("FILE_PATH") &&
+                 json["additionalParams"]["FILE_PATH"].isString()) {
+        inferFromValue(json["additionalParams"]["FILE_PATH"].asString());
+      }
+    } else if (json.isMember("FILE_PATH") && json["FILE_PATH"].isString()) {
+      inferFromValue(json["FILE_PATH"].asString());
+    }
   }
 
   // Map solution type to solution ID

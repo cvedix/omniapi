@@ -595,9 +595,15 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
 
       // Skip source node creation if we already have multiple source nodes
       // Skip source nodes from solution config if we already created custom source nodes
-      if (hasCustomSourceNodes && (nodeConfig.nodeType == "file_src" || nodeConfig.nodeType == "rtsp_src")) {
+      if (hasCustomSourceNodes &&
+          (nodeConfig.nodeType == "file_src" || nodeConfig.nodeType == "rtsp_src" ||
+           nodeConfig.nodeType == "rtmp_src")) {
         std::cerr << "[PipelineBuilder] Skipping " << nodeConfig.nodeType << " node from solution config (using " 
-                  << (multipleSourceType == "file_src" ? "FILE_PATHS" : "RTSP_URLS") << " array instead)" << std::endl;
+                  << (multipleSourceType == "file_src"
+                          ? "FILE_PATHS"
+                          : (multipleSourceType == "rtsp_src" ? "RTSP_URLS"
+                                                                : "custom source array"))
+                  << " array instead)" << std::endl;
         continue;
       }
       
