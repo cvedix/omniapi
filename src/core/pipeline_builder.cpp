@@ -1,6 +1,8 @@
 #include "core/pipeline_builder.h"
 #include "config/system_config.h"
 #include "core/cvedix_validator.h"
+#include "core/frame_router.h"
+#include "core/frame_router_sink_node.h"
 #include "core/env_config.h"
 #include "core/platform_detector.h"
 #include "core/area_manager.h"
@@ -324,7 +326,7 @@ static __attribute__((unused)) void logGPUAvailability() {
 }
 
 // Initialize CVEDIX SDK logger (required before creating nodes)
-static void ensureCVEDIXInitialized() {
+static void initCVEDIXLoggerOnce() {
   std::call_once(cvedix_init_flag, []() {
     try {
       // Configure GStreamer RTSP transport protocol if specified
@@ -415,13 +417,25 @@ static void ensureCVEDIXInitialized() {
                   << std::endl;
       }
 
-      // CVEDIX SDK (cvedix_node meta/queue spam = DEBUG). Default: WARNING.
-      // config: system.logging.cvedix_log_level — env CVEDIX_LOG_LEVEL overrides.
-      auto parse_cvedix = [](const char *s) {
-        cvedix_utils::cvedix_log_level lv =
-            cvedix_utils::cvedix_log_level::WARN;
-        if (!s || !s[0]) {
-          return lv;
+      // Set CVEDIX log level (can be overridden via CVEDIX_LOG_LEVEL env var)
+      // Default: WARN so SDK does not flood stderr and worker logs remain visible.
+      // Set CVEDIX_LOG_LEVEL=INFO or DEBUG if you need SDK diagnostics.
+      // Options: ERROR, WARNING, INFO, DEBUG (case-insensitive)
+      cvedix_utils::cvedix_log_level cvedix_log_level =
+          cvedix_utils::cvedix_log_level::WARN;
+      const char *env_cvedix_log = std::getenv("CVEDIX_LOG_LEVEL");
+      if (env_cvedix_log) {
+        std::string log_level_str = env_cvedix_log;
+        std::transform(log_level_str.begin(), log_level_str.end(),
+                       log_level_str.begin(), ::toupper);
+        if (log_level_str == "DEBUG") {
+          cvedix_log_level = cvedix_utils::cvedix_log_level::DEBUG;
+        } else if (log_level_str == "INFO") {
+          cvedix_log_level = cvedix_utils::cvedix_log_level::INFO;
+        } else if (log_level_str == "WARNING" || log_level_str == "WARN") {
+          cvedix_log_level = cvedix_utils::cvedix_log_level::WARN;
+        } else if (log_level_str == "ERROR") {
+          cvedix_log_level = cvedix_utils::cvedix_log_level::ERROR;
         }
         std::string u(s);
         std::transform(u.begin(), u.end(), u.begin(), ::toupper);
@@ -456,8 +470,11 @@ static void ensureCVEDIXInitialized() {
 
       CVEDIX_SET_LOG_LEVEL(cvedix_log_level);
       CVEDIX_LOGGER_INIT();
-      std::cerr << "[PipelineBuilder] CVEDIX SDK logger initialized (level: "
-                << log_level_src << ")" << std::endl;
+      std::string log_level_name =
+          env_cvedix_log ? std::string(env_cvedix_log) : "WARN (default)";
+      std::cerr
+          << "[PipelineBuilder] CVEDIX SDK logger initialized (log level: "
+          << log_level_name << ")" << std::endl;
       if (cvedix_log_level == cvedix_utils::cvedix_log_level::ERROR) {
         std::cerr << "[PipelineBuilder] NOTE: WARNING logs suppressed; set "
                      "cvedix_log_level=warning or CVEDIX_LOG_LEVEL=WARNING\n";
@@ -474,35 +491,48 @@ static void ensureCVEDIXInitialized() {
   });
 }
 
+void PipelineBuilder::ensureCVEDIXInitialized() {
+  initCVEDIXLoggerOnce();
+}
+
 std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>>
 PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                                const CreateInstanceRequest &req,
                                const std::string &instanceId,
-                               const std::set<std::string> &existingRTMPStreamKeys) {
+                               const std::set<std::string> &existingRTMPStreamKeys,
+                               edgeos::FrameRouter* frameRouter) {
 
-  // Ensure CVEDIX SDK is initialized before creating nodes
-  ensureCVEDIXInitialized();
-
-  std::cerr << "[PipelineBuilder] ========================================"
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Building pipeline for solution: "
-            << solution.solutionId << std::endl;
-  std::cerr << "[PipelineBuilder] Solution name: " << solution.solutionName
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Instance ID: " << instanceId << std::endl;
-  std::cerr << "[PipelineBuilder] NOTE: This may be a new instance or "
-               "rebuilding after stop/restart"
-            << std::endl;
-  std::cerr << "[PipelineBuilder] Pipeline will contain "
-            << solution.pipeline.size() << " nodes:" << std::endl;
-  for (size_t i = 0; i < solution.pipeline.size(); ++i) {
-    const auto &nodeConfig = solution.pipeline[i];
-    std::cerr << "[PipelineBuilder]   " << (i + 1) << ". "
-              << nodeConfig.nodeType << " (" << nodeConfig.nodeName << ")"
+  frame_router_ = frameRouter;
+  if (frame_router_) {
+    std::cerr << "[PipelineBuilder] Zero-downtime mode: rtmp_des will use FrameRouterSinkNode"
               << std::endl;
   }
-  std::cerr << "[PipelineBuilder] ========================================"
-            << std::endl;
+
+  // Ensure CVEDIX SDK is initialized before creating nodes
+  initCVEDIXLoggerOnce();
+
+  if (EnvConfig::getBool("EDGE_AI_VERBOSE", false)) {
+    std::cerr << "[PipelineBuilder] ========================================"
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Building pipeline for solution: "
+              << solution.solutionId << std::endl;
+    std::cerr << "[PipelineBuilder] Solution name: " << solution.solutionName
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Instance ID: " << instanceId << std::endl;
+    std::cerr << "[PipelineBuilder] NOTE: This may be a new instance or "
+                 "rebuilding after stop/restart"
+              << std::endl;
+    std::cerr << "[PipelineBuilder] Pipeline will contain "
+              << solution.pipeline.size() << " nodes:" << std::endl;
+    for (size_t i = 0; i < solution.pipeline.size(); ++i) {
+      const auto &nodeConfig = solution.pipeline[i];
+      std::cerr << "[PipelineBuilder]   " << (i + 1) << ". "
+                << nodeConfig.nodeType << " (" << nodeConfig.nodeName << ")"
+                << std::endl;
+    }
+    std::cerr << "[PipelineBuilder] ========================================"
+              << std::endl;
+  }
 
   // ========================================================================
   // SecuRT Integration: Load areas and lines from managers
@@ -840,14 +870,14 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
             if (isDestNode && attachIndex > 0) {
               // Check if previous node is also a destination node
               bool prevIsDestNode = (nodeTypes[attachIndex] == "file_des" ||
-                                     nodeTypes[attachIndex] == "rtmp_des" ||
+                                     nodeTypes[attachIndex] == "rtmp_des" || nodeTypes[attachIndex] == "frame_router_sink" ||
                                      nodeTypes[attachIndex] == "rtsp_des" ||
                                      nodeTypes[attachIndex] == "screen_des");
               if (prevIsDestNode) {
                 // Find the last non-destination node
                 for (int i = static_cast<int>(attachIndex) - 1; i >= 0; --i) {
                   bool nodeIsDest = (nodeTypes[i] == "file_des" ||
-                                     nodeTypes[i] == "rtmp_des" ||
+                                     nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
                                      nodeTypes[i] == "rtsp_des" ||
                                      nodeTypes[i] == "screen_des");
                   if (!nodeIsDest) {
@@ -1052,7 +1082,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         if (!attachTarget) {
           for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
             bool isDestNode = (nodeTypes[i] == "file_des" ||
-                               nodeTypes[i] == "rtmp_des" ||
+                               nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
                                nodeTypes[i] == "rtsp_des" ||
                                nodeTypes[i] == "screen_des" ||
                                nodeTypes[i] == "app_des");
@@ -1178,7 +1208,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         if (!attachTarget) {
           for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
             bool isDestNode = (nodeTypes[i] == "file_des" ||
-                               nodeTypes[i] == "rtmp_des" ||
+                               nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
                                nodeTypes[i] == "rtsp_des" ||
                                nodeTypes[i] == "screen_des" ||
                                nodeTypes[i] == "app_des");
@@ -1513,7 +1543,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     // For other brokers, find last non-DES node (excluding app_des)
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       // Also exclude broker nodes (they should be in sequence, not parallel)
       bool isBrokerNode = (nodeTypes[i] == "json_mqtt_broker" ||
@@ -1544,7 +1574,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     // For other brokers, find last non-DES node (excluding app_des)
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       // Also exclude broker nodes (they should be in sequence, not parallel)
       bool isBrokerNode = (nodeTypes[i] == "json_mqtt_broker" ||
@@ -1575,7 +1605,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     // For other brokers, find last non-DES node (excluding app_des)
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       // Also exclude broker nodes (they should be in sequence, not parallel)
       bool isBrokerNode = (nodeTypes[i] == "json_mqtt_broker" ||
@@ -1594,7 +1624,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
       [&nodes, &nodeTypes]() -> std::shared_ptr<cvedix_nodes::cvedix_node> {
     for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
       bool isDestNode =
-          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+          (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" || nodeTypes[i] == "frame_router_sink" ||
            nodeTypes[i] == "rtsp_des" || nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
       if (!isDestNode) {
         return nodes[i];
@@ -1882,9 +1912,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     rtmpUrl.erase(0, rtmpUrl.find_first_not_of(" \t\n\r"));
     rtmpUrl.erase(rtmpUrl.find_last_not_of(" \t\n\r") + 1);
 
-    if (!rtmpUrl.empty() && !hasNodeType("rtmp_des")) {
+    if (!rtmpUrl.empty() && !hasNodeType("rtmp_des") &&
+        !(frame_router_ && hasNodeType("frame_router_sink"))) {
       std::cerr
-          << "[PipelineBuilder] Auto-adding rtmp_des node (" << rtmpUrlParamName << " detected)"
+          << "[PipelineBuilder] Auto-adding rtmp_des/frame_router_sink node (" << rtmpUrlParamName << " detected)"
           << std::endl;
       try {
         // Check if pipeline has OSD node (face_osd_v2, osd_v3,
@@ -1956,6 +1987,53 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           }
         }
 
+        // Zero-downtime mode: use FrameRouterSinkNode instead of rtmp_des (output leg is persistent)
+        if (frame_router_) {
+          std::string sinkName = "frame_router_sink_" + instanceId;
+          auto sinkNode = std::make_shared<edgeos::FrameRouterSinkNode>(sinkName, frame_router_);
+          std::shared_ptr<cvedix_nodes::cvedix_node> attachTarget = nullptr;
+          if (hasOSDNode) {
+            for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
+              auto node = nodes[i];
+              bool isOSDNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_face_osd_node_v2>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_osd_node_v3>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_line_crossline_osd_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_jam_osd_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_stop_osd_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_ba_area_enter_exit_osd_node>(node);
+              if (isOSDNode) {
+                attachTarget = node;
+                break;
+              }
+            }
+          }
+          if (!attachTarget) {
+            for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
+              auto node = nodes[i];
+              bool isDestNode =
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_file_des_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_rtmp_des_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_screen_des_node>(node) ||
+                  std::dynamic_pointer_cast<cvedix_nodes::cvedix_app_des_node>(node) ||
+                  std::dynamic_pointer_cast<edgeos::FrameRouterSinkNode>(node);
+              if (!isDestNode) {
+                attachTarget = node;
+                break;
+              }
+            }
+          }
+          if (!attachTarget && !nodes.empty()) {
+            attachTarget = nodes.back();
+          }
+          if (attachTarget) {
+            sinkNode->attach_to({attachTarget});
+            nodes.push_back(sinkNode);
+            nodeTypes.push_back("frame_router_sink");
+            std::cerr << "[PipelineBuilder] ✓ Auto-added frame_router_sink (zero-downtime)"
+                      << std::endl;
+          }
+        } else {
         SolutionConfig::NodeConfig rtmpConfig;
         rtmpConfig.nodeType = "rtmp_des";
         rtmpConfig.nodeName = "rtmp_des_{instanceId}";
@@ -2093,6 +2171,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           std::cerr << "[PipelineBuilder] This usually means RTMP_URL was empty or invalid"
                     << std::endl;
         }
+        }  // end else (non-frame_router_ rtmp_des path)
       } catch (const std::exception &e) {
         std::cerr << "[PipelineBuilder] ⚠ Failed to auto-add rtmp_des: "
                   << e.what() << std::endl;
@@ -2179,6 +2258,9 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
 
   std::cerr << "[PipelineBuilder] Successfully built pipeline with "
             << nodes.size() << " nodes" << std::endl;
+  edgeos::FrameRouter* unused = frame_router_;
+  frame_router_ = nullptr;
+  (void)unused;
   return nodes;
 }
 
@@ -2579,6 +2661,13 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
     else if (nodeConfig.nodeType == "file_des") {
       return PipelineBuilderDestinationNodes::createFileDestinationNode(nodeName, params, instanceId);
     } else if (nodeConfig.nodeType == "rtmp_des") {
+      if (frame_router_) {
+        std::string sinkName = "frame_router_sink_" + instanceId;
+        auto sinkNode = std::make_shared<edgeos::FrameRouterSinkNode>(sinkName, frame_router_);
+        std::cerr << "[PipelineBuilder] Created FrameRouterSinkNode (zero-downtime) instead of rtmp_des"
+                  << std::endl;
+        return sinkNode;
+      }
       std::string actualRtmpUrl;
       auto node = PipelineBuilderDestinationNodes::createRTMPDestinationNode(
           nodeName, params, req, instanceId, existingRTMPStreamKeys,

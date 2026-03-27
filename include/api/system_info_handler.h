@@ -18,14 +18,20 @@ using namespace drogon;
  */
 class SystemInfoHandler : public drogon::HttpController<SystemInfoHandler> {
 public:
+  static void setInstanceManager(class IInstanceManager *manager);
+
   METHOD_LIST_BEGIN
   ADD_METHOD_TO(SystemInfoHandler::getSystemInfo, "/v1/core/system/info", Get);
   ADD_METHOD_TO(SystemInfoHandler::getSystemStatus, "/v1/core/system/status",
                 Get);
+  ADD_METHOD_TO(SystemInfoHandler::getResourceStatus,
+                "/v1/core/system/resource-status", Get);
   ADD_METHOD_TO(SystemInfoHandler::handleOptions, "/v1/core/system/info",
                 Options);
   ADD_METHOD_TO(SystemInfoHandler::handleOptions, "/v1/core/system/status",
                 Options);
+  ADD_METHOD_TO(SystemInfoHandler::handleOptions,
+                "/v1/core/system/resource-status", Options);
   METHOD_LIST_END
 
   /**
@@ -49,12 +55,22 @@ public:
                        std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
+   * @brief Handle GET /v1/core/system/resource-status
+   * Returns configured limits and current usage (max_running_instances,
+   * max_cpu_percent, max_ram_percent) and over-limit flags.
+   */
+  void getResourceStatus(const HttpRequestPtr &req,
+                         std::function<void(const HttpResponsePtr &)> &&callback);
+
+  /**
    * @brief Handle OPTIONS request for CORS preflight
    */
   void handleOptions(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);
 
 private:
+  static class IInstanceManager *instance_manager_;
+
   /**
    * @brief Get CPU information and convert to JSON
    */

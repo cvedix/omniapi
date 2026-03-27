@@ -59,6 +59,7 @@
                   web_server:
                     enabled: true
                     ip_address: 0.0.0.0
+                    bind_mode: public
                     port: 8080
                   auto_reload: false
                   max_running_instances: 0
@@ -77,6 +78,7 @@
 
       The configuration is saved to the config file after update.
 
+      **Server bind (local vs public):** Use `system.web_server.ip_address` (e.g. `127.0.0.1` for local only, `0.0.0.0` for public) or `bind_mode` (`"local"` or `"public"`). Changes require a server restart to take effect.
 
       **Auto Restart:**
 
@@ -117,6 +119,7 @@
             example:
               system:
                 web_server:
+                  bind_mode: public
                   port: 8080
                 auto_reload: false
               auto_restart: false

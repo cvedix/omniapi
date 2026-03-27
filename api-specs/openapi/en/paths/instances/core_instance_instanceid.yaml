@@ -204,7 +204,7 @@
       schema:
         type: string
       description: Instance ID (UUID)
-      example: '{threshold}'
+      example: 'ba_crossline_demo'
     requestBody:
       required: true
       content:

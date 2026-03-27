@@ -1,13 +1,78 @@
 #include "instances/subprocess_instance_manager.h"
+#include "core/instance_logging_config.h"
+#include "core/log_manager.h"
+#include "core/resource_manager.h"
+#include "core/runtime_update_log.h"
 #include "core/timeout_constants.h"
 #include "core/uuid_generator.h"
-#include "core/resource_manager.h"
 #include "models/solution_config.h"
+#include <json/reader.h>
+#include <json/writer.h>
 #include <chrono>
 #include <future>
 #include <iostream>
-#include <set>
+#include <sstream>
+#include <string>
 #include <thread>
+
+namespace {
+
+// Ensure every line in CrossingLines JSON string has a stable id for the
+// instance lifecycle: if user did not provide id (or empty), generate UUID once
+// and store it so GET /lines returns the same id on every request.
+std::string normalizeCrossingLinesIds(const std::string& crossingLinesJson) {
+  if (crossingLinesJson.empty()) return crossingLinesJson;
+  Json::CharReaderBuilder builder;
+  std::istringstream ss(crossingLinesJson);
+  std::string errs;
+  Json::Value arr;
+  if (!Json::parseFromStream(builder, ss, &arr, &errs) || !arr.isArray()) {
+    return crossingLinesJson;
+  }
+  for (Json::ArrayIndex i = 0; i < arr.size(); ++i) {
+    if (!arr[i].isObject()) continue;
+    Json::Value& line = arr[i];
+    if (!line.isMember("id") || !line["id"].isString() ||
+        line["id"].asString().empty()) {
+      line["id"] = UUIDGenerator::generateUUID();
+    }
+  }
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  return Json::writeString(wb, arr);
+}
+
+// Normalize JSON object keys by trimming leading/trailing whitespace.
+// Fixes PATCH body with typos like "AdditionalParams " (trailing space) so
+// worker and cache see "AdditionalParams" and CrossingLines/RTMP are applied.
+Json::Value normalizeConfigKeys(const Json::Value& in) {
+  if (!in.isObject()) return in;
+  Json::Value out(Json::objectValue);
+  for (const auto& key : in.getMemberNames()) {
+    std::string k = key;
+    size_t start = k.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) continue;
+    size_t end = k.find_last_not_of(" \t\r\n");
+    k = k.substr(start, end - start + 1);
+    if (in[key].isObject()) {
+      out[k] = normalizeConfigKeys(in[key]);
+    } else if (in[key].isArray()) {
+      Json::Value arr(Json::arrayValue);
+      for (Json::ArrayIndex i = 0; i < in[key].size(); ++i) {
+        if (in[key][i].isObject())
+          arr.append(normalizeConfigKeys(in[key][i]));
+        else
+          arr.append(in[key][i]);
+      }
+      out[k] = arr;
+    } else {
+      out[k] = in[key];
+    }
+  }
+  return out;
+}
+
+}  // namespace
 
 // Static member initialization
 InstanceStateManager SubprocessInstanceManager::state_manager_;
@@ -135,9 +200,10 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   Json::Value config = buildWorkerConfig(normalizedReq);
 
   // Allocate GPU and spawn worker
-  if (!allocateGPUAndSpawnWorker(instanceId, config)) {
+  std::string spawn_error;
+  if (!allocateGPUAndSpawnWorker(instanceId, config, &spawn_error)) {
     throw std::runtime_error("Failed to spawn worker for instance: " +
-                             instanceId);
+                             instanceId + (spawn_error.empty() ? "" : " (" + spawn_error + ")"));
   }
 
   // Create local instance info
@@ -346,6 +412,8 @@ bool SubprocessInstanceManager::deleteInstance(const std::string &instanceId) {
     instances_.erase(instanceId);
   }
 
+  InstanceLoggingConfig::remove(instanceId);
+
   // Remove from storage
   instance_storage_.deleteInstance(instanceId);
 
@@ -405,6 +473,7 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
             std::lock_guard<std::mutex> lock(instances_mutex_);
             instances_[instanceId] = info;
           }
+          InstanceLoggingConfig::setEnabled(instanceId, info.instanceLoggingEnabled);
           std::cout
               << "[SubprocessInstanceManager] Worker spawned for instance: "
               << instanceId << std::endl;
@@ -429,12 +498,29 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
           std::cerr << "[SubprocessInstanceManager] Failed to spawn worker for "
                        "instance: "
                     << instanceId << std::endl;
+          if (InstanceLoggingConfig::isEnabled(instanceId)) {
+            LogManager::writeInstanceLog(
+                instanceId, "ERROR",
+                "Failed to spawn worker for instance: " + instanceId);
+          }
           return false;
         }
       } else {
+        if (InstanceLoggingConfig::isEnabled(instanceId)) {
+          LogManager::writeInstanceLog(
+              instanceId, "ERROR",
+              "Instance not found in storage, cannot start: " + instanceId);
+        }
         return false;
       }
     } else {
+      if (InstanceLoggingConfig::isEnabled(instanceId)) {
+        LogManager::writeInstanceLog(
+            instanceId, "ERROR",
+            "Worker not ready (state " +
+                std::to_string(static_cast<int>(workerState)) +
+                "), cannot start: " + instanceId);
+      }
       return false;
     }
   }
@@ -480,6 +566,12 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
                     << instanceId << std::endl;
           std::string createError = createResponse.payload.get("error", "Unknown error").asString();
           std::cerr << "[SubprocessInstanceManager] Error: " << createError << std::endl;
+          if (InstanceLoggingConfig::isEnabled(instanceId)) {
+            LogManager::writeInstanceLog(
+                instanceId, "ERROR",
+                "Failed to create pipeline for instance: " + instanceId +
+                    " - " + createError);
+          }
           return false;
         }
         
@@ -496,6 +588,12 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
       } else {
         std::cerr << "[SubprocessInstanceManager] Instance not found in cache: "
                   << instanceId << std::endl;
+        if (InstanceLoggingConfig::isEnabled(instanceId)) {
+          LogManager::writeInstanceLog(
+              instanceId, "ERROR",
+              "Instance not found in cache, cannot build pipeline: " +
+                  instanceId);
+        }
         return false;
       }
     }
@@ -575,6 +673,12 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
               std::cerr << "[SubprocessInstanceManager] Instance " << instanceId
                         << " start failed with error: "
                         << data["last_error"].asString() << std::endl;
+              if (InstanceLoggingConfig::isEnabled(instanceId)) {
+                LogManager::writeInstanceLog(
+                    instanceId, "ERROR",
+                    "Failed to start instance: " + instanceId + " - " +
+                        data["last_error"].asString());
+              }
               // Update local state to reflect failure
               {
                 std::lock_guard<std::mutex> lock(instances_mutex_);
@@ -597,6 +701,11 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
     if (!verified) {
       std::cerr << "[SubprocessInstanceManager] ✗ Failed to verify instance "
                 << instanceId << " is running after start command" << std::endl;
+      if (InstanceLoggingConfig::isEnabled(instanceId)) {
+        LogManager::writeInstanceLog(
+            instanceId, "ERROR",
+            "Failed to verify instance " + instanceId + " is running after start");
+      }
       // Update local state to reflect failure
       {
         std::lock_guard<std::mutex> lock(instances_mutex_);
@@ -647,12 +756,14 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
             info.rtspUrl = storedInfo.rtspUrl;
             info.rtmpUrl = storedInfo.rtmpUrl;
             info.filePath = storedInfo.filePath;
+            info.instanceLoggingEnabled = storedInfo.instanceLoggingEnabled;
             std::cout << "[SubprocessInstanceManager] Loaded instance info "
                          "from storage for "
                       << instanceId << std::endl;
           }
 
           instances_[instanceId] = info;
+          InstanceLoggingConfig::setEnabled(instanceId, info.instanceLoggingEnabled);
           std::cout
               << "[SubprocessInstanceManager] Created cache entry for instance "
               << instanceId << std::endl;
@@ -667,6 +778,22 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
 
     std::cout << "[SubprocessInstanceManager] ✓ Started and verified instance: "
               << instanceId << std::endl;
+    if (InstanceLoggingConfig::isEnabled(instanceId)) {
+      std::string displayName = instanceId;
+      std::string solutionId;
+      {
+        std::lock_guard<std::mutex> lock(instances_mutex_);
+        auto it = instances_.find(instanceId);
+        if (it != instances_.end()) {
+          displayName = it->second.displayName;
+          solutionId = it->second.solutionId;
+        }
+      }
+      LogManager::writeInstanceLog(
+          instanceId, "INFO",
+          "Instance started successfully: " + instanceId + " (" + displayName +
+              ", solution: " + solutionId + ", running: true)");
+    }
     return true;
   }
 
@@ -674,6 +801,13 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
             << " - "
             << response.payload.get("error", "Unknown error").asString()
             << std::endl;
+  if (InstanceLoggingConfig::isEnabled(instanceId)) {
+    std::string err =
+        response.payload.get("error", "Unknown error").asString();
+    LogManager::writeInstanceLog(instanceId, "ERROR",
+                                 "Failed to start instance: " + instanceId +
+                                     " - " + err);
+  }
   return false;
 }
 
@@ -707,6 +841,13 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
     std::cerr << "[SubprocessInstanceManager] Worker not ready: " << instanceId
               << " (state: " << static_cast<int>(workerState) << ")"
               << std::endl;
+    if (InstanceLoggingConfig::isEnabled(instanceId)) {
+      LogManager::writeInstanceLog(
+          instanceId, "ERROR",
+          "Worker not ready (state " +
+              std::to_string(static_cast<int>(workerState)) +
+              "), cannot stop: " + instanceId);
+    }
     return false;
   }
 
@@ -745,125 +886,92 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
                 << instanceId << std::endl;
       return true;
     }
+
+    if (InstanceLoggingConfig::isEnabled(instanceId)) {
+      LogManager::writeInstanceLog(instanceId, "INFO",
+                                  "Instance stopped: " + instanceId);
+    }
+    std::cout << "[SubprocessInstanceManager] Stopped instance: " << instanceId
+              << std::endl;
+    return true;
   }
 
   std::cerr << "[SubprocessInstanceManager] Failed to stop: " << instanceId
             << std::endl;
+  if (InstanceLoggingConfig::isEnabled(instanceId)) {
+    LogManager::writeInstanceLog(
+        instanceId, "ERROR",
+        "Failed to stop instance: " + instanceId + " - " +
+            response.payload.get("error", "Unknown error").asString());
+  }
   return false;
 }
 
 bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
                                                const Json::Value &configJson) {
-  // Check worker state - accept both READY and BUSY states
-  // BUSY is OK because worker can handle multiple commands
-  auto workerState = supervisor_->getWorkerState(instanceId);
-  if (workerState != worker::WorkerState::READY &&
-      workerState != worker::WorkerState::BUSY) {
-    std::cerr << "[SubprocessInstanceManager] Worker not ready: " << instanceId
-              << " (state: " << static_cast<int>(workerState) << ")"
-              << std::endl;
+  logRuntimeUpdate(instanceId, "api: sending UPDATE_INSTANCE");
+  // Normalize config keys (e.g. "AdditionalParams " -> "AdditionalParams") so
+  // worker merge and cache see CrossingLines/RTMP; avoids 500 and stream loss.
+  Json::Value normalizedConfig = normalizeConfigKeys(configJson);
+
+  // Persist to cache and storage first (same as updateInstanceFromConfig) so
+  // PATCH with only AdditionalParams.CrossingLines returns 200 and GET /lines
+  // shows new data even if worker is slow or returns error.
+  if (!mergeConfigIntoCacheAndSave(instanceId, normalizedConfig)) {
     return false;
   }
 
-  // Send UPDATE command to worker
-  // Use configurable timeout for update operation (default: 10 seconds)
+  // Sync worker (best-effort); accept READY and BUSY
+  auto workerState = supervisor_->getWorkerState(instanceId);
+  if (workerState != worker::WorkerState::READY &&
+      workerState != worker::WorkerState::BUSY) {
+    logRuntimeUpdate(instanceId, "api: worker not ready, config already saved");
+    return true;
+  }
+
   worker::IPCMessage msg;
   msg.type = worker::MessageType::UPDATE_INSTANCE;
   msg.payload["instance_id"] = instanceId;
-  msg.payload["config"] = configJson;
+  msg.payload["config"] = normalizedConfig;
 
   auto response = supervisor_->sendToWorker(
       instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
 
   if (response.type != worker::MessageType::UPDATE_INSTANCE_RESPONSE) {
+    logRuntimeUpdate(instanceId, "api: invalid response type");
     std::cerr
         << "[SubprocessInstanceManager] Invalid response type for update: "
         << static_cast<int>(response.type) << std::endl;
-    return false;
+    return true;  // Config already saved
   }
 
   bool success = response.payload.get("success", false).asBool();
-
   if (success) {
-    // Update local cache with new config
-    std::lock_guard<std::mutex> lock(instances_mutex_);
-    auto it = instances_.find(instanceId);
-    if (it != instances_.end()) {
-      // Update instance info from config if possible
-      // Note: Full config merge is handled by worker, we just update local
-      // cache
-      if (configJson.isMember("DisplayName")) {
-        it->second.displayName = configJson["DisplayName"].asString();
-      }
-      if (configJson.isMember("AdditionalParams")) {
-        const auto &params = configJson["AdditionalParams"];
-        if (params.isObject()) {
-          for (const auto &key : params.getMemberNames()) {
-            it->second.additionalParams[key] = params[key].asString();
-          }
-          // Update URLs from AdditionalParams
-          // Check RTSP_DES_URL first (for output), then RTSP_SRC_URL (for input), then RTSP_URL (backward compatibility)
-          if (it->second.additionalParams.count("RTSP_DES_URL")) {
-            it->second.rtspUrl = it->second.additionalParams.at("RTSP_DES_URL");
-          } else if (it->second.additionalParams.count("RTSP_SRC_URL")) {
-            it->second.rtspUrl = it->second.additionalParams.at("RTSP_SRC_URL");
-          } else if (it->second.additionalParams.count("RTSP_URL")) {
-            it->second.rtspUrl = it->second.additionalParams.at("RTSP_URL");
-          }
-          // Check RTMP_DES_URL first (new format), then RTMP_URL (backward compatibility)
-          if (it->second.additionalParams.count("RTMP_DES_URL")) {
-            it->second.rtmpUrl = it->second.additionalParams.at("RTMP_DES_URL");
-          } else if (it->second.additionalParams.count("RTMP_URL")) {
-            it->second.rtmpUrl = it->second.additionalParams.at("RTMP_URL");
-          }
-          if (it->second.additionalParams.count("FILE_PATH")) {
-            it->second.filePath = it->second.additionalParams.at("FILE_PATH");
-          }
-        }
-      }
-    }
-    std::cout << "[SubprocessInstanceManager] Updated instance: " << instanceId
-              << std::endl;
+    logRuntimeUpdate(instanceId, "api: update success");
   } else {
     std::string error =
         response.payload.get("error", "Unknown error").asString();
+    logRuntimeUpdate(instanceId, "api: update failed: " + error);
     std::cerr << "[SubprocessInstanceManager] Failed to update instance "
-              << instanceId << ": " << error << std::endl;
+              << instanceId << ": " << error << " (config already saved)"
+              << std::endl;
   }
 
-  return success;
+  return true;  // Config was saved; worker sync is best-effort
 }
 
 std::optional<InstanceInfo>
 SubprocessInstanceManager::getInstance(const std::string &instanceId) const {
-  std::unique_lock<std::mutex> lock(instances_mutex_);
+  std::lock_guard<std::mutex> lock(instances_mutex_);
   auto it = instances_.find(instanceId);
   if (it != instances_.end()) {
-    InstanceInfo info = it->second;
-    bool isRunning = info.running;
-
-    // If instance is running, try to get FPS from statistics
-    if (isRunning) {
-      // Release lock before calling getInstanceStatistics to avoid deadlock
-      lock.unlock();
-      // Note: getInstanceStatistics is not const, so we use const_cast
-      // This is safe because we're only reading statistics, not modifying
-      // instance
-      auto optStats =
-          const_cast<SubprocessInstanceManager *>(this)->getInstanceStatistics(
-              instanceId);
-      lock.lock();
-
-      // Re-check instance still exists and is still running after lock
-      it = instances_.find(instanceId);
-      if (it != instances_.end() && it->second.running &&
-          optStats.has_value()) {
-        // Update fps from statistics
-        info.fps = optStats.value().current_framerate;
-      }
-    }
-
-    return info;
+    // Return cached InstanceInfo only. Do NOT call getInstanceStatistics()
+    // here: it performs sendToWorker(GET_INSTANCE_STATUS) and can block the
+    // calling thread for up to IPC_STATUS_TIMEOUT_MS (default 3s). When
+    // instances are running, that caused all API handlers (GET instance,
+    // list, etc.) to block and made the server appear unresponsive.
+    // Use GET /v1/core/instance/{id}/statistics for fresh FPS when needed.
+    return it->second;
   }
   return std::nullopt;
 }
@@ -895,7 +1003,10 @@ std::vector<InstanceInfo> SubprocessInstanceManager::getAllInstances() const {
         // Try to load from storage first
         auto optStoredInfo = instance_storage_.loadInstance(instanceId);
         if (optStoredInfo.has_value()) {
-          instances_[instanceId] = optStoredInfo.value();
+          const auto &storedInfo = optStoredInfo.value();
+          instances_[instanceId] = storedInfo;
+          InstanceLoggingConfig::setEnabled(instanceId,
+                                            storedInfo.instanceLoggingEnabled);
           // Update running status based on worker state
           auto workerState = supervisor_->getWorkerState(instanceId);
           instances_[instanceId].running =
@@ -1227,7 +1338,10 @@ SubprocessInstanceManager::getInstanceStatistics(
 
       auto optStoredInfo = instance_storage_.loadInstance(instanceId);
       if (optStoredInfo.has_value()) {
-        instances_[instanceId] = optStoredInfo.value();
+        const auto &storedInfo = optStoredInfo.value();
+        instances_[instanceId] = storedInfo;
+        InstanceLoggingConfig::setEnabled(instanceId,
+                                         storedInfo.instanceLoggingEnabled);
         std::cout << "[SubprocessInstanceManager] Restored instance "
                   << instanceId << " from storage to cache" << std::endl;
       } else {
@@ -1640,14 +1754,103 @@ Json::Value SubprocessInstanceManager::getInstanceConfig(
     config["RtspUrl"] = it->second.rtspUrl;
     config["RtmpUrl"] = it->second.rtmpUrl;
     config["FilePath"] = it->second.filePath;
+    config["logging"] = Json::objectValue;
+    config["logging"]["enabled"] = it->second.instanceLoggingEnabled;
     return config;
   }
   return Json::Value();
 }
 
+bool SubprocessInstanceManager::mergeConfigIntoCacheAndSave(
+    const std::string &instanceId, const Json::Value &normalizedConfig) {
+  InstanceInfo infoCopy;
+  {
+    std::lock_guard<std::mutex> lock(instances_mutex_);
+    auto it = instances_.find(instanceId);
+    if (it == instances_.end()) {
+      std::cerr << "[SubprocessInstanceManager] mergeConfigIntoCacheAndSave: "
+                   "instance not in cache: "
+                << instanceId << std::endl;
+      return false;
+    }
+    if (normalizedConfig.isMember("DisplayName")) {
+      it->second.displayName = normalizedConfig["DisplayName"].asString();
+    }
+    auto mergeParamsIntoCache = [&it](const Json::Value& params) {
+      if (!params.isObject()) return;
+      for (const auto& key : params.getMemberNames()) {
+        if (key == "input" && params[key].isObject()) {
+          for (const auto& k : params[key].getMemberNames()) {
+            if (params[key][k].isString())
+              it->second.additionalParams[k] = params[key][k].asString();
+          }
+        } else if (key == "output" && params[key].isObject()) {
+          for (const auto& k : params[key].getMemberNames()) {
+            if (params[key][k].isString())
+              it->second.additionalParams[k] = params[key][k].asString();
+          }
+        } else if (key == "CrossingLines" && params[key].isString()) {
+          // Normalize so lines without id get a generated UUID once; that id
+          // is stored and used for the whole instance lifecycle.
+          it->second.additionalParams[key] =
+              normalizeCrossingLinesIds(params[key].asString());
+        } else if (params[key].isString()) {
+          it->second.additionalParams[key] = params[key].asString();
+        }
+      }
+      if (it->second.additionalParams.count("RTSP_DES_URL")) {
+        it->second.rtspUrl = it->second.additionalParams.at("RTSP_DES_URL");
+      } else if (it->second.additionalParams.count("RTSP_SRC_URL")) {
+        it->second.rtspUrl = it->second.additionalParams.at("RTSP_SRC_URL");
+      } else if (it->second.additionalParams.count("RTSP_URL")) {
+        it->second.rtspUrl = it->second.additionalParams.at("RTSP_URL");
+      }
+      if (it->second.additionalParams.count("RTMP_DES_URL")) {
+        it->second.rtmpUrl = it->second.additionalParams.at("RTMP_DES_URL");
+      } else if (it->second.additionalParams.count("RTMP_URL")) {
+        it->second.rtmpUrl = it->second.additionalParams.at("RTMP_URL");
+      }
+      if (it->second.additionalParams.count("FILE_PATH")) {
+        it->second.filePath = it->second.additionalParams.at("FILE_PATH");
+      }
+    };
+    if (normalizedConfig.isMember("AdditionalParams")) {
+      mergeParamsIntoCache(normalizedConfig["AdditionalParams"]);
+    }
+    if (normalizedConfig.isMember("additionalParams")) {
+      mergeParamsIntoCache(normalizedConfig["additionalParams"]);
+    }
+    if (normalizedConfig.isMember("logging") &&
+        normalizedConfig["logging"].isObject() &&
+        normalizedConfig["logging"].isMember("enabled") &&
+        normalizedConfig["logging"]["enabled"].isBool()) {
+      it->second.instanceLoggingEnabled =
+          normalizedConfig["logging"]["enabled"].asBool();
+    }
+    infoCopy = it->second;
+  }
+  if (!instance_storage_.saveInstance(instanceId, infoCopy)) {
+    std::cerr << "[SubprocessInstanceManager] mergeConfigIntoCacheAndSave: "
+                 "saveInstance failed for "
+              << instanceId << " (cache already updated, GET /lines will show new data)"
+              << std::endl;
+    // Cache was updated so API (e.g. GET /lines) sees new config; persist failed.
+    return true;
+  }
+  return true;
+}
+
 bool SubprocessInstanceManager::updateInstanceFromConfig(
     const std::string &instanceId, const Json::Value &configJson) {
-  return updateInstance(instanceId, configJson);
+  Json::Value normalizedConfig = normalizeConfigKeys(configJson);
+  // Persist to cache and storage first so that lines/config save succeeds
+  // even when worker is slow or returns error (e.g. IPC timeout).
+  if (!mergeConfigIntoCacheAndSave(instanceId, normalizedConfig)) {
+    return false;
+  }
+  // Sync worker (best-effort); GET /lines and persistence already have new data.
+  updateInstance(instanceId, normalizedConfig);
+  return true;
 }
 
 bool SubprocessInstanceManager::hasRTMPOutput(
@@ -1702,6 +1905,7 @@ void SubprocessInstanceManager::loadPersistentInstances() {
       std::lock_guard<std::mutex> lock(instances_mutex_);
       instances_[instanceId] = info;
       loadedCount++;
+      InstanceLoggingConfig::setEnabled(instanceId, info.instanceLoggingEnabled);
 
       // Auto-start if was running before
       if (info.autoStart || info.running) {
@@ -1991,6 +2195,7 @@ Json::Value SubprocessInstanceManager::buildWorkerConfigFromInstanceInfo(
   }
   if (!info.rtmpUrl.empty()) {
     config["AdditionalParams"]["RTMP_URL"] = info.rtmpUrl;
+    config["RtmpUrl"] = info.rtmpUrl;  // Top-level so worker parseCreateRequest sees it
   }
   if (!info.filePath.empty()) {
     config["AdditionalParams"]["FILE_PATH"] = info.filePath;
@@ -1999,6 +2204,15 @@ Json::Value SubprocessInstanceManager::buildWorkerConfigFromInstanceInfo(
   // Add all additional parameters
   for (const auto &[key, value] : info.additionalParams) {
     config["AdditionalParams"][key] = value;
+  }
+
+  // Ensure top-level RtmpUrl when RTMP output is in additionalParams (e.g. from nested input/output)
+  if (!config.isMember("RtmpUrl") || config["RtmpUrl"].asString().empty()) {
+    if (info.additionalParams.count("RTMP_DES_URL") && !info.additionalParams.at("RTMP_DES_URL").empty()) {
+      config["RtmpUrl"] = info.additionalParams.at("RTMP_DES_URL");
+    } else if (info.additionalParams.count("RTMP_URL") && !info.additionalParams.at("RTMP_URL").empty()) {
+      config["RtmpUrl"] = info.additionalParams.at("RTMP_URL");
+    }
   }
 
   return config;
@@ -2069,16 +2283,48 @@ void SubprocessInstanceManager::onWorkerError(const std::string &instanceId,
   std::cerr << "[SubprocessInstanceManager] Worker " << instanceId
             << " error: " << error << std::endl;
 
-  std::lock_guard<std::mutex> lock(instances_mutex_);
-  auto it = instances_.find(instanceId);
-  if (it != instances_.end()) {
-    it->second.running = false;
-    it->second.retryCount++;
+  bool was_running = false;
+  {
+    std::lock_guard<std::mutex> lock(instances_mutex_);
+    auto it = instances_.find(instanceId);
+    if (it != instances_.end()) {
+      was_running = it->second.running;
+      it->second.running = false;
+      it->second.retryCount++;
+    }
+  }
+
+  if (error == "Worker crashed" && was_running) {
+    std::cout << "[SubprocessInstanceManager] Auto-recovery: respawning worker and restarting instance "
+              << instanceId << std::endl;
+    std::thread([this, instanceId]() {
+      try {
+        {
+          std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
+          auto it = gpu_allocations_.find(instanceId);
+          if (it != gpu_allocations_.end()) {
+            ResourceManager::getInstance().releaseGPU(it->second);
+            gpu_allocations_.erase(it);
+            std::cout << "[SubprocessInstanceManager] Released GPU for crashed worker " << instanceId << std::endl;
+          }
+        }
+        if (startInstance(instanceId, true)) {
+          std::cout << "[SubprocessInstanceManager] Auto-recovery: instance " << instanceId << " restarted" << std::endl;
+        } else {
+          std::cerr << "[SubprocessInstanceManager] Auto-recovery: failed to start instance " << instanceId << std::endl;
+        }
+      } catch (const std::exception &e) {
+        std::cerr << "[SubprocessInstanceManager] Auto-recovery exception: " << e.what() << std::endl;
+      } catch (...) {
+        std::cerr << "[SubprocessInstanceManager] Auto-recovery: unknown exception" << std::endl;
+      }
+    }).detach();
   }
 }
 
 bool SubprocessInstanceManager::allocateGPUAndSpawnWorker(const std::string &instanceId, 
-                                                         const Json::Value &config) {
+                                                         const Json::Value &config,
+                                                         std::string *out_error) {
   // Allocate GPU resource for this instance
   // Estimate memory requirement: 1.5GB per instance (can be adjusted)
   int gpu_device_id = -1;
@@ -2099,7 +2345,7 @@ bool SubprocessInstanceManager::allocateGPUAndSpawnWorker(const std::string &ins
   }
 
   // Spawn worker process with GPU device ID
-  if (!supervisor_->spawnWorker(instanceId, config, gpu_device_id)) {
+  if (!supervisor_->spawnWorker(instanceId, config, gpu_device_id, out_error)) {
     // Release GPU allocation if worker spawn failed
     if (gpu_allocation) {
       resourceManager.releaseGPU(gpu_allocation);

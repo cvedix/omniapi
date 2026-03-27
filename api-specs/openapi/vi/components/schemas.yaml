@@ -239,17 +239,17 @@ components:
       properties:
         type:
           type: string
-          description: Loại nguồn đầu vào
+          description: Loại nguồn đầu vào (File = đường dẫn file video)
           enum:
+          - File
           - RTSP
           - HLS
           - Manual
-          example: Manual
+          example: File
         uri:
           type: string
-          format: uri
-          description: URI nguồn đầu vào (phải hợp lệ)
-          example: http://localhost
+          description: URI hoặc đường dẫn (với type File dùng path local, vd. ./video.mp4)
+          example: ./test_video.mp4
     InstanceConfig:
       type: object
       description: Cấu hình instance (định dạng config, không phải trạng thái runtime)

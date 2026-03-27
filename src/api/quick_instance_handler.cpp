@@ -1,6 +1,7 @@
 #include "api/quick_instance_handler.h"
 #include "config/system_config.h"
 #include "core/logger.h"
+#include "core/system_metrics.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
 #include "instances/instance_info.h"
@@ -125,6 +126,37 @@ void QuickInstanceHandler::createQuickInstance(
             429, "Too Many Requests",
             "Maximum instance limit reached: " + std::to_string(maxInstances) +
                 ". Current instances: " + std::to_string(currentCount)));
+        return;
+      }
+    }
+
+    // Check resource limits (CPU/RAM) when configured
+    auto monConfig = systemConfig.getMonitoringConfig();
+    if (monConfig.maxCpuPercent > 0 || monConfig.maxRamPercent > 0) {
+      double cpuPct = SystemMetrics::getSystemCpuUsagePercent();
+      double ramPct = SystemMetrics::getSystemRamUsagePercent();
+      if (monConfig.maxCpuPercent > 0 && cpuPct >= static_cast<double>(monConfig.maxCpuPercent)) {
+        if (isApiLoggingEnabled()) {
+          PLOG_WARNING << "[API] POST /v1/core/instance/quick - CPU limit reached: "
+                       << cpuPct << "% >= " << monConfig.maxCpuPercent << "%";
+        }
+        callback(createErrorResponse(
+            503, "Service Unavailable",
+            "System CPU usage limit reached: " + std::to_string(static_cast<int>(cpuPct)) +
+                "% >= " + std::to_string(monConfig.maxCpuPercent) +
+                "%. Adjust system.monitoring.max_cpu_percent or try again later."));
+        return;
+      }
+      if (monConfig.maxRamPercent > 0 && ramPct >= static_cast<double>(monConfig.maxRamPercent)) {
+        if (isApiLoggingEnabled()) {
+          PLOG_WARNING << "[API] POST /v1/core/instance/quick - RAM limit reached: "
+                       << ramPct << "% >= " << monConfig.maxRamPercent << "%";
+        }
+        callback(createErrorResponse(
+            503, "Service Unavailable",
+            "System RAM usage limit reached: " + std::to_string(static_cast<int>(ramPct)) +
+                "% >= " + std::to_string(monConfig.maxRamPercent) +
+                "%. Adjust system.monitoring.max_ram_percent or try again later."));
         return;
       }
     }

@@ -49,6 +49,7 @@
 #include "core/shutdown_flag.h"
 #include "core/health_monitor.h"
 #include "core/logger.h"
+#include "core/apply_logging_config.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
 #include "core/node_pool_manager.h"
@@ -56,6 +57,7 @@
 #include "core/pipeline_builder.h"
 #include "core/request_middleware.h"
 #include "core/timeout_constants.h"
+#include "core/device_watchdog.h"
 #include "core/watchdog.h"
 #include "fonts/font_upload_handler.h"
 #include "groups/group_registry.h"
@@ -117,6 +119,7 @@ static std::atomic<bool> g_shutdown_requested{false};
 
 // Global watchdog and health monitor instances
 static std::unique_ptr<Watchdog> g_watchdog;
+static std::unique_ptr<DeviceWatchdog> g_device_watchdog;
 static std::unique_ptr<HealthMonitor> g_health_monitor;
 
 // Global instance registry pointer for error recovery (in-process only)
@@ -141,6 +144,12 @@ static std::atomic<bool> g_debug_mode{false};
 std::atomic<bool> g_log_api{false};
 std::atomic<bool> g_log_instance{false};
 std::atomic<bool> g_log_sdk_output{false};
+
+void applyLoggingConfig(const SystemConfig::LoggingConfig &config) {
+  g_log_api.store(config.enabled && config.apiEnabled);
+  g_log_instance.store(config.enabled && config.instanceEnabled);
+  g_log_sdk_output.store(config.enabled && config.sdkOutputEnabled);
+}
 
 // Global analysis board thread management
 static std::unique_ptr<std::thread> g_analysis_board_display_thread;
@@ -507,6 +516,11 @@ void signalHandler(int signal) {
             // Ignore errors
           }
         }
+        if (g_device_watchdog) {
+          try {
+            g_device_watchdog->stop();
+          } catch (...) {}
+        }
       }).detach();
 
       // CRITICAL: Stop all instances via instance manager (in-process + subprocess)
@@ -651,6 +665,19 @@ void signalHandler(int signal) {
       std::fflush(stderr);
       // Use abort() for most aggressive termination
       std::abort();
+    }
+
+    // Heap corruption (e.g. "free(): corrupted unsorted chunks") calls abort()
+    // → SIGABRT. Recovery below uses mutex/async and may deadlock; returning
+    // leaves the process in undefined state so Ctrl+C often cannot exit cleanly
+    // during develop. When set, exit immediately without recovery.
+    // Usage: EDGE_AI_SIGABRT_IMMEDIATE_EXIT=1 ./build/bin/edgeos-api
+    {
+      const char *sigabrt_exit = std::getenv("EDGE_AI_SIGABRT_IMMEDIATE_EXIT");
+      if (sigabrt_exit && sigabrt_exit[0] == '1' && sigabrt_exit[1] == '\0') {
+        // _Exit(134) = 128 + SIGABRT(6); async-signal-safe, no cleanup
+        std::_Exit(134);
+      }
     }
 
     // SIGABRT can be triggered by:
@@ -2176,7 +2203,17 @@ int main(int argc, char *argv[]) {
     // Register terminate handler for uncaught exceptions
     std::set_terminate(terminateHandler);
 
-    // Get server configuration (config.json loaded before logger init)
+    // Load system configuration first (needed for web_server config)
+    // Use intelligent path resolution with 3-tier fallback
+    std::string configPath = EnvConfig::resolveConfigPath();
+
+    auto &systemConfig = SystemConfig::getInstance();
+    systemConfig.loadConfig(configPath);
+
+    // Apply logging config from config.json (overrides command-line --log-*)
+    applyLoggingConfig(systemConfig.getLoggingConfig());
+
+    // Get server configuration (config.json with env var override handled by
     // SystemConfig)
     auto webServerConfig = systemConfig.getWebServerConfig();
     std::string host = webServerConfig.ipAddress;
@@ -2448,6 +2485,7 @@ int main(int argc, char *argv[]) {
     QuickInstanceHandler::setSolutionRegistry(&solutionRegistry);
     InstanceHandler::setInstanceManager(instanceManager.get());
     InstanceFpsHandler::setInstanceManager(instanceManager.get());
+    SystemInfoHandler::setInstanceManager(instanceManager.get());
 
     // Register solution registry and storage with solution handler
     SolutionHandler::setSolutionRegistry(&solutionRegistry);
@@ -2795,8 +2833,34 @@ int main(int argc, char *argv[]) {
     WatchdogHandler::setWatchdog(g_watchdog.get());
     WatchdogHandler::setHealthMonitor(g_health_monitor.get());
 
+    auto deviceReportConfig = systemConfig.getDeviceReportConfig();
+    if (deviceReportConfig.enabled && !deviceReportConfig.serverUrl.empty()) {
+      g_device_watchdog = std::make_unique<DeviceWatchdog>(deviceReportConfig);
+      g_device_watchdog->start();
+      WatchdogHandler::setDeviceWatchdog(g_device_watchdog.get());
+      PLOG_INFO << "[Main] Device report (OsmAnd) started - GET /v1/core/watchdog/report-now";
+    } else {
+      WatchdogHandler::setDeviceWatchdog(nullptr);
+    }
+
+    WatchdogHandler::setDeviceReportReloadCallback([&systemConfig]() {
+      if (g_device_watchdog) {
+        g_device_watchdog->stop();
+        g_device_watchdog.reset();
+      }
+      auto cfg = systemConfig.getDeviceReportConfig();
+      if (cfg.enabled && !cfg.serverUrl.empty()) {
+        g_device_watchdog = std::make_unique<DeviceWatchdog>(cfg);
+        g_device_watchdog->start();
+        WatchdogHandler::setDeviceWatchdog(g_device_watchdog.get());
+      } else {
+        WatchdogHandler::setDeviceWatchdog(nullptr);
+      }
+    });
+
     PLOG_INFO << "[Main] Watchdog and health monitor started";
     PLOG_INFO << "  GET /v1/core/watchdog - Watchdog status";
+    PLOG_INFO << "  GET/PUT /v1/core/watchdog/config - Device report config";
 
     // Start debug analysis board thread if debug mode is enabled
     std::thread debugThread;
@@ -3398,9 +3462,12 @@ int main(int argc, char *argv[]) {
       if (g_health_monitor) {
         g_health_monitor->stop();
       }
-      if (g_watchdog) {
-        g_watchdog->stop();
-      }
+        if (g_watchdog) {
+            g_watchdog->stop();
+        }
+        if (g_device_watchdog) {
+            g_device_watchdog->stop();
+        }
 
       // Stop log cleanup thread (with timeout protection)
       CategorizedLogger::shutdown();

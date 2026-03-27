@@ -113,6 +113,11 @@ Log tất cả các request và response của REST API.
 ./build/bin/edgeos-api --log-api
 ```
 
+**Cấu hình qua API (ưu tiên hơn command-line):** Có thể bật/tắt và đổi mức log qua API, không cần restart:
+- **GET** `/v1/core/log/config` — xem cấu hình hiện tại (enabled, log_level, api_enabled, instance_enabled, sdk_output_enabled).
+- **PUT** `/v1/core/log/config` — cập nhật cấu hình; body JSON: `enabled`, `log_level` (none, fatal, error, warning, info, debug, verbose), `api_enabled`, `instance_enabled`, `sdk_output_enabled`. Các cờ category có hiệu lực ngay; đổi `log_level` có thể cần restart.
+- Cấu hình cũng có thể đặt trong `config.json` → `system.logging` (enabled, log_level, api_enabled, instance_enabled, sdk_output_enabled).
+
 ---
 
 ### 2. Instance Execution Logging (`--log-instance` hoặc `--debug-instance`)
@@ -140,16 +145,44 @@ Log các sự kiện liên quan đến vòng đời của instance (start, stop,
 [Instance] Instance stopped successfully: xyz-789 (Face Detection File Source, solution: face_detection)
 ```
 
-**File location:** `logs/instance/<InstanceId>/YYYY-MM-DD.log` (và `YYYY-MM-DD.1.log` khi vượt `max_log_file_size`)
+**File location:** `logs/instance/YYYY-MM-DD.log` (log chung) hoặc `logs/instance/<instance_id>/YYYY-MM-DD.log` (log riêng từng instance khi bật).
 
 **Cách sử dụng:**
 ```bash
 ./build/bin/edgeos-api --log-instance
 ```
 
+**Log riêng theo từng instance:** Có thể bật ghi log vào thư mục riêng cho từng instance (theo tên instance):
+- **GET** `/v1/core/instance/{instanceId}/log/config` — xem cấu hình log của instance (enabled).
+- **PUT** `/v1/core/instance/{instanceId}/log/config` — bật/tắt; body: `{"enabled": true}`. Khi bật, log của instance đó ghi vào `logs/instance/<instance_id>/`. Instance khác không bật vẫn dùng log chung (hoặc không ghi nếu tắt instance logging toàn hệ thống).
+
 ---
 
-### 3. SDK Output Logging (`--log-sdk-output` hoặc `--debug-sdk-output`)
+### 3. Worker process logs (chế độ subprocess)
+
+Khi chạy **subprocess mode** (mỗi instance chạy trong process worker riêng), mọi dòng log từ worker (prefix `[Worker:<instance_id>]`) — ví dụ `UPDATE_INSTANCE received`, `Zero-downtime pipeline swap`, hot-swap, start/stop — được ghi vào **file riêng theo instance**, không qua LogManager/plog.
+
+**Vị trí file:**
+
+- Thư mục log: biến môi trường **`LOG_DIR`** (nếu có) hoặc mặc định **`logs`** (tương đối thư mục hiện tại khi API khởi động).
+- File: **`<LOG_DIR>/worker_<instance_id>.log`**  
+  Ví dụ: `logs/worker_abc-123.log` hoặc `/opt/edgeos-api/logs/worker_abc-123.log` nếu `LOG_DIR=/opt/edgeos-api/logs`.
+
+**Cách xem log worker (debug update instance, hot-swap):**
+
+```bash
+# Theo instance_id
+tail -f logs/worker_<instance_id>.log
+
+# Hoặc khi dùng LOG_DIR (vd: deploy /opt/edgeos-api)
+tail -f /opt/edgeos-api/logs/worker_<instance_id>.log
+```
+
+**Lưu ý:** File `log/YYYY-MM-DD.txt` trong repo (nếu có) thường là output SDK/omniruntime hoặc log redirect tùy cách chạy; log **worker** nằm trong `logs/worker_<instance_id>.log` như trên.
+
+---
+
+### 4. SDK Output Logging (`--log-sdk-output` hoặc `--debug-sdk-output`)
 
 Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detection results, metadata, etc.).
 
@@ -186,7 +219,7 @@ Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detec
 
 ---
 
-### 4. General Logs (`logs/general/`)
+### 5. General Logs (`logs/general/`)
 
 **Luôn được ghi** (không cần flag)
 

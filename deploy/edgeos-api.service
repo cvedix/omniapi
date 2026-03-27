@@ -50,7 +50,8 @@ Environment="EDGE_AI_WORKER_PATH=/usr/local/bin/edgeos-worker"
 # Socket directory for IPC between main process and workers
 # Default: /opt/edgeos-api/run
 Environment="EDGE_AI_SOCKET_DIR=/opt/edgeos-api/run"
-# Execution mode: default in code is subprocess; set explicitly here for clarity
+# Execution mode: subprocess (isolated workers) or in-process (legacy)
+# Default: subprocess (one worker process per instance - recommended for production)
 Environment="EDGE_AI_EXECUTION_MODE=subprocess"
 # Instances directory for storing instance configurations
 # Default: /opt/edgeos-api/instances

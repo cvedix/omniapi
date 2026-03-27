@@ -260,9 +260,11 @@ void SystemConfig::initializeDefaults() {
   Json::Value system(Json::objectValue);
 
   // web_server
+  // bind_mode: "local" = 127.0.0.1 (chỉ thiết bị local), "public" = 0.0.0.0 (chấp nhận từ mọi mạng)
   Json::Value webServer(Json::objectValue);
   webServer["enabled"] = true;
   webServer["ip_address"] = "0.0.0.0";
+  webServer["bind_mode"] = "public";  // "local" | "public" (dùng khi không set ip_address)
   webServer["port"] = 8080;
   webServer["name"] = "default";
   webServer["max_body_size"] = 524288000; // 500MB
@@ -282,10 +284,14 @@ void SystemConfig::initializeDefaults() {
   performance["max_threads"] = 64;
   system["performance"] = performance;
 
-  // logging
+  // logging: enabled + log_level control all; api_enabled/instance_enabled/sdk_output_enabled per category
   Json::Value logging(Json::objectValue);
+  logging["enabled"] = true;
+  logging["log_level"] = "info";  // none, fatal, error, warning, info, debug, verbose
+  logging["api_enabled"] = false;
+  logging["instance_enabled"] = false;
+  logging["sdk_output_enabled"] = false;
   logging["log_file"] = "logs/api.log";
-  logging["log_level"] = "debug";
   logging["max_log_file_size"] = 52428800;
   logging["max_log_files"] = 3;
   logging["log_dir"] = "./logs";
@@ -306,6 +312,19 @@ void SystemConfig::initializeDefaults() {
   monitoring["watchdog_check_interval_ms"] = 5000;
   monitoring["watchdog_timeout_ms"] = 30000;
   monitoring["health_monitor_interval_ms"] = 1000;
+  monitoring["max_cpu_percent"] = 0;   // 0 = disabled; reject new instances when system CPU >= this
+  monitoring["max_ram_percent"] = 0;   // 0 = disabled; reject new instances when system RAM >= this
+  Json::Value deviceReport(Json::objectValue);
+  deviceReport["enabled"] = false;
+  deviceReport["server_url"] = "";
+  deviceReport["device_id"] = "";
+  deviceReport["device_type"] = "aibox";
+  deviceReport["interval_sec"] = 300;  // 5 phút
+  deviceReport["latitude"] = 0.0;
+  deviceReport["longitude"] = 0.0;
+  deviceReport["reachability_timeout_sec"] = 10;
+  deviceReport["report_timeout_sec"] = 30;
+  monitoring["device_report"] = deviceReport;
   system["monitoring"] = monitoring;
 
   // directories (empty = use auto-detection with fallback)
@@ -455,6 +474,17 @@ SystemConfig::WebServerConfig SystemConfig::getWebServerConfig() const {
     if (ws.isMember("ip_address") && ws["ip_address"].isString()) {
       config.ipAddress = ws["ip_address"].asString();
     }
+    // bind_mode: "local" = 127.0.0.1 (chỉ mạng nội bộ), "public" = 0.0.0.0 (chấp nhận mọi kết nối)
+    // Chỉ áp dụng khi ip_address chưa được set hoặc rỗng
+    if ((!ws.isMember("ip_address") || config.ipAddress.empty()) &&
+        ws.isMember("bind_mode") && ws["bind_mode"].isString()) {
+      std::string mode = ws["bind_mode"].asString();
+      if (mode == "local") {
+        config.ipAddress = "127.0.0.1";
+      } else if (mode == "public") {
+        config.ipAddress = "0.0.0.0";
+      }
+    }
     if (ws.isMember("port") && ws["port"].isInt()) {
       config.port = static_cast<uint16_t>(ws["port"].asInt());
     }
@@ -528,6 +558,11 @@ void SystemConfig::setWebServerConfig(const WebServerConfig &config) {
   Json::Value webServer(Json::objectValue);
   webServer["enabled"] = config.enabled;
   webServer["ip_address"] = config.ipAddress;
+  if (config.ipAddress == "127.0.0.1") {
+    webServer["bind_mode"] = "local";
+  } else if (config.ipAddress == "0.0.0.0") {
+    webServer["bind_mode"] = "public";
+  }
   webServer["port"] = config.port;
   webServer["name"] = config.name;
   webServer["max_body_size"] = static_cast<Json::Int64>(config.maxBodySize);
@@ -575,24 +610,28 @@ SystemConfig::LoggingConfig SystemConfig::getLoggingConfig() const {
     const auto &log = config_json_["system"]["logging"];
     hasConfigJson = true;
 
-    if (log.isMember("log_file") && log["log_file"].isString()) {
-      config.logFile = log["log_file"].asString();
+    if (log.isMember("enabled") && log["enabled"].isBool()) {
+      config.enabled = log["enabled"].asBool();
     }
     if (log.isMember("log_level") && log["log_level"].isString()) {
       config.logLevel = log["log_level"].asString();
       hasLogLevel = true;
     }
-    if (log.isMember("max_log_file_size")) {
-      if (log["max_log_file_size"].isInt64()) {
-        config.maxLogFileSize =
-            static_cast<size_t>(log["max_log_file_size"].asInt64());
-      } else if (log["max_log_file_size"].isInt()) {
-        config.maxLogFileSize =
-            static_cast<size_t>(log["max_log_file_size"].asInt());
-      } else if (log["max_log_file_size"].isUInt64()) {
-        config.maxLogFileSize =
-            static_cast<size_t>(log["max_log_file_size"].asUInt64());
-      }
+    if (log.isMember("api_enabled") && log["api_enabled"].isBool()) {
+      config.apiEnabled = log["api_enabled"].asBool();
+    }
+    if (log.isMember("instance_enabled") && log["instance_enabled"].isBool()) {
+      config.instanceEnabled = log["instance_enabled"].asBool();
+    }
+    if (log.isMember("sdk_output_enabled") && log["sdk_output_enabled"].isBool()) {
+      config.sdkOutputEnabled = log["sdk_output_enabled"].asBool();
+    }
+    if (log.isMember("log_file") && log["log_file"].isString()) {
+      config.logFile = log["log_file"].asString();
+    }
+    if (log.isMember("max_log_file_size") && log["max_log_file_size"].isInt()) {
+      config.maxLogFileSize =
+          static_cast<size_t>(log["max_log_file_size"].asInt());
     }
     if (log.isMember("max_log_files") && log["max_log_files"].isInt()) {
       config.maxLogFiles = log["max_log_files"].asInt();
@@ -698,8 +737,12 @@ void SystemConfig::setLoggingConfig(const LoggingConfig &config) {
   }
 
   Json::Value logging(Json::objectValue);
-  logging["log_file"] = config.logFile;
+  logging["enabled"] = config.enabled;
   logging["log_level"] = config.logLevel;
+  logging["api_enabled"] = config.apiEnabled;
+  logging["instance_enabled"] = config.instanceEnabled;
+  logging["sdk_output_enabled"] = config.sdkOutputEnabled;
+  logging["log_file"] = config.logFile;
   logging["max_log_file_size"] =
       static_cast<Json::Int64>(config.maxLogFileSize);
   logging["max_log_files"] = config.maxLogFiles;
@@ -765,6 +808,14 @@ SystemConfig::MonitoringConfig SystemConfig::getMonitoringConfig() const {
     if (mon.isMember("health_monitor_interval_ms") && mon["health_monitor_interval_ms"].isInt()) {
       config.healthMonitorIntervalMs = static_cast<uint32_t>(mon["health_monitor_interval_ms"].asInt());
     }
+    if (mon.isMember("max_cpu_percent") && mon["max_cpu_percent"].isInt()) {
+      int v = mon["max_cpu_percent"].asInt();
+      config.maxCpuPercent = (v >= 0 && v <= 100) ? v : 0;
+    }
+    if (mon.isMember("max_ram_percent") && mon["max_ram_percent"].isInt()) {
+      int v = mon["max_ram_percent"].asInt();
+      config.maxRamPercent = (v >= 0 && v <= 100) ? v : 0;
+    }
   }
 
   // Priority 2: Fallback to environment variables (only if config.json doesn't have value)
@@ -774,6 +825,48 @@ SystemConfig::MonitoringConfig SystemConfig::getMonitoringConfig() const {
     config.healthMonitorIntervalMs = EnvConfig::getUInt32("HEALTH_MONITOR_INTERVAL_MS", config.healthMonitorIntervalMs);
   }
 
+  return config;
+}
+
+SystemConfig::DeviceReportConfig SystemConfig::getDeviceReportConfig() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  DeviceReportConfig config;
+  bool hasConfigJson = false;
+  if (config_json_.isMember("system") &&
+      config_json_["system"].isMember("monitoring")) {
+    const auto &mon = config_json_["system"]["monitoring"];
+    if (mon.isMember("device_report")) {
+      const auto &dr = mon["device_report"];
+      hasConfigJson = true;
+      if (dr.isMember("enabled") && dr["enabled"].isBool())
+        config.enabled = dr["enabled"].asBool();
+      if (dr.isMember("server_url") && dr["server_url"].isString())
+        config.serverUrl = dr["server_url"].asString();
+      if (dr.isMember("device_id") && dr["device_id"].isString())
+        config.deviceId = dr["device_id"].asString();
+      if (dr.isMember("device_type") && dr["device_type"].isString())
+        config.deviceType = dr["device_type"].asString();
+      if (dr.isMember("interval_sec") && dr["interval_sec"].isInt())
+        config.intervalSec = static_cast<uint32_t>(dr["interval_sec"].asInt());
+      if (dr.isMember("latitude") && dr["latitude"].isDouble())
+        config.latitude = dr["latitude"].asDouble();
+      if (dr.isMember("longitude") && dr["longitude"].isDouble())
+        config.longitude = dr["longitude"].asDouble();
+      if (dr.isMember("reachability_timeout_sec") && dr["reachability_timeout_sec"].isInt())
+        config.reachabilityTimeoutSec = static_cast<uint32_t>(dr["reachability_timeout_sec"].asInt());
+      if (dr.isMember("report_timeout_sec") && dr["report_timeout_sec"].isInt())
+        config.reportTimeoutSec = static_cast<uint32_t>(dr["report_timeout_sec"].asInt());
+    }
+  }
+  if (!hasConfigJson) {
+    config.enabled = EnvConfig::getBool("DEVICE_REPORT_ENABLED", false);
+    config.serverUrl = EnvConfig::getString("DEVICE_REPORT_SERVER_URL", "");
+    config.deviceId = EnvConfig::getString("DEVICE_REPORT_DEVICE_ID", "");
+    config.deviceType = EnvConfig::getString("DEVICE_REPORT_DEVICE_TYPE", "aibox");
+    config.intervalSec = EnvConfig::getUInt32("DEVICE_REPORT_INTERVAL_SEC", 300);
+    config.latitude = EnvConfig::getDouble("DEVICE_REPORT_LATITUDE", 0.0);
+    config.longitude = EnvConfig::getDouble("DEVICE_REPORT_LONGITUDE", 0.0);
+  }
   return config;
 }
 

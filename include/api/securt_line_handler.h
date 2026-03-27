@@ -187,11 +187,18 @@ private:
                                         int statusCode = 200) const;
 
   /**
-   * @brief Restart instance to apply line changes (if instance is running)
+   * @brief Restart instance to apply line changes (last resort when hot swap unavailable)
    * @param instanceId Instance ID
    * @return true if restart initiated, false otherwise
    */
   bool restartInstanceForLineUpdate(const std::string &instanceId) const;
+
+  /**
+   * @brief Apply line changes via hot swap (zero downtime) using lines from SecuRT
+   * @param instanceId Instance ID
+   * @return true if hot swap applied successfully
+   */
+  bool applyLinesUpdateViaHotSwapFromSecuRT(const std::string &instanceId) const;
 
   /**
    * @brief Try to update lines at runtime without restart (in-process mode only)

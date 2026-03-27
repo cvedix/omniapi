@@ -93,12 +93,17 @@ void FrameProcessor::processFrames(const std::string& instanceId, IInstanceManag
   
   FrameDecoder decoder;
   
-  // Find app_src node once
+  // Find app_src node once (only instances that use push-frame API have app_src)
   auto appSrcNode = findAppSrcNode(instanceId, instanceManager);
   if (!appSrcNode) {
-    std::cerr << "[FrameProcessor] Warning: No app_src node found for instance " << instanceId 
-              << ". Frames will be queued but not processed." << std::endl;
-    // Continue anyway - frames will be queued and can be processed later when node is available
+    // RTMP/RTSP/file source pipelines have no app_src — expected; no need to warn
+    if (instanceManager && instanceManager->hasRTMPOutput(instanceId)) {
+      // Instance uses stream source + RTMP out; push-frame queue is unused — silent
+    } else {
+      std::cerr << "[FrameProcessor] Warning: No app_src node found for instance "
+                << instanceId
+                << ". Frames will be queued but not processed." << std::endl;
+    }
   }
   
   // Use blocking pop with timeout to wake as soon as a frame arrives (no fixed 10ms sleep).

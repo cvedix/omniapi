@@ -49,6 +49,7 @@
               example:
                 enabled: true
                 ip_address: 0.0.0.0
+                bind_mode: public
                 port: 8080
       '400':
         description: Yêu cầu không hợp lệ (đường dẫn trống)

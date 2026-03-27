@@ -1,5 +1,8 @@
 #include "api/system_info_handler.h"
+#include "config/system_config.h"
 #include "core/metrics_interceptor.h"
+#include "core/system_metrics.h"
+#include "instances/instance_manager.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -11,6 +14,12 @@
 #include <sstream>
 #include <thread>
 #include <unistd.h>
+
+IInstanceManager *SystemInfoHandler::instance_manager_ = nullptr;
+
+void SystemInfoHandler::setInstanceManager(IInstanceManager *manager) {
+  instance_manager_ = manager;
+}
 
 // Static variables for CPU usage calculation
 static std::chrono::steady_clock::time_point g_last_cpu_check =
@@ -112,6 +121,60 @@ void SystemInfoHandler::getSystemStatus(
     auto errorResp = createErrorResponse(k500InternalServerError,
                                          "Internal server error", e.what());
     // Record metrics and call callback
+    MetricsInterceptor::callWithMetrics(req, errorResp, std::move(callback));
+  }
+}
+
+void SystemInfoHandler::getResourceStatus(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  MetricsInterceptor::setHandlerStartTime(req);
+  try {
+    Json::Value response;
+    auto &sysConfig = SystemConfig::getInstance();
+
+    Json::Value limits;
+    limits["max_running_instances"] = sysConfig.getMaxRunningInstances();
+    auto mon = sysConfig.getMonitoringConfig();
+    limits["max_cpu_percent"] = mon.maxCpuPercent;
+    limits["max_ram_percent"] = mon.maxRamPercent;
+    auto perf = sysConfig.getPerformanceConfig();
+    limits["thread_num"] = perf.threadNum;        // 0 = auto
+    limits["min_threads"] = static_cast<Json::Int>(perf.minThreads);
+    limits["max_threads"] = static_cast<Json::Int>(perf.maxThreads);
+    response["limits"] = limits;
+
+    Json::Value current;
+    int instanceCount = 0;
+    if (instance_manager_) {
+      instanceCount = instance_manager_->getInstanceCount();
+    }
+    current["instance_count"] = instanceCount;
+    current["cpu_usage_percent"] = SystemMetrics::getSystemCpuUsagePercent();
+    current["ram_usage_percent"] = SystemMetrics::getSystemRamUsagePercent();
+    response["current"] = current;
+
+    int maxInst = sysConfig.getMaxRunningInstances();
+    double cpuPct = current["cpu_usage_percent"].asDouble();
+    double ramPct = current["ram_usage_percent"].asDouble();
+    Json::Value over;
+    over["at_instance_limit"] =
+        (maxInst > 0 && instanceCount >= maxInst);
+    over["over_cpu_limit"] =
+        (mon.maxCpuPercent > 0 && cpuPct >= static_cast<double>(mon.maxCpuPercent));
+    over["over_ram_limit"] =
+        (mon.maxRamPercent > 0 && ramPct >= static_cast<double>(mon.maxRamPercent));
+    response["over_limits"] = over;
+
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k200OK);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+  } catch (const std::exception &e) {
+    auto errorResp = createErrorResponse(k500InternalServerError,
+                                         "Internal server error", e.what());
     MetricsInterceptor::callWithMetrics(req, errorResp, std::move(callback));
   }
 }

@@ -58,6 +58,7 @@
                   web_server:
                     enabled: true
                     ip_address: 0.0.0.0
+                    bind_mode: public
                     port: 8080
                   auto_reload: false
                   max_running_instances: 0
@@ -76,6 +77,7 @@
 
       Cấu hình được lưu vào file cấu hình sau khi cập nhật.
 
+      **Bind server (chỉ local hay public):** Dùng `system.web_server.ip_address` (vd. `127.0.0.1` chỉ máy local, `0.0.0.0` cho public) hoặc `bind_mode` (`"local"` hoặc `"public"`). Thay đổi có hiệu lực sau khi restart server.
 
       **Tự động Khởi động lại:**
 
@@ -116,6 +118,7 @@
             example:
               system:
                 web_server:
+                  bind_mode: public
                   port: 8080
                 auto_reload: false
               auto_restart: false

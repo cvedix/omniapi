@@ -1,4 +1,4 @@
-# API endpoint: /v1/core/watchdog
+# API: /v1/core/watchdog, /v1/core/watchdog/report-now
 # Tag: Core
 
 /v1/core/watchdog:
@@ -6,7 +6,7 @@
     summary: Lấy trạng thái watchdog
     description: 'Trả về thống kê watchdog và giám sát sức khỏe bao gồm kiểm tra sức khỏe instance,
 
-      số lần khởi động lại và thông tin giám sát.
+      số lần khởi động lại, thông tin giám sát và trạng thái device report (OsmAnd/Traccar) khi bật.
 
       '
     operationId: getWatchdogStatus
@@ -19,5 +19,93 @@
           application/json:
             schema:
               type: object
-              description: Thống kê watchdog và giám sát sức khỏe
+              description: Thống kê watchdog, health_monitor và device_report
+              additionalProperties: true
+
+/v1/core/watchdog/config:
+  get:
+    summary: Lấy cấu hình device report
+    description: 'Trả về cấu hình hiện tại của device report (OsmAnd/Traccar). Có _description giải thích từng trường.'
+    operationId: getDeviceReportConfig
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Cấu hình và mô tả trường
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                config:
+                  type: object
+                  properties:
+                    enabled: { type: boolean }
+                    server_url: { type: string }
+                    device_id: { type: string }
+                    device_type: { type: string }
+                    interval_sec: { type: integer }
+                    latitude: { type: number }
+                    longitude: { type: number }
+                    reachability_timeout_sec: { type: integer }
+                    report_timeout_sec: { type: integer }
+                    _description: { type: object }
+              additionalProperties: true
+  put:
+    summary: Cập nhật cấu hình device report
+    description: 'Cập nhật cấu hình device report. Chỉ gửi các trường cần đổi. Cấu hình được áp dụng ngay (device report khởi động lại với thiết lập mới).'
+    operationId: putDeviceReportConfig
+    tags:
+    - Core
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              enabled: { type: boolean, description: 'Bật/tắt gửi report' }
+              server_url: { type: string, description: 'URL server Traccar (vd. http://traccar:5055)' }
+              device_id: { type: string, description: 'Mã thiết bị trên Traccar; trống = hostname' }
+              device_type: { type: string, description: 'vd. aibox, omnimedia' }
+              interval_sec: { type: integer, description: 'Chu kỳ gửi report (giây), mặc định 300 (5 phút)' }
+              latitude: { type: number }
+              longitude: { type: number }
+              reachability_timeout_sec: { type: integer }
+              report_timeout_sec: { type: integer }
+            additionalProperties: true
+    responses:
+      '200':
+        description: Đã cập nhật và áp dụng
+      '400':
+        description: Body JSON không hợp lệ
+      '500':
+        description: Cập nhật hoặc lưu thất bại
+
+/v1/core/watchdog/report-now:
+  get:
+    summary: Gửi device report ngay (thủ công)
+    description: 'Kích hoạt gửi một report lên Traccar (OsmAnd) với event=manual. Chỉ hoạt động khi device report được bật và server reachable.'
+    operationId: watchdogReportNow
+    tags:
+    - Core
+    responses:
+      '200':
+        description: Đã gửi report hoặc thông tin lỗi
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sent:
+                  type: boolean
+                event:
+                  type: string
+                  example: manual
+                report_count:
+                  type: integer
+                last_report:
+                  type: string
+                last_status:
+                  type: string
               additionalProperties: true

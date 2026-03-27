@@ -208,14 +208,10 @@ else
     echo "    Or ensure CMakeLists.txt creates this file"
 fi
 
-# Copy CVEDIX SDK libraries if available (from extracted SDK)
-# Check both old and new SDK locations for compatibility
-if [ -d "/opt/cvedix-ai-runtime/lib/cvedix" ]; then
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix-ai-runtime/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-elif [ -d "/opt/cvedix/lib" ]; then
-    cp -L /opt/cvedix/lib/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
-    cp -L /opt/cvedix/lib/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+# Copy EdgeOS SDK libraries if available (from extracted SDK or system)
+if [ -d "/opt/edgeos-sdk/lib/cvedix" ]; then
+    cp -L /opt/edgeos-sdk/lib/cvedix/libcvedix*.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
+    cp -L /opt/edgeos-sdk/lib/cvedix/libtinyexpr.so* "$LIB_TEMP_DIR/" 2>/dev/null || true
 fi
 
 # Copy CUDA libraries if available (for GPU acceleration support)
@@ -701,8 +697,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --help, -h       Show this help"
             echo ""
             echo "Example:"
-            echo "  ./build_deb_with_sdk.sh --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb"
-            echo "  ./build_deb_with_sdk.sh --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb --clean"
+            echo "  ./build_deb_all_in_one.sh --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb"
+            echo "  ./build_deb_all_in_one.sh --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb --clean"
             exit 0
             ;;
         *)
@@ -793,60 +789,33 @@ SDK_PKG_ARCH=$(dpkg-deb -f "$SDK_DEB_FILE" Architecture 2>/dev/null || echo "unk
 echo -e "${GREEN}✓${NC} SDK extracted: $SDK_PKG_NAME ($SDK_PKG_VERSION, $SDK_PKG_ARCH)"
 echo "  SDK contents: $SDK_EXTRACT_DIR"
 
-# CRITICAL: Verify SDK was extracted correctly
+# CRITICAL: Verify SDK was extracted correctly (EdgeOS SDK at /opt/edgeos-sdk)
 SDK_EXTRACT_SUCCESS=false
-if [ -d "$SDK_EXTRACT_DIR/opt/cvedix" ]; then
+if [ -d "$SDK_EXTRACT_DIR/opt/edgeos-sdk" ]; then
     SDK_EXTRACT_SUCCESS=true
-    echo "  SDK directories found:"
-    find "$SDK_EXTRACT_DIR/opt/cvedix" -type d -maxdepth 2 | sed 's|^.*/opt/cvedix/|    - |' | head -10
+    echo "  SDK directories found (/opt/edgeos-sdk):"
+    find "$SDK_EXTRACT_DIR/opt/edgeos-sdk" -type d -maxdepth 2 | sed 's|^.*/opt/edgeos-sdk/|    - |' | head -10
     
-    # Verify critical SDK libraries exist
-    echo "  Verifying SDK libraries..."
-    SDK_LIB_COUNT=$(find "$SDK_EXTRACT_DIR/opt/cvedix/lib" -name "*.so*" -type f 2>/dev/null | wc -l)
+    SDK_LIB_ROOT="$SDK_EXTRACT_DIR/opt/edgeos-sdk/lib"
+    [ -d "$SDK_EXTRACT_DIR/opt/edgeos-sdk/lib/cvedix" ] && SDK_LIB_ROOT="$SDK_EXTRACT_DIR/opt/edgeos-sdk/lib/cvedix"
+    SDK_LIB_COUNT=$(find "$SDK_LIB_ROOT" -name "*.so*" -type f 2>/dev/null | wc -l)
     if [ "$SDK_LIB_COUNT" -gt 0 ]; then
         echo "  SDK libraries found: $SDK_LIB_COUNT"
-        find "$SDK_EXTRACT_DIR/opt/cvedix/lib" -name "*.so*" -type f 2>/dev/null | sed 's|^.*/|    - |' | head -10
+        find "$SDK_LIB_ROOT" -name "*.so*" -type f 2>/dev/null | sed 's|^.*/|    - |' | head -10
     else
-        echo -e "${YELLOW}  ⚠  Warning: No SDK libraries found in /opt/cvedix/lib${NC}"
+        echo -e "${YELLOW}  ⚠  Warning: No SDK libraries found under /opt/edgeos-sdk/lib${NC}"
     fi
     
-    # Verify critical SDK files
-    CRITICAL_SDK_FILES=(
-        "$SDK_EXTRACT_DIR/opt/cvedix/lib/libcvedix_core.so"
-        "$SDK_EXTRACT_DIR/opt/cvedix/lib/libtinyexpr.so"
-    )
-    MISSING_FILES=()
-    for sdk_file in "${CRITICAL_SDK_FILES[@]}"; do
-        if [ ! -f "$sdk_file" ] && [ ! -L "$sdk_file" ]; then
-            # Check for versioned files (e.g., libcvedix_core.so.1.0.0)
-            if ! find "$(dirname "$sdk_file")" -name "$(basename "$sdk_file").*" -type f 2>/dev/null | grep -q .; then
-                MISSING_FILES+=("$(basename "$sdk_file")")
-            fi
-        fi
-    done
-    
-    if [ ${#MISSING_FILES[@]} -gt 0 ]; then
-        echo -e "${YELLOW}  ⚠  Warning: Some critical SDK files may be missing:${NC}"
-        for file in "${MISSING_FILES[@]}"; do
-            echo "    - $file"
-        done
-        echo "  Package will be built but may not work correctly"
+    if ! find "$SDK_EXTRACT_DIR/opt/edgeos-sdk" -name "libcvedix_core.so*" -type f 2>/dev/null | grep -q .; then
+        echo -e "${YELLOW}  ⚠  Warning: libcvedix_core.so not found under /opt/edgeos-sdk${NC}"
     fi
-else
-    echo -e "${YELLOW}  ⚠  Warning: /opt/cvedix not found in SDK package${NC}"
-    echo "  Checking alternative locations..."
+fi
+
+if [ "$SDK_EXTRACT_SUCCESS" = false ]; then
+    echo -e "${YELLOW}  ⚠  Warning: /opt/edgeos-sdk not found in SDK package${NC}"
+    echo "  SDK .deb should install to /opt/edgeos-sdk"
     find "$SDK_EXTRACT_DIR" -type d -maxdepth 3 | head -10
-    
-    # Check if SDK is in a different location
-    if find "$SDK_EXTRACT_DIR" -type d -name "cvedix" 2>/dev/null | grep -q .; then
-        echo "  Found 'cvedix' directory in alternative location:"
-        find "$SDK_EXTRACT_DIR" -type d -name "cvedix" 2>/dev/null | head -5
-        echo -e "${YELLOW}  ⚠  SDK structure may be different than expected${NC}"
-    else
-        echo -e "${RED}  ✗ Error: SDK directory structure not found${NC}"
-        echo "  SDK package may be invalid or corrupted"
-        echo "  Package build will continue but SDK will not be bundled"
-    fi
+    echo -e "${RED}  ✗ Error: SDK directory structure not found. Package build will continue but SDK will not be bundled.${NC}"
 fi
 
 # Final verification
@@ -1319,9 +1288,9 @@ if ! grep -q "SDK_EXTRACT_DIR = \$(CURDIR)/debian/sdk_extract" "$RULES_FILE"; th
     echo "  Adding SDK_EXTRACT_DIR definition..."
     sed -i '/^SERVICE_GROUP = edgeai$/a\
 \
-# SDK configuration\
+# SDK configuration (EdgeOS SDK at /opt/edgeos-sdk)\
 SDK_EXTRACT_DIR = $(CURDIR)/debian/sdk_extract\
-CVEDIX_INSTALL_DIR = /opt/cvedix-ai-runtime' "$RULES_FILE"
+CVEDIX_INSTALL_DIR = /opt/edgeos-sdk' "$RULES_FILE"
 fi
 
 # Verify SDK bundling section exists
@@ -1400,11 +1369,11 @@ if ! grep -q "# Setup CVEDIX SDK library path" "$POSTINST_FILE"; then
     SDK_SETUP_TMP=$(mktemp)
     cat > "$SDK_SETUP_TMP" <<'SDK_SETUP_EOF'
 
-# Setup CVEDIX SDK library path (SDK is bundled in this package)
-echo "Setting up CVEDIX SDK library path..."
-CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+# Setup EdgeOS SDK library path (SDK is bundled in this package)
+echo "Setting up EdgeOS SDK library path..."
+CVEDIX_LIB_DIR="/opt/edgeos-sdk/lib/cvedix"
 if [ -d "$CVEDIX_LIB_DIR" ]; then
-    echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/cvedix.conf
+    echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/edgeos-sdk.conf 2>/dev/null || true
     echo "  ✓ Added $CVEDIX_LIB_DIR to library search path"
     ldconfig 2>&1 | grep -v "is not a symbolic link" || true
 else

@@ -42,6 +42,16 @@ info:
 
     - URL máy chủ được cập nhật tự động dựa trên các biến môi trường (`API_HOST` và `API_PORT`)
 
+
+    ## Bind server và khởi động lại
+
+
+    - **Chế độ bind:** Cấu hình ai được kết nối: `127.0.0.1` hoặc `bind_mode: "local"` = chỉ máy local; `0.0.0.0` hoặc `bind_mode:
+    "public"` = chấp nhận từ mọi mạng. Đặt trong config (vd. `system.web_server`) hoặc qua `API_HOST`.
+
+    - **Áp dụng thay đổi:** Thay đổi host/port cần restart server. Khi cập nhật config qua **POST/PUT/PATCH** `/v1/core/config`,
+    đặt `auto_restart=true` (query hoặc body) để server tự khởi động lại sau 3 giây.
+
     '
   version: 1.0.0
   contact:
@@ -2734,6 +2744,7 @@ paths:
                     web_server:
                       enabled: true
                       ip_address: 0.0.0.0
+                      bind_mode: public
                       port: 8080
                     auto_reload: false
                     max_running_instances: 0
@@ -2752,6 +2763,8 @@ paths:
 
         Cấu hình được lưu vào file cấu hình sau khi cập nhật.
 
+        **Bind server (chỉ local hay public):** Dùng `system.web_server.ip_address` (vd. `127.0.0.1` chỉ máy local, `0.0.0.0`
+        cho public) hoặc `bind_mode` (`"local"` hoặc `"public"`). Thay đổi có hiệu lực sau khi restart server.
 
         **Tự động Khởi động lại:**
 
@@ -2792,6 +2805,7 @@ paths:
               example:
                 system:
                   web_server:
+                    bind_mode: public
                     port: 8080
                   auto_reload: false
                 auto_restart: false
@@ -3194,6 +3208,7 @@ paths:
                 example:
                   enabled: true
                   ip_address: 0.0.0.0
+                  bind_mode: public
                   port: 8080
         '400':
           description: Yêu cầu không hợp lệ (đường dẫn trống)
@@ -3253,11 +3268,8 @@ paths:
           type: string
         description: 'Đường dẫn cấu hình sử dụng dấu chấm làm dấu phân cách.
 
-          Examples: `system.max_running_instances`, `system.web_server`
-
-          Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số đường dẫn (dùng tham số truy vấn thay thế)
-
-          '
+          Ví dụ: `system.max_running_instances`, `system.web_server`. Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số
+          đường dẫn (dùng tham số truy vấn thay thế).'
         example: system.max_running_instances
       - name: auto_restart
         in: query
@@ -3368,11 +3380,8 @@ paths:
           type: string
         description: 'Đường dẫn cấu hình sử dụng dấu chấm làm dấu phân cách.
 
-          Examples: `system.max_running_instances`, `system.web_server`
-
-          Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số đường dẫn (dùng tham số truy vấn thay thế)
-
-          '
+          Ví dụ: `system.max_running_instances`, `system.web_server`. Lưu ý: Dấu gạch chéo KHÔNG được hỗ trợ trong tham số
+          đường dẫn (dùng tham số truy vấn thay thế).'
         example: system.max_running_instances
       - name: auto_restart
         in: query
@@ -3701,7 +3710,7 @@ paths:
   /v1/core/system/config:
     get:
       summary: Lấy các thực thể cấu hình hệ thống
-      description: Trả về system configuration entities với fieldId, displayName, type, value, group, và availableValues
+      description: Trả về các thực thể cấu hình hệ thống với fieldId, displayName, type, value, group và availableValues
       operationId: coreGetSystemConfigV1
       tags:
       - Core
@@ -3976,7 +3985,7 @@ paths:
       summary: Lấy trạng thái watchdog
       description: 'Trả về thống kê watchdog và giám sát sức khỏe bao gồm kiểm tra sức khỏe instance,
 
-        số lần khởi động lại và thông tin giám sát.
+        số lần khởi động lại, thông tin giám sát và trạng thái device report (OsmAnd/Traccar) khi bật.
 
         '
       operationId: getWatchdogStatus
@@ -3989,7 +3998,119 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Thống kê watchdog và giám sát sức khỏe
+                description: Thống kê watchdog, health_monitor và device_report
+                additionalProperties: true
+  /v1/core/watchdog/config:
+    get:
+      summary: Lấy cấu hình device report
+      description: Trả về cấu hình hiện tại của device report (OsmAnd/Traccar). Có _description giải thích từng trường.
+      operationId: getDeviceReportConfig
+      tags:
+      - Core
+      responses:
+        '200':
+          description: Cấu hình và mô tả trường
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      server_url:
+                        type: string
+                      device_id:
+                        type: string
+                      device_type:
+                        type: string
+                      interval_sec:
+                        type: integer
+                      latitude:
+                        type: number
+                      longitude:
+                        type: number
+                      reachability_timeout_sec:
+                        type: integer
+                      report_timeout_sec:
+                        type: integer
+                      _description:
+                        type: object
+                additionalProperties: true
+    put:
+      summary: Cập nhật cấu hình device report
+      description: Cập nhật cấu hình device report. Chỉ gửi các trường cần đổi. Cấu hình được áp dụng ngay (device report
+        khởi động lại với thiết lập mới).
+      operationId: putDeviceReportConfig
+      tags:
+      - Core
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: Bật/tắt gửi report
+                server_url:
+                  type: string
+                  description: URL server Traccar (vd. http://traccar:5055)
+                device_id:
+                  type: string
+                  description: Mã thiết bị trên Traccar; trống = hostname
+                device_type:
+                  type: string
+                  description: vd. aibox, omnimedia
+                interval_sec:
+                  type: integer
+                  description: Chu kỳ gửi report (giây), mặc định 300 (5 phút)
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                reachability_timeout_sec:
+                  type: integer
+                report_timeout_sec:
+                  type: integer
+              additionalProperties: true
+      responses:
+        '200':
+          description: Đã cập nhật và áp dụng
+        '400':
+          description: Body JSON không hợp lệ
+        '500':
+          description: Cập nhật hoặc lưu thất bại
+  /v1/core/watchdog/report-now:
+    get:
+      summary: Gửi device report ngay (thủ công)
+      description: Kích hoạt gửi một report lên Traccar (OsmAnd) với event=manual. Chỉ hoạt động khi device report được bật
+        và server reachable.
+      operationId: watchdogReportNow
+      tags:
+      - Core
+      responses:
+        '200':
+          description: Đã gửi report hoặc thông tin lỗi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent:
+                    type: boolean
+                  event:
+                    type: string
+                    example: manual
+                  report_count:
+                    type: integer
+                  last_report:
+                    type: string
+                  last_status:
+                    type: string
                 additionalProperties: true
   /hls/{instanceId}/segment_{segmentId}.ts:
     get:
@@ -4107,11 +4228,8 @@ paths:
         required: false
         schema:
           type: string
-        description: 'Subdirectory path where the font file is located (e.g., "projects/myproject/fonts", "themes/custom").
-
-          If not specified, the file is assumed to be in the base fonts directory.
-
-          '
+        description: 'Đường dẫn thư mục con chứa file font (ví dụ: "projects/myproject/fonts", "themes/custom"). Nếu không
+          chỉ định, coi như file nằm ở thư mục fonts gốc.'
         example: projects/myproject/fonts
       requestBody:
         required: true
@@ -4187,11 +4305,8 @@ paths:
         required: false
         schema:
           type: string
-        description: 'Subdirectory path where the font file is located (e.g., "projects/myproject/fonts", "themes/custom").
-
-          If not specified, the file is assumed to be in the base fonts directory.
-
-          '
+        description: 'Đường dẫn thư mục con chứa file font (ví dụ: "projects/myproject/fonts", "themes/custom"). Nếu không
+          chỉ định, coi như file nằm ở thư mục fonts gốc.'
         example: projects/myproject/fonts
       responses:
         '200':
@@ -4236,10 +4351,14 @@ paths:
   /v1/core/font/list:
     get:
       summary: Liệt kê file font đã tải lên
-      description: "Returns a list of font files that have been uploaded to the server.\n- If `directory` parameter is not\
-        \ specified: Recursively searches and lists all font files\n  in the entire fonts directory tree (including all subdirectories).\n\
-        - If `directory` parameter is specified: Lists only files in that specific directory\n  (non-recursive, does not search\
-        \ subdirectories).\n"
+      description: 'Trả về danh sách các file font đã được tải lên máy chủ.
+
+        - Nếu không chỉ định tham số `directory`: Tìm kiếm đệ quy và liệt kê tất cả file font trong toàn bộ cây thư mục fonts
+        (bao gồm mọi thư mục con).
+
+        - Nếu chỉ định tham số `directory`: Chỉ liệt kê file trong thư mục đó (không đệ quy, không tìm trong thư mục con).
+
+        '
       operationId: listFonts
       tags:
       - Fonts
@@ -4249,13 +4368,8 @@ paths:
         required: false
         schema:
           type: string
-        description: 'Subdirectory path to list files from (e.g., "projects/myproject/fonts", "themes/custom").
-
-          If specified, only lists files in that directory (non-recursive).
-
-          If not specified, recursively searches all subdirectories.
-
-          '
+        description: 'Đường dẫn thư mục con để liệt kê file (ví dụ: "projects/myproject/fonts", "themes/custom"). Nếu chỉ
+          định, chỉ liệt kê file trong thư mục đó (không đệ quy). Nếu không chỉ định, tìm kiếm đệ quy tất cả thư mục con.'
         example: projects/myproject/fonts
       responses:
         '200':
@@ -4307,15 +4421,9 @@ paths:
         required: false
         schema:
           type: string
-        description: 'Subdirectory path where the font file should be saved.
-
-          Use forward slashes to separate directory levels (e.g., "projects/myproject/fonts", "themes/custom", "languages/vietnamese").
-
-          The directory will be created automatically if it doesn''t exist.
-
-          If not specified, files will be saved in the base fonts directory.
-
-          '
+        description: 'Đường dẫn thư mục con để lưu file font. Dùng dấu gạch chéo để phân tách cấp thư mục (ví dụ: "projects/myproject/fonts",
+          "themes/custom", "languages/vietnamese"). Thư mục sẽ được tạo tự động nếu chưa tồn tại. Nếu không chỉ định, file
+          sẽ được lưu tại thư mục fonts gốc.'
         example: projects/myproject/fonts
       requestBody:
         required: true
@@ -4459,16 +4567,16 @@ paths:
       description: 'Tạo nhóm mới để tổ chức instance. Thuộc tính: **groupId** (bắt buộc) định danh duy nhất; **groupName**
         (tùy chọn) tên hiển thị; **description** (tùy chọn) mô tả. Group ID phải duy nhất
 
-        - Group ID must match pattern: `^[A-Za-z0-9_-]+$`
+        - Group ID phải khớp pattern: `^[A-Za-z0-9_-]+$`
 
-        - Group name must match pattern: `^[A-Za-z0-9 -_]+$`
+        - Tên nhóm phải khớp pattern: `^[A-Za-z0-9 -_]+$`
 
 
-        **Persistence:**
+        **Lưu trữ:**
 
-        - Groups are automatically saved to storage
+        - Nhóm được tự động lưu vào kho
 
-        - Group files are stored in `/var/lib/edgeos-api/groups` (configurable via `GROUPS_DIR` environment variable)
+        - File nhóm lưu tại `/var/lib/edgeos-api/groups` (cấu hình qua biến môi trường `GROUPS_DIR`)
 
 
         **Trả về:** Thông tin nhóm đã tạo kèm timestamp.
@@ -4614,13 +4722,13 @@ paths:
         không còn instance nào (cần chuyển hoặc xóa instance trước)
 
 
-        **Behavior:**
+        **Hành vi:**
 
-        - Group configuration will be removed from memory
+        - Cấu hình nhóm sẽ bị xóa khỏi bộ nhớ
 
-        - Group file will be deleted from storage
+        - File nhóm sẽ bị xóa khỏi kho lưu trữ
 
-        - All resources associated with the group will be released
+        - Mọi tài nguyên liên quan đến nhóm sẽ được giải phóng
 
 
         **Lưu ý:** Thao tác này không thể hoàn tác. Sau khi xóa, cần tạo lại nhóm bằng endpoint tạo nhóm.
@@ -4839,7 +4947,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Đã cập nhật cấu hình FPS thành công.
+                    example: FPS configuration updated successfully.
                   instance_id:
                     type: string
                     description: Định danh instance
@@ -4848,7 +4956,7 @@ paths:
                     description: Giá trị FPS đã cập nhật
                     example: 10
               example:
-                message: Đã cập nhật cấu hình FPS thành công.
+                message: FPS configuration updated successfully.
                 instance_id: 550e8400-e29b-41d4-a716-446655440000
                 fps: 10
         '400':
@@ -4892,7 +5000,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Đã đặt lại cấu hình FPS về mặc định.
+                    example: FPS configuration reset to default.
                   instance_id:
                     type: string
                     description: Định danh instance
@@ -4901,7 +5009,7 @@ paths:
                     description: Giá trị FPS mặc định (5)
                     example: 5
               example:
-                message: Đã đặt lại cấu hình FPS về mặc định.
+                message: FPS configuration reset to default.
                 instance_id: 550e8400-e29b-41d4-a716-446655440000
                 fps: 5
         '404':
@@ -5191,10 +5299,10 @@ paths:
                   autoStart: false
                   additionalParams:
                     input:
-                      FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4
-                      WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                      CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                      LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                      FILE_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/test_video/vehicle_count.mp4
+                      WEIGHTS_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                      CONFIG_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                      LABELS_PATH: /home/cvedix/project/edge_ai_sdk/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     output:
                       RTMP_URL: rtmp://localhost:1935/live/sang_camera_demo_1
                       RTMP_DES_URL: rtmp://localhost:1935/live/sang_camera_demo_1
@@ -6859,7 +6967,7 @@ paths:
                       FACE_RECOGNITION_MODEL_PATH: /opt/cvedix/models/face/insightface.trt
                       SAVE_DIR: /tmp/output/trt_insightface_recognition
               tests___test_set_config_examples:
-                summary: 'Ví dụ kiểm thử - Set Config'
+                summary: 'Tests - Test: Set Config Examples'
                 value:
                   examples:
                   - description: Đặt DisplayName (chuỗi)
@@ -6965,7 +7073,7 @@ paths:
                   instance_id: 1a484dc9-81f2-4f4d-a361-00056a6c24b8
                   api_base: http://localhost:8848/v1/core
               tests___test_wrong_node_order:
-                summary: 'Ví dụ kiểm thử - Wrong Node Order'
+                summary: 'Tests - Test: Wrong Node Order'
                 value:
                   name: test_wrong_order
                   group: test
@@ -7204,46 +7312,11 @@ paths:
       description: 'Khởi động nhiều instance đồng thời. Các thao tác chạy song song để tối ưu performance.
 
 
-        **Behavior:**
-
-        - All instances are started in parallel, not sequentially
-
-        - Each instance is started independently
-
-        - Results are returned for each instance (success or failure)
-
-        - Instances that are already running will be marked as successful
-
-
-        **Request Format:**
-
-        - Provide an array of instance IDs in the `instanceIds` field
-
-        - All instance IDs must exist in the system
-
-
-        **Response:**
-
-        - Returns detailed results for each instance
-
-        - Includes total count, success count, and failed count
-
-        - Each result includes the instance ID, success status, running status, and any error messages
-
-
-        **Use Cases:**
-
-        - Start multiple instances after server restart
-
-        - Batch operations for managing multiple cameras or streams
-
-        - Efficiently start a group of related instances
-
-
-        **Note:** Starting multiple instances simultaneously may consume significant system resources. Monitor system performance
-        when starting many instances at once.
-
-        '
+        **Hành vi:** Mọi instance được start song song; mỗi instance start độc lập; kết quả trả về cho từng instance (thành
+        công/thất bại); instance đã chạy được đánh dấu thành công. **Định dạng yêu cầu:** Gửi mảng instance ID trong trường
+        `instanceIds`; mọi ID phải tồn tại trong hệ thống. **Phản hồi:** Trả về kết quả chi tiết từng instance; gồm tổng số,
+        số thành công, số thất bại; mỗi kết quả có instance ID, trạng thái success, trạng thái running, thông báo lỗi (nếu
+        có). **Lưu ý:** Khởi động nhiều instance cùng lúc có thể tốn tài nguyên; nên theo dõi hiệu năng khi start nhiều instance.'
       operationId: batchStartInstances
       tags:
       - Instances
@@ -7336,46 +7409,11 @@ paths:
       description: 'Dừng nhiều instance đồng thời. Các thao tác chạy song song để tối ưu performance.
 
 
-        **Behavior:**
-
-        - All instances are stopped in parallel, not sequentially
-
-        - Each instance is stopped independently
-
-        - Results are returned for each instance (success or failure)
-
-        - Instances that are already stopped will be marked as successful
-
-
-        **Request Format:**
-
-        - Provide an array of instance IDs in the `instanceIds` field
-
-        - All instance IDs must exist in the system
-
-
-        **Response:**
-
-        - Returns detailed results for each instance
-
-        - Includes total count, success count, and failed count
-
-        - Each result includes the instance ID, success status, running status, and any error messages
-
-
-        **Use Cases:**
-
-        - Stop multiple instances for maintenance
-
-        - Batch operations for managing multiple cameras or streams
-
-        - Efficiently stop a group of related instances
-
-
-        **Note:** Stopping multiple instances simultaneously will release system resources. This is useful for managing system
-        load.
-
-        '
+        **Hành vi:** Mọi instance dừng song song; mỗi instance dừng độc lập; kết quả trả về cho từng instance; instance đã
+        dừng được đánh dấu thành công. **Định dạng yêu cầu:** Gửi mảng instance ID trong `instanceIds`; mọi ID phải tồn tại.
+        **Phản hồi:** Kết quả chi tiết từng instance; tổng số, số thành công, số thất bại; mỗi kết quả có instance ID, success,
+        running, thông báo lỗi. **Lưu ý:** Dừng nhiều instance cùng lúc sẽ giải phóng tài nguyên; hữu ích để quản lý tải hệ
+        thống.'
       operationId: batchStopInstances
       tags:
       - Instances
@@ -7465,25 +7503,10 @@ paths:
   /v1/core/instance/{instanceId}:
     get:
       summary: Lấy thông tin chi tiết instance
-      description: 'Trả về thông tin chi tiết của một instance: cấu hình đầy đủ, trạng thái, runtime information.
-
-
-        The response includes:
-
-        - Instance configuration (display name, group, solution, etc.)
-
-        - Runtime status (running, loaded, FPS, etc.)
-
-        - Configuration settings (detector mode, sensitivity, frame rate limits, etc.)
-
-        - Input/Output configuration
-
-        - Originator information
-
-
-        The instance must exist. If the instance is not found, a 404 error will be returned.
-
-        '
+      description: 'Trả về thông tin chi tiết của một instance: cấu hình đầy đủ, trạng thái, runtime Phản hồi gồm: cấu hình
+        instance (tên hiển thị, nhóm, solution, ...), trạng thái runtime (đang chạy, đã nạp, FPS, ...), thiết lập (chế độ
+        detector, độ nhạy, giới hạn frame rate, ...), cấu hình Input/Output, thông tin originator. Instance phải tồn tại;
+        nếu không tìm thấy sẽ trả về lỗi 404.'
       operationId: getInstance
       tags:
       - Instances
@@ -7515,34 +7538,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     put:
       summary: Cập nhật thông tin instance
-      description: 'Cập nhật cấu hình instance. Chỉ các trường gửi lên được cập nhật. Hỗ trợ hai kiểu update formats:
-
-
-        **Update Format 1: Field-by-field (camelCase)**
-
-        - Update individual fields like `name`, `group`, `autoStart`, `frameRateLimit`, etc.
-
-        - Use `additionalParams` to update solution-specific parameters (RTSP_URL, MODEL_PATH, etc.)
-
-
-        **Update Format 2: Direct Config (PascalCase)**
-
-        - Update using PascalCase format matching instance config file
-
-        - Can update `Input`, `Output`, `Detector`, `Zone`, etc. directly
-
-
-        **Behavior:**
-
-        - If the instance is currently running, it will be automatically restarted to apply the changes
-
-        - If the instance is not running, changes will take effect when the instance is started
-
-        - The instance must exist and not be read-only
-
-        - Only provided fields will be updated; other fields remain unchanged
-
-        '
+      description: Cập nhật cấu hình instance. Chỉ các trường gửi lên được cập nhật. Hỗ trợ hai kiểu update **Định dạng cập
+        nhật 1 - Từng trường (camelCase):** Cập nhật từng trường như `name`, `group`, `autoStart`, `frameRateLimit`, ...;
+        dùng `additionalParams` cho tham số riêng solution (RTSP_URL, MODEL_PATH, ...). **Định dạng 2 - Config trực tiếp (PascalCase):**
+        Cập nhật theo PascalCase giống file cấu hình instance; có thể cập nhật `Input`, `Output`, `Detector`, `Zone`, ...
+        **Hành vi:** Nếu instance đang chạy sẽ được khởi động lại tự động để áp dụng thay đổi; nếu không chạy thì thay đổi
+        có hiệu lực khi start; instance phải tồn tại và không read-only; chỉ các trường gửi lên được cập nhật.
       operationId: updateInstance
       tags:
       - Instances
@@ -7663,7 +7664,7 @@ paths:
         schema:
           type: string
         description: Định danh instance (UUID)
-        example: '{threshold}'
+        example: ba_crossline_demo
       requestBody:
         required: true
         content:
@@ -7762,10 +7763,7 @@ paths:
         - Instance must not be read-only (system instances cannot be deleted)
 
 
-        **Note:** This operation cannot be undone. Once deleted, the instance must be recreated using the create instance
-        endpoint.
-
-        '
+        **Lưu ý:** Thao tác này không thể hoàn tác. Sau khi xóa, cần tạo lại instance bằng endpoint tạo instance.'
       operationId: deleteInstance
       tags:
       - Instances
@@ -7844,15 +7842,9 @@ paths:
   /v1/core/instance/{instanceId}/config:
     get:
       summary: Lấy cấu hình instance
-      description: 'Trả về cấu hình của instance. Endpoint cung cấp các thiết lập cấu hình instance, which are different from
-        runtime state. Configuration includes settings like AutoRestart, AutoStart, Detector settings, Input configuration,
-        etc.
-
-
-        **Note:** This returns the configuration format, not the runtime state. For runtime state information, use the instance
-        details endpoint.
-
-        '
+      description: Trả về cấu hình của instance. Các thiết lập cấu hình khác với trạng thái runtime (AutoRestart, AutoStart,
+        Detector, Input, v.v.). **Lưu ý:** Đây là định dạng cấu hình, không phải trạng thái runtime. Để xem trạng thái runtime,
+        dùng endpoint chi tiết instance.
       operationId: getConfig
       tags:
       - Instances
@@ -7887,7 +7879,7 @@ paths:
                     default_format: true
                     height: 0
                     is_software: false
-                    name: Same as Source
+                    name: Giống nguồn
                   media_type: Images
                   output_fps: 8
                   uri: https://some_uri
@@ -7906,23 +7898,10 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
     post:
       summary: Đặt giá trị config tại đường dẫn cụ thể
-      description: 'Đặt giá trị cấu hình tại đường dẫn chỉ định. Đường dẫn là key trong cấu hình; với cấu hình lồng nhau structures,
-        it will be nested keys separated by forward slashes "/".
-
-
-        **Note:** This operation will overwrite the value at the given path.
-
-
-        **Path Examples:**
-
-        - Simple path: `"DisplayName"` - Sets top-level DisplayName
-
-        - Nested path: `"Output/handlers/Mqtt"` - Sets Mqtt handler in Output.handlers
-
-
-        **jsonValue Format:**
-
-        - For string values: `"\"my string\""` (escaped JSON string)
+      description: 'Đặt giá trị cấu hình tại đường dẫn chỉ định. Đường dẫn là key trong cấu hình; với cấu hình lồng nhau dùng
+        key lồng nhau phân tách bằng dấu gạch chéo "/". **Lưu ý:** Thao tác này sẽ ghi đè giá trị tại đường dẫn đã cho. **Ví
+        dụ đường dẫn:** Đường dẫn đơn `"DisplayName"` - đặt DisplayName cấp cao; đường dẫn lồng `"Output/handlers/Mqtt"` -
+        đặt handler Mqtt trong Output.handlers. **Định dạng jsonValue:** Chuỗi: `"\"my string\""` (chuỗi JSON escaped)
 
         - For object values: `"{\"key\":\"value\"}"` (escaped JSON object)
 
@@ -8129,22 +8108,10 @@ paths:
   /v1/core/instance/{instanceId}/input:
     post:
       summary: Thiết lập nguồn đầu vào cho instance
-      description: 'Thiết lập cấu hình nguồn đầu vào cho instance. Thay thế trường Input trong Instance File theo to the request.
-
-
-        **Input Types:**
-
-        - **RTSP**: Uses `rtsp_src` node for RTSP streams
-
-        - **HLS**: Uses `hls_src` node for HLS streams
-
-        - **Manual**: Uses `v4l2_src` node for V4L2 devices
-
-
-        The instance must exist and not be read-only. If the instance is currently running, it will be automatically restarted
-        to apply the changes.
-
-        '
+      description: Thiết lập cấu hình nguồn đầu vào cho instance. Thay thế trường Input trong Instance File theo yêu cầu.
+        **Loại đầu vào:** **File** - đường dẫn file video (vd. ``./video.mp4`` hoặc path sau khi upload qua ``POST /v1/core/video/upload``);
+        **RTSP** - dùng node `rtsp_src`; **HLS** - dùng node `hls_src`; **Manual** - dùng node `v4l2_src` cho thiết bị V4L2.
+        Instance phải tồn tại và không read-only. Nếu instance đang chạy sẽ được khởi động lại tự động để áp dụng thay đổi.
       operationId: setInstanceInput
       tags:
       - Instances
@@ -8161,9 +8128,17 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SetInputRequest'
-            example:
-              type: Manual
-              uri: http://localhost
+            examples:
+              fileInput:
+                summary: Input từ file video
+                value:
+                  type: File
+                  uri: ./test_video.mp4
+              manualInput:
+                summary: Input từ thiết bị V4L2
+                value:
+                  type: Manual
+                  uri: /dev/video0
       responses:
         '204':
           description: Đã cập nhật cài đặt đầu vào thành công
@@ -8299,8 +8274,8 @@ paths:
       summary: Cập nhật hàng loạt đường vượt (crossing lines)
       description: 'Cập nhật nhiều đường vượt (crossing lines) cho instance ba_crossline trong một yêu cầu.
 
-        This endpoint allows updating multiple crossing lines at once, which is more efficient than updating them individually.
-        The instance will be restarted automatically to apply the changes if it is currently running. '
+        Endpoint cho phép cập nhật nhiều đường vượt cùng lúc, hiệu quả hơn cập nhật từng cái. Instance sẽ được khởi động lại
+        tự động để áp dụng thay đổi nếu đang chạy.'
       operationId: batchUpdateLines
       tags:
       - Instances
@@ -8401,29 +8376,10 @@ paths:
         and enables state management, while starting begins the processing pipeline.
 
 
-        **Behavior:**
-
-        - Instance must exist
-
-        - If instance is already loaded, returns 406 Not Acceptable
-
-        - Initializes state storage for the instance
-
-        - Instance can be loaded without being started (running)
-
-
-        **Use Cases:**
-
-        - Prepare instance for state management
-
-        - Load instance into memory before setting runtime state
-
-        - Manage memory and resources
-
-
-        **Note:** State can only be set/get when instance is loaded. State is cleared when instance is unloaded.
-
-        '
+        **Hành vi:** Instance phải tồn tại. Nếu instance đã nạp thì trả về 406 Not Acceptable. Khởi tạo state storage cho
+        instance. Instance có thể nạp mà chưa start (chạy). **Use case:** Chuẩn bị instance cho quản lý state; nạp instance
+        vào bộ nhớ trước khi đặt state runtime; quản lý bộ nhớ và tài nguyên. **Lưu ý:** State chỉ có thể set/get khi instance
+        đã nạp. State bị xóa khi instance bị gỡ nạp.'
       operationId: coreLoadInstanceV1
       tags:
       - Instances
@@ -8454,8 +8410,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Not Acceptable
-                message: 'Cannot load instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+                error: Không chấp nhận
+                message: 'Không thể nạp instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
         '500':
           description: Lỗi máy chủ
           content:
@@ -8470,27 +8426,134 @@ paths:
       responses:
         '200':
           description: Phản hồi CORS preflight
+  /v1/core/instance/{instanceId}/log/config:
+    get:
+      summary: Lấy cấu hình log theo instance
+      description: Trả về cấu hình ghi log theo instance. Khi **enabled** là true, log instance được ghi vào `logs/instance/<instance_id>/`
+        (thư mục riêng theo instance).
+      operationId: getInstanceLogConfig
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Định danh duy nhất của instance (UUID)
+      responses:
+        '200':
+          description: Cấu hình log theo instance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                        description: Khi true, log instance ghi vào logs/instance/<instance_id>/
+                  _description:
+                    type: object
+                    additionalProperties:
+                      type: string
+              example:
+                config:
+                  enabled: false
+                _description:
+                  enabled: Khi true, log instance ghi vào logs/instance/<instance_id>/ (thư mục riêng theo instance).
+        '404':
+          description: Không tìm thấy instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Lỗi máy chủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Đặt cấu hình log theo instance
+      description: Đặt cấu hình ghi log theo instance. Gửi **enabled** true để ghi log instance vào `logs/instance/<instance_id>/`.
+        Áp dụng ngay; giá trị được lưu cùng cấu hình instance.
+      operationId: putInstanceLogConfig
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Định danh duy nhất của instance (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enabled
+              properties:
+                enabled:
+                  type: boolean
+                  description: Khi true, log instance ghi vào logs/instance/<instance_id>/
+            example:
+              enabled: true
+      responses:
+        '200':
+          description: Đã cập nhật cấu hình
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  config:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+        '400':
+          description: Yêu cầu không hợp lệ (JSON sai hoặc thiếu enabled)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Lỗi máy chủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight cho cấu hình log instance
+      operationId: instanceLogConfigOptions
+      tags:
+      - Instances
+      responses:
+        '200':
+          description: Phản hồi CORS preflight
   /v1/core/instance/{instanceId}/output:
     get:
       summary: Lấy đầu ra và kết quả xử lý của instance
       description: 'Trả về output và kết quả xử lý thời gian thực của instance tại thời điểm yêu cầu.
 
-        This endpoint provides comprehensive information about:
-
-        - Current processing metrics (FPS, frame rate limit)
-
-        - Input source (FILE or RTSP)
-
-        - Output type and details (FILE output files or RTMP stream)
-
-        - Detection settings and processing modes
-
-        - Current status and processing state
-
-
-        For instances with FILE output, it includes file count, total size, latest file information, and activity status.
-
-        For instances with RTMP output, it includes RTMP and RTSP URLs.
+        Endpoint cung cấp thông tin tổng hợp: số liệu xử lý hiện tại (FPS, giới hạn frame rate), nguồn đầu vào (FILE hoặc
+        RTSP), loại đầu ra và chi tiết (file FILE hoặc stream RTMP), thiết lập phát hiện và chế độ xử lý, trạng thái hiện
+        tại. Với instance đầu ra FILE: số file, tổng dung lượng, thông tin file mới nhất, trạng thái hoạt động. Với instance
+        đầu ra RTMP: URL RTMP và RTSP.
 
         '
       operationId: getInstanceOutput
@@ -8766,26 +8829,10 @@ paths:
   /v1/core/instance/{instanceId}/output/stream:
     get:
       summary: Lấy cấu hình stream output
-      description: 'Trả về cấu hình stream output hiện tại của instance. Endpoint lấy cấu hình stream output settings including
-        whether it is enabled and the configured URI.
-
-
-        **Response Format:**
-
-        - `enabled`: Boolean indicating whether stream output is enabled
-
-        - `uri`: The configured stream URI (empty string if disabled)
-
-
-        The URI can be in one of the following formats:
-
-        - **RTMP**: `rtmp://host:port/path/stream_key`
-
-        - **RTSP**: `rtsp://host:port/path/stream_key`
-
-        - **HLS**: `hls://host:port/path/stream_key`
-
-        '
+      description: 'Trả về cấu hình stream output hiện tại của instance. Endpoint lấy cấu hình stream output gồm trạng thái
+        bật/tắt và URI cấu hình. **Định dạng phản hồi:** `enabled` - stream output có bật hay không; `uri` - URI stream đã
+        cấu hình (chuỗi rỗng nếu tắt). URI có thể theo định dạng: **RTMP** `rtmp://host:port/path/stream_key`, **RTSP** `rtsp://host:port/path/stream_key`,
+        **HLS** `hls://host:port/path/stream_key`.'
       operationId: getStreamOutput
       tags:
       - Instances
@@ -8833,27 +8880,16 @@ paths:
         URI or a local path for recording.
 
 
-        **Record Output Mode (using `path` parameter):**
-
-        - When `enabled` is `true` and `path` is provided, video will be saved as MP4 files to the specified local directory
-
-        - The path must exist and have write permissions (will be created if it doesn''t exist)
-
-        - Uses `rtmp_des_node` to push data to local stream
-
-        - Files are saved in MP4 format to the specified path
+        **Chế độ Record (tham số `path`):** Khi `enabled` là `true` và có `path`, video lưu MP4 vào thư mục chỉ định. Đường
+        dẫn phải tồn tại và có quyền ghi (sẽ tạo nếu chưa có). Dùng `rtmp_des_node` để đẩy dữ liệu. File lưu MP4 tại đường
+        dẫn chỉ định.
 
 
-        **Stream Output Mode (using `uri` parameter):**
-
-        - **RTMP**: `rtmp://host:port/path/stream_key` - For RTMP streaming (e.g., to MediaMTX, YouTube Live, etc.)
-
-        - **RTSP**: `rtsp://host:port/path/stream_key` - For RTSP streaming
-
-        - **HLS**: `hls://host:port/path/stream_key` - For HLS streaming
+        **Chế độ Stream (tham số `uri`):** **RTMP** - phát RTMP (vd. MediaMTX, YouTube Live); **RTSP** - phát RTSP; **HLS**
+        - phát HLS.
 
 
-        **Behavior:**
+        **Hành vi:**
 
         - When `enabled` is `true`, either `path` (for record output) or `uri` (for stream output) field is required
 
@@ -8868,11 +8904,7 @@ paths:
 
         - For local streaming, ensure MediaMTX is installed and running: https://github.com/bluenviron/mediamtx
 
-        - Default MediaMTX RTMP endpoint: `rtmp://localhost:1935/live/stream`
-
-        - Default MediaMTX RTSP endpoint: `rtsp://localhost:8554/live/stream"
-
-        '
+        - Endpoint RTMP MediaMTX mặc định: `rtmp://localhost:1935/live/stream`; endpoint RTSP: `rtsp://localhost:8554/live/stream`.'
       operationId: configureStreamOutput
       tags:
       - Instances
@@ -9138,33 +9170,10 @@ paths:
   /v1/core/instance/{instanceId}/restart:
     post:
       summary: Khởi động lại instance
-      description: 'Khởi động lại instance bằng cách dừng (nếu đang chạy) rồi start lại. Hữu ích để áp dụng configuration
-        changes or recovering from errors.
-
-
-        **Behavior:**
-
-        - If the instance is running, it will be stopped first
-
-        - Then the instance will be started again
-
-        - This ensures a clean restart with the current configuration
-
-        - Returns the updated instance information after restart
-
-
-        **Use Cases:**
-
-        - Apply configuration changes that require a restart
-
-        - Recover from errors or unexpected states
-
-        - Refresh the pipeline with updated settings
-
-
-        **Note:** Restarting an instance may take several seconds as the pipeline is stopped and then restarted.
-
-        '
+      description: Khởi động lại instance bằng cách dừng (nếu đang chạy) rồi start lại. Hữu ích để áp dụng thay đổi cấu hình
+        hoặc phục hồi sau lỗi. **Hành vi:** Nếu instance đang chạy sẽ bị dừng trước, rồi được start lại; đảm bảo khởi động
+        lại sạch với cấu hình hiện tại; trả về thông tin instance sau restart. **Lưu ý:** Khởi động lại instance có thể mất
+        vài giây do pipeline dừng rồi khởi động lại.
       operationId: restartInstance
       tags:
       - Instances
@@ -9219,31 +9228,10 @@ paths:
       description: 'Khởi động pipeline của instance. Instance phải có pipeline đã cấu hình và solution hợp lệ.
 
 
-        **Prerequisites:**
-
-        - Instance must exist
-
-        - Instance must have a valid solution configuration
-
-        - Instance must not be read-only
-
-        - Input source must be properly configured (if required by solution)
-
-
-        **Behavior:**
-
-        - If the instance is already running, the request will succeed without error
-
-        - The pipeline will be built and started based on the instance''s solution configuration
-
-        - Processing will begin according to the configured input source and detector settings
-
-        - Returns the updated instance information with `running: true`
-
-
-        **Note:** Starting an instance may take a few seconds as the pipeline is initialized.
-
-        '
+        **Điều kiện:** Instance phải tồn tại, có cấu hình solution hợp lệ, không read-only; nguồn đầu vào phải được cấu hình
+        đúng (nếu solution yêu cầu). **Hành vi:** Nếu instance đã chạy thì yêu cầu vẫn thành công; pipeline được build và
+        start theo cấu hình solution; xử lý bắt đầu theo nguồn đầu vào và thiết lập detector; trả về thông tin instance với
+        `running: true`. **Lưu ý:** Khởi động instance có thể mất vài giây khi pipeline được khởi tạo.'
       operationId: startInstance
       tags:
       - Instances
@@ -9287,38 +9275,11 @@ paths:
   /v1/core/instance/{instanceId}/state:
     get:
       summary: Lấy trạng thái runtime của instance
-      description: 'Trả về trạng thái runtime của instance. State khác config — state chứa thiết lập runtime that only exist
-        when the instance is loaded, while config contains persistent settings that are stored in files.
-
-
-        **State vs Config:**
-
-        - **State**: Runtime settings, in-memory only, cleared when instance is unloaded
-
-        - **Config**: Persistent settings, stored in files, persists after restart
-
-
-        **Behavior:**
-
-        - Instance must exist and be loaded (or running)
-
-        - Returns empty object `{}` if no state has been set
-
-        - State is cleared when instance is unloaded
-
-
-        **Use Cases:**
-
-        - Get runtime settings and flags
-
-        - Check runtime state values
-
-        - Monitor runtime configuration
-
-
-        **Note:** State does not persist after unload or restart. For persistent configuration, use the config endpoint.
-
-        '
+      description: Trả về trạng thái runtime của instance. State khác config — state chứa thiết lập runtime chỉ tồn tại khi
+        instance đã nạp; config chứa thiết lập lưu trữ trong file. **State vs Config:** State - thiết lập runtime, chỉ trong
+        bộ nhớ, xóa khi gỡ nạp; Config - thiết lập lưu trữ, tồn tại sau restart. **Hành vi:** Instance phải tồn tại và đã
+        nạp (hoặc đang chạy). Trả về object rỗng `{}` nếu chưa đặt state. State bị xóa khi gỡ nạp. **Lưu ý:** State không
+        tồn tại sau unload hoặc restart. Để cấu hình lưu trữ, dùng endpoint config.
       operationId: coreGetInstanceStateV1
       tags:
       - Instances
@@ -9371,8 +9332,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Not Acceptable
-                message: 'Instance not loaded: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+                error: Không chấp nhận
+                message: 'Instance chưa được nạp: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
         '500':
           description: Lỗi máy chủ
           content:
@@ -9407,34 +9368,10 @@ paths:
 
         - Simple path: `"testValue"` - Sets top-level testValue
 
-        - Nested path: `"Output/handlers/Mqtt"` - Sets Mqtt handler in Output.handlers
-
-        - Deep nested: `"runtime/debug/enabled"` - Sets enabled flag in runtime.debug
-
-
-        **jsonValue Format:**
-
-        - For string values: `"\"my string\""` (escaped JSON string)
-
-        - For object values: `"{\"key\":\"value\"}"` (escaped JSON object)
-
-        - For number values: `"123"` or `"45.67"`
-
-        - For boolean values: `"true"` or `"false"`
-
-
-        **Use Cases:**
-
-        - Set runtime flags and settings
-
-        - Configure runtime behavior
-
-        - Update temporary runtime values
-
-
-        **Note:** State does not persist after unload or restart. For persistent configuration, use the config endpoint.
-
-        '
+        Đường dẫn lồng: `"Output/handlers/Mqtt"` - đặt handler Mqtt trong Output.handlers. Đường dẫn sâu: `"runtime/debug/enabled"`
+        - đặt cờ enabled trong runtime.debug. **Định dạng jsonValue:** Chuỗi `"\"my string\""`; object `"{\"key\":\"value\"}"`;
+        số `"123"` hoặc `"45.67"`; boolean `"true"` hoặc `"false"`. **Lưu ý:** State không tồn tại sau unload hoặc restart.
+        Để cấu hình lưu trữ, dùng endpoint config.'
       operationId: corePostInstanceStateV1
       tags:
       - Instances
@@ -9479,7 +9416,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 error: Yêu cầu không hợp lệ
-                message: Field 'jsonValue' must contain valid JSON
+                message: Trường 'jsonValue' phải chứa JSON hợp lệ
         '404':
           description: Không tìm thấy instance
           content:
@@ -9496,8 +9433,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Not Acceptable
-                message: 'Instance not loaded: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+                error: Không chấp nhận
+                message: 'Instance chưa được nạp: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
         '500':
           description: Lỗi máy chủ
           content:
@@ -9613,23 +9550,9 @@ paths:
       description: 'Dừng pipeline của instance, dừng mọi xử lý và giải phóng tài nguyên.
 
 
-        **Behavior:**
-
-        - If the instance is already stopped, the request will succeed without error
-
-        - The pipeline will be gracefully stopped and all resources will be released
-
-        - Processing will stop immediately
-
-        - Returns the updated instance information with `running: false`
-
-
-        **Note:** Stopping an instance may take a few seconds as the pipeline is cleaned up.
-
-
-        The instance configuration is preserved and can be started again using the start endpoint.
-
-        '
+        **Hành vi:** Nếu instance đã dừng thì yêu cầu vẫn thành công. Pipeline được dừng đúng cách và mọi tài nguyên được
+        giải phóng. Xử lý dừng ngay. Trả về thông tin instance với `running: false`. **Lưu ý:** Dừng instance có thể mất vài
+        giây khi pipeline được dọn dẹp. Cấu hình instance được giữ và có thể start lại bằng endpoint start.'
       operationId: stopInstance
       tags:
       - Instances
@@ -9675,8 +9598,8 @@ paths:
       summary: Cập nhật hàng loạt vùng dừng (stop zones)
       description: 'Cập nhật nhiều vùng dừng (stop zones) cho instance ba_stop trong một yêu cầu.
 
-        This endpoint allows updating multiple stop zones at once, which is more efficient than updating them individually.
-        The instance will be restarted automatically to apply the changes if it is currently running. '
+        Endpoint cho phép cập nhật nhiều vùng dừng cùng lúc, hiệu quả hơn cập nhật từng cái. Instance sẽ được khởi động lại
+        tự động để áp dụng thay đổi nếu đang chạy.'
       operationId: batchUpdateStops
       tags:
       - Instances
@@ -9774,34 +9697,10 @@ paths:
   /v1/core/instance/{instanceId}/unload:
     post:
       summary: Gỡ instance khỏi bộ nhớ
-      description: 'Gỡ instance khỏi bộ nhớ, xóa state storage và giải phóng tài nguyên. Khác với stop an instance - unloading
-        removes the instance from memory and clears runtime state, while stopping only halts the processing pipeline.
-
-
-        **Behavior:**
-
-        - Instance must exist and be loaded
-
-        - If instance is running, it will be stopped first
-
-        - State storage is cleared (all runtime state is lost)
-
-        - Resources are released
-
-
-        **Use Cases:**
-
-        - Free memory when instance is not needed
-
-        - Clear runtime state
-
-        - Release resources
-
-
-        **Note:** State is cleared when instance is unloaded. State does not persist after unload. Config (persistent configuration)
-        is not affected.
-
-        '
+      description: Gỡ instance khỏi bộ nhớ, xóa state storage và giải phóng tài nguyên. Khác với stop Gỡ nạp xóa instance
+        khỏi bộ nhớ và xóa state runtime, còn stop chỉ dừng pipeline. **Hành vi:** Instance phải tồn tại và đã nạp. Nếu đang
+        chạy sẽ bị dừng trước. State storage bị xóa (mọi state runtime mất). Tài nguyên được giải phóng. **Lưu ý:** State
+        bị xóa khi gỡ nạp. State không tồn tại sau unload. Config (cấu hình lưu trữ) không bị ảnh hưởng.
       operationId: coreUnloadInstanceV1
       tags:
       - Instances
@@ -9823,8 +9722,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Không tìm thấy
-                message: 'Không tìm thấy instance: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
+                error: Not found
+                message: 'Instance not found: 291a85b8-d4c0-5765-dcb2-48c9b51f48d0'
         '406':
           description: Instance chưa được nạp
           content:
@@ -10123,7 +10022,7 @@ paths:
                   properties:
                     message:
                       type: string
-                      example: Lines created successfully
+                      example: Đã tạo đường vượt thành công
                     count:
                       type: integer
                       example: 2
@@ -10176,7 +10075,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: All lines deleted successfully
+                    example: Đã xóa tất cả đường vượt thành công
         '404':
           description: Không tìm thấy instance
           content:
@@ -10348,7 +10247,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Line deleted successfully
+                    example: Đã xóa đường vượt thành công
         '404':
           description: Không tìm thấy instance hoặc đường
           content:
@@ -10900,19 +10799,19 @@ paths:
                   api:
                   - date: '2024-01-01'
                     size: 1024
-                    path: /var/log/edgeos-api/api_2024-01-01.log
+                    path: /var/log/edge_ai_api/api_2024-01-01.log
                   instance:
                   - date: '2024-01-01'
                     size: 2048
-                    path: /var/log/edgeos-api/instance_2024-01-01.log
+                    path: /var/log/edge_ai_api/instance_2024-01-01.log
                   sdk_output:
                   - date: '2024-01-01'
                     size: 512
-                    path: /var/log/edgeos-api/sdk_output_2024-01-01.log
+                    path: /var/log/edge_ai_api/sdk_output_2024-01-01.log
                   general:
                   - date: '2024-01-01'
                     size: 4096
-                    path: /var/log/edgeos-api/general_2024-01-01.log
+                    path: /var/log/edge_ai_api/general_2024-01-01.log
         '500':
           description: Lỗi máy chủ
           content:
@@ -11003,7 +10902,7 @@ paths:
                 $ref: '#/components/schemas/LogsResponse'
               example:
                 category: api
-                category_dir: /var/log/edgeos-api/api
+                category_dir: /var/log/edge_ai_api/api
                 files_count: 1
                 total_lines: 1000
                 filtered_lines: 500
@@ -11380,15 +11279,9 @@ paths:
         required: false
         schema:
           type: string
-        description: 'Đường dẫn thư mục con nơi file mô hình sẽ được lưu.
-
-          Use forward slashes to separate directory levels (e.g., "projects/myproject/models", "detection/yolov8", "classification/resnet50").
-
-          The directory will be created automatically if it doesn''t exist.
-
-          If not specified, files will be saved in the base models directory.
-
-          '
+        description: 'Đường dẫn thư mục con để lưu file mô hình. Dùng dấu gạch chéo để phân tách cấp thư mục (ví dụ: "projects/myproject/models",
+          "detection/yolov8", "classification/resnet50"). Thư mục sẽ được tạo tự động nếu chưa tồn tại. Nếu không chỉ định,
+          file sẽ được lưu tại thư mục models gốc.'
         example: projects/myproject/models
       requestBody:
         required: true
@@ -11566,8 +11459,8 @@ paths:
       summary: Build solution từ các node
       description: 'Build cấu hình solution từ các node cấu hình sẵn đã chọn.
 
-        This endpoint allows creating a solution by combining multiple pre-configured nodes. The solution will be created
-        with the specified nodes and their configurations. '
+        Endpoint cho phép tạo solution bằng cách kết hợp nhiều node cấu hình sẵn. Solution được tạo với các node và cấu hình
+        đã chỉ định.'
       operationId: buildSolutionFromNodes
       tags:
       - Node
@@ -11608,7 +11501,7 @@ paths:
                     description: Định danh solution đã tạo (created solution ID)
                   message:
                     type: string
-                    example: Solution built successfully
+                    example: Đã build solution thành công
         '400':
           description: Yêu cầu không hợp lệ
           content:
@@ -11782,7 +11675,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Node deleted successfully
+                    example: Đã xóa node thành công
                   nodeId:
                     type: string
                     example: node_a1b2c3d4
@@ -12404,24 +12297,37 @@ paths:
   /v1/recognition/face-database/connection:
     post:
       summary: Cấu hình kết nối face database
-      description: "Configures the face database connection for MySQL or PostgreSQL. This endpoint allows you to configure\n\
-        a database connection to store face recognition data instead of using the default `face_database.txt` file.\n\n**Database\
-        \ Support:**\n- MySQL (default port: 3306)\n- PostgreSQL (default port: 5432)\n\n**Database Schema:**\nThe system\
-        \ expects two tables in the database:\n\n1. **face_libraries** table:\n   - `id` (primary key, auto-increment)\n \
-        \  - `image_id` (varchar 36) - Unique identifier for each face image\n   - `subject` (varchar 255) - Subject/name\
-        \ of the person\n   - `base64_image` (longtext) - Base64-encoded face image\n   - `embedding` (text) - Face embedding\
-        \ vector (comma-separated floats)\n   - `created_at` (timestamp) - Creation timestamp\n   - `machine_id` (varchar\
-        \ 255) - Machine identifier\n   - `mac_address` (varchar 255) - MAC address\n\n2. **face_log** table:\n   - `id` (primary\
-        \ key, auto-increment)\n   - `request_type` (varchar 50) - Type of request (recognize, register, etc.)\n   - `timestamp`\
-        \ (datetime) - Request timestamp\n   - `client_ip` (varchar 45) - Client IP address\n   - `request_body` (longtext)\
-        \ - Request body JSON\n   - `response_body` (longtext) - Response body JSON\n   - `response_code` (int) - HTTP response\
-        \ code\n   - `notes` (text) - Additional notes\n   - `mac_address` (varchar 255) - MAC address\n   - `machine_id`\
-        \ (varchar 255) - Machine identifier\n\n**Behavior:**\n- If database connection is configured and enabled, the system\
-        \ will use the database instead of `face_database.txt`\n- If `enabled: false` is sent, the database connection is\
-        \ disabled and the system falls back to `face_database.txt`\n- Configuration is persisted in `config.json` under the\
-        \ `face_database` section\n- The configuration takes effect immediately after being saved\n\n**Note:** The database\
-        \ tables must be created manually before using this endpoint. The endpoint only configures\nthe connection parameters,\
-        \ it does not create the database schema.\n"
+      description: 'Cấu hình kết nối face database cho MySQL hoặc PostgreSQL. Endpoint này cho phép cấu hình kết nối database
+        để lưu dữ liệu nhận diện khuôn mặt thay cho file mặc định `face_database.txt`.
+
+
+        **Hỗ trợ database:**
+
+        - MySQL (cổng mặc định: 3306)
+
+        - PostgreSQL (cổng mặc định: 5432)
+
+
+        **Schema database:** Hệ thống yêu cầu hai bảng:
+
+
+        1. Bảng **face_libraries:** id (khóa chính, tự tăng), image_id (varchar 36) - định danh mỗi ảnh khuôn mặt, subject
+        (varchar 255) - tên người, base64_image (longtext) - ảnh khuôn mặt Base64, embedding (text) - vector embedding (số
+        thực cách nhau dấu phẩy), created_at (timestamp), machine_id (varchar 255), mac_address (varchar 255).
+
+
+        2. Bảng **face_log:** id (khóa chính, tự tăng), request_type (varchar 50) - loại yêu cầu (recognize, register, ...),
+        timestamp (datetime), client_ip (varchar 45), request_body (longtext), response_body (longtext), response_code (int),
+        notes (text), mac_address, machine_id.
+
+
+        **Hành vi:** Khi kết nối database được cấu hình và bật, hệ thống dùng database thay cho `face_database.txt`. Nếu gửi
+        `enabled: false`, kết nối bị tắt và hệ thống dùng lại `face_database.txt`. Cấu hình lưu trong `config.json` mục `face_database`.
+        Cấu hình có hiệu lực ngay sau khi lưu.
+
+
+        **Lưu ý:** Các bảng database phải được tạo thủ công trước khi dùng endpoint này. Endpoint chỉ cấu hình tham số kết
+        nối, không tạo schema database.'
       operationId: configureFaceDatabaseConnection
       tags:
       - Recognition
@@ -12475,13 +12381,13 @@ paths:
                   message:
                     type: string
                     description: Thông báo thành công
-                    example: Face database connection configured successfully
+                    example: Đã cấu hình kết nối face database thành công
                   config:
                     $ref: '#/components/schemas/FaceDatabaseConnectionConfig'
                   note:
                     type: string
                     description: Thông tin bổ sung
-                    example: Database connection will be used instead of face_database.txt file
+                    example: Kết nối database sẽ được dùng thay cho file face_database.txt
               examples:
                 success:
                   summary: Cấu hình thành công
@@ -12498,7 +12404,7 @@ paths:
                 disabled:
                   summary: Đã tắt database
                   value:
-                    message: Database connection disabled. Using default face_database.txt file
+                    message: Đã tắt kết nối database. Đang dùng file face_database.txt mặc định
                     enabled: false
                     default_file: /opt/edgeos-api/data/face_database.txt
         '400':
@@ -12512,17 +12418,17 @@ paths:
                   summary: Thiếu trường type
                   value:
                     error: Yêu cầu không hợp lệ
-                    message: Field 'type' (mysql/postgresql) is required
+                    message: Trường 'type' (mysql/postgresql) là bắt buộc
                 invalidType:
                   summary: Loại database không hợp lệ
                   value:
                     error: Yêu cầu không hợp lệ
-                    message: Field 'type' must be either 'mysql' or 'postgresql'
+                    message: Trường 'type' phải là 'mysql' hoặc 'postgresql'
                 missingHost:
                   summary: Thiếu trường host
                   value:
                     error: Yêu cầu không hợp lệ
-                    message: Field 'host' is required
+                    message: Trường 'host' là bắt buộc
         '500':
           description: Lỗi máy chủ (không lưu được cấu hình, v.v.)
           content:
@@ -12555,7 +12461,7 @@ paths:
                   message:
                     type: string
                     description: Thông báo trạng thái
-                    example: Database connection is configured and enabled
+                    example: Kết nối database đã được cấu hình và bật
                   default_file:
                     type: string
                     description: Đường dẫn file face_database.txt mặc định (chỉ có khi enabled là false)
@@ -12577,7 +12483,7 @@ paths:
                   summary: Đã tắt database
                   value:
                     enabled: false
-                    message: No database connection configured. Using default face_database.txt file
+                    message: Chưa cấu hình kết nối database. Đang dùng file face_database.txt mặc định
                     default_file: /opt/edgeos-api/data/face_database.txt
         '500':
           description: Lỗi máy chủ
@@ -12605,8 +12511,7 @@ paths:
                   message:
                     type: string
                     description: Thông báo thành công
-                    example: Database connection configuration deleted successfully. System will now use default face_database.txt
-                      file
+                    example: Đã xóa cấu hình kết nối database. Hệ thống sẽ dùng file face_database.txt mặc định
                   enabled:
                     type: boolean
                     description: Kết nối database có được bật hay không (luôn false sau khi xóa)
@@ -12619,14 +12524,13 @@ paths:
                 deleted:
                   summary: Đã xóa cấu hình thành công
                   value:
-                    message: Database connection configuration deleted successfully. System will now use default face_database.txt
-                      file
+                    message: Đã xóa cấu hình kết nối database. Hệ thống sẽ dùng file face_database.txt mặc định
                     enabled: false
                     default_file: /opt/edgeos-api/data/face_database.txt
                 notFound:
                   summary: Không có cấu hình để xóa
                   value:
-                    message: No database connection configured to delete
+                    message: Không có cấu hình kết nối database để xóa
                     enabled: false
                     default_file: /opt/edgeos-api/data/face_database.txt
         '500':
@@ -12648,12 +12552,7 @@ paths:
       summary: Liệt kê face subject
       description: 'Lấy danh sách tất cả face subject đã lưu, có hỗ trợ phân trang.
 
-        You can filter by subject name or retrieve all subjects.
-
-
-        This endpoint returns paginated results with face information including image_id and subject name.
-
-        '
+        Có thể lọc theo tên subject hoặc lấy tất cả subject. Endpoint này trả về kết quả phân trang gồm image_id và tên subject.'
       operationId: listFaceSubjects
       tags:
       - Recognition
@@ -12758,31 +12657,12 @@ paths:
       summary: Đăng ký face subject
       description: 'Đăng ký face subject bằng cách lưu ảnh. Có thể thêm nhiều ảnh để huấn luyện hệ thống.
 
-        Images should contain only a single face.
-
-
-        **Face Detection Validation**: Before registration, the system performs mandatory face detection.
-
-        If no face is detected in the uploaded image, the registration will be rejected with a 400 error.
-
-        The user must upload a different image that contains a clear, detectable face.
-
-
-        This endpoint accepts image data in two formats:
-
-        1. **Multipart/form-data**: Upload file directly (recommended for file uploads)
-
-        2. **Application/json**: Send base64-encoded image string
-
-
-        Supported image formats: JPEG, JPG, PNG, BMP, GIF, ICO, TIFF, WebP
-
-        Maximum file size: 5MB
-
-
-        The system will detect the face in the image and store the face features for recognition.
-
-        '
+        Ảnh nên chỉ chứa một khuôn mặt. **Xác thực phát hiện khuôn mặt:** Trước khi đăng ký, hệ thống thực hiện phát hiện
+        khuôn mặt bắt buộc. Nếu không phát hiện khuôn mặt trong ảnh tải lên, đăng ký sẽ bị từ chối với lỗi 400. Người dùng
+        cần tải lên ảnh khác có khuôn mặt rõ, có thể phát hiện. Endpoint này chấp nhận dữ liệu ảnh theo hai định dạng: 1)
+        **Multipart/form-data**: Tải file trực tiếp (khuyến nghị); 2) **Application/json**: Gửi chuỗi ảnh mã hóa Base64. Định
+        dạng ảnh hỗ trợ: JPEG, JPG, PNG, BMP, GIF, ICO, TIFF, WebP. Kích thước file tối đa: 5MB. Hệ thống sẽ phát hiện khuôn
+        mặt trong ảnh và lưu đặc trưng khuôn mặt để nhận diện.'
       operationId: registerFaceSubject
       tags:
       - Recognition
@@ -12866,9 +12746,9 @@ paths:
                 image_id: 6b135f5b-a365-4522-b1f1-4c9ac2dd0728
                 subject: subject1
         '400':
-          description: 'Invalid request. Possible reasons:
+          description: 'Yêu cầu không hợp lệ. Có thể do:
 
-            - Missing required query parameter: subject
+            - Thiếu tham số truy vấn bắt buộc: subject
 
             - Invalid image format or corrupted image data
 
@@ -12906,12 +12786,8 @@ paths:
       summary: Xóa tất cả face subject
       description: 'Xóa tất cả face subject khỏi database. Thao tác không thể hoàn tác.
 
-        All image IDs and subject mappings will be removed.
-
-
-        **Warning:** This endpoint will delete all registered faces. Use with caution.
-
-        '
+        Mọi image ID và ánh xạ subject sẽ bị xóa. **Cảnh báo:** Endpoint này sẽ xóa tất cả khuôn mặt đã đăng ký. Dùng với
+        thận trọng.'
       operationId: deleteAllFaceSubjects
       tags:
       - Recognition
@@ -12933,7 +12809,7 @@ paths:
                   message:
                     type: string
                     description: Thông báo thành công
-                    example: All face subjects deleted successfully
+                    example: Đã xóa tất cả face subject thành công
               example:
                 deleted_count: 15
                 message: All face subjects deleted successfully
@@ -12954,11 +12830,7 @@ paths:
   /v1/recognition/faces/delete:
     post:
       summary: Xóa nhiều face subject
-      description: 'Xóa nhiều face subject theo image ID. Nếu một số ID không tồn tại
-
-        they will be ignored. This endpoint is available since version 1.0.
-
-        '
+      description: Xóa nhiều face subject theo image ID. Các ID không tồn tại sẽ bị bỏ qua. Endpoint có từ phiên bản 1.0.
       operationId: deleteMultipleFaceSubjects
       tags:
       - Recognition
@@ -13041,16 +12913,10 @@ paths:
       description: 'Xóa face subject theo image ID hoặc tên subject.
 
 
-        - If the identifier is an **image_id**, only that specific face will be deleted.
+        - Nếu định danh là **image_id**, chỉ khuôn mặt tương ứng bị xóa.
 
-        - If the identifier is a **subject name**, all faces associated with that subject will be deleted.
-
-
-        The endpoint automatically detects whether the identifier is an image_id or subject name.
-
-        If no face is found with the given identifier, a 404 error is returned.
-
-        '
+        - Nếu định danh là **tên subject**, mọi khuôn mặt gắn với subject đó sẽ bị xóa. Endpoint tự nhận định danh là image_id
+        hay tên subject. Nếu không tìm thấy khuôn mặt với định danh đã cho, trả về lỗi 404.'
       operationId: deleteFaceSubject
       tags:
       - Recognition
@@ -13060,11 +12926,7 @@ paths:
         required: true
         schema:
           type: string
-        description: 'Either the UUID of the face subject to be deleted, or the subject name.
-
-          The endpoint will automatically detect the type of identifier.
-
-          '
+        description: UUID của face subject cần xóa, hoặc tên subject. Endpoint sẽ tự nhận loại định danh.
         example: '{subject}'
       responses:
         '200':
@@ -13302,31 +13164,15 @@ paths:
       summary: Tìm kiếm appearance subject
       description: 'Tìm khuôn mặt tương tự trong database từ ảnh khuôn mặt đầu vào.
 
-        Returns a list of matching faces sorted by similarity (highest first) above the specified threshold.
+        Trả về danh sách khuôn mặt khớp, sắp xếp theo độ tương đồng (cao nhất trước) trên ngưỡng chỉ định.
 
 
-        **How it works:**
-
-        1. Detects faces in the uploaded image
-
-        2. Extracts face embeddings from the first detected face
-
-        3. Compares with all faces in the database
-
-        4. Returns matches with similarity >= threshold, sorted from highest to lowest
+        **Cách hoạt động:** 1. Phát hiện khuôn mặt trong ảnh tải lên. 2. Trích embedding từ khuôn mặt đầu tiên. 3. So sánh
+        với mọi khuôn mặt trong database. 4. Trả về các kết quả có similarity >= ngưỡng, sắp xếp từ cao đến thấp.
 
 
-        **Response fields:**
-
-        - `image_id`: Unique identifier of the matched face
-
-        - `subject`: Name of the matched subject
-
-        - `similarity`: Cosine similarity score (0.0 - 1.0)
-
-        - `face_image`: Base64 encoded face image (reserved for future use)
-
-        '
+        **Trường phản hồi:** `image_id` - định danh khuôn mặt khớp; `subject` - tên subject; `similarity` - điểm tương đồng
+        cosine (0.0 - 1.0); `face_image` - ảnh khuôn mặt Base64 (dự phòng).'
       operationId: searchAppearanceSubject
       tags:
       - Recognition
@@ -13450,17 +13296,20 @@ paths:
   /v1/recognition/subjects/{subject}:
     put:
       summary: Đổi tên face subject
-      description: "Renames an existing face subject. This endpoint searches for the face subject name in the face database\n\
-        and allows you to select and rename that subject.\n\n**How it works:**\n1. The endpoint searches for the subject name\
-        \ specified in the URL path (`{subject}`) in the face database.\n2. If found, it renames the subject to the new name\
-        \ provided in the request body.\n3. All face registrations associated with the old subject name are updated to use\
-        \ the new name.\n\n**Behavior:**\n- If the new subject name does not exist, all faces from the old subject are moved\
-        \ to the new name.\n- If the new subject name already exists, the subjects are merged. The embeddings are averaged\
-        \ and\n  all faces from the old subject are reassigned to the subject with the new name, and the old subject is removed.\n\
-        - All image_id mappings are automatically updated to reflect the new subject name.\n- The face database file is updated\
-        \ to persist the changes.\n\n**Note:** The subject name in the URL path must match exactly with a subject name in\
-        \ the database.\nUse GET /v1/recognition/faces to list all available subjects.\n\nThis endpoint is available since\
-        \ version 0.6.\n"
+      description: 'Đổi tên một face subject có sẵn. Endpoint tìm tên subject trong face database và cho phép đổi tên.
+
+
+        **Cách hoạt động:** 1. Endpoint tìm tên subject trong đường dẫn URL (`{subject}`) trong face database. 2. Nếu tìm
+        thấy, đổi tên subject sang tên mới trong body. 3. Mọi đăng ký face gắn với tên cũ được cập nhật sang tên mới.
+
+
+        **Hành vi:** Nếu tên subject mới chưa tồn tại, mọi khuôn mặt từ subject cũ được chuyển sang tên mới. Nếu tên mới đã
+        tồn tại, các subject được gộp (embedding trung bình, mọi face của subject cũ gán sang subject tên mới, subject cũ
+        bị xóa). Mọi ánh xạ image_id được cập nhật tự động. File face database được cập nhật để lưu thay đổi.
+
+
+        **Lưu ý:** Tên subject trong đường dẫn URL phải khớp chính xác với một tên trong database. Dùng GET /v1/recognition/faces
+        để liệt kê tất cả subject. Endpoint có từ phiên bản 0.6.'
       operationId: renameSubject
       tags:
       - Recognition
@@ -13470,11 +13319,8 @@ paths:
         required: true
         schema:
           type: string
-        description: 'The current subject name to rename. This must match exactly with a subject name in the face database.
-
-          Use GET /v1/recognition/faces to see all available subjects.
-
-          '
+        description: Tên subject hiện tại cần đổi. Phải khớp chính xác với một tên trong face database. Dùng GET /v1/recognition/faces
+          để xem tất cả subject.
         example: subject1
       requestBody:
         required: true
@@ -13513,12 +13359,12 @@ paths:
                   message:
                     type: string
                     description: Thông báo thành công
-                    example: Subject renamed successfully
+                    example: Đã đổi tên subject thành công
               example:
                 updated: 'true'
                 old_subject: subject1
                 new_subject: testing_face
-                message: Subject renamed successfully
+                message: Đã đổi tên subject thành công
         '400':
           description: Yêu cầu không hợp lệ (không tìm thấy subject, thiếu subject, JSON không hợp lệ, v.v.)
           content:
@@ -13538,14 +13384,14 @@ paths:
                   error:
                     type: string
                     description: Thông báo lỗi giải thích vì sao đổi tên thất bại
-                    example: Subject 'subject1' not found in face database
+                    example: Không tìm thấy subject 'subject1' trong face database
                   old_subject:
                     type: string
                     description: Tên subject đã thử đổi
                     example: subject1
               example:
                 updated: 'false'
-                error: Subject 'subject1' not found in face database
+                error: Không tìm thấy subject 'subject1' trong face database
                 old_subject: subject1
         '500':
           description: Lỗi máy chủ
@@ -15199,7 +15045,7 @@ paths:
       summary: Nạp solution mặc định
       description: 'Nạp solution mặc định từ examples/default_solutions/ vào solution registry.
 
-        This endpoint allows loading a default solution template into the system for use in creating instances. '
+        Endpoint cho phép nạp mẫu solution mặc định vào hệ thống để dùng khi tạo instance.'
       operationId: loadDefaultSolution
       tags:
       - Solutions
@@ -15223,7 +15069,7 @@ paths:
                     description: Định danh solution đã nạp
                   message:
                     type: string
-                    example: Default solution loaded successfully
+                    example: Đã nạp solution mặc định thành công
         '404':
           description: Không tìm thấy solution mặc định
           content:
@@ -16142,10 +15988,14 @@ paths:
   /v1/core/video/list:
     get:
       summary: Liệt kê file video đã tải lên
-      description: "Returns a list of video files that have been uploaded to the server.\n- If `directory` parameter is not\
-        \ specified: Recursively searches and lists all video files\n  in the entire videos directory tree (including all\
-        \ subdirectories).\n- If `directory` parameter is specified: Lists only files in that specific directory\n  (non-recursive,\
-        \ does not search subdirectories).\n"
+      description: 'Trả về danh sách các file video đã được tải lên máy chủ.
+
+        - Nếu không chỉ định tham số `directory`: Tìm kiếm đệ quy và liệt kê tất cả file video trong toàn bộ cây thư mục videos
+        (bao gồm mọi thư mục con).
+
+        - Nếu chỉ định tham số `directory`: Chỉ liệt kê file trong thư mục đó (không đệ quy, không tìm trong thư mục con).
+
+        '
       operationId: listVideos
       tags:
       - Video
@@ -16155,13 +16005,8 @@ paths:
         required: false
         schema:
           type: string
-        description: 'Subdirectory path to list files from (e.g., "projects/myproject/videos", "users/user123").
-
-          If specified, only lists files in that directory (non-recursive).
-
-          If not specified, recursively searches all subdirectories.
-
-          '
+        description: 'Đường dẫn thư mục con để liệt kê file (ví dụ: "projects/myproject/videos", "users/user123"). Nếu chỉ
+          định, chỉ liệt kê file trong thư mục đó (không đệ quy). Nếu không chỉ định, tìm kiếm đệ quy tất cả thư mục con.'
         example: projects/myproject/videos
       responses:
         '200':
@@ -17080,17 +16925,17 @@ components:
       properties:
         type:
           type: string
-          description: Loại nguồn đầu vào
+          description: Loại nguồn đầu vào (File = đường dẫn file video)
           enum:
+          - File
           - RTSP
           - HLS
           - Manual
-          example: Manual
+          example: File
         uri:
           type: string
-          format: uri
-          description: URI nguồn đầu vào (phải hợp lệ)
-          example: http://localhost
+          description: URI hoặc đường dẫn (với type File dùng path local, vd. ./video.mp4)
+          example: ./test_video.mp4
     InstanceConfig:
       type: object
       description: Cấu hình instance (định dạng config, không phải trạng thái runtime)
@@ -17164,7 +17009,7 @@ components:
               default_format: true
               height: 0
               is_software: false
-              name: Same as Source
+              name: Giống nguồn
             media_type: Images
             output_fps: 8
             uri: https://some_uri
@@ -17831,7 +17676,7 @@ components:
                   - ./build/output/abc-123-def
                 error:
                   type: string
-                  description: Thông báo lỗi if directory reading failed
+                  description: Thông báo lỗi khi đọc thư mục thất bại
                   example: 'Error reading directory: Permission denied'
         detection:
           type: object
@@ -18614,7 +18459,7 @@ components:
         message:
           type: string
           description: Thông báo thành công (cho thao tác tạo/cập nhật)
-          example: Node created successfully
+          example: Đã tạo node thành công
         oldNodeId:
           type: string
           description: ID node trước (cho thao tác cập nhật)
@@ -19074,7 +18919,7 @@ components:
         message:
           type: string
           description: Thông báo về thao tác
-          example: Zones created successfully
+          example: Đã tạo vùng thành công
         count:
           type: integer
           description: Số vùng đã tạo
@@ -19094,7 +18939,7 @@ components:
         message:
           type: string
           description: Thông báo về thao tác
-          example: Stops created successfully
+          example: Đã tạo vùng dừng thành công
         count:
           type: integer
           description: Số vùng dừng đã tạo

@@ -4,7 +4,7 @@
 /v1/core/instance/{instanceId}/input:
   post:
     summary: Thiết lập nguồn đầu vào cho instance
-    description: 'Thiết lập cấu hình nguồn đầu vào cho instance. Thay thế trường Input trong Instance File theo yêu cầu. **Loại đầu vào:** **RTSP** - dùng node `rtsp_src`; **HLS** - dùng node `hls_src`; **Manual** - dùng node `v4l2_src` cho thiết bị V4L2. Instance phải tồn tại và không read-only. Nếu instance đang chạy sẽ được khởi động lại tự động để áp dụng thay đổi.'
+    description: 'Thiết lập cấu hình nguồn đầu vào cho instance. Thay thế trường Input trong Instance File theo yêu cầu. **Loại đầu vào:** **File** - đường dẫn file video (vd. ``./video.mp4`` hoặc path sau khi upload qua ``POST /v1/core/video/upload``); **RTSP** - dùng node `rtsp_src`; **HLS** - dùng node `hls_src`; **Manual** - dùng node `v4l2_src` cho thiết bị V4L2. Instance phải tồn tại và không read-only. Nếu instance đang chạy sẽ được khởi động lại tự động để áp dụng thay đổi.'
 
     operationId: setInstanceInput
     tags:
@@ -22,9 +22,17 @@
         application/json:
           schema:
             $ref: '#/components/schemas/SetInputRequest'
-          example:
-            type: Manual
-            uri: http://localhost
+          examples:
+            fileInput:
+              summary: Input từ file video
+              value:
+                type: File
+                uri: ./test_video.mp4
+            manualInput:
+              summary: Input từ thiết bị V4L2
+              value:
+                type: Manual
+                uri: /dev/video0
     responses:
       '204':
         description: Đã cập nhật cài đặt đầu vào thành công
