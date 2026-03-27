@@ -237,11 +237,8 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
     // Trim whitespace from RTMP URL to prevent GStreamer pipeline errors
     rtmpUrl = trim(rtmpUrl);
 
-    // CRITICAL FIX: Make RTMP URL unique per instance ONLY if stream key conflicts
-    // with existing instances. This prevents "Could not open resource for writing"
-    // errors when multiple instances try to use the same RTMP stream key.
-    // Only modify URL if conflict is detected - this preserves user's original URL
-    // when no conflict exists.
+    // Make RTMP URL deterministic per instance by always appending instanceId(8).
+    // Final published key becomes "<base>_<id8>_0" because RTMP node appends "_0".
     if (!rtmpUrl.empty() && !instanceId.empty()) {
       // Extract stream key from RTMP URL
       std::string streamKey = extractRTMPStreamKey(rtmpUrl);
@@ -261,9 +258,9 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
         }
       }
       
-      // Check if this stream key conflicts with existing instances
-      if (!streamKey.empty() && existingRTMPStreamKeys.find(streamKey) != existingRTMPStreamKeys.end()) {
-        // Conflict detected - make URL unique by appending instance ID
+      if (!streamKey.empty()) {
+        // Make URL unique by appending instance ID only when missing.
+        // Subprocess mode may already normalize stream key upstream.
         size_t protocolPos = rtmpUrl.find("rtmp://");
         if (protocolPos != std::string::npos) {
           // Find the last '/' to locate stream key
@@ -281,22 +278,26 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
             // Generate short unique ID from instanceId (use first 8 chars)
             std::string shortId = instanceId.substr(0, 8);
             
-            // Append instance ID to stream key: stream_key -> stream_key_<shortId>
-            std::string uniqueStreamKey = originalStreamKey + "_" + shortId;
-            rtmpUrl = baseUrl + uniqueStreamKey;
-            std::cerr << "[PipelineBuilderDestinationNodes] RTMP stream key conflict detected: '"
-                      << streamKey << "'" << std::endl;
-            std::cerr << "[PipelineBuilderDestinationNodes] Made RTMP URL unique per instance: '"
-                      << rtmpUrl << "'" << std::endl;
-            std::cerr << "[PipelineBuilderDestinationNodes] Original stream key was appended with instance ID: '"
-                      << shortId << "'" << std::endl;
+            // Append instance ID only if stream key does not already end with it.
+            // Avoid double suffix like: stream_<id8>_<id8>.
+            std::string suffix = "_" + shortId;
+            bool alreadySuffixed =
+                originalStreamKey.length() >= suffix.length() &&
+                originalStreamKey.compare(
+                    originalStreamKey.length() - suffix.length(),
+                    suffix.length(), suffix) == 0;
+
+            if (!alreadySuffixed) {
+              std::string uniqueStreamKey = originalStreamKey + suffix;
+              rtmpUrl = baseUrl + uniqueStreamKey;
+              std::cerr << "[PipelineBuilderDestinationNodes] RTMP URL normalized per instance: '"
+                        << rtmpUrl << "'" << std::endl;
+            } else {
+              std::cerr << "[PipelineBuilderDestinationNodes] RTMP URL already normalized: '"
+                        << rtmpUrl << "'" << std::endl;
+            }
           }
         }
-      } else if (!streamKey.empty()) {
-        // No conflict - keep original URL unchanged
-        std::cerr << "[PipelineBuilderDestinationNodes] RTMP stream key '"
-                  << streamKey << "' has no conflicts, using original URL: '"
-                  << rtmpUrl << "'" << std::endl;
       }
     }
 
@@ -307,6 +308,51 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
     // If not specified, default to false (assume OSD node exists in pipeline)
     bool enableOSD = params.count("osd") &&
                      (params.at("osd") == "true" || params.at("osd") == "1");
+
+    // Support RTMP encoder tuning via either node params or additionalParams.
+    // This mirrors SDK sample usage where custom GStreamer encoder strings
+    // (e.g. "nvvideoconvert ! nvv4l2h264enc") are passed to rtmp_des.
+    int bitrate = 1024; // kbps
+    auto parseBitrate = [&](const std::string &raw) {
+      try {
+        int v = std::stoi(raw);
+        if (v > 0) {
+          bitrate = v;
+        }
+      } catch (...) {
+      }
+    };
+    if (params.count("bitrate")) {
+      parseBitrate(params.at("bitrate"));
+    } else {
+      auto it = req.additionalParams.find("RTMP_BITRATE");
+      if (it != req.additionalParams.end() && !it->second.empty()) {
+        parseBitrate(trim(it->second));
+      } else {
+        it = req.additionalParams.find("RTMP_BITRATE_KBPS");
+        if (it != req.additionalParams.end() && !it->second.empty()) {
+          parseBitrate(trim(it->second));
+        }
+      }
+    }
+    if (bitrate <= 0) {
+      bitrate = 1024;
+    }
+
+    std::string encoderName;
+    if (params.count("encoder")) {
+      encoderName = trim(params.at("encoder"));
+    } else {
+      auto it = req.additionalParams.find("RTMP_ENCODER");
+      if (it != req.additionalParams.end() && !it->second.empty()) {
+        encoderName = trim(it->second);
+      } else {
+        it = req.additionalParams.find("RTMP_GST_ENCODER");
+        if (it != req.additionalParams.end() && !it->second.empty()) {
+          encoderName = trim(it->second);
+        }
+      }
+    }
 
     // Validate parameters
     if (nodeName.empty()) {
@@ -329,27 +375,26 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
     std::cerr << "  Channel: " << channel << std::endl;
     std::cerr << "  OSD overlay: " << (enableOSD ? "enabled" : "disabled")
               << std::endl;
+    std::cerr << "  Bitrate: " << bitrate << " kbps" << std::endl;
+    if (!encoderName.empty()) {
+      std::cerr << "  Encoder: '" << encoderName << "'" << std::endl;
+    }
     std::cerr
         << "  NOTE: RTMP node automatically adds '_0' suffix to stream key"
         << std::endl;
 
     std::shared_ptr<cvedix_nodes::cvedix_rtmp_des_node> rtmpNode;
-    if (enableOSD) {
-      int bitrate = 1024;
-      if (params.count("bitrate")) {
-        bitrate = std::stoi(params.at("bitrate"));
-        if (bitrate <= 0) {
-          std::cerr << "[PipelineBuilderDestinationNodes] Warning: bitrate <= 0: " << bitrate
-                    << ", using default 1024" << std::endl;
-          bitrate = 1024;
-        }
-      }
+    bool useAdvancedCtor = enableOSD || !encoderName.empty() || params.count("bitrate") > 0 ||
+                           req.additionalParams.count("RTMP_BITRATE") > 0 ||
+                           req.additionalParams.count("RTMP_BITRATE_KBPS") > 0;
+    if (useAdvancedCtor) {
       cvedix_objects::cvedix_size resolution = {};
-      std::cerr << "[PipelineBuilderDestinationNodes] Using bitrate: " << bitrate << " kbps"
-                << std::endl;
+      if (encoderName.empty()) {
+        encoderName = "x264enc";
+      }
       rtmpNode = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(
           nodeName, channel, rtmpUrl, resolution, bitrate,
-          true // Enable OSD overlay
+          enableOSD, encoderName
       );
     } else {
       rtmpNode = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(

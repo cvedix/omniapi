@@ -27,7 +27,7 @@ Luồng: **API → AI Runtime → CVEDIX SDK**. Chi tiết: [docs/ARCHITECTURE.m
 - **Push frame** — Đẩy frame (compressed/encoded) vào instance.
 - **Metrics** — Health, version, watchdog, system info, logs.
 
-**Execution mode:** `in-process` (legacy, dev) vs `subprocess` (production, crash isolation). Cấu hình: `EDGE_AI_EXECUTION_MODE=subprocess` hoặc `in-process`. Xem [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) và [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#khi-nào-dùng-mode-nào).
+**Execution mode:** Mặc định **subprocess** (cách ly process). In-process (legacy): `EDGE_AI_EXECUTION_MODE=in-process` (hoặc `inprocess`, `legacy`, `main`). Xem [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) và [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#khi-nào-dùng-mode-nào).
 
 ---
 

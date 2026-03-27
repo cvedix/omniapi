@@ -6,10 +6,9 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "/home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4",
-      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
-      "RESIZE_RATIO": "1.0"
+      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
+      "RESIZE_RATIO": "1.0",
+      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "ENABLE_SCREEN_DES": "false",
@@ -23,5 +22,8 @@
       "PROCESSING_DELAY_MS": "0"
     },
     "CrossingLines": "[{\"id\":\"line1\",\"name\":\"Entry Line\",\"coordinates\":[{\"x\":0,\"y\":250},{\"x\":700,\"y\":220}],\"direction\":\"Up\",\"classes\":[\"Vehicle\",\"Person\"],\"color\":[255,0,0,255]},{\"id\":\"line2\",\"name\":\"Exit Line\",\"coordinates\":[{\"x\":100,\"y\":400},{\"x\":800,\"y\":380}],\"direction\":\"Down\",\"classes\":[\"Vehicle\"],\"color\":[0,255,0,255]},{\"id\":\"line3\",\"name\":\"Center Line\",\"coordinates\":[{\"x\":200,\"y\":300},{\"x\":900,\"y\":280}],\"direction\":\"Both\",\"classes\":[\"Vehicle\",\"Person\"],\"color\":[0,0,255,255]}]"
+  },
+  "defaults": {
+    "BACKEND_TYPE": "tensorrt"
   }
 }

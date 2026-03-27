@@ -1,4 +1,5 @@
 #include "worker/unix_socket.h"
+#include "core/env_config.h"
 #include "core/timeout_constants.h"
 #include <chrono>
 #include <cstdlib>
@@ -648,9 +649,10 @@ std::string generateSocketPath(const std::string &instance_id) {
   if (socket_dir && strlen(socket_dir) > 0) {
     dir = std::string(socket_dir);
   } else {
-    // Default to /opt/edgeos-api/run
-    dir = "/opt/edgeos-api/run";
+    dir = EnvConfig::getDataInstallRoot() + "/run";
   }
+
+  const std::string default_run_dir = EnvConfig::getDataInstallRoot() + "/run";
 
   // Create directory if it doesn't exist
   try {
@@ -659,8 +661,8 @@ std::string generateSocketPath(const std::string &instance_id) {
       std::cout << "[Socket] Created socket directory: " << dir << std::endl;
     }
   } catch (const std::filesystem::filesystem_error &e) {
-    // If can't create in /opt, fallback to /tmp
-    if (dir == "/opt/edgeos-api/run") {
+    // If can't create under install root, fallback to /tmp
+    if (dir == default_run_dir) {
       std::cerr << "[Socket] ⚠ Cannot create " << dir
                 << " (permission denied), falling back to /tmp" << std::endl;
       dir = "/tmp";

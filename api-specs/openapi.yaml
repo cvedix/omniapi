@@ -5093,7 +5093,6 @@ paths:
                     input:
                       FILE_PATH: /opt/edgeos-api/videos/face.mp4
                       MODEL_PATH: /opt/edgeos-api/models/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: /opt/edgeos-api/models/face_recognition_sface_2021dec.onnx
                       RESIZE_RATIO: '1.0'
                     output:
                       RTMP_URL: rtmp://localhost:1935/live/camera_demo_1
@@ -5167,7 +5166,6 @@ paths:
                     input:
                       FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4
                       MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       RESIZE_RATIO: '1.0'
                     output:
                       ENABLE_SCREEN_DES: 'true'
@@ -5184,7 +5182,6 @@ paths:
                     input:
                       FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4
                       MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       RESIZE_RATIO: '1.0'
                     output:
                       ENABLE_SCREEN_DES: 'true'
@@ -5208,7 +5205,6 @@ paths:
                     input:
                       FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4
                       MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       RESIZE_RATIO: '1.0'
                     output:
                       RTMP_URL: rtmp://localhost:1935/live/face_stream
@@ -5227,7 +5223,6 @@ paths:
                     input:
                       RTSP_SRC_URL: rtsp://localhost:8554/mystream
                       MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       RESIZE_RATIO: '1.0'
                     output:
                       ENABLE_SCREEN_DES: 'true'
@@ -5309,7 +5304,6 @@ paths:
                     input:
                       FILE_PATH: ./cvedix_data/test_video/face.mp4
                       MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       EMBEDDINGS_SOCKET_IP: 127.0.0.1
                       EMBEDDINGS_SOCKET_PORT: '8080'
                       CROPPED_DIR: cropped_images
@@ -5364,7 +5358,6 @@ paths:
                     input:
                       FILE_PATH: ./cvedix_data/test_video/face.mp4
                       MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                     output:
                       BROKE_FOR: FACE
               infer_nodes___other___json_kafka_broker:
@@ -5380,7 +5373,6 @@ paths:
                     input:
                       FILE_PATH: ./cvedix_data/test_video/face.mp4
                       MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       KAFKA_SERVERS: 192.168.77.87:9092
                       KAFKA_TOPIC: videopipe_topic
                     output:
@@ -5398,7 +5390,6 @@ paths:
                     input:
                       FILE_PATH: ./cvedix_data/test_video/face.mp4
                       MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                     output:
                       BROKE_FOR: FACE
                       MQTT_BROKER_URL: localhost
@@ -5513,7 +5504,6 @@ paths:
                     input:
                       FILE_PATH: ./cvedix_data/test_video/face.mp4
                       MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       XML_FILE_PATH: ./output/broker_output.xml
                     output:
                       BROKE_FOR: FACE
@@ -5530,7 +5520,6 @@ paths:
                     input:
                       FILE_PATH: ./cvedix_data/test_video/face.mp4
                       MODEL_PATH: ./cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: ./cvedix_data/models/face/face_recognition_sface_2021dec.onnx
                       XML_SOCKET_IP: 127.0.0.1
                       XML_SOCKET_PORT: '8080'
                     output:
@@ -6069,7 +6058,6 @@ paths:
                   additionalParams:
                     input:
                       MODEL_PATH: /usr/share/cvedix/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
-                      SFACE_MODEL_PATH: /usr/share/cvedix/cvedix_data/models/face/face_recognition_sface_2021dec.onnx
               update___update_change_name_group:
                 summary: Update - Update Change Name Group
                 value:

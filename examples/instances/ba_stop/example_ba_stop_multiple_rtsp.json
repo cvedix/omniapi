@@ -6,9 +6,8 @@
   "additionalParams": {
     "input": {
       "RTSP_URLS": "[\"rtsp://camera1.example.com:8554/stream1\", \"rtsp://camera2.example.com:8554/stream2\"]",
-      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt"
+      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
     },
     "output": {
       "ENABLE_SCREEN_DES": "false"
@@ -16,4 +15,3 @@
     "StopZones": "[{\"id\":\"zone1\",\"name\":\"Camera 1 Stop Zone\",\"roi\":[{\"x\":20,\"y\":30},{\"x\":600,\"y\":40},{\"x\":600,\"y\":300},{\"x\":10,\"y\":300}],\"min_stop_seconds\":3,\"check_interval_frames\":20,\"check_min_hit_frames\":50,\"check_max_distance\":5},{\"id\":\"zone2\",\"name\":\"Camera 2 Stop Zone\",\"roi\":[{\"x\":20,\"y\":30},{\"x\":1000,\"y\":40},{\"x\":1000,\"y\":600},{\"x\":10,\"y\":600}],\"min_stop_seconds\":3,\"check_interval_frames\":20,\"check_min_hit_frames\":50,\"check_max_distance\":5}]"
   }
 }
-

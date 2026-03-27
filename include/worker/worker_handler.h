@@ -96,6 +96,8 @@ private:
   mutable std::shared_mutex state_mutex_; // Shared mutex for concurrent reads
   std::string current_state_ = "stopped";
   std::string last_error_;
+  /// Full RTMP URL for players (stream key includes rtmp_des_node "_0" suffix).
+  std::string published_rtmp_playback_url_;
 
   // Hot swap pipeline for zero downtime
   std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> new_pipeline_nodes_;
@@ -104,6 +106,7 @@ private:
 
   // Background thread for starting pipeline (to avoid blocking IPC server)
   std::thread start_pipeline_thread_;
+  std::mutex start_pipeline_thread_mutex_; // Protect start thread lifecycle
   std::atomic<bool> starting_pipeline_{false};
   std::mutex start_pipeline_mutex_;
   std::condition_variable
@@ -194,6 +197,11 @@ private:
    * @brief Cleanup pipeline resources
    */
   void cleanupPipeline();
+
+  /**
+   * @brief Copy PipelineBuilder's actual RTMP URL into config and published_rtmp_playback_url_.
+   */
+  void syncPublishedRtmpUrlAfterPipelineBuild();
 
   /**
    * @brief Send WORKER_READY message to supervisor

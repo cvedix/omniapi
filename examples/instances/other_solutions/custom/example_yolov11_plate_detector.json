@@ -34,6 +34,7 @@
       "nodeName": "yolov11_plate_detector",
       "parameters": {
         "model_path": "${MODEL_PATH}",
+        "labels_path": "",
         "input_width": "${INPUT_WIDTH}",
         "input_height": "${INPUT_HEIGHT}",
         "num_classes": "${NUM_CLASSES}",

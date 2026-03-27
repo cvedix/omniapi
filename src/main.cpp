@@ -845,6 +845,33 @@ void signalHandler(int signal) {
   }
 }
 
+static void signalInfoHandler(int signal, siginfo_t *info,
+                              void * /*ucontext*/) {
+  pid_t senderPid = info ? info->si_pid : -1;
+  uid_t senderUid = info ? info->si_uid : static_cast<uid_t>(-1);
+  int signalCode = info ? info->si_code : 0;
+
+  std::cerr << "[SHUTDOWN] Signal " << signal << " received (sender pid="
+            << senderPid << ", uid=" << senderUid
+            << ", code=" << signalCode << ")" << std::endl;
+  PLOG_WARNING << "[Signal] signal=" << signal << ", sender_pid=" << senderPid
+               << ", sender_uid=" << senderUid << ", code=" << signalCode;
+
+  signalHandler(signal);
+}
+
+static void registerShutdownSignalHandlers() {
+  struct sigaction sa;
+  std::memset(&sa, 0, sizeof(sa));
+  sa.sa_sigaction = signalInfoHandler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_SIGINFO;
+
+  sigaction(SIGINT, &sa, nullptr);
+  sigaction(SIGTERM, &sa, nullptr);
+  sigaction(SIGABRT, &sa, nullptr);
+}
+
 // Terminate handler for uncaught exceptions
 void terminateHandler() {
   std::string error_msg;
@@ -1199,20 +1226,34 @@ void recoveryAction() {
   // For now, we just log the event
 }
 
-/** API + instance logs to files (api/, instance/<id>/) — env EDGEOS_LOG_FILES=1 */
-static void applyEdgeosLogFilesFromEnv() {
-  const char *e = std::getenv("EDGEOS_LOG_FILES");
+static bool envFlagTruthy(const char *e) {
   if (!e || !e[0]) {
-    return;
+    return false;
   }
   std::string v(e);
   std::transform(v.begin(), v.end(), v.begin(), ::tolower);
-  if (v == "1" || v == "true" || v == "yes" || v == "on") {
-    g_log_api = true;
-    g_log_instance = true;
-    std::cerr << "[Main] EDGEOS_LOG_FILES: writing API + instance logs to files"
-              << std::endl;
+  return v == "1" || v == "true" || v == "yes" || v == "on";
+}
+
+/** API + instance logs to files — EDGEOS_LOG_FILES=1 → logs/api/, logs/instance/ */
+static void applyEdgeosLogFilesFromEnv() {
+  if (!envFlagTruthy(std::getenv("EDGEOS_LOG_FILES"))) {
+    return;
   }
+  g_log_api = true;
+  g_log_instance = true;
+  std::cerr << "[Main] EDGEOS_LOG_FILES: writing API + instance logs to files"
+            << std::endl;
+}
+
+/** SDK output to logs/sdk_output/ — EDGEOS_LOG_SDK_OUTPUT=1 (same as --log-sdk-output) */
+static void applyEdgeosLogSdkOutputFromEnv() {
+  if (!envFlagTruthy(std::getenv("EDGEOS_LOG_SDK_OUTPUT"))) {
+    return;
+  }
+  g_log_sdk_output = true;
+  std::cerr << "[Main] EDGEOS_LOG_SDK_OUTPUT: writing SDK output logs to files"
+            << std::endl;
 }
 
 /**
@@ -2032,6 +2073,7 @@ int main(int argc, char *argv[]) {
       return 0; // Help was requested, exit normally
     }
     applyEdgeosLogFilesFromEnv();
+    applyEdgeosLogSdkOutputFromEnv();
 
     // CRITICAL: Setup GStreamer plugin path BEFORE any GStreamer operations
     // This ensures plugins can be found even when running directly (not via
@@ -2052,6 +2094,12 @@ int main(int argc, char *argv[]) {
     systemConfig.loadConfig(configPath);
 
     auto loggingCfg = systemConfig.getLoggingConfig();
+    // Propagate configured max log file size to subprocess workers so their
+    // stdout/stderr rotation follows the same limit.
+    {
+      std::string maxBytes = std::to_string(loggingCfg.maxLogFileSize);
+      setenv("EDGEOS_WORKER_LOG_MAX_FILE_SIZE", maxBytes.c_str(), 1);
+    }
     LogManagerInitParams logParams;
     logParams.resolved_log_root =
         systemConfig.resolveLogBaseDirectory(argv[0]);
@@ -2123,10 +2171,7 @@ int main(int argc, char *argv[]) {
     // CRITICAL: Register BEFORE Drogon initializes to ensure our handler is
     // used Drogon may register its own handlers, but ours should take
     // precedence
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGTERM, signalHandler);
-    std::signal(SIGABRT, signalHandler); // Catch assertion failures (like
-                                         // OpenCV DNN shape mismatch)
+    registerShutdownSignalHandlers(); // Capture sender pid/uid for shutdown signals
 
     // Register terminate handler for uncaught exceptions
     std::set_terminate(terminateHandler);
@@ -2194,137 +2239,16 @@ int main(int argc, char *argv[]) {
     static SolutionRegistry &solutionRegistry = SolutionRegistry::getInstance();
     static PipelineBuilder pipelineBuilder;
 
-    // Initialize instance storage with configurable directory
-    // Priority: 1. INSTANCES_DIR env var, 2. /opt/edgeos-api/instances (with
-    // auto-fallback)
-    std::string instancesDir;
-    const char *env_instances_dir = std::getenv("INSTANCES_DIR");
-    if (env_instances_dir && strlen(env_instances_dir) > 0) {
-      instancesDir = std::string(env_instances_dir);
-      std::cerr << "[Main] Using INSTANCES_DIR from environment: "
-                << instancesDir << std::endl;
-    } else {
-      // Try /opt/edgeos-api/instances first, fallback to user directory if
-      // needed
-      instancesDir = "/opt/edgeos-api/instances";
-      std::cerr << "[Main] Attempting to use: " << instancesDir << std::endl;
-    }
-
-    // Try to create directory if it doesn't exist
-    // Strategy: Try /opt first, if fails, auto-fallback to user directory
-    bool directory_ready = false;
-    if (!std::filesystem::exists(instancesDir)) {
-      std::cerr << "[Main] Directory does not exist, attempting to create: "
-                << instancesDir << std::endl;
-
-      try {
-        // Try to create directory (will create parent dirs if we have
-        // permission)
-        bool created = std::filesystem::create_directories(instancesDir);
-        if (created) {
-          std::cerr << "[Main] ✓ Successfully created instances directory: "
-                    << instancesDir << std::endl;
-          directory_ready = true;
-        } else {
-          // Directory might have been created by another process
-          if (std::filesystem::exists(instancesDir)) {
-            std::cerr << "[Main] ✓ Instances directory exists (created by "
-                         "another process): "
-                      << instancesDir << std::endl;
-            directory_ready = true;
-          }
-        }
-      } catch (const std::filesystem::filesystem_error &e) {
-        if (e.code() == std::errc::permission_denied) {
-          std::cerr << "[Main] ⚠ Cannot create " << instancesDir
-                    << " (permission denied)" << std::endl;
-
-          // Auto-fallback: Try user directory (works without sudo)
-          if (env_instances_dir == nullptr || strlen(env_instances_dir) == 0) {
-            const char *home = std::getenv("HOME");
-            if (home) {
-              std::string fallback_path =
-                  std::string(home) + "/.local/share/edgeos-api/instances";
-              std::cerr << "[Main] Auto-fallback: Trying user directory: "
-                        << fallback_path << std::endl;
-              try {
-                std::filesystem::create_directories(fallback_path);
-                instancesDir = fallback_path;
-                directory_ready = true;
-                std::cerr << "[Main] ✓ Using fallback directory: "
-                          << instancesDir << std::endl;
-                std::cerr
-                    << "[Main] ℹ Note: To use /opt/edgeos-api/instances, "
-                       "create parent directory:"
-                    << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
-                             "sudo chown $USER:$USER /opt/edgeos-api"
-                          << std::endl;
-              } catch (const std::exception &fallback_e) {
-                std::cerr << "[Main] ⚠ Fallback also failed: "
-                          << fallback_e.what() << std::endl;
-                // Last resort: current directory
-                instancesDir = "./instances";
-                try {
-                  std::filesystem::create_directories(instancesDir);
-                  directory_ready = true;
-                  std::cerr
-                      << "[Main] ✓ Using current directory: " << instancesDir
-                      << std::endl;
-                } catch (...) {
-                  std::cerr
-                      << "[Main] ✗ ERROR: Cannot create any instances directory"
-                      << std::endl;
-                }
-              }
-            } else {
-              // No HOME, use current directory
-              instancesDir = "./instances";
-              try {
-                std::filesystem::create_directories(instancesDir);
-                directory_ready = true;
-                std::cerr << "[Main] ✓ Using current directory: "
-                          << instancesDir << std::endl;
-              } catch (...) {
-                std::cerr << "[Main] ✗ ERROR: Cannot create ./instances"
-                          << std::endl;
-              }
-            }
-          } else {
-            // User specified INSTANCES_DIR but can't create it
-            std::cerr
-                << "[Main] ✗ ERROR: Cannot create user-specified directory: "
-                << instancesDir << std::endl;
-            std::cerr
-                << "[Main] ✗ Please check permissions or use a different path"
-                << std::endl;
-          }
-        } else {
-          std::cerr << "[Main] ✗ ERROR creating " << instancesDir << ": "
-                    << e.what() << std::endl;
-        }
-      } catch (const std::exception &e) {
-        std::cerr << "[Main] ✗ Exception creating " << instancesDir << ": "
-                  << e.what() << std::endl;
-      }
-    } else {
-      // Check if it's actually a directory
-      if (std::filesystem::is_directory(instancesDir)) {
-        std::cerr << "[Main] ✓ Instances directory already exists: "
-                  << instancesDir << std::endl;
-        directory_ready = true;
-      } else {
-        std::cerr << "[Main] ✗ ERROR: Path exists but is not a directory: "
-                  << instancesDir << std::endl;
-      }
-    }
-
-    if (directory_ready) {
+    // Instances: INSTANCES_DIR or {EDGEOS_API_INSTALL_DIR}/instances (default
+    // /opt/edgeos-api/instances)
+    std::string instancesDir =
+        EnvConfig::resolveDataDir("INSTANCES_DIR", "instances");
+    if (std::filesystem::is_directory(instancesDir)) {
       std::cerr << "[Main] ✓ Instances directory is ready: " << instancesDir
                 << std::endl;
     } else {
-      std::cerr << "[Main] ⚠ WARNING: Instances directory may not be ready"
-                << std::endl;
+      std::cerr << "[Main] ⚠ WARNING: Instances directory may not be ready: "
+                << instancesDir << std::endl;
     }
 
     PLOG_INFO << "[Main] Instances directory: " << instancesDir;
@@ -2334,10 +2258,10 @@ int main(int argc, char *argv[]) {
     // EXECUTION MODE SELECTION
     // ============================================
     // Check environment variable for execution mode:
-    // - EDGE_AI_EXECUTION_MODE=subprocess : Run pipelines in isolated
-    // subprocesses
-    // - EDGE_AI_EXECUTION_MODE=inprocess (default) : Run pipelines in main
-    // process
+    // - Default (unset): subprocess — pipelines in isolated worker processes
+    // - EDGE_AI_EXECUTION_MODE=inprocess | in-process | legacy | main :
+    //   legacy in-process (InstanceRegistry in main process)
+    // - EDGE_AI_EXECUTION_MODE=subprocess | isolated | worker : subprocess
     auto executionMode = InstanceManagerFactory::getExecutionModeFromEnv();
     std::cerr << "[Main] Execution mode: "
               << InstanceManagerFactory::getModeName(executionMode)
@@ -2403,127 +2327,14 @@ int main(int argc, char *argv[]) {
     nodePool.initializeDefaultTemplates();
     PLOG_INFO << "[Main] Node pool manager initialized with default templates";
 
-    // Initialize node storage and load persisted nodes
-    // Priority: 1. NODES_DIR env var, 2. /opt/edgeos-api/nodes (with
-    // auto-fallback)
-    std::string nodesDir;
-    const char *env_nodes_dir = std::getenv("NODES_DIR");
-    if (env_nodes_dir && strlen(env_nodes_dir) > 0) {
-      nodesDir = std::string(env_nodes_dir);
-      std::cerr << "[Main] Using NODES_DIR from environment: " << nodesDir
-                << std::endl;
-    } else {
-      // Try /opt/edgeos-api/nodes first, fallback to user directory if needed
-      nodesDir = "/opt/edgeos-api/nodes";
-      std::cerr << "[Main] Attempting to use: " << nodesDir << std::endl;
-    }
-
-    // Try to create directory if it doesn't exist
-    // Strategy: Try /opt first, if fails, auto-fallback to user directory
-    bool nodes_directory_ready = false;
-    if (!std::filesystem::exists(nodesDir)) {
-      std::cerr
-          << "[Main] Nodes directory does not exist, attempting to create: "
-          << nodesDir << std::endl;
-
-      try {
-        // Try to create directory (will create parent dirs if we have
-        // permission)
-        bool created = std::filesystem::create_directories(nodesDir);
-        if (created) {
-          std::cerr << "[Main] ✓ Successfully created nodes directory: "
-                    << nodesDir << std::endl;
-          nodes_directory_ready = true;
-        } else {
-          // Directory might have been created by another process
-          if (std::filesystem::exists(nodesDir)) {
-            std::cerr << "[Main] ✓ Nodes directory exists (created by another "
-                         "process): "
-                      << nodesDir << std::endl;
-            nodes_directory_ready = true;
-          }
-        }
-      } catch (const std::filesystem::filesystem_error &e) {
-        if (e.code() == std::errc::permission_denied) {
-          std::cerr << "[Main] ⚠ Cannot create " << nodesDir
-                    << " (permission denied)" << std::endl;
-
-          // Auto-fallback: Try user directory (works without sudo)
-          if (env_nodes_dir == nullptr || strlen(env_nodes_dir) == 0) {
-            const char *home = std::getenv("HOME");
-            if (home) {
-              std::string fallback_path =
-                  std::string(home) + "/.local/share/edgeos-api/nodes";
-              std::cerr << "[Main] Auto-fallback: Trying user directory: "
-                        << fallback_path << std::endl;
-              try {
-                std::filesystem::create_directories(fallback_path);
-                nodesDir = fallback_path;
-                nodes_directory_ready = true;
-                std::cerr << "[Main] ✓ Using fallback directory: " << nodesDir
-                          << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/nodes, "
-                             "create parent directory:"
-                          << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
-                             "sudo chown $USER:$USER /opt/edgeos-api"
-                          << std::endl;
-              } catch (const std::exception &fallback_e) {
-                std::cerr << "[Main] ⚠ Fallback also failed: "
-                          << fallback_e.what() << std::endl;
-                // Last resort: current directory
-                nodesDir = "./nodes";
-                try {
-                  std::filesystem::create_directories(nodesDir);
-                  nodes_directory_ready = true;
-                  std::cerr << "[Main] ✓ Using current directory: " << nodesDir
-                            << std::endl;
-                } catch (...) {
-                  std::cerr
-                      << "[Main] ✗ ERROR: Cannot create any nodes directory"
-                      << std::endl;
-                }
-              }
-            } else {
-              // No HOME env var, use current directory
-              nodesDir = "./nodes";
-              try {
-                std::filesystem::create_directories(nodesDir);
-                nodes_directory_ready = true;
-                std::cerr << "[Main] ✓ Using current directory: " << nodesDir
-                          << std::endl;
-              } catch (...) {
-                std::cerr << "[Main] ✗ ERROR: Cannot create nodes directory"
-                          << std::endl;
-              }
-            }
-          }
-        } else {
-          std::cerr << "[Main] ✗ Exception creating " << nodesDir << ": "
-                    << e.what() << std::endl;
-        }
-      } catch (const std::exception &e) {
-        std::cerr << "[Main] ✗ Exception creating " << nodesDir << ": "
-                  << e.what() << std::endl;
-      }
-    } else {
-      // Check if it's actually a directory
-      if (std::filesystem::is_directory(nodesDir)) {
-        std::cerr << "[Main] ✓ Nodes directory already exists: " << nodesDir
-                  << std::endl;
-        nodes_directory_ready = true;
-      } else {
-        std::cerr << "[Main] ✗ ERROR: Path exists but is not a directory: "
-                  << nodesDir << std::endl;
-      }
-    }
-
-    if (nodes_directory_ready) {
+    // Nodes: NODES_DIR or {EDGEOS_API_INSTALL_DIR}/nodes
+    std::string nodesDir = EnvConfig::resolveDataDir("NODES_DIR", "nodes");
+    if (std::filesystem::is_directory(nodesDir)) {
       std::cerr << "[Main] ✓ Nodes directory is ready: " << nodesDir
                 << std::endl;
     } else {
-      std::cerr << "[Main] ⚠ WARNING: Nodes directory may not be ready"
-                << std::endl;
+      std::cerr << "[Main] ⚠ WARNING: Nodes directory may not be ready: "
+                << nodesDir << std::endl;
     }
 
     PLOG_INFO << "[Main] Nodes directory: " << nodesDir;
@@ -2642,8 +2453,7 @@ int main(int argc, char *argv[]) {
     SolutionHandler::setSolutionRegistry(&solutionRegistry);
     SolutionHandler::setSolutionStorage(&solutionStorage);
 
-    // Initialize group registry and storage
-    // Default: /var/lib/edgeos-api/groups (auto-created if needed)
+    // Groups: GROUPS_DIR or {EDGEOS_API_INSTALL_DIR}/groups
     std::string groupsDir = EnvConfig::resolveDataDir("GROUPS_DIR", "groups");
     PLOG_INFO << "[Main] Groups directory: " << groupsDir;
     static GroupStorage groupStorage(groupsDir);
@@ -2751,270 +2561,28 @@ int main(int argc, char *argv[]) {
     static SecuRTLineHandler securtLineHandler;
     static AreaHandler areaHandler;
 
-    // Initialize model upload handler with configurable directory
-    // Priority: 1. MODELS_DIR env var, 2. /opt/edgeos-api/models (with
-    // auto-fallback)
-    std::string modelsDir;
-    const char *env_models_dir = std::getenv("MODELS_DIR");
-    if (env_models_dir && strlen(env_models_dir) > 0) {
-      modelsDir = std::string(env_models_dir);
-      std::cerr << "[Main] Using MODELS_DIR from environment: " << modelsDir
-                << std::endl;
-    } else {
-      // Try /opt/edgeos-api/models first, fallback to user directory if needed
-      modelsDir = "/opt/edgeos-api/models";
-      std::cerr << "[Main] Attempting to use: " << modelsDir << std::endl;
-    }
-
-    // Try to create directory if it doesn't exist
-    // Strategy: Try /opt first, if fails, auto-fallback to user directory
-    bool models_directory_ready = false;
-    if (!std::filesystem::exists(modelsDir)) {
-      std::cerr
-          << "[Main] Models directory does not exist, attempting to create: "
-          << modelsDir << std::endl;
-
-      try {
-        // Try to create directory (will create parent dirs if we have
-        // permission)
-        bool created = std::filesystem::create_directories(modelsDir);
-        if (created) {
-          std::cerr << "[Main] ✓ Successfully created models directory: "
-                    << modelsDir << std::endl;
-          models_directory_ready = true;
-        } else {
-          // Directory might have been created by another process
-          if (std::filesystem::exists(modelsDir)) {
-            std::cerr << "[Main] ✓ Models directory exists (created by another "
-                         "process): "
-                      << modelsDir << std::endl;
-            models_directory_ready = true;
-          }
-        }
-      } catch (const std::filesystem::filesystem_error &e) {
-        if (e.code() == std::errc::permission_denied) {
-          std::cerr << "[Main] ⚠ Cannot create " << modelsDir
-                    << " (permission denied)" << std::endl;
-
-          // Auto-fallback: Try user directory (works without sudo)
-          if (env_models_dir == nullptr || strlen(env_models_dir) == 0) {
-            const char *home = std::getenv("HOME");
-            if (home) {
-              std::string fallback_path =
-                  std::string(home) + "/.local/share/edgeos-api/models";
-              std::cerr << "[Main] Auto-fallback: Trying user directory: "
-                        << fallback_path << std::endl;
-              try {
-                std::filesystem::create_directories(fallback_path);
-                modelsDir = fallback_path;
-                models_directory_ready = true;
-                std::cerr << "[Main] ✓ Using fallback directory: " << modelsDir
-                          << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/models, "
-                             "create parent directory:"
-                          << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
-                             "sudo chown $USER:$USER /opt/edgeos-api"
-                          << std::endl;
-              } catch (const std::exception &fallback_e) {
-                std::cerr << "[Main] ⚠ Fallback also failed: "
-                          << fallback_e.what() << std::endl;
-                // Last resort: current directory
-                modelsDir = "./models";
-                try {
-                  std::filesystem::create_directories(modelsDir);
-                  models_directory_ready = true;
-                  std::cerr << "[Main] ✓ Using current directory: " << modelsDir
-                            << std::endl;
-                } catch (...) {
-                  std::cerr
-                      << "[Main] ✗ ERROR: Cannot create any models directory"
-                      << std::endl;
-                }
-              }
-            } else {
-              // No HOME, use current directory
-              modelsDir = "./models";
-              try {
-                std::filesystem::create_directories(modelsDir);
-                models_directory_ready = true;
-                std::cerr << "[Main] ✓ Using current directory: " << modelsDir
-                          << std::endl;
-              } catch (...) {
-                std::cerr << "[Main] ✗ ERROR: Cannot create ./models"
-                          << std::endl;
-              }
-            }
-          } else {
-            // User specified MODELS_DIR but can't create it
-            std::cerr
-                << "[Main] ✗ ERROR: Cannot create user-specified directory: "
-                << modelsDir << std::endl;
-            std::cerr
-                << "[Main] ✗ Please check permissions or use a different path"
-                << std::endl;
-          }
-        } else {
-          std::cerr << "[Main] ✗ ERROR creating " << modelsDir << ": "
-                    << e.what() << std::endl;
-        }
-      } catch (const std::exception &e) {
-        std::cerr << "[Main] ✗ Exception creating " << modelsDir << ": "
-                  << e.what() << std::endl;
-      }
-    } else {
-      // Check if it's actually a directory
-      if (std::filesystem::is_directory(modelsDir)) {
-        std::cerr << "[Main] ✓ Models directory already exists: " << modelsDir
-                  << std::endl;
-        models_directory_ready = true;
-      } else {
-        std::cerr << "[Main] ✗ ERROR: Path exists but is not a directory: "
-                  << modelsDir << std::endl;
-      }
-    }
-
-    if (models_directory_ready) {
+    // Models: MODELS_DIR or {EDGEOS_API_INSTALL_DIR}/models
+    std::string modelsDir = EnvConfig::resolveDataDir("MODELS_DIR", "models");
+    if (std::filesystem::is_directory(modelsDir)) {
       std::cerr << "[Main] ✓ Models directory is ready: " << modelsDir
                 << std::endl;
     } else {
-      std::cerr << "[Main] ⚠ WARNING: Models directory may not be ready"
-                << std::endl;
+      std::cerr << "[Main] ⚠ WARNING: Models directory may not be ready: "
+                << modelsDir << std::endl;
     }
 
     PLOG_INFO << "[Main] Models directory: " << modelsDir;
     ModelUploadHandler::setModelsDirectory(modelsDir);
     static ModelUploadHandler modelUploadHandler;
 
-    // Initialize video upload handler with configurable directory
-    // Priority: 1. VIDEOS_DIR env var, 2. /opt/edgeos-api/videos (with
-    // auto-fallback)
-    std::string videosDir;
-    const char *env_videos_dir = std::getenv("VIDEOS_DIR");
-    if (env_videos_dir && strlen(env_videos_dir) > 0) {
-      videosDir = std::string(env_videos_dir);
-      std::cerr << "[Main] Using VIDEOS_DIR from environment: " << videosDir
-                << std::endl;
-    } else {
-      // Try /opt/edgeos-api/videos first, fallback to user directory if needed
-      videosDir = "/opt/edgeos-api/videos";
-      std::cerr << "[Main] Attempting to use: " << videosDir << std::endl;
-    }
-
-    // Try to create directory if it doesn't exist
-    // Strategy: Try /opt first, if fails, auto-fallback to user directory
-    bool videos_directory_ready = false;
-    if (!std::filesystem::exists(videosDir)) {
-      std::cerr
-          << "[Main] Videos directory does not exist, attempting to create: "
-          << videosDir << std::endl;
-
-      try {
-        // Try to create directory (will create parent dirs if we have
-        // permission)
-        bool created = std::filesystem::create_directories(videosDir);
-        if (created) {
-          std::cerr << "[Main] ✓ Successfully created videos directory: "
-                    << videosDir << std::endl;
-          videos_directory_ready = true;
-        } else {
-          // Directory might have been created by another process
-          if (std::filesystem::exists(videosDir)) {
-            std::cerr << "[Main] ✓ Videos directory exists (created by another "
-                         "process): "
-                      << videosDir << std::endl;
-            videos_directory_ready = true;
-          }
-        }
-      } catch (const std::filesystem::filesystem_error &e) {
-        if (e.code() == std::errc::permission_denied) {
-          std::cerr << "[Main] ⚠ Cannot create " << videosDir
-                    << " (permission denied)" << std::endl;
-
-          // Auto-fallback: Try user directory (works without sudo)
-          if (env_videos_dir == nullptr || strlen(env_videos_dir) == 0) {
-            const char *home = std::getenv("HOME");
-            if (home) {
-              std::string fallback_path =
-                  std::string(home) + "/.local/share/edgeos-api/videos";
-              std::cerr << "[Main] Auto-fallback: Trying user directory: "
-                        << fallback_path << std::endl;
-              try {
-                std::filesystem::create_directories(fallback_path);
-                videosDir = fallback_path;
-                videos_directory_ready = true;
-                std::cerr << "[Main] ✓ Using fallback directory: " << videosDir
-                          << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/videos, "
-                             "create parent directory:"
-                          << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
-                             "sudo chown $USER:$USER /opt/edgeos-api"
-                          << std::endl;
-              } catch (const std::exception &fallback_e) {
-                std::cerr << "[Main] ⚠ Fallback also failed: "
-                          << fallback_e.what() << std::endl;
-                // Last resort: current directory
-                videosDir = "./videos";
-                try {
-                  std::filesystem::create_directories(videosDir);
-                  videos_directory_ready = true;
-                  std::cerr << "[Main] ✓ Using current directory: " << videosDir
-                            << std::endl;
-                } catch (...) {
-                  std::cerr
-                      << "[Main] ✗ ERROR: Cannot create any videos directory"
-                      << std::endl;
-                }
-              }
-            } else {
-              // No HOME, use current directory
-              videosDir = "./videos";
-              try {
-                std::filesystem::create_directories(videosDir);
-                videos_directory_ready = true;
-                std::cerr << "[Main] ✓ Using current directory: " << videosDir
-                          << std::endl;
-              } catch (...) {
-                std::cerr << "[Main] ✗ ERROR: Cannot create ./videos"
-                          << std::endl;
-              }
-            }
-          } else {
-            // User specified VIDEOS_DIR but can't create it
-            std::cerr
-                << "[Main] ✗ ERROR: Cannot create user-specified directory: "
-                << videosDir << std::endl;
-            std::cerr
-                << "[Main] ✗ Please check permissions or use a different path"
-                << std::endl;
-          }
-        } else {
-          std::cerr << "[Main] ✗ ERROR creating " << videosDir << ": "
-                    << e.what() << std::endl;
-        }
-      } catch (const std::exception &e) {
-        std::cerr << "[Main] ✗ Exception creating " << videosDir << ": "
-                  << e.what() << std::endl;
-      }
-    } else {
-      // Check if it's actually a directory
-      if (std::filesystem::is_directory(videosDir)) {
-        std::cerr << "[Main] ✓ Videos directory already exists: " << videosDir
-                  << std::endl;
-        videos_directory_ready = true;
-      } else {
-        std::cerr << "[Main] ✗ ERROR: Path exists but is not a directory: "
-                  << videosDir << std::endl;
-      }
-    }
-
-    if (videos_directory_ready) {
+    // Videos: VIDEOS_DIR or {EDGEOS_API_INSTALL_DIR}/videos
+    std::string videosDir = EnvConfig::resolveDataDir("VIDEOS_DIR", "videos");
+    if (std::filesystem::is_directory(videosDir)) {
       std::cerr << "[Main] ✓ Videos directory is ready: " << videosDir
                 << std::endl;
     } else {
-      std::cerr << "[Main] ⚠ WARNING: Videos directory may not be ready"
-                << std::endl;
+      std::cerr << "[Main] ⚠ WARNING: Videos directory may not be ready: "
+                << videosDir << std::endl;
     }
 
     PLOG_INFO << "[Main] Videos directory: " << videosDir;
@@ -3022,130 +2590,10 @@ int main(int argc, char *argv[]) {
     static VideoUploadHandler videoUploadHandler;
     static RecognitionHandler recognitionHandler;
 
-    // Initialize font upload handler with configurable directory
-    // Priority: 1. FONTS_DIR env var, 2. /opt/edgeos-api/fonts (with
-    // auto-fallback)
-    std::string fontsDir;
-    const char *env_fonts_dir = std::getenv("FONTS_DIR");
-    if (env_fonts_dir && strlen(env_fonts_dir) > 0) {
-      fontsDir = std::string(env_fonts_dir);
-      std::cerr << "[Main] Using FONTS_DIR from environment: " << fontsDir
-                << std::endl;
-    } else {
-      // Try /opt/edgeos-api/fonts first, fallback to user directory if needed
-      fontsDir = "/opt/edgeos-api/fonts";
-      std::cerr << "[Main] Attempting to use: " << fontsDir << std::endl;
-    }
+    // Fonts: FONTS_DIR or {EDGEOS_API_INSTALL_DIR}/fonts
+    std::string fontsDir = EnvConfig::resolveDataDir("FONTS_DIR", "fonts");
 
-    // Try to create directory if it doesn't exist
-    // Strategy: Try /opt first, if fails, auto-fallback to user directory
-    bool fonts_directory_ready = false;
-    if (!std::filesystem::exists(fontsDir)) {
-      std::cerr
-          << "[Main] Fonts directory does not exist, attempting to create: "
-          << fontsDir << std::endl;
-
-      try {
-        // Try to create directory (will create parent dirs if we have
-        // permission)
-        bool created = std::filesystem::create_directories(fontsDir);
-        if (created) {
-          std::cerr << "[Main] ✓ Successfully created fonts directory: "
-                    << fontsDir << std::endl;
-          fonts_directory_ready = true;
-        } else {
-          // Directory might have been created by another process
-          if (std::filesystem::exists(fontsDir)) {
-            std::cerr << "[Main] ✓ Fonts directory exists (created by another "
-                         "process): "
-                      << fontsDir << std::endl;
-            fonts_directory_ready = true;
-          }
-        }
-      } catch (const std::filesystem::filesystem_error &e) {
-        if (e.code() == std::errc::permission_denied) {
-          std::cerr << "[Main] ⚠ Cannot create " << fontsDir
-                    << " (permission denied)" << std::endl;
-
-          // Auto-fallback: Try user directory (works without sudo)
-          if (env_fonts_dir == nullptr || strlen(env_fonts_dir) == 0) {
-            const char *home = std::getenv("HOME");
-            if (home) {
-              std::string fallback_path =
-                  std::string(home) + "/.local/share/edgeos-api/fonts";
-              std::cerr << "[Main] Auto-fallback: Trying user directory: "
-                        << fallback_path << std::endl;
-              try {
-                std::filesystem::create_directories(fallback_path);
-                fontsDir = fallback_path;
-                fonts_directory_ready = true;
-                std::cerr << "[Main] ✓ Using fallback directory: " << fontsDir
-                          << std::endl;
-                std::cerr << "[Main] ℹ Note: To use /opt/edgeos-api/fonts, "
-                             "create parent directory:"
-                          << std::endl;
-                std::cerr << "[Main] ℹ   sudo mkdir -p /opt/edgeos-api && "
-                             "sudo chown $USER:$USER /opt/edgeos-api"
-                          << std::endl;
-              } catch (const std::exception &fallback_e) {
-                std::cerr << "[Main] ⚠ Fallback also failed: "
-                          << fallback_e.what() << std::endl;
-                // Last resort: current directory
-                fontsDir = "./fonts";
-                try {
-                  std::filesystem::create_directories(fontsDir);
-                  fonts_directory_ready = true;
-                  std::cerr << "[Main] ✓ Using current directory: " << fontsDir
-                            << std::endl;
-                } catch (...) {
-                  std::cerr
-                      << "[Main] ✗ ERROR: Cannot create any fonts directory"
-                      << std::endl;
-                }
-              }
-            } else {
-              // No HOME, use current directory
-              fontsDir = "./fonts";
-              try {
-                std::filesystem::create_directories(fontsDir);
-                fonts_directory_ready = true;
-                std::cerr << "[Main] ✓ Using current directory: " << fontsDir
-                          << std::endl;
-              } catch (...) {
-                std::cerr << "[Main] ✗ ERROR: Cannot create ./fonts"
-                          << std::endl;
-              }
-            }
-          } else {
-            // User specified FONTS_DIR but can't create it
-            std::cerr
-                << "[Main] ✗ ERROR: Cannot create user-specified directory: "
-                << fontsDir << std::endl;
-            std::cerr
-                << "[Main] ✗ Please check permissions or use a different path"
-                << std::endl;
-          }
-        } else {
-          std::cerr << "[Main] ✗ ERROR creating " << fontsDir << ": "
-                    << e.what() << std::endl;
-        }
-      } catch (const std::exception &e) {
-        std::cerr << "[Main] ✗ Exception creating " << fontsDir << ": "
-                  << e.what() << std::endl;
-      }
-    } else {
-      // Check if it's actually a directory
-      if (std::filesystem::is_directory(fontsDir)) {
-        std::cerr << "[Main] ✓ Fonts directory already exists: " << fontsDir
-                  << std::endl;
-        fonts_directory_ready = true;
-      } else {
-        std::cerr << "[Main] ✗ ERROR: Path exists but is not a directory: "
-                  << fontsDir << std::endl;
-      }
-    }
-
-    if (fonts_directory_ready) {
+    if (std::filesystem::is_directory(fontsDir)) {
       std::cerr << "[Main] ✓ Fonts directory is ready: " << fontsDir
                 << std::endl;
 
@@ -3202,8 +2650,8 @@ int main(int argc, char *argv[]) {
                   << defaultFontDest << std::endl;
       }
     } else {
-      std::cerr << "[Main] ⚠ WARNING: Fonts directory may not be ready"
-                << std::endl;
+      std::cerr << "[Main] ⚠ WARNING: Fonts directory may not be ready: "
+                << fontsDir << std::endl;
     }
 
     PLOG_INFO << "[Main] Fonts directory: " << fontsDir;
@@ -3902,9 +3350,7 @@ int main(int argc, char *argv[]) {
     // CRITICAL: Re-register signal handlers AFTER Drogon setup to ensure
     // they're not overridden Drogon may register its own handlers during
     // initialization, so we register again here
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGTERM, signalHandler);
-    std::signal(SIGABRT, signalHandler);
+    registerShutdownSignalHandlers(); // Drogon may override handlers, register again
     std::signal(
         SIGSEGV,
         segfaultHandler); // Catch segmentation faults from GStreamer crashes

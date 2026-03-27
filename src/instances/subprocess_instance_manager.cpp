@@ -6,6 +6,7 @@
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <set>
 #include <thread>
 
 // Static member initialization
@@ -49,6 +50,10 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   // Generate instance ID
   std::string instanceId = UUIDGenerator::generateUUID();
 
+  // Work on a mutable copy so subprocess mode can normalize output URLs
+  // before sending config to worker and before building API response data.
+  CreateInstanceRequest normalizedReq = req;
+
   // Validate solution if provided
   if (!req.solution.empty()) {
     auto optSolution = solution_registry_.getSolution(req.solution);
@@ -57,8 +62,77 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
     }
   }
 
+  // Normalize RTMP destination URL to avoid stream key collisions between instances.
+  // This mirrors in-process behavior so returned URL matches the actual publish path.
+  {
+    auto trim = [](const std::string &str) -> std::string {
+      if (str.empty())
+        return str;
+      size_t first = str.find_first_not_of(" \t\n\r\f\v");
+      if (first == std::string::npos)
+        return "";
+      size_t last = str.find_last_not_of(" \t\n\r\f\v");
+      return str.substr(first, (last - first + 1));
+    };
+
+    auto extractStreamKey = [](const std::string &rtmpUrl) -> std::string {
+      if (rtmpUrl.empty())
+        return "";
+      size_t lastSlash = rtmpUrl.find_last_of('/');
+      if (lastSlash == std::string::npos || lastSlash >= rtmpUrl.length() - 1)
+        return "";
+      std::string key = rtmpUrl.substr(lastSlash + 1);
+      if (key.length() >= 2 && key.substr(key.length() - 2) == "_0") {
+        key = key.substr(0, key.length() - 2);
+      }
+      return key;
+    };
+
+    std::string rtmpParamName;
+    std::string rtmpUrl;
+    if (normalizedReq.additionalParams.count("RTMP_DES_URL")) {
+      rtmpParamName = "RTMP_DES_URL";
+      rtmpUrl = trim(normalizedReq.additionalParams.at("RTMP_DES_URL"));
+    } else if (normalizedReq.additionalParams.count("RTMP_URL")) {
+      rtmpParamName = "RTMP_URL";
+      rtmpUrl = trim(normalizedReq.additionalParams.at("RTMP_URL"));
+    }
+
+    if (!rtmpUrl.empty()) {
+      std::set<std::string> existingStreamKeys;
+      {
+        std::lock_guard<std::mutex> lock(instances_mutex_);
+        for (const auto &[existingId, existingInfo] : instances_) {
+          if (existingId == instanceId || existingInfo.rtmpUrl.empty()) {
+            continue;
+          }
+          std::string existingKey = extractStreamKey(trim(existingInfo.rtmpUrl));
+          if (!existingKey.empty()) {
+            existingStreamKeys.insert(existingKey);
+          }
+        }
+      }
+
+      std::string streamKey = extractStreamKey(rtmpUrl);
+      if (!streamKey.empty()) {
+        size_t lastSlash = rtmpUrl.find_last_of('/');
+        if (lastSlash != std::string::npos && lastSlash < rtmpUrl.length() - 1) {
+          std::string baseUrl = rtmpUrl.substr(0, lastSlash + 1);
+          std::string shortId = instanceId.substr(0, 8);
+          std::string uniqueStreamKey = streamKey + "_" + shortId;
+          std::string uniqueUrl = baseUrl + uniqueStreamKey;
+
+          normalizedReq.additionalParams[rtmpParamName] = uniqueUrl;
+          // Keep both aliases in sync for compatibility.
+          normalizedReq.additionalParams["RTMP_URL"] = uniqueUrl;
+          normalizedReq.additionalParams["RTMP_DES_URL"] = uniqueUrl;
+        }
+      }
+    }
+  }
+
   // Build config for worker
-  Json::Value config = buildWorkerConfig(req);
+  Json::Value config = buildWorkerConfig(normalizedReq);
 
   // Allocate GPU and spawn worker
   if (!allocateGPUAndSpawnWorker(instanceId, config)) {
@@ -69,37 +143,37 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   // Create local instance info
   InstanceInfo info;
   info.instanceId = instanceId;
-  info.displayName = req.name.empty() ? instanceId : req.name;
-  info.group = req.group;
-  info.solutionId = req.solution;
+  info.displayName = normalizedReq.name.empty() ? instanceId : normalizedReq.name;
+  info.group = normalizedReq.group;
+  info.solutionId = normalizedReq.solution;
   info.running = false;
   info.loaded = true;
-  info.autoStart = req.autoStart;
-  info.autoRestart = req.autoRestart;
-  info.persistent = req.persistent;
-  info.frameRateLimit = req.frameRateLimit;
-  info.metadataMode = req.metadataMode;
-  info.statisticsMode = req.statisticsMode;
-  info.diagnosticsMode = req.diagnosticsMode;
-  info.debugMode = req.debugMode;
-  info.detectorMode = req.detectorMode;
-  info.detectionSensitivity = req.detectionSensitivity;
-  info.movementSensitivity = req.movementSensitivity;
-  info.sensorModality = req.sensorModality;
-  info.inputOrientation = req.inputOrientation;
-  info.inputPixelLimit = req.inputPixelLimit;
-  info.detectorModelFile = req.detectorModelFile;
-  info.detectorThermalModelFile = req.detectorThermalModelFile;
-  info.animalConfidenceThreshold = req.animalConfidenceThreshold;
-  info.personConfidenceThreshold = req.personConfidenceThreshold;
-  info.vehicleConfidenceThreshold = req.vehicleConfidenceThreshold;
-  info.faceConfidenceThreshold = req.faceConfidenceThreshold;
-  info.licensePlateConfidenceThreshold = req.licensePlateConfidenceThreshold;
-  info.confThreshold = req.confThreshold;
-  info.performanceMode = req.performanceMode;
-  info.recommendedFrameRate = req.recommendedFrameRate;
+  info.autoStart = normalizedReq.autoStart;
+  info.autoRestart = normalizedReq.autoRestart;
+  info.persistent = normalizedReq.persistent;
+  info.frameRateLimit = normalizedReq.frameRateLimit;
+  info.metadataMode = normalizedReq.metadataMode;
+  info.statisticsMode = normalizedReq.statisticsMode;
+  info.diagnosticsMode = normalizedReq.diagnosticsMode;
+  info.debugMode = normalizedReq.debugMode;
+  info.detectorMode = normalizedReq.detectorMode;
+  info.detectionSensitivity = normalizedReq.detectionSensitivity;
+  info.movementSensitivity = normalizedReq.movementSensitivity;
+  info.sensorModality = normalizedReq.sensorModality;
+  info.inputOrientation = normalizedReq.inputOrientation;
+  info.inputPixelLimit = normalizedReq.inputPixelLimit;
+  info.detectorModelFile = normalizedReq.detectorModelFile;
+  info.detectorThermalModelFile = normalizedReq.detectorThermalModelFile;
+  info.animalConfidenceThreshold = normalizedReq.animalConfidenceThreshold;
+  info.personConfidenceThreshold = normalizedReq.personConfidenceThreshold;
+  info.vehicleConfidenceThreshold = normalizedReq.vehicleConfidenceThreshold;
+  info.faceConfidenceThreshold = normalizedReq.faceConfidenceThreshold;
+  info.licensePlateConfidenceThreshold = normalizedReq.licensePlateConfidenceThreshold;
+  info.confThreshold = normalizedReq.confThreshold;
+  info.performanceMode = normalizedReq.performanceMode;
+  info.recommendedFrameRate = normalizedReq.recommendedFrameRate;
   // FPS configuration: default to 5 FPS if not specified (fps == 0)
-  info.configuredFps = (req.fps > 0) ? req.fps : 5;
+  info.configuredFps = (normalizedReq.fps > 0) ? normalizedReq.fps : 5;
   info.fps = 0.0;
   info.startTime = std::chrono::steady_clock::now();
   info.lastActivityTime = info.startTime;
@@ -115,21 +189,21 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
 #endif
   
   // Get solution name if solution is provided
-  if (!req.solution.empty()) {
-    auto optSolution = solution_registry_.getSolution(req.solution);
+  if (!normalizedReq.solution.empty()) {
+    auto optSolution = solution_registry_.getSolution(normalizedReq.solution);
     if (optSolution.has_value()) {
       info.solutionName = optSolution.value().solutionName;
     }
   }
 
   // Copy additional params (including source URLs)
-  info.additionalParams = req.additionalParams;
+  info.additionalParams = normalizedReq.additionalParams;
   
   // Extract RTSP URL - check RTSP_SRC_URL first, then RTSP_URL
-  if (req.additionalParams.count("RTSP_SRC_URL")) {
-    info.rtspUrl = req.additionalParams.at("RTSP_SRC_URL");
-  } else if (req.additionalParams.count("RTSP_URL")) {
-    info.rtspUrl = req.additionalParams.at("RTSP_URL");
+  if (normalizedReq.additionalParams.count("RTSP_SRC_URL")) {
+    info.rtspUrl = normalizedReq.additionalParams.at("RTSP_SRC_URL");
+  } else if (normalizedReq.additionalParams.count("RTSP_URL")) {
+    info.rtspUrl = normalizedReq.additionalParams.at("RTSP_URL");
   }
   
   // Extract RTMP URL - check RTMP_DES_URL first, then RTMP_URL
@@ -144,10 +218,10 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
     return str.substr(first, (last - first + 1));
   };
   
-  if (req.additionalParams.count("RTMP_DES_URL")) {
-    info.rtmpUrl = trim(req.additionalParams.at("RTMP_DES_URL"));
-  } else if (req.additionalParams.count("RTMP_URL")) {
-    info.rtmpUrl = trim(req.additionalParams.at("RTMP_URL"));
+  if (normalizedReq.additionalParams.count("RTMP_DES_URL")) {
+    info.rtmpUrl = trim(normalizedReq.additionalParams.at("RTMP_DES_URL"));
+  } else if (normalizedReq.additionalParams.count("RTMP_URL")) {
+    info.rtmpUrl = trim(normalizedReq.additionalParams.at("RTMP_URL"));
   }
   
   // Generate RTSP URL from RTMP URL if RTSP URL is not already set
@@ -179,8 +253,8 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
     }
   }
   
-  if (req.additionalParams.count("FILE_PATH")) {
-    info.filePath = req.additionalParams.at("FILE_PATH");
+  if (normalizedReq.additionalParams.count("FILE_PATH")) {
+    info.filePath = normalizedReq.additionalParams.at("FILE_PATH");
   }
 
   {
@@ -192,7 +266,7 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   // Only persistent instances will be loaded on server restart
   bool saved = instance_storage_.saveInstance(instanceId, info);
   if (saved) {
-    if (req.persistent) {
+    if (normalizedReq.persistent) {
       std::cerr << "[SubprocessInstanceManager] Instance configuration saved "
                    "(persistent - will be loaded on restart)"
                 << std::endl;
@@ -210,7 +284,7 @@ SubprocessInstanceManager::createInstance(const CreateInstanceRequest &req) {
   // Wait for worker to be ready and pipeline to be built
   // Pipeline is built automatically when worker starts if config has Solution
   // But we need to wait for it to complete before starting
-  if (req.autoStart) {
+  if (normalizedReq.autoStart) {
     // Wait for worker to become ready (up to 5 seconds)
     const int maxWaitRetries = 50; // 50 retries * 100ms = 5 seconds
     const int waitDelayMs = 100;
@@ -282,6 +356,27 @@ bool SubprocessInstanceManager::deleteInstance(const std::string &instanceId) {
 
 bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
                                               bool /*skipAutoStop*/) {
+  auto sendWithBusyRetry = [this, &instanceId](const worker::IPCMessage &message,
+                                                int timeoutMs,
+                                                int maxRetries = 8,
+                                                int retryDelayMs = 150)
+      -> worker::IPCMessage {
+    worker::IPCMessage response;
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      response = supervisor_->sendToWorker(instanceId, message, timeoutMs);
+      std::string error = response.payload.get("error", "").asString();
+      bool busyError =
+          (response.type == worker::MessageType::ERROR_RESPONSE) &&
+          (error.find("busy") != std::string::npos ||
+           error.find("BUSY") != std::string::npos);
+      if (!busyError || attempt == maxRetries - 1) {
+        return response;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+    }
+    return response;
+  };
+
   // Check worker state - accept both READY and BUSY states
   // BUSY is OK because worker can handle multiple commands
   auto workerState = supervisor_->getWorkerState(instanceId);
@@ -350,8 +445,8 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
   msg.type = worker::MessageType::START_INSTANCE;
   msg.payload["instance_id"] = instanceId;
 
-  auto response = supervisor_->sendToWorker(
-      instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
+  auto response = sendWithBusyRetry(
+      msg, TimeoutConstants::getIpcStartStopTimeoutMs());
 
   // If start failed with "No pipeline configured", build pipeline first
   if (response.type == worker::MessageType::START_INSTANCE_RESPONSE &&
@@ -375,8 +470,8 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
         createMsg.type = worker::MessageType::CREATE_INSTANCE;
         createMsg.payload["config"] = config;
         
-        auto createResponse = supervisor_->sendToWorker(
-            instanceId, createMsg, TimeoutConstants::getIpcStartStopTimeoutMs());
+        auto createResponse = sendWithBusyRetry(
+            createMsg, TimeoutConstants::getIpcStartStopTimeoutMs());
         
         if (createResponse.type != worker::MessageType::CREATE_INSTANCE_RESPONSE ||
             !createResponse.payload.get("success", false).asBool()) {
@@ -396,8 +491,8 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
         msg.type = worker::MessageType::START_INSTANCE;
         msg.payload["instance_id"] = instanceId;
         
-        response = supervisor_->sendToWorker(
-            instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
+        response = sendWithBusyRetry(
+            msg, TimeoutConstants::getIpcStartStopTimeoutMs());
       } else {
         std::cerr << "[SubprocessInstanceManager] Instance not found in cache: "
                   << instanceId << std::endl;
@@ -430,6 +525,19 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
           worker::MessageType::GET_INSTANCE_STATUS_RESPONSE) {
         if (statusResponse.payload.isMember("data")) {
           const auto &data = statusResponse.payload["data"];
+          // Worker sets this after pipeline build (includes rtmp_des "_0" suffix).
+          if (data.isMember("rtmp_playback_url")) {
+            std::string playback = data["rtmp_playback_url"].asString();
+            if (!playback.empty()) {
+              std::lock_guard<std::mutex> lock(instances_mutex_);
+              if (instances_.count(instanceId)) {
+                instances_[instanceId].rtmpUrl = playback;
+                instances_[instanceId].additionalParams["RTMP_URL"] = playback;
+                instances_[instanceId].additionalParams["RTMP_DES_URL"] =
+                    playback;
+              }
+            }
+          }
           bool running = data.get("running", false).asBool();
           std::string state = data.get("state", "").asString();
 
@@ -570,6 +678,27 @@ bool SubprocessInstanceManager::startInstance(const std::string &instanceId,
 }
 
 bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
+  auto sendWithBusyRetry = [this, &instanceId](const worker::IPCMessage &message,
+                                                int timeoutMs,
+                                                int maxRetries = 10,
+                                                int retryDelayMs = 150)
+      -> worker::IPCMessage {
+    worker::IPCMessage response;
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+      response = supervisor_->sendToWorker(instanceId, message, timeoutMs);
+      std::string error = response.payload.get("error", "").asString();
+      bool busyError =
+          (response.type == worker::MessageType::ERROR_RESPONSE) &&
+          (error.find("busy") != std::string::npos ||
+           error.find("BUSY") != std::string::npos);
+      if (!busyError || attempt == maxRetries - 1) {
+        return response;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
+    }
+    return response;
+  };
+
   // Check worker state - accept both READY and BUSY states
   // BUSY is OK because worker can handle multiple commands
   auto workerState = supervisor_->getWorkerState(instanceId);
@@ -587,23 +716,35 @@ bool SubprocessInstanceManager::stopInstance(const std::string &instanceId) {
   msg.type = worker::MessageType::STOP_INSTANCE;
   msg.payload["instance_id"] = instanceId;
 
-  auto response = supervisor_->sendToWorker(
-      instanceId, msg, TimeoutConstants::getIpcStartStopTimeoutMs());
+  auto response = sendWithBusyRetry(
+      msg, TimeoutConstants::getIpcStartStopTimeoutMs());
 
-  if (response.type == worker::MessageType::STOP_INSTANCE_RESPONSE &&
-      response.payload.get("success", false).asBool()) {
-
-    // Update local state
-    {
-      std::lock_guard<std::mutex> lock(instances_mutex_);
-      if (instances_.count(instanceId)) {
-        instances_[instanceId].running = false;
+  if (response.type == worker::MessageType::STOP_INSTANCE_RESPONSE) {
+    if (response.payload.get("success", false).asBool()) {
+      {
+        std::lock_guard<std::mutex> lock(instances_mutex_);
+        if (instances_.count(instanceId)) {
+          instances_[instanceId].running = false;
+        }
       }
+      std::cout << "[SubprocessInstanceManager] Stopped instance: " << instanceId
+                << std::endl;
+      return true;
     }
-
-    std::cout << "[SubprocessInstanceManager] Stopped instance: " << instanceId
-              << std::endl;
-    return true;
+    // Idempotent stop: worker already idle (e.g. crash, duplicate stop, or race
+    // after pipeline finished stopping).
+    std::string err = response.payload.get("error", "").asString();
+    if (err.find("not running") != std::string::npos) {
+      {
+        std::lock_guard<std::mutex> lock(instances_mutex_);
+        if (instances_.count(instanceId)) {
+          instances_[instanceId].running = false;
+        }
+      }
+      std::cout << "[SubprocessInstanceManager] Stop no-op (already stopped): "
+                << instanceId << std::endl;
+      return true;
+    }
   }
 
   std::cerr << "[SubprocessInstanceManager] Failed to stop: " << instanceId
@@ -1594,9 +1735,23 @@ int SubprocessInstanceManager::checkAndHandleRetryLimits() {
     // In subprocess mode, retry limit is typically handled by WorkerSupervisor
     // But we can check local retry count if needed
     if (info.retryCount > 0 && info.retryLimitReached) {
-      // Stop the instance
-      stopInstance(instanceId);
-      stoppedCount++;
+      // Handle this instance only once to avoid repeated noisy logs every cycle.
+      // If worker is already STOPPED/CRASHED, there is nothing left to stop.
+      bool handled = false;
+      auto workerState = supervisor_->getWorkerState(instanceId);
+      if (workerState == worker::WorkerState::READY ||
+          workerState == worker::WorkerState::BUSY) {
+        stopInstance(instanceId);
+        handled = true;
+      } else if (workerState == worker::WorkerState::STOPPED ||
+                 workerState == worker::WorkerState::CRASHED) {
+        handled = true;
+      }
+
+      if (handled) {
+        info.retryLimitReached = false;
+        stoppedCount++;
+      }
     }
   }
 

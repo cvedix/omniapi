@@ -14,10 +14,14 @@
             }
         },
         {
-            "nodeType": "trt_vehicle_detector",
+            "nodeType": "yolo_detector",
             "nodeName": "vehicle_detector_{instanceId}",
             "parameters": {
-                "trt_path": "${TRT_PATH}"
+                "model_path": "${MODEL_PATH}",
+                "labels_path": "${LABELS_PATH}",
+                "backend_type": "${BACKEND_TYPE}",
+                "score_threshold": "${detectionSensitivity}",
+                "nms_threshold": "0.4"
             }
         },
         {
@@ -72,6 +76,7 @@
         "CHECK_MIN_HIT_FRAMES": "50",
         "CHECK_MAX_DISTANCE": "8",
         "CHECK_MIN_STOPS": "8",
-        "CHECK_NOTIFY_INTERVAL": "10"
+        "CHECK_NOTIFY_INTERVAL": "10",
+        "BACKEND_TYPE": "tensorrt"
     }
 }

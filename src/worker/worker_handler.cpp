@@ -102,6 +102,7 @@ WorkerHandler::~WorkerHandler() {
   // Wait for start pipeline thread to finish if running
   // Use condition variable to wait for completion naturally
   if (starting_pipeline_.load()) {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
     if (start_pipeline_thread_.joinable()) {
       std::unique_lock<std::mutex> lock(start_pipeline_mutex_);
       // Wait for start pipeline to complete with configurable timeout
@@ -357,6 +358,7 @@ int WorkerHandler::run() {
   // Wait for start pipeline thread to finish if running
   // Use condition variable to wait for completion naturally
   if (starting_pipeline_.load()) {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
     if (start_pipeline_thread_.joinable()) {
       std::cout << "[Worker:" << instance_id_
                 << "] Waiting for start pipeline thread to finish..."
@@ -1098,10 +1100,12 @@ IPCMessage WorkerHandler::handleGetStatus(const IPCMessage & /*msg*/) {
   // Writers (state updates) still get exclusive access
   std::string state_copy;
   std::string error_copy;
+  std::string rtmpPlayback;
   {
     std::shared_lock<std::shared_mutex> lock(state_mutex_);
     state_copy = current_state_;
     error_copy = last_error_;
+    rtmpPlayback = published_rtmp_playback_url_;
   }
 
   Json::Value data;
@@ -1111,6 +1115,9 @@ IPCMessage WorkerHandler::handleGetStatus(const IPCMessage & /*msg*/) {
   data["has_pipeline"] = !pipeline_nodes_.empty();
   if (!error_copy.empty()) {
     data["last_error"] = error_copy;
+  }
+  if (!rtmpPlayback.empty()) {
+    data["rtmp_playback_url"] = rtmpPlayback;
   }
 
   response.payload = createResponse(ResponseStatus::OK, "", data);
@@ -1637,8 +1644,14 @@ bool WorkerHandler::buildPipeline() {
 
     if (pipeline_nodes_.empty()) {
       last_error_ = "Pipeline builder returned empty pipeline";
+      {
+        std::lock_guard<std::shared_mutex> lock(state_mutex_);
+        published_rtmp_playback_url_.clear();
+      }
       return false;
     }
+
+    syncPublishedRtmpUrlAfterPipelineBuild();
 
     {
       std::lock_guard<std::shared_mutex> lock(state_mutex_);
@@ -1652,6 +1665,10 @@ bool WorkerHandler::buildPipeline() {
     last_error_ = e.what();
     std::cerr << "[Worker:" << instance_id_
               << "] Failed to build pipeline: " << e.what() << std::endl;
+    {
+      std::lock_guard<std::shared_mutex> lock(state_mutex_);
+      published_rtmp_playback_url_.clear();
+    }
     return false;
   }
 }
@@ -1811,6 +1828,17 @@ void WorkerHandler::startPipelineAsync() {
   // Note: starting_pipeline_ is already set to true by handleStartInstance
   // before this function is called, so we don't need to set it again here
 
+  // If a previous start thread finished but was never joined, joining here
+  // prevents std::terminate when assigning a new std::thread object.
+  // At this point, handleStartInstance has already ensured there is no active
+  // concurrent start operation.
+  {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
+    if (start_pipeline_thread_.joinable()) {
+      start_pipeline_thread_.join();
+    }
+  }
+
   // Check if shutdown was requested
   if (shutdown_requested_.load()) {
     {
@@ -1826,7 +1854,9 @@ void WorkerHandler::startPipelineAsync() {
   }
 
   // Start pipeline in background thread
-  start_pipeline_thread_ = std::thread([this]() {
+  {
+    std::lock_guard<std::mutex> threadLock(start_pipeline_thread_mutex_);
+    start_pipeline_thread_ = std::thread([this]() {
     try {
       // Check shutdown flag before starting pipeline
       if (shutdown_requested_.load()) {
@@ -1862,7 +1892,8 @@ void WorkerHandler::startPipelineAsync() {
                 << std::endl;
       start_pipeline_cv_.notify_all(); // Notify waiters even on error
     }
-  });
+    });
+  }
 }
 
 void WorkerHandler::stopPipelineAsync() {
@@ -2128,7 +2159,47 @@ void WorkerHandler::cleanupPipeline() {
   {
     std::lock_guard<std::shared_mutex> lock(state_mutex_);
     current_state_ = "stopped";
+    published_rtmp_playback_url_.clear();
   }
+}
+
+void WorkerHandler::syncPublishedRtmpUrlAfterPipelineBuild() {
+  std::string actual = PipelineBuilder::getActualRTMPUrl(instance_id_);
+  if (actual.empty()) {
+    std::lock_guard<std::shared_mutex> lock(state_mutex_);
+    published_rtmp_playback_url_.clear();
+    PipelineBuilder::clearActualRTMPUrl(instance_id_);
+    return;
+  }
+
+  std::string finalUrl = actual;
+  size_t lastSlash = finalUrl.find_last_of('/');
+  if (lastSlash != std::string::npos && lastSlash < finalUrl.length() - 1) {
+    const std::string streamKey = finalUrl.substr(lastSlash + 1);
+    if (streamKey.length() < 2 ||
+        streamKey.substr(streamKey.length() - 2) != "_0") {
+      finalUrl += "_0";
+    }
+  }
+
+  {
+    std::lock_guard<std::shared_mutex> lock(state_mutex_);
+    published_rtmp_playback_url_ = finalUrl;
+  }
+
+  if (config_.isMember("AdditionalParams") &&
+      config_["AdditionalParams"].isObject()) {
+    config_["AdditionalParams"]["RTMP_URL"] = finalUrl;
+    config_["AdditionalParams"]["RTMP_DES_URL"] = finalUrl;
+  }
+  config_["RtmpUrl"] = finalUrl;
+
+  PipelineBuilder::clearActualRTMPUrl(instance_id_);
+
+  std::cout << "[Worker:" << instance_id_
+            << "] RTMP playback URL (use this in ffplay/VLC; matches rtmp_des "
+               "publish path): '"
+            << finalUrl << "'" << std::endl;
 }
 
 void WorkerHandler::sendReadySignal() {
@@ -3112,6 +3183,8 @@ bool WorkerHandler::preBuildPipeline(const Json::Value &newConfig) {
       last_error_ = "Pipeline builder returned empty pipeline";
       return false;
     }
+
+    syncPublishedRtmpUrlAfterPipelineBuild();
 
     std::cout << "[Worker:" << instance_id_ << "] Pre-built pipeline with "
               << new_pipeline_nodes_.size() << " nodes" << std::endl;

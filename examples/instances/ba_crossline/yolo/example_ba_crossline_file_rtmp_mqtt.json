@@ -6,9 +6,8 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "/home/cvedix/project/edge_ai_sdk/cvedix_data/test_video/vehicle_count.mp4",
-      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt"
+      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
+      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "RTMP_URL": "rtmp://localhost:1935/live/sang_camera_demo_1",
@@ -21,5 +20,8 @@
       "MQTT_USERNAME": "",
       "MQTT_PASSWORD": ""
     }
+  },
+  "defaults": {
+    "BACKEND_TYPE": "tensorrt"
   }
 }

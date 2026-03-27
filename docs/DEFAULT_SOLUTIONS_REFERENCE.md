@@ -185,7 +185,7 @@ curl -X POST http://localhost:8080/v1/core/instance \
 
 ### 4. `face_detection_rtmp`
 
-**Mô tả**: Face detection với file source, YuNet detector, SFace encoder, Face OSD v2, và RTMP streaming destination
+**Mô tả**: Face detection với file source, YuNet detector, Face OSD v2, và RTMP streaming destination
 
 **Pipeline**:
 - **File Source** (`file_src_{instanceId}`)
@@ -199,8 +199,6 @@ curl -X POST http://localhost:8080/v1/core/instance \
   - `nms_threshold`: `0.5`
   - `top_k`: `50`
   - **Lưu ý**: YuNet 2022mar có thể có vấn đề với dynamic input sizes. Nên dùng YuNet 2023mar
-- **SFace Feature Encoder** (`sface_face_encoder_{instanceId}`)
-  - `model_path`: `${SFACE_MODEL_PATH}`
 - **Face OSD v2** (`osd_{instanceId}`)
   - Không có parameters
 - **RTMP Destination** (`rtmp_des_{instanceId}`)
@@ -215,7 +213,6 @@ curl -X POST http://localhost:8080/v1/core/instance \
 **Required Parameters**:
 - `FILE_PATH`: Đường dẫn đến video file
 - `MODEL_PATH`: Đường dẫn đến YuNet model file (.onnx)
-- `SFACE_MODEL_PATH`: Đường dẫn đến SFace model file (.onnx)
 - `RTMP_URL`: RTMP streaming URL
 
 ---
@@ -227,7 +224,7 @@ curl -X POST http://localhost:8080/v1/core/instance \
 | `face_detection` | Face Detection | face_detection | RTSP | YuNet | File |
 | `face_detection_file` | Face Detection with File Source | face_detection | File | YuNet | File |
 | `object_detection` | Object Detection (YOLO) | object_detection | RTSP | YOLO* | File |
-| `face_detection_rtmp` | Face Detection with RTMP Streaming | face_detection | File | YuNet + SFace | RTMP |
+| `face_detection_rtmp` | Face Detection with RTMP Streaming | face_detection | File | YuNet | RTMP |
 
 *YOLO detector chưa được implement
 

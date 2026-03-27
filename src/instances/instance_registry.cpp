@@ -26,9 +26,15 @@
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
+#ifdef CVEDIX_HAS_OPENPOSE
 #include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
+#endif
+#ifdef CVEDIX_USE_SFACE_FEATURE_ENCODER
 #include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
+#else
+#include <cvedix/nodes/infers/cvedix_feature_encoder_node.h>
+#endif
+#include <cvedix/nodes/infers/cvedix_face_detector_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
@@ -611,11 +617,17 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
         return false;
       }
 
-      // ✅ ASYNC BUILD CHECK: Kiểm tra pipeline đã được build chưa
+      // ✅ Pipeline trong map: sau stopInstance() pipeline đã bị erase — đó là
+      // trạng thái bình thường trước khi rebuild. Chỉ coi là lỗi "chưa build"
+      // khi không có solution (không thể rebuild). Nếu có solutionId, luồng
+      // phía dưới sẽ gọi rebuildPipelineFromInstanceInfo().
       auto pipelineIt = pipelines_.find(instanceId);
-      if (pipelineIt == pipelines_.end() || pipelineIt->second.empty()) {
+      const bool havePipeline =
+          pipelineIt != pipelines_.end() && !pipelineIt->second.empty();
+      if (!havePipeline && existingInfo.solutionId.empty()) {
         std::cerr << "[InstanceRegistry] ✗ Cannot start instance " << instanceId
-                  << ": Pipeline not built yet" << std::endl;
+                  << ": Pipeline not built yet (no solution configured)"
+                  << std::endl;
         std::cerr << "[InstanceRegistry] If instance was just created, pipeline "
                      "may still be building in background"
                   << std::endl;
@@ -1070,7 +1082,7 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
   // Check for YuNet face detector node
   for (const auto &node : pipelineCopy) {
     auto yunetNode = std::dynamic_pointer_cast<
-        cvedix_nodes::cvedix_yunet_face_detector_node>(node);
+        cvedix_nodes::cvedix_face_detector_node>(node);
     if (yunetNode) {
       // Get model path from additionalParams
       std::string modelPath;
@@ -1241,7 +1253,7 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
 
     // Check for SFace feature encoder node
     auto sfaceNode = std::dynamic_pointer_cast<
-        cvedix_nodes::cvedix_sface_feature_encoder_node>(node);
+        cvedix_nodes::cvedix_feature_encoder_node>(node);
     if (sfaceNode) {
       // Get model path from additionalParams
       std::string modelPath;
@@ -2609,13 +2621,13 @@ void InstanceRegistry::waitForModelsReady(
   for (const auto &node : nodes) {
     // Check for YuNet face detector
     if (std::dynamic_pointer_cast<
-            cvedix_nodes::cvedix_yunet_face_detector_node>(node)) {
+            cvedix_nodes::cvedix_face_detector_node>(node)) {
       hasDNNModels = true;
       break;
     }
     // Check for SFace feature encoder
     if (std::dynamic_pointer_cast<
-            cvedix_nodes::cvedix_sface_feature_encoder_node>(node)) {
+            cvedix_nodes::cvedix_feature_encoder_node>(node)) {
       hasDNNModels = true;
       break;
     }
@@ -2817,10 +2829,14 @@ bool InstanceRegistry::startPipeline(
       for (const auto &node : nodes) {
         auto maskRCNNNode = std::dynamic_pointer_cast<
             cvedix_nodes::cvedix_mask_rcnn_detector_node>(node);
+#ifdef CVEDIX_HAS_OPENPOSE
         auto openPoseNode = std::dynamic_pointer_cast<
             cvedix_nodes::cvedix_openpose_detector_node>(node);
+#else
+        std::shared_ptr<cvedix_nodes::cvedix_node> openPoseNode;
+#endif
         auto faceDetectorNode = std::dynamic_pointer_cast<
-            cvedix_nodes::cvedix_yunet_face_detector_node>(node);
+            cvedix_nodes::cvedix_face_detector_node>(node);
         if (maskRCNNNode || openPoseNode) {
           hasSlowModel = true;
           break;
@@ -3551,9 +3567,9 @@ void InstanceRegistry::stopPipeline(
     bool hasDNNModels = false;
     for (const auto &node : nodes) {
       if (std::dynamic_pointer_cast<
-              cvedix_nodes::cvedix_yunet_face_detector_node>(node) ||
+              cvedix_nodes::cvedix_face_detector_node>(node) ||
           std::dynamic_pointer_cast<
-              cvedix_nodes::cvedix_sface_feature_encoder_node>(node)) {
+              cvedix_nodes::cvedix_feature_encoder_node>(node)) {
         hasDNNModels = true;
         break;
       }
@@ -3912,10 +3928,10 @@ void InstanceRegistry::stopPipeline(
       try {
         auto faceDetectorNode =
             std::dynamic_pointer_cast<
-                cvedix_nodes::cvedix_yunet_face_detector_node>(node);
+                cvedix_nodes::cvedix_face_detector_node>(node);
         auto featureEncoderNode =
             std::dynamic_pointer_cast<
-                cvedix_nodes::cvedix_sface_feature_encoder_node>(node);
+                cvedix_nodes::cvedix_feature_encoder_node>(node);
 
         if (faceDetectorNode || featureEncoderNode) {
           std::cerr << "[InstanceRegistry] Detaching DNN processing node to stop "

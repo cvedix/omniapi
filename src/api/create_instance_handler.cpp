@@ -3,11 +3,11 @@
 #include "core/logger.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
-#include "core/pipeline_builder_destination_nodes.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
 #include "models/create_instance_request.h"
 #include "solutions/solution_registry.h"
+#include <cctype>
 #include <chrono>
 #include <drogon/HttpResponse.h>
 #include <json/json.h>
@@ -587,6 +587,112 @@ bool CreateInstanceHandler::parseRequest(const Json::Value &json,
     }
   }
 
+  // Align with face detection sample/pipeline: YuNet detector only.
+  // If caller sends SFace keys for face_detection* solutions, ignore them.
+  if (!req.solution.empty() && req.solution.rfind("face_detection", 0) == 0) {
+    req.additionalParams.erase("SFACE_MODEL_PATH");
+    req.additionalParams.erase("SFACE_MODEL_NAME");
+  }
+
+  // Global source key normalization for all solutions:
+  // infer stream type from FILE_PATH when caller uses FILE_PATH for URLs.
+  auto hasNonEmptyParam = [&req](const std::string &k) -> bool {
+    auto it = req.additionalParams.find(k);
+    return it != req.additionalParams.end() && !it->second.empty();
+  };
+  auto toLowerCopy = [](std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    return s;
+  };
+  if (hasNonEmptyParam("FILE_PATH")) {
+    const std::string filePath = req.additionalParams["FILE_PATH"];
+    const std::string lower = toLowerCopy(filePath);
+    if (lower.rfind("rtsp://", 0) == 0) {
+      if (!hasNonEmptyParam("RTSP_SRC_URL")) {
+        req.additionalParams["RTSP_SRC_URL"] = filePath;
+      }
+      if (!hasNonEmptyParam("RTSP_URL")) {
+        req.additionalParams["RTSP_URL"] = filePath;
+      }
+    } else if (lower.rfind("rtmp://", 0) == 0) {
+      if (!hasNonEmptyParam("RTMP_SRC_URL")) {
+        req.additionalParams["RTMP_SRC_URL"] = filePath;
+      }
+    } else if (lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0 ||
+               lower.find(".m3u8") != std::string::npos) {
+      if (!hasNonEmptyParam("HLS_URL")) {
+        req.additionalParams["HLS_URL"] = filePath;
+      }
+    }
+  }
+
+  // Smart resolution for generic face_detection solution:
+  // choose a concrete pipeline variant based on input/output parameters so
+  // clients can keep using "solution": "face_detection".
+  if (req.solution == "face_detection") {
+    auto hasNonEmpty = [&req](const std::string &k) -> bool {
+      auto it = req.additionalParams.find(k);
+      return it != req.additionalParams.end() && !it->second.empty();
+    };
+
+    auto toLower = [](std::string s) {
+      std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+      return s;
+    };
+
+    // Determine input type from explicit keys first, then FILE_PATH URI.
+    // Supported: file, rtsp, rtmp, hls/http(s).
+    std::string inputType = "file";
+    if (hasNonEmpty("RTSP_SRC_URL") || hasNonEmpty("RTSP_URL")) {
+      inputType = "rtsp";
+    } else if (hasNonEmpty("RTMP_SRC_URL")) {
+      inputType = "rtmp";
+    } else if (hasNonEmpty("FILE_PATH")) {
+      const std::string filePath = req.additionalParams["FILE_PATH"];
+      const std::string lower = toLower(filePath);
+      if (lower.rfind("rtsp://", 0) == 0) {
+        inputType = "rtsp";
+      } else if (lower.rfind("rtmp://", 0) == 0) {
+        inputType = "rtmp";
+      } else if (lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0 ||
+                 lower.find(".m3u8") != std::string::npos) {
+        inputType = "hls";
+      }
+    }
+
+    // Backfill source-specific URLs from FILE_PATH when caller only provides FILE_PATH.
+    // This ensures placeholders like ${RTSP_URL}/${RTMP_SRC_URL} are resolvable.
+    if (hasNonEmpty("FILE_PATH")) {
+      const std::string filePath = req.additionalParams["FILE_PATH"];
+      if (inputType == "rtsp" && !hasNonEmpty("RTSP_URL") && !hasNonEmpty("RTSP_SRC_URL")) {
+        req.additionalParams["RTSP_URL"] = filePath;
+      } else if (inputType == "rtmp" && !hasNonEmpty("RTMP_SRC_URL")) {
+        req.additionalParams["RTMP_SRC_URL"] = filePath;
+      }
+    }
+
+    // Determine output type from output keys.
+    const bool wantsRtmpOutput = hasNonEmpty("RTMP_DES_URL") || hasNonEmpty("RTMP_URL");
+    const bool wantsRtspOutput = hasNonEmpty("RTSP_DES_PORT") || hasNonEmpty("RTSP_DES_NAME");
+
+    if (wantsRtmpOutput) {
+      if (inputType == "rtsp") {
+        req.solution = "face_detection_rtsp_rtmp_default";
+      } else if (inputType == "rtmp") {
+        req.solution = "face_detection_rtmp_rtmp_default";
+      } else {
+        // file/hls/http inputs keep file_src path for broad URI compatibility
+        req.solution = "face_detection_rtmp_default";
+      }
+    } else if (inputType == "rtsp" || wantsRtspOutput) {
+      req.solution = "face_detection_rtsp_default";
+    } else if (inputType == "rtmp") {
+      req.solution = "face_detection_rtmp_rtmp_default";
+    } else {
+      req.solution = "face_detection_file_default";
+    }
+  }
+
   return true;
 }
 
@@ -674,6 +780,20 @@ std::string CreateInstanceHandler::convertPathToProduction(
 Json::Value
 CreateInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   Json::Value json;
+  auto ensureStreamKeySuffixZero = [](const std::string &url) -> std::string {
+    if (url.empty()) {
+      return url;
+    }
+    size_t lastSlash = url.find_last_of('/');
+    if (lastSlash == std::string::npos || lastSlash >= url.length() - 1) {
+      return url;
+    }
+    std::string streamKey = url.substr(lastSlash + 1);
+    if (streamKey.length() >= 2 && streamKey.substr(streamKey.length() - 2) == "_0") {
+      return url;
+    }
+    return url + "_0";
+  };
   json["instanceId"] = info.instanceId;
   json["displayName"] = info.displayName;
   json["group"] = info.group;
@@ -717,17 +837,22 @@ CreateInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
 
   // Add streaming URLs if available
   if (!info.rtmpUrl.empty()) {
-    json["rtmpUrl"] = info.rtmpUrl;
-    
-    // Extract RTMP prefix (stream key without _0 suffix)
-    // RTMP node automatically adds _0 suffix, so we extract the original stream key
-    std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(info.rtmpUrl);
+    std::string normalizedRtmpUrl = ensureStreamKeySuffixZero(info.rtmpUrl);
+    json["rtmpUrl"] = normalizedRtmpUrl;
+
+    // Keep the actual stream key from URL path (including suffix such as "_0")
+    // to match the real publish path used by RTMP output.
+    std::string streamKey;
+    size_t lastSlash = normalizedRtmpUrl.find_last_of('/');
+    if (lastSlash != std::string::npos && lastSlash < normalizedRtmpUrl.length() - 1) {
+      streamKey = normalizedRtmpUrl.substr(lastSlash + 1);
+    }
     if (!streamKey.empty()) {
       json["prefix"] = streamKey;
     }
   }
   if (!info.rtspUrl.empty()) {
-    json["rtspUrl"] = info.rtspUrl;
+    json["rtspUrl"] = ensureStreamKeySuffixZero(info.rtspUrl);
   }
 
   return json;

@@ -15,13 +15,12 @@ std::unique_ptr<IInstanceManager> InstanceManagerFactory::create(
             << getModeName(mode) << " mode" << std::endl;
 
   switch (mode) {
-  case InstanceExecutionMode::SUBPROCESS:
-    return createSubprocess(solutionRegistry, instanceStorage,
-                            workerExecutable);
-
   case InstanceExecutionMode::IN_PROCESS:
-  default:
     return createInProcess(solutionRegistry, pipelineBuilder, instanceStorage);
+
+  case InstanceExecutionMode::SUBPROCESS:
+  default:
+    return createSubprocess(solutionRegistry, instanceStorage, workerExecutable);
   }
 }
 
@@ -51,22 +50,22 @@ InstanceManagerFactory::createSubprocess(SolutionRegistry &solutionRegistry,
 InstanceExecutionMode InstanceManagerFactory::getExecutionModeFromEnv() {
   const char *mode_env = std::getenv("EDGE_AI_EXECUTION_MODE");
 
-  if (mode_env == nullptr) {
-    // Default to in-process for backward compatibility
-    return InstanceExecutionMode::IN_PROCESS;
-  }
-
-  std::string mode_str(mode_env);
-  // Convert to lowercase for comparison
-  std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), ::tolower);
-
-  if (mode_str == "subprocess" || mode_str == "isolated" ||
-      mode_str == "worker") {
+  if (mode_env == nullptr || mode_env[0] == '\0') {
     return InstanceExecutionMode::SUBPROCESS;
   }
 
-  // Default to in-process
-  return InstanceExecutionMode::IN_PROCESS;
+  std::string mode_str(mode_env);
+  std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), ::tolower);
+
+  // In-process only when explicitly requested (legacy / debugging)
+  if (mode_str == "inprocess" || mode_str == "in-process" ||
+      mode_str == "in_process" || mode_str == "legacy" ||
+      mode_str == "main") {
+    return InstanceExecutionMode::IN_PROCESS;
+  }
+
+  // subprocess, isolated, worker, or any other value → isolated workers
+  return InstanceExecutionMode::SUBPROCESS;
 }
 
 std::string InstanceManagerFactory::getModeName(InstanceExecutionMode mode) {

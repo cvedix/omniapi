@@ -1,51 +1,51 @@
 {
-    "solutionId": "face_detection_rtsp_default",
-    "solutionName": "Face Detection - RTSP Stream",
-    "solutionType": "face_detection",
-    "isDefault": false,
-    "description": "Face detection với RTSP stream làm input và lưu kết quả ra file",
-    "category": "face_detection",
-    "pipeline": [
-        {
-            "nodeType": "rtsp_src",
-            "nodeName": "rtsp_src_{instanceId}",
-            "parameters": {
-                "rtsp_url": "${RTSP_URL}",
-                "channel": "0",
-                "resize_ratio": "${RESIZE_RATIO}"
-            }
-        },
-        {
-            "nodeType": "yunet_face_detector",
-            "nodeName": "face_detector_{instanceId}",
-            "parameters": {
-                "model_path": "${MODEL_PATH}",
-                "score_threshold": "${detectionSensitivity}",
-                "nms_threshold": "0.5",
-                "top_k": "50"
-            }
-        },
-        {
-            "nodeType": "file_des",
-            "nodeName": "file_des_{instanceId}",
-            "parameters": {
-                "save_dir": "./output/{instanceId}",
-                "name_prefix": "face_detection_rtsp",
-                "osd": "true"
-            }
-        }
-    ],
-    "defaults": {
-        "detectorMode": "SmartDetection",
-        "detectionSensitivity": "0.6",
-        "sensorModality": "RGB",
-        "RESIZE_RATIO": "1.0"
+  "solutionId": "face_detection_rtsp_default",
+  "solutionName": "Face Detection - RTSP Stream",
+  "solutionType": "face_detection",
+  "isDefault": false,
+  "description": "Face detection với RTSP stream làm input và lưu kết quả ra file",
+  "category": "face_detection",
+  "pipeline": [
+    {
+      "nodeType": "rtsp_src",
+      "nodeName": "rtsp_src_{instanceId}",
+      "parameters": {
+        "rtsp_url": "${RTSP_SRC_URL}",
+        "channel": "0",
+        "resize_ratio": "${RESIZE_RATIO}"
+      }
     },
-    "requiredParams": {
-        "RTSP_URL": "URL RTSP stream",
-        "MODEL_PATH": "Đường dẫn model face detection (yunet)"
+    {
+      "nodeType": "yunet_face_detector",
+      "nodeName": "face_detector_{instanceId}",
+      "parameters": {
+        "model_path": "${MODEL_PATH}",
+        "score_threshold": "${detectionSensitivity}",
+        "nms_threshold": "0.5",
+        "top_k": "50"
+      }
     },
-    "optionalParams": {
-        "RESIZE_RATIO": "Tỷ lệ resize video (0.0-1.0), mặc định 1.0"
+    {
+      "nodeType": "file_des",
+      "nodeName": "file_des_{instanceId}",
+      "parameters": {
+        "save_dir": "./output/{instanceId}",
+        "name_prefix": "face_detection_rtsp",
+        "osd": "true"
+      }
     }
+  ],
+  "defaults": {
+    "detectorMode": "SmartDetection",
+    "detectionSensitivity": "0.6",
+    "sensorModality": "RGB",
+    "RESIZE_RATIO": "1.0"
+  },
+  "requiredParams": {
+    "RTSP_SRC_URL": "URL RTSP stream (input)",
+    "MODEL_PATH": "Đường dẫn model face detection (yunet)"
+  },
+  "optionalParams": {
+    "RESIZE_RATIO": "Tỷ lệ resize video (0.0-1.0), mặc định 1.0"
+  }
 }

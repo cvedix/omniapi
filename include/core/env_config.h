@@ -22,6 +22,29 @@
 namespace EnvConfig {
 
 /**
+ * @brief Root directory for runtime data (instances, models, logs, …)
+ *
+ * Set EDGEOS_API_INSTALL_DIR (or legacy EDGEOS_HOME) to override.
+ * Default: /opt/edgeos-api
+ */
+inline std::string getDataInstallRoot() {
+  const char *p = std::getenv("EDGEOS_API_INSTALL_DIR");
+  if (!p || p[0] == '\0') {
+    p = std::getenv("EDGEOS_HOME");
+  }
+  if (p && p[0] != '\0') {
+    std::string s(p);
+    while (!s.empty() && (s.back() == '/' || s.back() == '\\')) {
+      s.pop_back();
+    }
+    if (!s.empty()) {
+      return s;
+    }
+  }
+  return "/opt/edgeos-api";
+}
+
+/**
  * @brief Get string environment variable
  * @param name Variable name
  * @param default_value Default value if not set
@@ -341,8 +364,8 @@ inline std::vector<std::string>
 getAllPossibleDirectories(const std::string &subdir) {
   std::vector<std::string> paths;
 
-  // Tier 1: Production path
-  paths.push_back("/opt/edgeos-api/" + subdir);
+  // Tier 1: Install root (default /opt/edgeos-api)
+  paths.push_back(getDataInstallRoot() + "/" + subdir);
 
   // Tier 2: User directory
   const char *home = std::getenv("HOME");
@@ -361,7 +384,7 @@ getAllPossibleDirectories(const std::string &subdir) {
  *
  * Priority:
  * 1. Environment variable (if set) - highest priority
- * 2. Use /opt/edgeos-api/{subdir} as default (production path)
+ * 2. Use {EDGEOS_API_INSTALL_DIR}/{subdir} (default /opt/edgeos-api/{subdir})
  * 3. Fallback to ~/.local/share/edgeos-api/{subdir} (user directory)
  * 4. Last resort: ./{subdir} (current directory)
  *
@@ -402,8 +425,8 @@ inline std::string resolveDataDir(const char *env_var_name,
     }
   }
 
-  // Tier 2: Use /opt/edgeos-api/{subdir} as default (production path)
-  std::string default_path = "/opt/edgeos-api/" + subdir;
+  // Tier 2: Install root + subdir (default under /opt/edgeos-api)
+  std::string default_path = getDataInstallRoot() + "/" + subdir;
 
   // Try to create production directory
   try {

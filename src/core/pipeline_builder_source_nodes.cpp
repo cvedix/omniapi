@@ -178,6 +178,17 @@ PipelineBuilderSourceNodes::createRTSPSourceNode(
                 << gstDecoderName << "'" << std::endl;
     }
 
+    // If user (or template) named a decoder that is not installed, fall back:
+    // nvh264dec → vaapih264dec → qsvh264dec → avdec_h264 (selectDecoderWithFallback).
+    if (!isGStreamerDecoderAvailable(gstDecoderName)) {
+      std::cerr << "[PipelineBuilderSourceNodes] ⚠ WARNING: Decoder '"
+                << gstDecoderName
+                << "' not available (gst-inspect), falling back: "
+                   "nvh264dec → … → avdec_h264"
+                << std::endl;
+      gstDecoderName = selectDecoderWithFallback();
+    }
+
     // Get skip_interval (0 means no skip)
     // Priority: additionalParams SKIP_INTERVAL > params skip_interval > default
     // (0)

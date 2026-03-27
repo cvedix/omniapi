@@ -7,9 +7,9 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "RTSP_URL": "rtsp://localhost:8554/stream",
       "MODEL_PATH": "/opt/edgeos-api/models/trt/others/yolov8s_v8.5.engine",
-      "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt"
+      "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
+      "RTSP_SRC_URL": "rtsp://localhost:8554/stream"
     },
     "output": {
       "RTMP_URL": "rtmp://localhost:1935/live/yolov8_detector",

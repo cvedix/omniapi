@@ -3,7 +3,6 @@
 #include "core/logger.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
-#include "core/pipeline_builder_destination_nodes.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
 #include "models/create_instance_request.h"
@@ -289,12 +288,21 @@ QuickInstanceHandler::mapSolutionTypeToId(const std::string &solutionType,
 
   // Map solution types to solution IDs
   if (type == "face_detection" || type == "face") {
+    if (output == "rtmp") {
+      if (input == "rtsp" || input == "stream") {
+        return "face_detection_rtsp_rtmp_default";
+      } else if (input == "rtmp") {
+        return "face_detection_rtmp_rtmp_default";
+      }
+      return "face_detection_rtmp_default";
+    }
+
     if (input == "file" || input == "video") {
       return "face_detection_file_default";
     } else if (input == "rtsp" || input == "stream") {
       return "face_detection_rtsp_default";
     } else if (input == "rtmp") {
-      return "face_detection_rtmp_default";
+      return "face_detection_rtmp_rtmp_default";
     } else {
       // Default to file input
       return "face_detection_file_default";
@@ -425,11 +433,15 @@ QuickInstanceHandler::getDefaultParams(const std::string &solutionType,
     if (input == "file" || input == "video") {
       defaults["FILE_PATH"] = "/opt/edgeos-api/videos/face.mp4";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx";
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
     } else if (input == "rtsp" || input == "stream") {
       defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx";
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
+    } else if (input == "rtmp") {
+      defaults["RTMP_SRC_URL"] = "rtmp://localhost:1935/live/stream";
+      defaults["MODEL_PATH"] =
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
     }
     defaults["RESIZE_RATIO"] = "1.0";
   }
@@ -534,6 +546,53 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     outputType = json["outputType"].asString();
   }
 
+  // If input type was not explicitly provided, infer it from FILE_PATH when possible.
+  auto inferInputTypeFromPath = [](const std::string &path) -> std::string {
+    if (path.empty()) {
+      return "file";
+    }
+    std::string lower = path;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower.rfind("rtsp://", 0) == 0) {
+      return "rtsp";
+    }
+    if (lower.rfind("rtmp://", 0) == 0) {
+      return "rtmp";
+    }
+    if (lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0 ||
+        lower.find(".m3u8") != std::string::npos) {
+      return "hls";
+    }
+    return "file";
+  };
+
+  if (inputType == "file") {
+    const auto inferFromValue = [&](const std::string &value) {
+      std::string inferred = inferInputTypeFromPath(value);
+      if (inferred != "file") {
+        inputType = inferred;
+      }
+    };
+
+    if (json.isMember("input") && json["input"].isObject()) {
+      if (json["input"].isMember("FILE_PATH") && json["input"]["FILE_PATH"].isString()) {
+        inferFromValue(json["input"]["FILE_PATH"].asString());
+      }
+    } else if (json.isMember("additionalParams") && json["additionalParams"].isObject()) {
+      if (json["additionalParams"].isMember("input") &&
+          json["additionalParams"]["input"].isObject() &&
+          json["additionalParams"]["input"].isMember("FILE_PATH") &&
+          json["additionalParams"]["input"]["FILE_PATH"].isString()) {
+        inferFromValue(json["additionalParams"]["input"]["FILE_PATH"].asString());
+      } else if (json["additionalParams"].isMember("FILE_PATH") &&
+                 json["additionalParams"]["FILE_PATH"].isString()) {
+        inferFromValue(json["additionalParams"]["FILE_PATH"].asString());
+      }
+    } else if (json.isMember("FILE_PATH") && json["FILE_PATH"].isString()) {
+      inferFromValue(json["FILE_PATH"].asString());
+    }
+  }
+
   // Map solution type to solution ID
   std::string solutionId =
       mapSolutionTypeToId(solutionType, inputType, outputType);
@@ -542,6 +601,11 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     return false;
   }
   req.solution = solutionId;
+
+  // Face detection sample/pipeline uses YuNet detector only (no SFace encoder).
+  // Ignore SFACE_MODEL_PATH for face_detection* solutions to keep API payload aligned.
+  const bool isFaceDetectionSolution =
+      solutionId.rfind("face_detection", 0) == 0;
 
   // Optional fields
   if (json.isMember("group") && json["group"].isString()) {
@@ -625,6 +689,11 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     if (req.additionalParams.find(key) == req.additionalParams.end()) {
       req.additionalParams[key] = value;
     }
+  }
+
+  if (isFaceDetectionSolution) {
+    req.additionalParams.erase("SFACE_MODEL_PATH");
+    req.additionalParams.erase("SFACE_MODEL_NAME");
   }
 
   // Parse lines parameter for BA Crossline (UI-friendly format)
@@ -760,6 +829,20 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
 Json::Value
 QuickInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   Json::Value json;
+  auto ensureStreamKeySuffixZero = [](const std::string &url) -> std::string {
+    if (url.empty()) {
+      return url;
+    }
+    size_t lastSlash = url.find_last_of('/');
+    if (lastSlash == std::string::npos || lastSlash >= url.length() - 1) {
+      return url;
+    }
+    std::string streamKey = url.substr(lastSlash + 1);
+    if (streamKey.length() >= 2 && streamKey.substr(streamKey.length() - 2) == "_0") {
+      return url;
+    }
+    return url + "_0";
+  };
   json["instanceId"] = info.instanceId;
   json["displayName"] = info.displayName;
   json["group"] = info.group;
@@ -789,17 +872,22 @@ QuickInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
 
   // Add streaming URLs if available
   if (!info.rtmpUrl.empty()) {
-    json["rtmpUrl"] = info.rtmpUrl;
-    
-    // Extract RTMP prefix (stream key without _0 suffix)
-    // RTMP node automatically adds _0 suffix, so we extract the original stream key
-    std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(info.rtmpUrl);
+    std::string normalizedRtmpUrl = ensureStreamKeySuffixZero(info.rtmpUrl);
+    json["rtmpUrl"] = normalizedRtmpUrl;
+
+    // Keep the actual stream key from URL path (including suffix such as "_0")
+    // to match the real publish path used by RTMP output.
+    std::string streamKey;
+    size_t lastSlash = normalizedRtmpUrl.find_last_of('/');
+    if (lastSlash != std::string::npos && lastSlash < normalizedRtmpUrl.length() - 1) {
+      streamKey = normalizedRtmpUrl.substr(lastSlash + 1);
+    }
     if (!streamKey.empty()) {
       json["prefix"] = streamKey;
     }
   }
   if (!info.rtspUrl.empty()) {
-    json["rtspUrl"] = info.rtspUrl;
+    json["rtspUrl"] = ensureStreamKeySuffixZero(info.rtspUrl);
   }
 
   return json;

@@ -97,6 +97,9 @@ echo ""
 echo "Configuration Summary:"
 echo "----------------------"
 
+# Effective data root (binary default is /opt/edgeos-api when unset)
+EDGEOS_ROOT="${EDGEOS_API_INSTALL_DIR:-/opt/edgeos-api}"
+
 # Server Configuration
 echo "Server:"
 echo "  API_HOST=${API_HOST:-0.0.0.0} (default: 0.0.0.0)"
@@ -104,17 +107,21 @@ echo "  API_PORT=${API_PORT:-8080} (default: 8080)"
 echo "  THREAD_NUM=${THREAD_NUM:-0} (default: 0 = auto)"
 
 # Logging Configuration
+echo "Data root (unset in env → binary uses /opt/edgeos-api):"
+echo "  EDGEOS_API_INSTALL_DIR=${EDGEOS_API_INSTALL_DIR:-<unset → /opt/edgeos-api>}"
 echo "Logging:"
 echo "  LOG_LEVEL=${LOG_LEVEL:-INFO} (default: INFO)"
-echo "  LOG_DIR=${LOG_DIR:-./logs} (default: ./logs)"
+echo "  LOG_DIR=${LOG_DIR:-./logs} (dev: ./logs; production: often ${EDGEOS_ROOT}/logs via config)"
 echo "  LOG_RETENTION_DAYS=${LOG_RETENTION_DAYS:-30} (default: 30)"
 echo "  LOG_MAX_DISK_USAGE_PERCENT=${LOG_MAX_DISK_USAGE_PERCENT:-85}% (default: 85%)"
 echo "  LOG_CLEANUP_INTERVAL_HOURS=${LOG_CLEANUP_INTERVAL_HOURS:-24} (default: 24)"
 
 # Instance Management
-echo "Instance Management:"
-echo "  INSTANCES_DIR=${INSTANCES_DIR:-/opt/edgeos-api/instances} (default: /opt/edgeos-api/instances)"
-echo "  MODELS_DIR=${MODELS_DIR:-./models} (default: ./models)"
+echo "Instance Management (if unset, binary resolves under ${EDGEOS_ROOT}/):"
+echo "  INSTANCES_DIR=${INSTANCES_DIR:-${EDGEOS_ROOT}/instances}"
+echo "  MODELS_DIR=${MODELS_DIR:-${EDGEOS_ROOT}/models}"
+echo "  NODES_DIR=${NODES_DIR:-${EDGEOS_ROOT}/nodes}"
+echo "  EDGE_AI_SOCKET_DIR=${EDGE_AI_SOCKET_DIR:-${EDGEOS_ROOT}/run}"
 
 # Watchdog & Health Monitor
 echo "Monitoring:"

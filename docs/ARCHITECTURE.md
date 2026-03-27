@@ -110,8 +110,8 @@ graph TB
 
     B --> F[Select Execution Mode]
     F -->|EDGE_AI_EXECUTION_MODE| G{Mode?}
-    G -->|subprocess| H[SubprocessInstanceManager]
-    G -->|in-process| I[InProcessInstanceManager]
+    G -->|default / subprocess| H[SubprocessInstanceManager]
+    G -->|in-process / legacy| I[InProcessInstanceManager]
 
     H --> J[WorkerSupervisor]
     I --> K[InstanceRegistry]
@@ -219,10 +219,8 @@ flowchart TD
     InitLogging --> InitCoreServices[Khởi Tạo Core Services<br/>SolutionRegistry, InstanceStorage,<br/>PipelineBuilder]
     InitCoreServices --> CheckExecutionMode[Kiểm Tra EDGE_AI_EXECUTION_MODE<br/>Environment Variable]
     CheckExecutionMode --> ModeDecision{Execution Mode?}
-    ModeDecision -->|subprocess| CreateSubprocessManager[Tạo SubprocessInstanceManager<br/>+ WorkerSupervisor]
-    ModeDecision -->|in-process| CreateInProcessManager[Tạo InProcessInstanceManager<br/>+ InstanceRegistry]
-    ModeDecision -->|not set| DefaultInProcess[Default: In-Process Mode<br/>Backward Compatibility]
-    DefaultInProcess --> CreateInProcessManager
+    ModeDecision -->|unset / subprocess*| CreateSubprocessManager[Tạo SubprocessInstanceManager<br/>+ WorkerSupervisor]
+    ModeDecision -->|in-process / legacy| CreateInProcessManager[Tạo InProcessInstanceManager<br/>+ InstanceRegistry]
     CreateSubprocessManager --> SetInstanceManager[Set IInstanceManager<br/>cho các Handlers]
     CreateInProcessManager --> SetInstanceManager
     SetInstanceManager --> RegisterHandlers[Đăng Ký API Handlers<br/>InstanceHandler, CreateInstanceHandler,<br/>GroupHandler, LinesHandler, etc.]
@@ -649,21 +647,21 @@ Execution mode chi tiết và tối ưu ổn định: [task/edgeos-api/01_PHASE_
 #### Chọn Execution Mode
 
 ```bash
-# In-Process mode (legacy, for development)
-export EDGE_AI_EXECUTION_MODE=in-process
+# Subprocess (mặc định khi không set biến — khuyến nghị production)
 ./edgeos-api
+# hoặc export EDGE_AI_EXECUTION_MODE=subprocess
 
-# Subprocess mode (production default)
-export EDGE_AI_EXECUTION_MODE=subprocess
+# In-Process (legacy, chỉ khi cần debug / tương thích cũ)
+export EDGE_AI_EXECUTION_MODE=in-process
 ./edgeos-api
 ```
 
-**Production Configuration**: Khi cài đặt từ .deb package, file `/opt/edgeos-api/config/.env` được tạo tự động với `EDGE_AI_EXECUTION_MODE=subprocess`. Systemd service sẽ load file này, đảm bảo production chạy Subprocess mode mặc định.
+**Production Configuration**: Khi cài đặt từ .deb package, file `/opt/edgeos-api/config/.env` dùng `EDGE_AI_EXECUTION_MODE=subprocess`. Dù không có dòng này, binary cũng mặc định subprocess.
 
-Để chuyển về In-Process mode trong production, sửa file `/opt/edgeos-api/config/.env`:
+Để bật In-Process (legacy), sửa `/opt/edgeos-api/config/.env`:
 ```bash
 sudo nano /opt/edgeos-api/config/.env
-# Thay đổi: EDGE_AI_EXECUTION_MODE=in-process
+# Thêm hoặc đổi: EDGE_AI_EXECUTION_MODE=in-process
 sudo systemctl restart edgeos-api
 ```
 
