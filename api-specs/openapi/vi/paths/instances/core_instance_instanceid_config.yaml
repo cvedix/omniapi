@@ -79,7 +79,7 @@
       schema:
         type: string
       description: Định danh duy nhất của instance (UUID)
-      example: '{Test}'
+      example: '{instanceId}'
     requestBody:
       required: true
       content:
@@ -97,6 +97,70 @@
               value:
                 path: Output/handlers/Mqtt
                 jsonValue: '{"uri":"mqtt://localhost:1883/events"}'
+    responses:
+      '204':
+        description: Đã thiết lập giá trị cấu hình thành công
+      '400':
+        description: Yêu cầu không hợp lệ (đầu vào sai hoặc thiếu trường bắt buộc)
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Không tìm thấy instance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '500':
+        description: Lỗi máy chủ
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+  put:
+    summary: Đặt giá trị config tại đường dẫn cụ thể
+    description: 'PUT alias của POST để đặt giá trị cấu hình tại đường dẫn chỉ định.
+
+
+      Hữu ích cho client muốn cập nhật tài nguyên theo ngữ nghĩa PUT.
+
+
+      Để bật/tắt face detection global cho instance, dùng:
+
+      - path: `"AdditionalParams/ENABLE_FACE_DETECTION"`, jsonValue: `"\"true\""` hoặc `"\"false\""`
+
+      - path: `"AdditionalParams/FACE_DETECTION_MODEL_PATH"`, jsonValue: `"\"/opt/cvedix/models/face/yunet.onnx\""`
+
+      '
+    operationId: setConfigPut
+    tags:
+    - Instances
+    parameters:
+    - name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Định danh duy nhất của instance (UUID)
+      example: '{instanceId}'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SetConfigRequest'
+          examples:
+            enableFaceDetection:
+              summary: Bật face detection global
+              value:
+                path: AdditionalParams/ENABLE_FACE_DETECTION
+                jsonValue: '"true"'
+            setFaceDetectionModelPath:
+              summary: Thiết lập đường dẫn model face detection
+              value:
+                path: AdditionalParams/FACE_DETECTION_MODEL_PATH
+                jsonValue: '"/opt/cvedix/models/face/yunet.onnx"'
     responses:
       '204':
         description: Đã thiết lập giá trị cấu hình thành công

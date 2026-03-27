@@ -1250,6 +1250,25 @@ void SecuRTHandler::setFaceDetection(
     bool enable = (*json)["enable"].asBool();
     feature_manager_->setFaceDetection(instanceId, enable);
 
+    // Persist + apply runtime pipeline change via core instance update.
+    // This triggers pipeline rebuild for running instances in InstanceRegistry.
+    if (core_instance_manager_) {
+      Json::Value updateConfig(Json::objectValue);
+      Json::Value additionalParams(Json::objectValue);
+      additionalParams["SECURT_FACE_DETECTION_ENABLE"] =
+          enable ? "true" : "false";
+      additionalParams["ENABLE_FACE_DETECTION"] = enable ? "true" : "false";
+      updateConfig["AdditionalParams"] = additionalParams;
+
+      if (!core_instance_manager_->updateInstanceFromConfig(instanceId,
+                                                            updateConfig)) {
+        callback(createErrorResponse(
+            500, "Internal server error",
+            "Failed to apply face detection setting to pipeline"));
+        return;
+      }
+    }
+
     auto resp = HttpResponse::newHttpResponse();
     resp->setStatusCode(k204NoContent);
     resp->addHeader("Access-Control-Allow-Origin", "*");

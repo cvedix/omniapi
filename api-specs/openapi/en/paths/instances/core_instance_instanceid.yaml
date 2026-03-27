@@ -204,7 +204,7 @@
       schema:
         type: string
       description: Instance ID (UUID)
-      example: 'ba_crossline_demo'
+      example: '{instanceId}'
     requestBody:
       required: true
       content:

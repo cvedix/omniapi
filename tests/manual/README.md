@@ -31,6 +31,7 @@ manual/
 │   ├── SYSTEM_CONFIG_MANUAL_TEST.md
 │   ├── SYSTEM_CONFIG_QUICK_TEST.md
 │   ├── EVENTS_OUTPUT_MANUAL_TEST.md
+│   ├── FACE_DETECTION_GLOBAL_TOGGLE_MANUAL_TEST.md
 │   ├── WATCHDOG_DEVICE_REPORT_MANUAL_TEST.md
 │   ├── WATCHDOG_DEVICE_REPORT_CONFIG_API.md
 │   ├── CONFIG_BIND_AND_RESTART_MANUAL_TEST.md
@@ -169,6 +170,7 @@ Manual tests được thiết kế để:
 ### Core API - Instance (toàn bộ endpoint)
 - **INSTANCE_API_MANUAL_TEST.md**: Toàn bộ Core Instance API (list, create, load/start/stop/restart/unload, batch, config, input, output, lines, jams, stops, frame, preview, consume_events, statistics, quick, status/summary).
 - **INSTANCE_FPS_MANUAL_TEST.md**: GET/POST/DELETE /api/v1/instances/{instance_id}/fps.
+- **FACE_DETECTION_GLOBAL_TOGGLE_MANUAL_TEST.md**: Kịch bản bật/tắt face detection cho mọi solution qua `AdditionalParams.ENABLE_FACE_DETECTION`, bao gồm case `ba_crossline` đang chạy.
 
 ### Core API - AI
 - **CORE_AI_MANUAL_TEST.md**: POST /v1/core/ai/process, /v1/core/ai/batch; GET /v1/core/ai/metrics, /v1/core/ai/status.

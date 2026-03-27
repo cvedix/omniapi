@@ -39,6 +39,8 @@ class UpdateInstanceRequest;
  * - GET /v1/core/instance/{instanceId}/config - Get instance configuration
  * - POST /v1/core/instance/{instanceId}/config - Set config value at a
  * specific path
+ * - PUT /v1/core/instance/{instanceId}/config - Set config value at a
+ * specific path (alias of POST)
  * - GET /v1/core/instance/{instanceId}/statistics - Get instance statistics
  * - GET /v1/core/instance/{instanceId}/output/stream - Get stream output
  * configuration
@@ -82,6 +84,8 @@ public:
                 "/v1/core/instance/{instanceId}/config", Get);
   ADD_METHOD_TO(InstanceHandler::setConfig,
                 "/v1/core/instance/{instanceId}/config", Post);
+  ADD_METHOD_TO(InstanceHandler::setConfig,
+                "/v1/core/instance/{instanceId}/config", Put);
   ADD_METHOD_TO(InstanceHandler::getInstanceLogConfig,
                 "/v1/core/instance/{instanceId}/log/config", Get);
   ADD_METHOD_TO(InstanceHandler::putInstanceLogConfig,
@@ -285,7 +289,7 @@ public:
                  std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle POST /v1/core/instance/{instanceId}/config
+   * @brief Handle POST/PUT /v1/core/instance/{instanceId}/config
    * Sets config value at a specific path (nested path supported with "/"
    * separator)
    */

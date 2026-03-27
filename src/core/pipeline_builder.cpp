@@ -580,6 +580,41 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
   }
 
   // Build nodes in pipeline order
+  auto parseBoolParam = [](const std::map<std::string, std::string> &params,
+                           const std::string &key) -> bool {
+    auto it = params.find(key);
+    if (it == params.end()) {
+      return false;
+    }
+    std::string value = it->second;
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return (value == "1" || value == "true" || value == "yes" ||
+            value == "on");
+  };
+
+  auto hasFaceDetectorInBasePipeline = [&solution]() -> bool {
+    for (const auto &cfg : solution.pipeline) {
+      if (cfg.nodeType == "yunet_face_detector" ||
+          cfg.nodeType == "rknn_face_detector" ||
+          cfg.nodeType == "trt_yolov11_face_detector") {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  auto isDestinationNodeType = [](const std::string &nodeType) -> bool {
+    return nodeType == "file_des" || nodeType == "rtmp_des" ||
+           nodeType == "frame_router_sink" || nodeType == "rtsp_des" ||
+           nodeType == "screen_des" || nodeType == "app_des";
+  };
+
+  const bool globalFaceDetectionEnabled =
+      parseBoolParam(mutableReq.additionalParams, "ENABLE_FACE_DETECTION");
+  const bool pipelineAlreadyHasFaceDetector = hasFaceDetectorInBasePipeline();
+  bool optionalFaceDetectorInjected = false;
+
   for (const auto &nodeConfig : solution.pipeline) {
     try {
       std::cerr << "[PipelineBuilder] Creating node: " << nodeConfig.nodeType
@@ -636,6 +671,68 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                     << " node (no CrossingLines or CROSSLINE_* params - running ba_loitering only)"
                     << std::endl;
           continue;
+        }
+      }
+
+      // Backward compatibility for SecuRT-specific optional face detector node.
+      if (nodeConfig.nodeType == "yunet_face_detector" &&
+          nodeConfig.nodeName.find("securt_face_detector_") == 0) {
+        const bool securtFaceEnabled =
+            parseBoolParam(mutableReq.additionalParams,
+                           "SECURT_FACE_DETECTION_ENABLE") ||
+            parseBoolParam(mutableReq.additionalParams,
+                           "ENABLE_FACE_DETECTION");
+        if (!securtFaceEnabled) {
+          std::cerr << "[PipelineBuilder] Skipping securt_face_detector node "
+                       "(face detection disabled)"
+                    << std::endl;
+          continue;
+        }
+      }
+
+      // Global optional face detector for all solutions:
+      // inject once, right before the first destination node.
+      if (!optionalFaceDetectorInjected && globalFaceDetectionEnabled &&
+          !pipelineAlreadyHasFaceDetector &&
+          isDestinationNodeType(nodeConfig.nodeType)) {
+        SolutionConfig::NodeConfig optFaceCfg;
+        optFaceCfg.nodeType = "yunet_face_detector";
+        optFaceCfg.nodeName = "optional_face_detector_{instanceId}";
+        optFaceCfg.parameters["model_path"] = "${FACE_DETECTION_MODEL_PATH}";
+        optFaceCfg.parameters["score_threshold"] = "${detectionSensitivity}";
+        optFaceCfg.parameters["nms_threshold"] = "0.5";
+        optFaceCfg.parameters["top_k"] = "50";
+
+        std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> optExtraNodes;
+        auto optFaceNode = createNode(optFaceCfg, mutableReq, instanceId,
+                                      existingRTMPStreamKeys, &optExtraNodes);
+        if (optFaceNode) {
+          nodes.push_back(optFaceNode);
+          nodeTypes.push_back(optFaceCfg.nodeType);
+          for (const auto &extra : optExtraNodes) {
+            nodes.push_back(extra);
+            nodeTypes.push_back("rtmp_des");
+          }
+
+          if (nodes.size() > 1) {
+            size_t attachIndex = nodes.size() - 2 - optExtraNodes.size();
+            std::shared_ptr<cvedix_nodes::cvedix_node> attachTarget = nullptr;
+            if (attachIndex < nodes.size()) {
+              attachTarget = nodes[attachIndex];
+            }
+            if (attachTarget) {
+              optFaceNode->attach_to({attachTarget});
+            }
+          }
+
+          optionalFaceDetectorInjected = true;
+          std::cerr << "[PipelineBuilder] Injected optional_face_detector node "
+                       "(ENABLE_FACE_DETECTION=true)"
+                    << std::endl;
+        } else {
+          std::cerr << "[PipelineBuilder] ⚠ Failed to inject optional "
+                       "face detector node"
+                    << std::endl;
         }
       }
 
