@@ -97,6 +97,7 @@ private:
   // Zero-downtime: persistent RTMP output leg + frame router (when RTMP URL is set)
   std::shared_ptr<edgeos::PersistentOutputLeg> output_leg_;
   std::unique_ptr<edgeos::FrameRouter> frame_router_;
+  std::string current_output_rtmp_url_;
   // Last-frame pump during swap (keeps RTMP alive)
   std::thread last_frame_pump_thread_;
   std::atomic<bool> last_frame_pump_running_{false};

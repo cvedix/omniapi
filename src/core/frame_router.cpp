@@ -17,15 +17,13 @@ FrameRouter::FrameRouter(std::shared_ptr<PersistentOutputLeg> outputLeg)
 }
 
 FrameRouter::PipelineSnapshotPtr FrameRouter::setActivePipeline(PipelineSnapshotPtr snapshot) {
-  std::unique_lock<std::shared_mutex> lock(active_pipeline_mutex_);
-  PipelineSnapshotPtr old = std::move(active_pipeline_);
-  active_pipeline_ = std::move(snapshot);
+  PipelineSnapshotPtr old = std::atomic_load_explicit(&active_pipeline_, std::memory_order_acquire);
+  std::atomic_store_explicit(&active_pipeline_, std::move(snapshot), std::memory_order_release);
   return old;
 }
 
 FrameRouter::PipelineSnapshotPtr FrameRouter::getActivePipeline() const {
-  std::shared_lock<std::shared_mutex> lock(active_pipeline_mutex_);
-  return active_pipeline_;
+  return std::atomic_load_explicit(&active_pipeline_, std::memory_order_acquire);
 }
 
 void FrameRouter::submitFrame(const cv::Mat& frame) {

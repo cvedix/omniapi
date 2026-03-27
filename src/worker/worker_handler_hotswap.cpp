@@ -33,7 +33,6 @@
 #include <cvedix/objects/cvedix_frame_meta.h>
 #include <cvedix/objects/cvedix_meta.h>
 #include <filesystem>
-#include <fstream>
 #include <future>
 #include <mutex>
 #include <set>
@@ -43,8 +42,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <sstream>
 #include <thread>
-#include <fstream>
-#include <chrono>
 
 namespace worker {
 
@@ -88,17 +85,6 @@ bool WorkerHandler::hotSwapPipeline(const Json::Value &newConfig) {
     }
   }
 
-  // #region agent log
-  {
-    auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    const char* logPath = "/home/cvedix/Data/DEV/DEV_1/api/.cursor/debug-408f41.log";
-    std::ofstream df(logPath, std::ios::app);
-    if (!df) { logPath = "/tmp/debug-408f41.log"; df.open(logPath, std::ios::app); }
-    if (df) df << "{\"sessionId\":\"408f41\",\"location\":\"worker_handler_hotswap.cpp:path_check\",\"message\":\"hotswap_path\",\"data\":{\"has_frame_router\":"
-               << (frame_router_ ? "true" : "false") << ",\"has_output_leg\":" << (output_leg_ ? "true" : "false")
-               << ",\"zero_downtime_path\":" << (frame_router_ && output_leg_ ? "true" : "false") << "},\"timestamp\":" << ts << ",\"hypothesisId\":\"H2\"}\n";
-  }
-  // #endregion
   // Zero-downtime path: persistent output leg + atomic swap (no RTMP reconnect)
   if (frame_router_ && output_leg_) {
     std::cout << "[Worker:" << instance_id_
@@ -293,29 +279,16 @@ bool WorkerHandler::preBuildPipeline(const Json::Value &newConfig) {
     // wiped output (e.g. PATCH only line but payload shape dropped RTMP), inject
     // RTMP URL from current running config_ so stream is not lost after swap.
     std::string rtmpFromReq = PipelineBuilderRequestUtils::getRTMPUrl(req);
-    bool injected = false;
     if (frame_router_ && rtmpFromReq.empty()) {
       std::string fromConfig = PipelineBuilderRequestUtils::getRTMPUrl(parseCreateRequest(config_));
       if (!fromConfig.empty()) {
         req.additionalParams["RTMP_URL"] = fromConfig;
         req.additionalParams["RTMP_DES_URL"] = fromConfig;
-        injected = true;
         std::cout << "[Worker:" << instance_id_
                   << "] Pre-build: injected RTMP URL from running config (zero-downtime stream preservation)"
                   << std::endl;
       }
     }
-    // #region agent log
-    {
-      auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-      const char* logPath = "/home/cvedix/Data/DEV/DEV_1/api/.cursor/debug-408f41.log";
-      std::ofstream df(logPath, std::ios::app);
-      if (!df) { logPath = "/tmp/debug-408f41.log"; df.open(logPath, std::ios::app); }
-      if (df) df << "{\"sessionId\":\"408f41\",\"location\":\"worker_handler_hotswap.cpp:preBuild_rtmp\",\"message\":\"preBuildPipeline RTMP\",\"data\":{\"getRTMPUrl_empty\":"
-                 << (rtmpFromReq.empty() ? "true" : "false") << ",\"injected_from_config\":" << (injected ? "true" : "false") << "},\"timestamp\":" << ts << ",\"hypothesisId\":\"H3\"}\n";
-    }
-    // #endregion
-
     if (req.solution.empty()) {
       last_error_ = "No solution specified in config";
       return false;

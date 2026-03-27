@@ -1,7 +1,6 @@
 #include "worker/worker_handler.h"
 #include "worker/worker_json_utils.h"
 #include "core/env_config.h"
-#include <fstream>
 #include "core/pipeline_builder.h"
 #include "core/pipeline_builder_request_utils.h"
 #include "core/pipeline_snapshot.h"
@@ -34,7 +33,6 @@
 #include <cvedix/objects/cvedix_frame_meta.h>
 #include <cvedix/objects/cvedix_meta.h>
 #include <filesystem>
-#include <fstream>
 #include <future>
 #include <mutex>
 #include <set>
@@ -312,20 +310,6 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
   }
   logRuntimeUpdate(instance_id_, "config merged (deep merge)");
 
-  // #region agent log
-  {
-    auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    const char* logPath = "/home/cvedix/Data/DEV/DEV_1/api/.cursor/debug-408f41.log";
-    std::ofstream df(logPath, std::ios::app);
-    if (!df) { logPath = "/tmp/debug-408f41.log"; df.open(logPath, std::ios::app); }
-    if (df) df << "{\"sessionId\":\"408f41\",\"location\":\"worker_handler_handlers.cpp:update_after_merge\",\"message\":\"config_merged\",\"data\":{\"hasAdditionalParams\":"
-               << (config_.isMember("additionalParams") && config_["additionalParams"].isObject() ? "true" : "false")
-               << ",\"hasOutput\":"
-               << (config_.isMember("additionalParams") && config_["additionalParams"].isObject() && config_["additionalParams"].isMember("output") ? "true" : "false")
-               << "},\"timestamp\":" << ts << ",\"hypothesisId\":\"H5\"}\n";
-  }
-  // #endregion
-
   if (!pipeline_running_.load() || !getActivePipeline() || getActivePipeline()->empty()) {
     std::cout << "[Worker:" << instance_id_
               << "] Config updated (pipeline not running, will apply on start)"
@@ -359,36 +343,6 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
     if (!onlyLineParamsChanged) {
       logRuntimeUpdate(instance_id_, "update=not_line_only -> may hot-swap");
     }
-    // #region agent log
-    {
-      auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-      std::string diffKeys;
-      if (!onlyLineParamsChanged) {
-        for (const auto& key : newParams.getMemberNames()) {
-          if (lineKeys.count(key)) continue;
-          std::string oldVal = oldParams.isMember(key) ? oldParams[key].asString() : "";
-          std::string newVal = newParams[key].asString();
-          if (oldVal != newVal) diffKeys += key + " ";
-        }
-        for (const auto& key : oldParams.getMemberNames()) {
-          if (lineKeys.count(key)) continue;
-          if (!newParams.isMember(key)) continue;
-          if (newParams[key].asString() != oldParams[key].asString()) {
-            if (diffKeys.find(key) == std::string::npos) diffKeys += key + " ";
-          }
-        }
-      }
-      const char* logPath = "/home/cvedix/Data/DEV/DEV_1/api/.cursor/debug-408f41.log";
-      std::ofstream df(logPath, std::ios::app);
-      if (!df) { logPath = "/tmp/debug-408f41.log"; df.open(logPath, std::ios::app); }
-      if (df) {
-        df << "{\"sessionId\":\"408f41\",\"location\":\"worker_handler_handlers.cpp:onlyLineParams_check\",\"message\":\"onlyLineParams_result\",\"data\":{\"onlyLineParamsChanged\":"
-           << (onlyLineParamsChanged ? "true" : "false");
-        if (!diffKeys.empty()) df << ",\"diffKeys\":\"" << diffKeys << "\"";
-        df << "},\"timestamp\":" << ts << ",\"hypothesisId\":\"H1\"}\n";
-      }
-    }
-    // #endregion
     if (onlyLineParamsChanged) {
       // Workaround: when we have persistent RTMP output (frame_router_/output_leg_),
       // set_lines() can block >IPC timeout and/or cause RTMP stream to stop (SDK behavior).
@@ -416,16 +370,6 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
                   << std::endl;
         logRuntimeUpdate(instance_id_, "update=line_only (no hot swap)");
         bool linesApplied = applyLinesFromParamsToPipeline(newParams);
-        // #region agent log
-        {
-          auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-          const char* logPath = "/home/cvedix/Data/DEV/DEV_1/api/.cursor/debug-408f41.log";
-          std::ofstream df(logPath, std::ios::app);
-          if (!df) { logPath = "/tmp/debug-408f41.log"; df.open(logPath, std::ios::app); }
-          if (df) df << "{\"sessionId\":\"408f41\",\"location\":\"worker_handler_handlers.cpp:line_only_apply\",\"message\":\"applyLinesFromParamsToPipeline_result\",\"data\":{\"ok\":"
-                     << (linesApplied ? "true" : "false") << "},\"timestamp\":" << ts << ",\"hypothesisId\":\"H4\"}\n";
-        }
-        // #endregion
         if (linesApplied) {
           response.payload = createResponse(ResponseStatus::OK, "Instance updated (runtime)");
           return response;
@@ -447,16 +391,6 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
   logRuntimeUpdate(instance_id_, "applyConfigToPipeline=" + std::string(canApplyRuntime ? "true" : "false"));
 
   if (needsRebuild || !canApplyRuntime) {
-    // #region agent log
-    {
-      auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-      const char* logPath = "/home/cvedix/Data/DEV/DEV_1/api/.cursor/debug-408f41.log";
-      std::ofstream df(logPath, std::ios::app);
-      if (!df) { logPath = "/tmp/debug-408f41.log"; df.open(logPath, std::ios::app); }
-      if (df) df << "{\"sessionId\":\"408f41\",\"location\":\"worker_handler_handlers.cpp:hotswap_decision\",\"message\":\"entering_hotswap\",\"data\":{\"needsRebuild\":"
-                 << (needsRebuild ? "true" : "false") << ",\"canApplyRuntime\":" << (canApplyRuntime ? "true" : "false") << "},\"timestamp\":" << ts << ",\"hypothesisId\":\"H1\"}\n";
-    }
-    // #endregion
     std::cout << "[Worker:" << instance_id_
               << "] Config changes require pipeline rebuild, using hot swap..."
               << std::endl;

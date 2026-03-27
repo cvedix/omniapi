@@ -515,7 +515,11 @@ void WorkerHandler::stopPipeline() {
 
 void WorkerHandler::cleanupPipeline() {
   stopPipeline();
+  stopLastFramePumpThread();
   setActivePipeline(nullptr);
+  frame_router_.reset();
+  output_leg_.reset();
+  current_output_rtmp_url_.clear();
   {
     std::lock_guard<std::shared_mutex> lock(state_mutex_);
     current_state_ = "stopped";

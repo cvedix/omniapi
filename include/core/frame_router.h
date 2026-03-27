@@ -6,7 +6,6 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
-#include <shared_mutex>
 
 namespace edgeos {
 class PersistentOutputLeg;
@@ -51,7 +50,6 @@ class FrameRouter {
 
  private:
   std::shared_ptr<PersistentOutputLeg> output_leg_;
-  mutable std::shared_mutex active_pipeline_mutex_;
   PipelineSnapshotPtr active_pipeline_;
   std::atomic<bool> last_frame_pump_active_{false};
   mutable std::mutex last_frame_mutex_;

@@ -70,8 +70,16 @@ bool WorkerHandler::ensureOutputLegForRtmp(const CreateInstanceRequest &req) {
   if (rtmpUrl.empty()) {
     return true;
   }
-  if (output_leg_) {
+  if (output_leg_ && rtmpUrl == current_output_rtmp_url_) {
     return true;
+  }
+  if (output_leg_ && rtmpUrl != current_output_rtmp_url_) {
+    std::cout << "[Worker:" << instance_id_
+              << "] RTMP output URL changed, recreating persistent output leg"
+              << std::endl;
+    stopLastFramePumpThread();
+    frame_router_.reset();
+    output_leg_.reset();
   }
   try {
     edgeos::PersistentOutputLegParams params;
@@ -81,6 +89,7 @@ bool WorkerHandler::ensureOutputLegForRtmp(const CreateInstanceRequest &req) {
     output_leg_ = std::make_shared<edgeos::PersistentOutputLeg>(
         instance_id_, rtmpUrl, params);
     frame_router_ = std::make_unique<edgeos::FrameRouter>(output_leg_);
+    current_output_rtmp_url_ = rtmpUrl;
     std::cout << "[Worker:" << instance_id_
               << "] Created persistent output leg + frame router (zero-downtime RTMP)"
               << std::endl;
@@ -138,8 +147,24 @@ void WorkerHandler::drainPipelineSnapshot(PipelineSnapshotPtr &snapshot) {
   if (!snapshot || snapshot->empty()) {
     return;
   }
-  const auto drainMs = std::chrono::milliseconds(150);
-  std::this_thread::sleep_for(drainMs);
+  constexpr auto kPollInterval = std::chrono::milliseconds(25);
+  constexpr auto kMaxDrain = std::chrono::milliseconds(400);
+  auto start = std::chrono::steady_clock::now();
+  uint64_t lastFrames = frames_processed_.load();
+  size_t stableSamples = 0;
+  while (std::chrono::steady_clock::now() - start < kMaxDrain) {
+    std::this_thread::sleep_for(kPollInterval);
+    uint64_t nowFrames = frames_processed_.load();
+    if (nowFrames == lastFrames) {
+      ++stableSamples;
+      if (stableSamples >= 3) {
+        break;
+      }
+    } else {
+      stableSamples = 0;
+      lastFrames = nowFrames;
+    }
+  }
 }
 
 void WorkerHandler::sendReadySignal() {

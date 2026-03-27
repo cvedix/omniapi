@@ -2203,13 +2203,6 @@ int main(int argc, char *argv[]) {
     // Register terminate handler for uncaught exceptions
     std::set_terminate(terminateHandler);
 
-    // Load system configuration first (needed for web_server config)
-    // Use intelligent path resolution with 3-tier fallback
-    std::string configPath = EnvConfig::resolveConfigPath();
-
-    auto &systemConfig = SystemConfig::getInstance();
-    systemConfig.loadConfig(configPath);
-
     // Apply logging config from config.json (overrides command-line --log-*)
     applyLoggingConfig(systemConfig.getLoggingConfig());
 

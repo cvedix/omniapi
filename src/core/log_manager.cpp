@@ -58,21 +58,17 @@ void LogManager::init(const LogManagerInitParams &params) {
   sdk_output_appender_.reset();
   general_appender_.reset();
 
-  // Initialize appenders for each category (always create so enabling via API works at runtime)
-  std::string api_log_path = getLogFilePath(Category::API, date_str);
-  api_appender_ =
-      std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
-          api_log_path.c_str(), max_file_size, max_files);
-
-  std::string instance_log_path = getLogFilePath(Category::INSTANCE, date_str);
-  instance_appender_ =
-      std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
-          instance_log_path.c_str(), max_file_size, max_files);
-
-  std::string sdk_log_path = getLogFilePath(Category::SDK_OUTPUT, date_str);
-  sdk_output_appender_ =
-      std::make_unique<plog::RollingFileAppender<plog::TxtFormatter>>(
-          sdk_log_path.c_str(), max_file_size, max_files);
+  // Initialize appenders for each category (always create so enabling via API
+  // works at runtime)
+  api_appender_ = std::make_unique<DailyPrefixAppender>(
+      getCategoryDir(Category::API), DailyPrefixAppender::Mode::ApiLines,
+      max_sz);
+  sdk_output_appender_ = std::make_unique<DailyPrefixAppender>(
+      getCategoryDir(Category::SDK_OUTPUT),
+      DailyPrefixAppender::Mode::SdkLines, max_sz);
+  general_appender_ = std::make_unique<DailyPrefixAppender>(
+      getCategoryDir(Category::GENERAL), DailyPrefixAppender::Mode::GeneralLines,
+      max_sz);
 
   InstanceFileLogger::init(getCategoryDir(Category::INSTANCE), max_sz);
 
@@ -275,13 +271,15 @@ void LogManager::cleanupOldLogs() {
 
   for (const auto &category_dir : categories) {
     try {
-      deleteOldFiles(d, days);
+      deleteOldFiles(category_dir, days_to_keep);
     } catch (const std::exception &e) {
-      std::cerr << "[LogManager] cleanup " << d << ": " << e.what() << std::endl;
+      std::cerr << "[LogManager] cleanup " << category_dir << ": " << e.what()
+                << std::endl;
     }
   }
   try {
-    deleteOldFilesRecursiveInstance(getCategoryDir(Category::INSTANCE), days);
+    deleteOldFilesRecursiveInstance(getCategoryDir(Category::INSTANCE),
+                                    days_to_keep);
   } catch (const std::exception &e) {
     std::cerr << "[LogManager] instance cleanup: " << e.what() << std::endl;
   }
@@ -321,7 +319,7 @@ void LogManager::deleteOldFilesRecursiveInstance(
       for (const auto &entry : fs::directory_iterator(instance_dir)) {
         if (entry.is_directory()) {
           try {
-            deleteOldFiles(entry.path().string(), days_to_keep);
+            deleteOldFiles(entry.path().string(), days_old);
           } catch (const std::exception &e) {
             std::cerr << "[LogManager] Error cleaning instance log dir "
                       << entry.path().string() << ": " << e.what() << std::endl;
