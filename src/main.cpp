@@ -2094,6 +2094,12 @@ int main(int argc, char *argv[]) {
     systemConfig.loadConfig(configPath);
 
     auto loggingCfg = systemConfig.getLoggingConfig();
+    // Propagate configured max log file size to subprocess workers so their
+    // stdout/stderr rotation follows the same limit.
+    {
+      std::string maxBytes = std::to_string(loggingCfg.maxLogFileSize);
+      setenv("EDGEOS_WORKER_LOG_MAX_FILE_SIZE", maxBytes.c_str(), 1);
+    }
     LogManagerInitParams logParams;
     logParams.resolved_log_root =
         systemConfig.resolveLogBaseDirectory(argv[0]);

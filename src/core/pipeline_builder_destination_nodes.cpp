@@ -309,6 +309,51 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
     bool enableOSD = params.count("osd") &&
                      (params.at("osd") == "true" || params.at("osd") == "1");
 
+    // Support RTMP encoder tuning via either node params or additionalParams.
+    // This mirrors SDK sample usage where custom GStreamer encoder strings
+    // (e.g. "nvvideoconvert ! nvv4l2h264enc") are passed to rtmp_des.
+    int bitrate = 1024; // kbps
+    auto parseBitrate = [&](const std::string &raw) {
+      try {
+        int v = std::stoi(raw);
+        if (v > 0) {
+          bitrate = v;
+        }
+      } catch (...) {
+      }
+    };
+    if (params.count("bitrate")) {
+      parseBitrate(params.at("bitrate"));
+    } else {
+      auto it = req.additionalParams.find("RTMP_BITRATE");
+      if (it != req.additionalParams.end() && !it->second.empty()) {
+        parseBitrate(trim(it->second));
+      } else {
+        it = req.additionalParams.find("RTMP_BITRATE_KBPS");
+        if (it != req.additionalParams.end() && !it->second.empty()) {
+          parseBitrate(trim(it->second));
+        }
+      }
+    }
+    if (bitrate <= 0) {
+      bitrate = 1024;
+    }
+
+    std::string encoderName;
+    if (params.count("encoder")) {
+      encoderName = trim(params.at("encoder"));
+    } else {
+      auto it = req.additionalParams.find("RTMP_ENCODER");
+      if (it != req.additionalParams.end() && !it->second.empty()) {
+        encoderName = trim(it->second);
+      } else {
+        it = req.additionalParams.find("RTMP_GST_ENCODER");
+        if (it != req.additionalParams.end() && !it->second.empty()) {
+          encoderName = trim(it->second);
+        }
+      }
+    }
+
     // Validate parameters
     if (nodeName.empty()) {
       throw std::invalid_argument("Node name cannot be empty");
@@ -330,27 +375,26 @@ PipelineBuilderDestinationNodes::createRTMPDestinationNode(
     std::cerr << "  Channel: " << channel << std::endl;
     std::cerr << "  OSD overlay: " << (enableOSD ? "enabled" : "disabled")
               << std::endl;
+    std::cerr << "  Bitrate: " << bitrate << " kbps" << std::endl;
+    if (!encoderName.empty()) {
+      std::cerr << "  Encoder: '" << encoderName << "'" << std::endl;
+    }
     std::cerr
         << "  NOTE: RTMP node automatically adds '_0' suffix to stream key"
         << std::endl;
 
     std::shared_ptr<cvedix_nodes::cvedix_rtmp_des_node> rtmpNode;
-    if (enableOSD) {
-      int bitrate = 1024;
-      if (params.count("bitrate")) {
-        bitrate = std::stoi(params.at("bitrate"));
-        if (bitrate <= 0) {
-          std::cerr << "[PipelineBuilderDestinationNodes] Warning: bitrate <= 0: " << bitrate
-                    << ", using default 1024" << std::endl;
-          bitrate = 1024;
-        }
-      }
+    bool useAdvancedCtor = enableOSD || !encoderName.empty() || params.count("bitrate") > 0 ||
+                           req.additionalParams.count("RTMP_BITRATE") > 0 ||
+                           req.additionalParams.count("RTMP_BITRATE_KBPS") > 0;
+    if (useAdvancedCtor) {
       cvedix_objects::cvedix_size resolution = {};
-      std::cerr << "[PipelineBuilderDestinationNodes] Using bitrate: " << bitrate << " kbps"
-                << std::endl;
+      if (encoderName.empty()) {
+        encoderName = "x264enc";
+      }
       rtmpNode = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(
           nodeName, channel, rtmpUrl, resolution, bitrate,
-          true // Enable OSD overlay
+          enableOSD, encoderName
       );
     } else {
       rtmpNode = std::make_shared<cvedix_nodes::cvedix_rtmp_des_node>(

@@ -9,10 +9,151 @@
 #include <iostream>
 #include <optional>
 #include <signal.h>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+#include <cctype>
 #include <sys/wait.h>
 #include <unistd.h>
 
 namespace worker {
+
+namespace {
+static bool envTruthy(const char *e) {
+  if (!e || !e[0]) {
+    return false;
+  }
+  std::string v(e);
+  std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+  return v == "1" || v == "true" || v == "yes" || v == "on";
+}
+
+static std::string todayDateStr() {
+  auto tt = std::time(nullptr);
+  std::tm tm {};
+  localtime_r(&tt, &tm);
+  std::ostringstream o;
+  o << std::setfill('0') << std::setw(4) << (tm.tm_year + 1900) << "-"
+    << std::setw(2) << (tm.tm_mon + 1) << "-" << std::setw(2) << tm.tm_mday;
+  return o.str();
+}
+
+static std::string sanitizeId(const std::string &id) {
+  std::string o;
+  for (char c : id) {
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') || c == '-' || c == '_') {
+      o += c;
+    }
+  }
+  return o.empty() ? "unknown" : o;
+}
+
+static size_t parseWorkerLogMaxBytes() {
+  // Keep in sync with logging defaults (100MB).
+  constexpr size_t kDefaultMax = 100 * 1024 * 1024;
+  constexpr size_t kMinMax = 1024 * 1024;
+
+  const char *raw = std::getenv("EDGEOS_WORKER_LOG_MAX_FILE_SIZE");
+  if (!raw || !raw[0]) {
+    raw = std::getenv("LOG_MAX_FILE_SIZE");
+  }
+  if (!raw || !raw[0]) {
+    return kDefaultMax;
+  }
+
+  try {
+    std::string s(raw);
+    s.erase(s.begin(),
+            std::find_if(s.begin(), s.end(),
+                         [](unsigned char ch) { return !std::isspace(ch); }));
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+                         [](unsigned char ch) { return !std::isspace(ch); })
+                .base(),
+            s.end());
+    if (s.empty()) {
+      return kDefaultMax;
+    }
+    unsigned long long v = std::stoull(s);
+    if (v < kMinMax) {
+      return kMinMax;
+    }
+    return static_cast<size_t>(v);
+  } catch (...) {
+    return kDefaultMax;
+  }
+}
+
+static std::string buildWorkerLogPath(const std::string &instDir,
+                                      const std::string &date,
+                                      int part) {
+  std::string base = instDir + "/worker-" + date;
+  if (part <= 0) {
+    return base + ".log";
+  }
+  return base + "." + std::to_string(part) + ".log";
+}
+
+static void redirectWorkerStdIOToInstanceLog(const std::string &instance_id) {
+  // Only enabled when caller explicitly asks for file logs.
+  // In subprocess mode, worker stdout/stderr is the most complete runtime log stream.
+  if (!envTruthy(std::getenv("EDGEOS_LOG_FILES"))) {
+    return;
+  }
+
+  // Determine base log dir. Prefer LOG_DIR if provided; otherwise default ./logs.
+  std::string base = "./logs";
+  if (const char *ld = std::getenv("LOG_DIR"); ld && ld[0]) {
+    base = ld;
+  }
+
+  std::string instDir = base;
+  if (!instDir.empty() && instDir.back() != '/') {
+    instDir += "/";
+  }
+  instDir += "instance/" + sanitizeId(instance_id);
+
+  std::error_code ec;
+  std::filesystem::create_directories(instDir, ec);
+
+  const std::string today = todayDateStr();
+  const size_t maxBytes = parseWorkerLogMaxBytes();
+
+  // Pick first non-full part so restart in same day doesn't keep appending to an oversized file.
+  int part = 0;
+  std::string logFile;
+  for (int guard = 0; guard < 10000; ++guard) {
+    logFile = buildWorkerLogPath(instDir, today, part);
+    std::error_code fsec;
+    if (!std::filesystem::exists(logFile, fsec)) {
+      break;
+    }
+    auto fsz = std::filesystem::file_size(logFile, fsec);
+    if (!fsec && fsz >= maxBytes) {
+      ++part;
+      continue;
+    }
+    break;
+  }
+
+  int fd = ::open(logFile.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0644);
+  if (fd < 0) {
+    // If we cannot open log file, keep default stdout/stderr to avoid hiding logs.
+    return;
+  }
+
+  // Redirect both stdout and stderr to the same file.
+  ::dup2(fd, STDOUT_FILENO);
+  ::dup2(fd, STDERR_FILENO);
+  if (fd > STDERR_FILENO) {
+    ::close(fd);
+  }
+
+  // Ensure line-buffering to reduce log loss on crash.
+  setvbuf(stdout, nullptr, _IOLBF, 0);
+  setvbuf(stderr, nullptr, _IOLBF, 0);
+}
+} // namespace
 
 WorkerSupervisor::WorkerSupervisor(const std::string &worker_executable)
     : worker_executable_(worker_executable) {}
@@ -134,6 +275,10 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
                   << " for instance " << instance_id << std::endl;
       }
     }
+
+    // Child process - optionally redirect worker logs to logs/instance/<id>/.
+    // This keeps subprocess mode debuggable without requiring in-process execution.
+    redirectWorkerStdIOToInstanceLog(instance_id);
     
     // Child process - exec worker
     // Arguments: worker_executable --instance-id <id> --socket <path> --config
