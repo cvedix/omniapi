@@ -725,6 +725,30 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
             }
           }
 
+          // Add face OSD right after optional face detector so face boxes/keypoints
+          // are rendered on stream output (especially for BA solutions with their
+          // own OSD node already present).
+          SolutionConfig::NodeConfig optFaceOsdCfg;
+          optFaceOsdCfg.nodeType = "face_osd_v2";
+          optFaceOsdCfg.nodeName = "optional_face_osd_{instanceId}";
+          std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>>
+              optFaceOsdExtraNodes;
+          auto optFaceOsdNode = createNode(optFaceOsdCfg, mutableReq, instanceId,
+                                           existingRTMPStreamKeys,
+                                           &optFaceOsdExtraNodes);
+          if (optFaceOsdNode) {
+            optFaceOsdNode->attach_to({optFaceNode});
+            nodes.push_back(optFaceOsdNode);
+            nodeTypes.push_back(optFaceOsdCfg.nodeType);
+            std::cerr << "[PipelineBuilder] Injected optional_face_osd node "
+                         "(face overlay enabled)"
+                      << std::endl;
+          } else {
+            std::cerr << "[PipelineBuilder] ⚠ Failed to inject optional "
+                         "face OSD node; face detector still enabled"
+                      << std::endl;
+          }
+
           optionalFaceDetectorInjected = true;
           std::cerr << "[PipelineBuilder] Injected optional_face_detector node "
                        "(ENABLE_FACE_DETECTION=true)"
@@ -2792,6 +2816,13 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
                                     const CreateInstanceRequest &req,
                                     const std::string &instanceId) {
   std::map<std::string, std::string> params;
+  const bool isFaceDetectorNode =
+      nodeConfig.nodeType == "yunet_face_detector" ||
+      nodeConfig.nodeType == "rknn_face_detector" ||
+      nodeConfig.nodeType == "trt_yolov11_face_detector";
+  const bool isBaSolution =
+      req.solution == "ba_crossline" || req.solution == "ba_jam" ||
+      req.solution == "ba_stop" || req.solution == "ba_loitering";
   
   for (const auto &param : nodeConfig.parameters) {
     std::string value = param.second;
@@ -2889,6 +2920,16 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
       } else {
         value = modelPath;
       }
+    } else if (param.first == "model_path" &&
+               value == "${FACE_DETECTION_MODEL_PATH}") {
+      // Face detector must not inherit MODEL_PATH from the main detector.
+      auto it = req.additionalParams.find("FACE_DETECTION_MODEL_PATH");
+      if (it != req.additionalParams.end() && !it->second.empty()) {
+        value = it->second;
+      } else {
+        value = PipelineBuilderModelResolver::resolveModelPath(
+            "models/face/yunet.onnx");
+      }
     } else if (param.first == "model_path" && value == "${SFACE_MODEL_PATH}") {
       // Handle SFace model path
       std::string modelPath;
@@ -2929,7 +2970,7 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
 
     // Override model_path if provided in additionalParams (even if not using
     // ${MODEL_PATH} placeholder)
-    if (param.first == "model_path") {
+    if (param.first == "model_path" && !(isFaceDetectorNode && isBaSolution)) {
       // Priority: MODEL_NAME > MODEL_PATH
       std::string modelPath;
 

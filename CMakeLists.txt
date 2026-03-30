@@ -350,6 +350,7 @@ set(SOURCES
     src/api/instance_handler_configure_rtsp.cpp
     src/api/instance_handler_push_encoded.cpp
     src/api/instance_handler_push_compressed.cpp
+    src/api/instance_handler_face_detection.cpp
     src/api/instance_fps_handler.cpp
     src/api/solution_handler.cpp
     src/api/solution_handler_create_update.cpp

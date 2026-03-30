@@ -8232,6 +8232,63 @@ paths:
       responses:
         '200':
           description: Phản hồi CORS preflight
+  /v1/core/instance/{instanceId}/face_detection:
+    post:
+      summary: Bật hoặc tắt face detection cho instance
+      description: Bật/tắt face detection cho một instance cụ thể bằng cách cập nhật cấu hình runtime.
+      operationId: setInstanceFaceDetection
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Định danh duy nhất của instance (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enable
+              properties:
+                enable:
+                  type: boolean
+                  description: true để bật face detection, false để tắt
+            example:
+              enable: true
+      responses:
+        '204':
+          description: Đã cập nhật cấu hình face detection thành công
+        '400':
+          description: Yêu cầu không hợp lệ (đầu vào sai)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Lỗi máy chủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight cho bật/tắt face detection
+      operationId: setInstanceFaceDetectionOptions
+      tags:
+      - Instances
+      responses:
+        '200':
+          description: Phản hồi CORS preflight
   /v1/core/instance/{instanceId}/jams/batch:
     post:
       summary: Cập nhật hàng loạt vùng kẹt xe (jam zones)

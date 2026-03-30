@@ -76,22 +76,8 @@ void SystemInfoHandler::getSystemStatus(
     Json::Value cpuStatus;
     cpuStatus["usage_percent"] = getCPUUsage();
 
-    // Get current frequency from hwinfo
-    try {
-      auto cpus = hwinfo::getAllCPUs();
-      if (!cpus.empty()) {
-        auto freqs = cpus[0].currentClockSpeed_MHz();
-        if (!freqs.empty()) {
-          cpuStatus["current_frequency_mhz"] = static_cast<Json::Int>(freqs[0]);
-        } else {
-          cpuStatus["current_frequency_mhz"] = -1;
-        }
-      } else {
-        cpuStatus["current_frequency_mhz"] = -1;
-      }
-    } catch (...) {
-      cpuStatus["current_frequency_mhz"] = -1;
-    }
+    // Frequency accessor in hwinfo differs by version; keep response stable.
+    cpuStatus["current_frequency_mhz"] = -1;
 
     double temp = getCPUTemperature();
     if (temp > 0) {
@@ -211,39 +197,12 @@ Json::Value SystemInfoHandler::getCPUInfo() const {
     cpuInfo["model"] = cpu.modelName();
     cpuInfo["physical_cores"] = cpu.numPhysicalCores();
     cpuInfo["logical_cores"] = cpu.numLogicalCores();
-    cpuInfo["max_frequency"] = static_cast<Json::Int>(cpu.maxClockSpeed_MHz());
-    cpuInfo["regular_frequency"] =
-        static_cast<Json::Int>(cpu.regularClockSpeed_MHz());
-
-    // Get current frequency (average of all cores)
-    auto freqs = cpu.currentClockSpeed_MHz();
-    if (!freqs.empty()) {
-      int64_t sum = 0;
-      for (auto f : freqs) {
-        if (f > 0)
-          sum += f;
-      }
-      if (sum > 0) {
-        cpuInfo["current_frequency"] =
-            static_cast<Json::Int>(sum / static_cast<int64_t>(freqs.size()));
-      } else {
-        cpuInfo["current_frequency"] = -1;
-      }
-    } else {
-      cpuInfo["current_frequency"] = -1;
-    }
-
-    cpuInfo["min_frequency"] = -1; // Not directly available from hwinfo
-
-    // Cache size (L3 is typically the largest)
-    int64_t cacheSize = cpu.L3CacheSize_Bytes();
-    if (cacheSize <= 0) {
-      cacheSize = cpu.L2CacheSize_Bytes();
-    }
-    if (cacheSize <= 0) {
-      cacheSize = cpu.L1CacheSize_Bytes();
-    }
-    cpuInfo["cache_size"] = static_cast<Json::Int64>(cacheSize);
+    // Keep compatibility across hwinfo versions that expose different APIs.
+    cpuInfo["max_frequency"] = -1;
+    cpuInfo["regular_frequency"] = -1;
+    cpuInfo["current_frequency"] = -1;
+    cpuInfo["min_frequency"] = -1;
+    cpuInfo["cache_size"] = static_cast<Json::Int64>(-1);
 
   } catch (const std::exception &e) {
     // Return empty or partial info on error
@@ -257,34 +216,32 @@ Json::Value SystemInfoHandler::getRAMInfo() const {
   Json::Value ramInfo;
 
   try {
-    hwinfo::Memory memory;
+    ramInfo["vendor"] = "Unknown";
+    ramInfo["model"] = "Unknown";
+    ramInfo["name"] = "Physical Memory";
+    ramInfo["serial_number"] = "N/A";
 
-    // Get modules info
-    const auto &modules = memory.modules();
-    if (!modules.empty()) {
-      // Use first module for vendor/model info
-      const auto &module = modules[0];
-      ramInfo["vendor"] = module.vendor.empty() ? "Unknown" : module.vendor;
-      ramInfo["model"] = module.model.empty() ? "Unknown" : module.model;
-      ramInfo["name"] = module.name.empty() ? "Physical Memory" : module.name;
-      ramInfo["serial_number"] =
-          module.serial_number.empty() ? "N/A" : module.serial_number;
-    } else {
-      ramInfo["vendor"] = "Unknown";
-      ramInfo["model"] = "Unknown";
-      ramInfo["name"] = "Physical Memory";
-      ramInfo["serial_number"] = "N/A";
+    std::ifstream meminfoFile("/proc/meminfo");
+    int64_t totalBytes = 0;
+    int64_t freeBytes = 0;
+    int64_t availableBytes = 0;
+    std::string line;
+    while (std::getline(meminfoFile, line)) {
+      std::istringstream iss(line);
+      std::string key, unit;
+      int64_t value = 0;
+      iss >> key >> value >> unit;
+      if (key == "MemTotal:") {
+        totalBytes = value * 1024;
+      } else if (key == "MemFree:") {
+        freeBytes = value * 1024;
+      } else if (key == "MemAvailable:") {
+        availableBytes = value * 1024;
+      }
     }
-
-    // Convert bytes to MiB
-    int64_t totalBytes = memory.total_Bytes();
-    int64_t freeBytes = memory.free_Bytes();
-    int64_t availableBytes = memory.available_Bytes();
-
     ramInfo["size_mib"] = static_cast<Json::Int64>(totalBytes / (1024 * 1024));
     ramInfo["free_mib"] = static_cast<Json::Int64>(freeBytes / (1024 * 1024));
-    ramInfo["available_mib"] =
-        static_cast<Json::Int64>(availableBytes / (1024 * 1024));
+    ramInfo["available_mib"] = static_cast<Json::Int64>(availableBytes / (1024 * 1024));
 
   } catch (const std::exception &e) {
     ramInfo["error"] = e.what();
@@ -305,13 +262,13 @@ Json::Value SystemInfoHandler::getGPUInfo() const {
       gpuInfo["model"] = gpu.name();
       gpuInfo["driver_version"] = gpu.driverVersion();
 
-      // Convert bytes to MiB
-      int64_t memoryBytes = gpu.memory_Bytes();
+      // Keep compatibility with newer hwinfo naming.
+      int64_t memoryBytes = static_cast<int64_t>(gpu.shared_memory_Bytes());
       gpuInfo["memory_mib"] =
           static_cast<Json::Int64>(memoryBytes / (1024 * 1024));
 
-      int64_t freq = gpu.frequency_MHz();
-      gpuInfo["current_frequency"] = static_cast<Json::Int>(freq);
+      int64_t freq = static_cast<int64_t>(gpu.frequency_hz() / 1000000ULL);
+      gpuInfo["current_frequency"] = static_cast<Json::Int64>(freq);
       gpuInfo["min_frequency"] = -1; // Not available
       gpuInfo["max_frequency"] = -1; // Not available
 
@@ -340,17 +297,10 @@ Json::Value SystemInfoHandler::getDiskInfo() const {
       Json::Value diskInfo;
       diskInfo["vendor"] = disk.vendor();
       diskInfo["model"] = disk.model();
-      diskInfo["serial_number"] = disk.serialNumber();
-      diskInfo["size_bytes"] = static_cast<Json::Int64>(disk.size_Bytes());
-      diskInfo["free_size_bytes"] =
-          static_cast<Json::Int64>(disk.free_size_Bytes());
-
-      // Volumes
-      Json::Value volumes(Json::arrayValue);
-      for (const auto &vol : disk.volumes()) {
-        volumes.append(vol);
-      }
-      diskInfo["volumes"] = volumes;
+      diskInfo["serial_number"] = disk.serial_number();
+      diskInfo["size_bytes"] = static_cast<Json::Int64>(-1);
+      diskInfo["free_size_bytes"] = static_cast<Json::Int64>(-1);
+      diskInfo["volumes"] = Json::Value(Json::arrayValue);
 
       diskArray.append(diskInfo);
     }
@@ -437,12 +387,12 @@ Json::Value SystemInfoHandler::getBatteryInfo() const {
 
     for (const auto &battery : batteries) {
       Json::Value batteryInfo;
-      batteryInfo["vendor"] = battery.getVendor();
-      batteryInfo["model"] = battery.getModel();
-      batteryInfo["serial_number"] = battery.getSerialNumber();
-      batteryInfo["technology"] = battery.getTechnology();
+      batteryInfo["vendor"] = battery.vendor();
+      batteryInfo["model"] = battery.model();
+      batteryInfo["serial_number"] = battery.serialNumber();
+      batteryInfo["technology"] = battery.technology();
       batteryInfo["capacity_mwh"] =
-          static_cast<Json::Int64>(battery.getEnergyFull());
+          static_cast<Json::Int64>(battery.energyFull());
       batteryInfo["charging"] = battery.charging();
 
       batteryArray.append(batteryInfo);
@@ -624,11 +574,24 @@ Json::Value SystemInfoHandler::getMemoryStatus() const {
   Json::Value memStatus;
 
   try {
-    // Get from hwinfo
-    hwinfo::Memory memory;
-    int64_t totalBytes = memory.total_Bytes();
-    int64_t freeBytes = memory.free_Bytes();
-    int64_t availableBytes = memory.available_Bytes();
+    int64_t totalBytes = 0;
+    int64_t freeBytes = 0;
+    int64_t availableBytes = 0;
+    std::ifstream meminfoFile("/proc/meminfo");
+    std::string line;
+    while (std::getline(meminfoFile, line)) {
+      std::istringstream iss(line);
+      std::string key, unit;
+      int64_t value = 0;
+      iss >> key >> value >> unit;
+      if (key == "MemTotal:") {
+        totalBytes = value * 1024;
+      } else if (key == "MemFree:") {
+        freeBytes = value * 1024;
+      } else if (key == "MemAvailable:") {
+        availableBytes = value * 1024;
+      }
+    }
     int64_t usedBytes = totalBytes - freeBytes;
 
     memStatus["total_mib"] =

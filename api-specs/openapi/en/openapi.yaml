@@ -8642,6 +8642,63 @@ paths:
       responses:
         '200':
           description: CORS preflight response
+  /v1/core/instance/{instanceId}/face_detection:
+    post:
+      summary: Enable or disable face detection for an instance
+      description: Toggles face detection for a specific instance by updating runtime configuration.
+      operationId: setInstanceFaceDetection
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the instance (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enable
+              properties:
+                enable:
+                  type: boolean
+                  description: true to enable face detection, false to disable it
+            example:
+              enable: true
+      responses:
+        '204':
+          description: Face detection setting updated successfully
+        '400':
+          description: Bad request (invalid input)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight for face detection toggle
+      operationId: setInstanceFaceDetectionOptions
+      tags:
+      - Instances
+      responses:
+        '200':
+          description: CORS preflight response
   /v1/core/instance/{instanceId}/jams/batch:
     post:
       summary: Batch update jam zones

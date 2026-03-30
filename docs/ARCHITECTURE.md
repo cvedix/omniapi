@@ -933,6 +933,71 @@ Trong subprocess mode, GET instance / list instance **không** block trên IPC: 
 
 Tóm lại: **start** = build nếu chưa có rồi chạy; **update config** = áp dụng runtime khi có thể, còn không thì rebuild/hot-swap để pipeline luôn khớp config.
 
+### Architecture: Bật/Tắt Face Detection theo từng Instance
+
+Hệ thống hỗ trợ bật/tắt face detection ở mức **mỗi instance** qua endpoint:
+
+- `POST /v1/core/instance/{instanceId}/face_detection`
+- Body: `{ "enable": true | false }`
+
+Luồng xử lý chính:
+
+1. API nhận request và validate `instanceId`, `enable`.
+2. `InstanceHandler::setFaceDetection` ghi vào `AdditionalParams`:
+   - `ENABLE_FACE_DETECTION = "true" | "false"`
+   - `SECURT_FACE_DETECTION_ENABLE = "true" | "false"`
+3. Gọi `updateInstanceFromConfig(instanceId, partialConfig)` để merge config mới vào instance config hiện tại.
+4. Instance manager/worker quyết định cách áp dụng:
+   - Nếu node hỗ trợ update runtime trực tiếp thì apply nóng.
+   - Nếu thay đổi ảnh hưởng cấu trúc pipeline thì hot-swap hoặc rebuild theo cơ chế update pipeline hiện có.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as InstanceHandler
+    participant Mgr as IInstanceManager
+    participant Worker as Worker/Registry
+    participant Pipe as AI Pipeline
+
+    Client->>API: POST /v1/core/instance/{id}/face_detection\n{ "enable": true/false }
+    API->>API: Validate instanceId + body.enable
+    API->>Mgr: getInstance(id)
+    alt Instance không tồn tại
+        Mgr-->>API: not found
+        API-->>Client: 404
+    else Instance tồn tại
+        API->>Mgr: updateInstanceFromConfig(id, {AdditionalParams: {...}})
+        Mgr->>Worker: Update config snapshot
+        Worker->>Worker: checkIfNeedsRebuild(...)
+        alt Cần rebuild/hot-swap
+            Worker->>Pipe: Build/swap pipeline mới
+        else Có thể apply runtime
+            Worker->>Pipe: Apply config trực tiếp
+        end
+        API-->>Client: 204 No Content
+    end
+```
+
+```mermaid
+flowchart TD
+    A[POST /face_detection] --> B{Body hợp lệ?}
+    B -->|Không| E1[400 Bad Request]
+    B -->|Có| C{Instance tồn tại?}
+    C -->|Không| E2[404 Not Found]
+    C -->|Có| D[Merge AdditionalParams<br/>ENABLE_FACE_DETECTION + SECURT_FACE_DETECTION_ENABLE]
+    D --> F[updateInstanceFromConfig]
+    F --> G{Runtime apply được?}
+    G -->|Có| H[Apply trực tiếp trên pipeline đang chạy]
+    G -->|Không| I[Hot-swap/Rebuild pipeline]
+    H --> J[204 No Content]
+    I --> J
+```
+
+**Lưu ý vận hành:**
+- Cờ face detection được lưu ở config instance nên trạng thái bật/tắt được giữ nhất quán qua vòng đời instance.
+- Với instance đang chạy, thay đổi được áp dụng theo cơ chế update pipeline hiện có (runtime apply hoặc hot-swap/rebuild).
+- Endpoint này chỉ điều khiển **face detection của instance cụ thể**, không ảnh hưởng các instance khác.
+
 ### Performance Benchmarks
 
 | Metric | In-Process | Subprocess | Overhead |
