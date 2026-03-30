@@ -37,6 +37,8 @@ struct InstanceInfo {
   bool autoStart = false;
   bool autoRestart = false;
   bool systemInstance = false;
+  /** Per-instance file log under logs/instance/<id>/ (requires --log-instance) */
+  bool instanceFileLoggingEnabled = true;
 
   // Retry limit configuration
   int maxRetryCount =
@@ -87,6 +89,9 @@ struct InstanceInfo {
 
   // Source file path (for file source solutions)
   std::string filePath; // File path for file source node
+
+  // Per-instance logging: when true, logs are written to logs/instance/<id>/
+  bool instanceLoggingEnabled = false;
 
   // Additional parameters (MODEL_PATH, SFACE_MODEL_PATH, RESIZE_RATIO, etc.)
   std::map<std::string, std::string> additionalParams;

@@ -6,10 +6,9 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "/opt/edgeos-api/videos/vehicle_count.mp4",
-      "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-      "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
       "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
-      "RESIZE_RATIO": "0.6"
+      "RESIZE_RATIO": "0.6",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
     },
     "output": {
       "ENABLE_SCREEN_DES": "false"
@@ -18,4 +17,3 @@
     "AreaConfigs": "[{\"alertOnEnter\":true,\"alertOnExit\":true,\"name\":\"Entrance\",\"color\":[0,220,0]},{\"alertOnEnter\":true,\"alertOnExit\":true,\"name\":\"Restricted\",\"color\":[0,0,220]}]"
   }
 }
-

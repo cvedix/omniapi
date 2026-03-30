@@ -1,9 +1,9 @@
 #include "api/quick_instance_handler.h"
 #include "config/system_config.h"
 #include "core/logger.h"
+#include "core/system_metrics.h"
 #include "core/logging_flags.h"
 #include "core/metrics_interceptor.h"
-#include "core/pipeline_builder_destination_nodes.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
 #include "models/create_instance_request.h"
@@ -126,6 +126,37 @@ void QuickInstanceHandler::createQuickInstance(
             429, "Too Many Requests",
             "Maximum instance limit reached: " + std::to_string(maxInstances) +
                 ". Current instances: " + std::to_string(currentCount)));
+        return;
+      }
+    }
+
+    // Check resource limits (CPU/RAM) when configured
+    auto monConfig = systemConfig.getMonitoringConfig();
+    if (monConfig.maxCpuPercent > 0 || monConfig.maxRamPercent > 0) {
+      double cpuPct = SystemMetrics::getSystemCpuUsagePercent();
+      double ramPct = SystemMetrics::getSystemRamUsagePercent();
+      if (monConfig.maxCpuPercent > 0 && cpuPct >= static_cast<double>(monConfig.maxCpuPercent)) {
+        if (isApiLoggingEnabled()) {
+          PLOG_WARNING << "[API] POST /v1/core/instance/quick - CPU limit reached: "
+                       << cpuPct << "% >= " << monConfig.maxCpuPercent << "%";
+        }
+        callback(createErrorResponse(
+            503, "Service Unavailable",
+            "System CPU usage limit reached: " + std::to_string(static_cast<int>(cpuPct)) +
+                "% >= " + std::to_string(monConfig.maxCpuPercent) +
+                "%. Adjust system.monitoring.max_cpu_percent or try again later."));
+        return;
+      }
+      if (monConfig.maxRamPercent > 0 && ramPct >= static_cast<double>(monConfig.maxRamPercent)) {
+        if (isApiLoggingEnabled()) {
+          PLOG_WARNING << "[API] POST /v1/core/instance/quick - RAM limit reached: "
+                       << ramPct << "% >= " << monConfig.maxRamPercent << "%";
+        }
+        callback(createErrorResponse(
+            503, "Service Unavailable",
+            "System RAM usage limit reached: " + std::to_string(static_cast<int>(ramPct)) +
+                "% >= " + std::to_string(monConfig.maxRamPercent) +
+                "%. Adjust system.monitoring.max_ram_percent or try again later."));
         return;
       }
     }
@@ -289,12 +320,21 @@ QuickInstanceHandler::mapSolutionTypeToId(const std::string &solutionType,
 
   // Map solution types to solution IDs
   if (type == "face_detection" || type == "face") {
+    if (output == "rtmp") {
+      if (input == "rtsp" || input == "stream") {
+        return "face_detection_rtsp_rtmp_default";
+      } else if (input == "rtmp") {
+        return "face_detection_rtmp_rtmp_default";
+      }
+      return "face_detection_rtmp_default";
+    }
+
     if (input == "file" || input == "video") {
       return "face_detection_file_default";
     } else if (input == "rtsp" || input == "stream") {
       return "face_detection_rtsp_default";
     } else if (input == "rtmp") {
-      return "face_detection_rtmp_default";
+      return "face_detection_rtmp_rtmp_default";
     } else {
       // Default to file input
       return "face_detection_file_default";
@@ -314,6 +354,8 @@ QuickInstanceHandler::mapSolutionTypeToId(const std::string &solutionType,
     } else {
       return "mask_rcnn_detection_default";
     }
+  } else if (type == "securt") {
+    return "securt";
   }
 
   // If not found, return empty string
@@ -423,11 +465,15 @@ QuickInstanceHandler::getDefaultParams(const std::string &solutionType,
     if (input == "file" || input == "video") {
       defaults["FILE_PATH"] = "/opt/edgeos-api/videos/face.mp4";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx";
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
     } else if (input == "rtsp" || input == "stream") {
       defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx";
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
+    } else if (input == "rtmp") {
+      defaults["RTMP_SRC_URL"] = "rtmp://localhost:1935/live/stream";
+      defaults["MODEL_PATH"] =
+          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
     }
     defaults["RESIZE_RATIO"] = "1.0";
   }
@@ -501,12 +547,16 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
   }
   req.name = json["name"].asString();
 
-  // Required field: solutionType
-  if (!json.isMember("solutionType") || !json["solutionType"].isString()) {
-    error = "Missing required field: solutionType";
+  // Required field: solutionType or solution
+  std::string solutionType;
+  if (json.isMember("solutionType") && json["solutionType"].isString()) {
+    solutionType = json["solutionType"].asString();
+  } else if (json.isMember("solution") && json["solution"].isString()) {
+    solutionType = json["solution"].asString();
+  } else {
+    error = "Missing required field: solutionType or solution";
     return false;
   }
-  std::string solutionType = json["solutionType"].asString();
 
   // Optional: input and output types
   std::string inputType = "file";
@@ -528,6 +578,53 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     outputType = json["outputType"].asString();
   }
 
+  // If input type was not explicitly provided, infer it from FILE_PATH when possible.
+  auto inferInputTypeFromPath = [](const std::string &path) -> std::string {
+    if (path.empty()) {
+      return "file";
+    }
+    std::string lower = path;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower.rfind("rtsp://", 0) == 0) {
+      return "rtsp";
+    }
+    if (lower.rfind("rtmp://", 0) == 0) {
+      return "rtmp";
+    }
+    if (lower.rfind("http://", 0) == 0 || lower.rfind("https://", 0) == 0 ||
+        lower.find(".m3u8") != std::string::npos) {
+      return "hls";
+    }
+    return "file";
+  };
+
+  if (inputType == "file") {
+    const auto inferFromValue = [&](const std::string &value) {
+      std::string inferred = inferInputTypeFromPath(value);
+      if (inferred != "file") {
+        inputType = inferred;
+      }
+    };
+
+    if (json.isMember("input") && json["input"].isObject()) {
+      if (json["input"].isMember("FILE_PATH") && json["input"]["FILE_PATH"].isString()) {
+        inferFromValue(json["input"]["FILE_PATH"].asString());
+      }
+    } else if (json.isMember("additionalParams") && json["additionalParams"].isObject()) {
+      if (json["additionalParams"].isMember("input") &&
+          json["additionalParams"]["input"].isObject() &&
+          json["additionalParams"]["input"].isMember("FILE_PATH") &&
+          json["additionalParams"]["input"]["FILE_PATH"].isString()) {
+        inferFromValue(json["additionalParams"]["input"]["FILE_PATH"].asString());
+      } else if (json["additionalParams"].isMember("FILE_PATH") &&
+                 json["additionalParams"]["FILE_PATH"].isString()) {
+        inferFromValue(json["additionalParams"]["FILE_PATH"].asString());
+      }
+    } else if (json.isMember("FILE_PATH") && json["FILE_PATH"].isString()) {
+      inferFromValue(json["FILE_PATH"].asString());
+    }
+  }
+
   // Map solution type to solution ID
   std::string solutionId =
       mapSolutionTypeToId(solutionType, inputType, outputType);
@@ -536,6 +633,11 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     return false;
   }
   req.solution = solutionId;
+
+  // Face detection sample/pipeline uses YuNet detector only (no SFace encoder).
+  // Ignore SFACE_MODEL_PATH for face_detection* solutions to keep API payload aligned.
+  const bool isFaceDetectionSolution =
+      solutionId.rfind("face_detection", 0) == 0;
 
   // Optional fields
   if (json.isMember("group") && json["group"].isString()) {
@@ -559,13 +661,24 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
   std::map<std::string, std::string> defaultParams =
       getDefaultParams(solutionType, inputType, outputType);
 
-  // Parse input parameters
+  // Parse input parameters (support both top-level and additionalParams.input)
+  Json::Value inputObj;
   if (json.isMember("input") && json["input"].isObject()) {
-    for (const auto &key : json["input"].getMemberNames()) {
-      if (json["input"][key].isString()) {
-        std::string value = json["input"][key].asString();
+    inputObj = json["input"];
+  } else if (json.isMember("additionalParams") && 
+             json["additionalParams"].isObject() &&
+             json["additionalParams"].isMember("input") &&
+             json["additionalParams"]["input"].isObject()) {
+    inputObj = json["additionalParams"]["input"];
+  }
+  
+  if (!inputObj.isNull()) {
+    for (const auto &key : inputObj.getMemberNames()) {
+      if (inputObj[key].isString()) {
+        std::string value = inputObj[key].asString();
         // Convert path to production if needed
-        if (key == "FILE_PATH" || key == "RTSP_URL" || key == "MODEL_PATH" ||
+        if (key == "FILE_PATH" || key == "RTSP_URL" || key == "RTSP_SRC_URL" || 
+            key == "RTMP_SRC_URL" || key == "MODEL_PATH" ||
             key == "WEIGHTS_PATH" || key == "CONFIG_PATH" ||
             key == "LABELS_PATH") {
           value = convertPathToProduction(value);
@@ -575,11 +688,21 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     }
   }
 
-  // Parse output parameters
+  // Parse output parameters (support both top-level and additionalParams.output)
+  Json::Value outputObj;
   if (json.isMember("output") && json["output"].isObject()) {
-    for (const auto &key : json["output"].getMemberNames()) {
-      if (json["output"][key].isString()) {
-        std::string value = json["output"][key].asString();
+    outputObj = json["output"];
+  } else if (json.isMember("additionalParams") && 
+             json["additionalParams"].isObject() &&
+             json["additionalParams"].isMember("output") &&
+             json["additionalParams"]["output"].isObject()) {
+    outputObj = json["additionalParams"]["output"];
+  }
+  
+  if (!outputObj.isNull()) {
+    for (const auto &key : outputObj.getMemberNames()) {
+      if (outputObj[key].isString()) {
+        std::string value = outputObj[key].asString();
         // Convert path to production if needed
         if (key == "RTMP_URL" || key == "FILE_PATH") {
           value = convertPathToProduction(value);
@@ -598,6 +721,11 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
     if (req.additionalParams.find(key) == req.additionalParams.end()) {
       req.additionalParams[key] = value;
     }
+  }
+
+  if (isFaceDetectionSolution) {
+    req.additionalParams.erase("SFACE_MODEL_PATH");
+    req.additionalParams.erase("SFACE_MODEL_NAME");
   }
 
   // Parse lines parameter for BA Crossline (UI-friendly format)
@@ -733,6 +861,20 @@ bool QuickInstanceHandler::parseQuickRequest(const Json::Value &json,
 Json::Value
 QuickInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
   Json::Value json;
+  auto ensureStreamKeySuffixZero = [](const std::string &url) -> std::string {
+    if (url.empty()) {
+      return url;
+    }
+    size_t lastSlash = url.find_last_of('/');
+    if (lastSlash == std::string::npos || lastSlash >= url.length() - 1) {
+      return url;
+    }
+    std::string streamKey = url.substr(lastSlash + 1);
+    if (streamKey.length() >= 2 && streamKey.substr(streamKey.length() - 2) == "_0") {
+      return url;
+    }
+    return url + "_0";
+  };
   json["instanceId"] = info.instanceId;
   json["displayName"] = info.displayName;
   json["group"] = info.group;
@@ -762,17 +904,22 @@ QuickInstanceHandler::instanceInfoToJson(const InstanceInfo &info) const {
 
   // Add streaming URLs if available
   if (!info.rtmpUrl.empty()) {
-    json["rtmpUrl"] = info.rtmpUrl;
-    
-    // Extract RTMP prefix (stream key without _0 suffix)
-    // RTMP node automatically adds _0 suffix, so we extract the original stream key
-    std::string streamKey = PipelineBuilderDestinationNodes::extractRTMPStreamKey(info.rtmpUrl);
+    std::string normalizedRtmpUrl = ensureStreamKeySuffixZero(info.rtmpUrl);
+    json["rtmpUrl"] = normalizedRtmpUrl;
+
+    // Keep the actual stream key from URL path (including suffix such as "_0")
+    // to match the real publish path used by RTMP output.
+    std::string streamKey;
+    size_t lastSlash = normalizedRtmpUrl.find_last_of('/');
+    if (lastSlash != std::string::npos && lastSlash < normalizedRtmpUrl.length() - 1) {
+      streamKey = normalizedRtmpUrl.substr(lastSlash + 1);
+    }
     if (!streamKey.empty()) {
       json["prefix"] = streamKey;
     }
   }
   if (!info.rtspUrl.empty()) {
-    json["rtspUrl"] = info.rtspUrl;
+    json["rtspUrl"] = ensureStreamKeySuffixZero(info.rtspUrl);
   }
 
   return json;

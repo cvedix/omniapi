@@ -302,7 +302,7 @@ bundle_libraries
 
 # Setup CVEDIX SDK library path (SDK is bundled in this package)
 echo "Setting up CVEDIX SDK library path..."
-CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+CVEDIX_LIB_DIR="/opt/edgeos-sdk/lib/cvedix"
 if [ -d "$CVEDIX_LIB_DIR" ]; then
     if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
         if echo "$CVEDIX_LIB_DIR" > /etc/ld.so.conf.d/cvedix.conf 2>/dev/null; then
@@ -416,10 +416,10 @@ if [ ! -f "$INSTALL_DIR/config/.env" ]; then
 API_HOST=0.0.0.0
 API_PORT=8080
 LOG_LEVEL=INFO
-# Execution mode: subprocess (isolated workers) or in-process (legacy)
-# Changed to in-process for production stability (same as develop mode)
-# In-process mode: no worker spawning, runs directly in main process
-EDGE_AI_EXECUTION_MODE=in-process
+# Runtime data root (instances, models, nodes, solutions, groups, default logs path)
+EDGEOS_API_INSTALL_DIR=$INSTALL_DIR
+# Default in binary is subprocess; set explicitly for clarity in deployments
+EDGE_AI_EXECUTION_MODE=subprocess
 EOF
     chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/config/.env"
     chmod 640 "$INSTALL_DIR/config/.env"
@@ -831,7 +831,7 @@ echo "Fixing CVEDIX SDK issues..."
 
 fix_cvedix_issues() {
     echo "  [1/4] Fixing libtinyexpr.so symlink..."
-    CVEDIX_LIB_DIR="/opt/cvedix-ai-runtime/lib/cvedix"
+    CVEDIX_LIB_DIR="/opt/edgeos-sdk/lib/cvedix"
     TINYEXPR_SOURCE="$CVEDIX_LIB_DIR/libtinyexpr.so"
     TINYEXPR_TARGET="/usr/lib/libtinyexpr.so"
     
@@ -855,7 +855,7 @@ fix_cvedix_issues() {
     fi
     
     if [ -n "$CEREAL_SOURCE" ]; then
-        CVEDIX_CEREAL_DIR="/opt/cvedix-ai-runtime/include/cvedix/third_party"
+        CVEDIX_CEREAL_DIR="/opt/edgeos-sdk/include/cvedix/third_party"
         mkdir -p "$CVEDIX_CEREAL_DIR"
         if [ -L "$CVEDIX_CEREAL_DIR/cereal" ] || [ -d "$CVEDIX_CEREAL_DIR/cereal" ]; then
             rm -rf "$CVEDIX_CEREAL_DIR/cereal"
@@ -885,7 +885,7 @@ fix_cvedix_issues() {
     fi
     
     if [ -n "$BASE64_SOURCE" ]; then
-        CVEDIX_BASE64_DIR="/opt/cvedix-ai-runtime/include/cvedix/third_party/cpp_base64"
+        CVEDIX_BASE64_DIR="/opt/edgeos-sdk/include/cvedix/third_party/cpp_base64"
         mkdir -p "$CVEDIX_BASE64_DIR"
         if [ -L "$CVEDIX_BASE64_DIR/base64.h" ] || [ -f "$CVEDIX_BASE64_DIR/base64.h" ]; then
             rm -f "$CVEDIX_BASE64_DIR/base64.h"
@@ -909,12 +909,6 @@ fix_cvedix_issues() {
     FREETYPE_410_TARGET="$INSTALL_DIR/lib/libopencv_freetype.so.410"
     mkdir -p "$INSTALL_DIR/lib"
     
-    # Ensure directory is writable
-    if [ ! -w "$INSTALL_DIR/lib" ]; then
-        echo "    ⚠  Warning: $INSTALL_DIR/lib is not writable, attempting to fix permissions..."
-        chmod 755 "$INSTALL_DIR/lib" 2>/dev/null || true
-    fi
-    
     # Check if file already exists in bundled lib directory (from package)
     if [ -f "$FREETYPE_410_TARGET" ]; then
         echo "    ✓ libopencv_freetype.so.410 already exists in bundled lib directory"
@@ -928,13 +922,7 @@ fix_cvedix_issues() {
         FREETYPE_COPIED=false
         
         # First, try to find from OpenCV 4.10 (preferred) - check after installation attempt
-        # Priority: actual files first, then symlinks (to avoid symlink resolution issues)
         OPENCV_410_FREETYPE_SOURCES=(
-            # Priority 1: Actual files (not symlinks)
-            "/usr/local/lib/libopencv_freetype.so.4.10.0"
-            "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10.0"
-            "/usr/lib/libopencv_freetype.so.4.10.0"
-            # Priority 2: Symlinks (will be resolved)
             "/usr/local/lib/libopencv_freetype.so.4.10"
             "/usr/local/lib/libopencv_freetype.so.410"
             "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.10"
@@ -944,32 +932,9 @@ fix_cvedix_issues() {
         )
         
         for source in "${OPENCV_410_FREETYPE_SOURCES[@]}"; do
-            # Check if source exists (file or symlink)
-            if [ -f "$source" ] || [ -L "$source" ]; then
+            if [ -f "$source" ]; then
                 echo "    Copying from OpenCV 4.10: $source"
-                
-                # Resolve symlink to get actual file path
-                if [ -L "$source" ]; then
-                    resolved_source=$(readlink -f "$source" 2>/dev/null || echo "")
-                    if [ -n "$resolved_source" ] && [ -f "$resolved_source" ]; then
-                        echo "    Resolved symlink to: $resolved_source"
-                        source="$resolved_source"
-                    fi
-                fi
-                
-                # Try to copy with verbose error reporting
-                if cp -L "$source" "$FREETYPE_410_TARGET" 2>&1; then
-                    # Verify the copy was successful
-                    if [ -f "$FREETYPE_410_TARGET" ] && [ -r "$FREETYPE_410_TARGET" ]; then
-                        FREETYPE_COPIED=true
-                        echo "    ✓ Successfully copied to $FREETYPE_410_TARGET"
-                        break
-                    else
-                        echo "    ⚠  Copy appeared to succeed but file not found at destination"
-                    fi
-                else
-                    echo "    ⚠  Copy failed, trying next source..."
-                fi
+                cp "$source" "$FREETYPE_410_TARGET" 2>/dev/null && FREETYPE_COPIED=true && break || true
             fi
         done
         
@@ -1032,7 +997,7 @@ fi
 
 # Verify RPATH is set correctly for executables (critical for finding bundled libraries)
 echo "Verifying RPATH configuration..."
-EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/cvedix-ai-runtime/lib/cvedix"
+EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"
 
 if command -v patchelf >/dev/null 2>&1; then
     if [ -f "$BIN_DIR/edgeos-api" ]; then
@@ -1229,7 +1194,8 @@ echo ""
 echo "   # After installation, copy the freetype library:"
 echo "   sudo cp /usr/local/lib/libopencv_freetype.so.4.10 $INSTALL_DIR/lib/libopencv_freetype.so.410"
 echo ""
-echo "5. OpenCV 4.6 is NOT supported. You MUST use OpenCV 4.10."
+echo "5. Fallback: If OpenCV 4.6 is available (not recommended):"
+echo "   sudo cp /usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0 $INSTALL_DIR/lib/libopencv_freetype.so.410"
 echo ""
 echo "6. Set correct permissions:"
 echo "   sudo chmod 644 $INSTALL_DIR/lib/libopencv_freetype.so.410"

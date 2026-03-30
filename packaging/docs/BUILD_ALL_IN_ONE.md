@@ -257,16 +257,16 @@ cd packaging/scripts
 ```bash
 # Build với SDK
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb
 
 # Clean build
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb \
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb \
     --clean
 
 # Chỉ tạo package từ build có sẵn
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb \
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb \
     --no-build
 ```
 

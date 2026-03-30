@@ -1,42 +1,42 @@
 {
-    "solutionId": "test_rtsp_face_detection",
-    "solutionName": "Test RTSP Face Detection Solution",
-    "solutionType": "face_detection",
-    "isDefault": false,
-    "pipeline": [
-        {
-            "nodeType": "rtsp_src",
-            "nodeName": "rtsp_src_{instanceId}",
-            "parameters": {
-                "rtsp_url": "${RTSP_URL}",
-                "channel": "0",
-                "resize_ratio": "1.0"
-            }
-        },
-        {
-            "nodeType": "yunet_face_detector",
-            "nodeName": "face_detector_{instanceId}",
-            "parameters": {
-                "model_path": "${MODEL_PATH}",
-                "score_threshold": "${detectionSensitivity}",
-                "nms_threshold": "0.5",
-                "top_k": "50"
-            }
-        },
-        {
-            "nodeType": "file_des",
-            "nodeName": "file_des_{instanceId}",
-            "parameters": {
-                "save_dir": "./output/{instanceId}",
-                "name_prefix": "test_rtsp_face",
-                "osd": "true"
-            }
-        }
-    ],
-    "defaults": {
-        "detectorMode": "SmartDetection",
-        "detectionSensitivity": "0.6",
-        "sensorModality": "RGB",
-        "RTSP_URL": "rtsp://localhost/stream"
+  "solutionId": "test_rtsp_face_detection",
+  "solutionName": "Test RTSP Face Detection Solution",
+  "solutionType": "face_detection",
+  "isDefault": false,
+  "pipeline": [
+    {
+      "nodeType": "rtsp_src",
+      "nodeName": "rtsp_src_{instanceId}",
+      "parameters": {
+        "rtsp_url": "${RTSP_SRC_URL}",
+        "channel": "0",
+        "resize_ratio": "1.0"
+      }
+    },
+    {
+      "nodeType": "yunet_face_detector",
+      "nodeName": "face_detector_{instanceId}",
+      "parameters": {
+        "model_path": "${MODEL_PATH}",
+        "score_threshold": "${detectionSensitivity}",
+        "nms_threshold": "0.5",
+        "top_k": "50"
+      }
+    },
+    {
+      "nodeType": "file_des",
+      "nodeName": "file_des_{instanceId}",
+      "parameters": {
+        "save_dir": "./output/{instanceId}",
+        "name_prefix": "test_rtsp_face",
+        "osd": "true"
+      }
     }
+  ],
+  "defaults": {
+    "detectorMode": "SmartDetection",
+    "detectionSensitivity": "0.6",
+    "sensorModality": "RGB",
+    "RTSP_SRC_URL": "rtsp://localhost/stream"
+  }
 }

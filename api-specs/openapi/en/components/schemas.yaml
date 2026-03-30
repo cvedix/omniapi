@@ -239,17 +239,17 @@ components:
       properties:
         type:
           type: string
-          description: Type of input source
+          description: Type of input source (File = local video file path)
           enum:
+          - File
           - RTSP
           - HLS
           - Manual
-          example: Manual
+          example: File
         uri:
           type: string
-          format: uri
-          description: URI of the input source (must be valid)
-          example: http://localhost
+          description: URI or path (for File type use local path e.g. ./video.mp4)
+          example: ./test_video.mp4
     InstanceConfig:
       type: object
       description: Instance configuration (config format, not runtime state)

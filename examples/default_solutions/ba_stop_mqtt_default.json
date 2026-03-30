@@ -19,9 +19,9 @@
             "nodeType": "yolo_detector",
             "nodeName": "yolo_detector_{instanceId}",
             "parameters": {
-                "weights_path": "${WEIGHTS_PATH}",
-                "config_path": "${CONFIG_PATH}",
+                "model_path": "${MODEL_PATH}",
                 "labels_path": "${LABELS_PATH}",
+                "backend_type": "${BACKEND_TYPE}",
                 "score_threshold": "${detectionSensitivity}",
                 "nms_threshold": "0.4"
             }
@@ -66,21 +66,22 @@
         "detectorMode": "SmartDetection",
         "detectionSensitivity": "0.7",
         "sensorModality": "RGB",
-        "RESIZE_RATIO": "1.0"
+        "RESIZE_RATIO": "1.0",
+        "BACKEND_TYPE": "tensorrt"
     },
     "requiredParams": {
-        "FILE_PATH": "Đường dẫn file video input (hoặc dùng RTSP_URL)",
-        "WEIGHTS_PATH": "Đường dẫn YOLO weights file",
-        "CONFIG_PATH": "Đường dẫn YOLO config file",
+        "FILE_PATH": "Đường dẫn file video input (hoặc dùng RTSP_SRC_URL)",
         "LABELS_PATH": "Đường dẫn labels file",
         "MIN_STOP_SECONDS": "Số giây tối thiểu đối tượng dừng lại để phát hiện sự kiện",
         "CHECK_INTERVAL_FRAMES": "Số khung hình giữa các lần kiểm tra dừng",
         "CHECK_MIN_HIT_FRAMES": "Số khung hình tối thiểu để xác định đối tượng dừng",
-        "CHECK_MAX_DISTANCE": "Khoảng cách tối đa giữa các vị trí liên tiếp để coi là dừng"
+        "CHECK_MAX_DISTANCE": "Khoảng cách tối đa giữa các vị trí liên tiếp để coi là dừng",
+        "MODEL_PATH": "Đường dẫn model detector (.engine/.onnx/.xml)"
     },
     "optionalParams": {
-        "RTSP_URL": "URL RTSP stream (thay thế FILE_PATH)",
+        "RTSP_SRC_URL": "URL RTSP stream (thay thế FILE_PATH)",
         "RTMP_URL": "URL RTMP server (thay thế file_des)",
-        "RESIZE_RATIO": "Tỷ lệ resize video (0.0-1.0), mặc định 1.0"
+        "RESIZE_RATIO": "Tỷ lệ resize video (0.0-1.0), mặc định 1.0",
+        "BACKEND_TYPE": "Backend detector: tensorrt | onnx | openvino (mặc định tensorrt)"
     }
 }

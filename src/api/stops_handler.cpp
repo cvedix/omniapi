@@ -436,9 +436,9 @@ void StopsHandler::createStop(
     // Reload stops to get generated IDs
     Json::Value savedStops = loadStopsFromConfig(instanceId);
 
-    // Try updating runtime; fallback to restart
+    // Try updating runtime; fallback to hot swap (zero downtime)
     if (!updateStopsRuntime(instanceId, savedStops)) {
-      restartInstanceForStopUpdate(instanceId);
+      applyStopsUpdateViaHotSwap(instanceId, savedStops);
     }
 
     // If single object request, return the created object with generated id
@@ -541,13 +541,13 @@ void StopsHandler::deleteAllStops(
                   << "/stops - Stops updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING
             << "[API] DELETE /v1/core/instance/" << instanceId
-            << "/stops - Runtime update failed, falling back to restart";
+            << "/stops - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForStopUpdate(instanceId);
+      applyStopsUpdateViaHotSwap(instanceId, emptyArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -859,13 +859,13 @@ void StopsHandler::updateStop(
                   << stopId << " - Stops updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] PUT /v1/core/instance/" << instanceId
                      << "/stops/" << stopId
-                     << " - Runtime update failed, falling back to restart";
+                     << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForStopUpdate(instanceId);
+      applyStopsUpdateViaHotSwap(instanceId, stopsArray);
     }
 
     // Find updated stop to return
@@ -977,7 +977,7 @@ void StopsHandler::deleteStop(
     }
 
     if (!updateStopsRuntime(instanceId, newArray)) {
-      restartInstanceForStopUpdate(instanceId);
+      applyStopsUpdateViaHotSwap(instanceId, newArray);
     }
 
     callback(createSuccessResponse(Json::Value(Json::objectValue)));
@@ -1076,7 +1076,7 @@ void StopsHandler::batchUpdateStops(
     }
 
     if (!updateStopsRuntime(instanceId, newStops)) {
-      restartInstanceForStopUpdate(instanceId);
+      applyStopsUpdateViaHotSwap(instanceId, newStops);
     }
 
     Json::Value result;
@@ -1175,10 +1175,33 @@ bool StopsHandler::restartInstanceForStopUpdate(const std::string &instanceId) c
   return true;
 }
 
+bool StopsHandler::applyStopsUpdateViaHotSwap(const std::string &instanceId,
+                                               const Json::Value &stopsArray) const {
+  if (!instance_manager_) {
+    return false;
+  }
+  Json::Value patch(Json::objectValue);
+  patch["AdditionalParams"] = Json::Value(Json::objectValue);
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  patch["AdditionalParams"]["StopZones"] = Json::writeString(wb, stopsArray);
+  bool ok = instance_manager_->updateInstanceFromConfig(instanceId, patch);
+  if (isApiLoggingEnabled()) {
+    if (ok) {
+      PLOG_INFO << "[API] applyStopsUpdateViaHotSwap: instance " << instanceId
+                << " updated via hot swap (zero downtime)";
+    } else {
+      PLOG_WARNING << "[API] applyStopsUpdateViaHotSwap: instance " << instanceId
+                   << " update failed, consider manual restart";
+    }
+  }
+  return ok;
+}
+
 std::shared_ptr<cvedix_nodes::cvedix_ba_stop_node>
 StopsHandler::findBAStopNode(const std::string &instanceId) const {
   // Note: In subprocess mode, nodes are not directly accessible. This will
-  // return nullptr and let updateStopsRuntime() fallback to restart.
+  // return nullptr and updateStopsRuntime() will fallback to hot swap.
   if (!instance_manager_) {
     return nullptr;
   }

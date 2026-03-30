@@ -58,8 +58,9 @@ public:
    * @brief Get execution mode from environment variable or config
    *
    * Checks EDGE_AI_EXECUTION_MODE env var:
-   * - "subprocess" or "isolated" -> SUBPROCESS mode
-   * - "inprocess" or "legacy" or unset -> IN_PROCESS mode
+   * - Default (unset or empty): SUBPROCESS
+   * - "inprocess", "in-process", "legacy", "main" -> IN_PROCESS (legacy)
+   * - "subprocess", "isolated", "worker", or anything else -> SUBPROCESS
    */
   static InstanceExecutionMode getExecutionModeFromEnv();
 

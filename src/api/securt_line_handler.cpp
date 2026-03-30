@@ -12,6 +12,8 @@
 #include <cvedix/objects/shapes/cvedix_point.h>
 #include <chrono>
 #include <drogon/HttpResponse.h>
+#include <json/reader.h>
+#include <json/writer.h>
 
 SecuRTInstanceManager *SecuRTLineHandler::instance_manager_ = nullptr;
 SecuRTLineManager *SecuRTLineHandler::line_manager_ = nullptr;
@@ -94,12 +96,12 @@ void SecuRTLineHandler::createCountingLine(
                   << "/line/counting - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] POST /v1/securt/instance/" << instanceId
-                     << "/line/counting - Runtime update failed, falling back to restart";
+                     << "/line/counting - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     // Build response
@@ -212,12 +214,12 @@ void SecuRTLineHandler::createCountingLineWithId(
                   << "/line/counting/" << lineId << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] PUT /v1/securt/instance/" << instanceId
-                     << "/line/counting/" << lineId << " - Runtime update failed, falling back to restart";
+                     << "/line/counting/" << lineId << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     // Build response
@@ -322,12 +324,12 @@ void SecuRTLineHandler::createCrossingLine(
                   << "/line/crossing - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] POST /v1/securt/instance/" << instanceId
-                     << "/line/crossing - Runtime update failed, falling back to restart";
+                     << "/line/crossing - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     // Build response
@@ -440,12 +442,12 @@ void SecuRTLineHandler::createCrossingLineWithId(
                   << "/line/crossing/" << lineId << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] PUT /v1/securt/instance/" << instanceId
-                     << "/line/crossing/" << lineId << " - Runtime update failed, falling back to restart";
+                     << "/line/crossing/" << lineId << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     // Build response
@@ -550,12 +552,12 @@ void SecuRTLineHandler::createTailgatingLine(
                   << "/line/tailgating - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] POST /v1/securt/instance/" << instanceId
-                     << "/line/tailgating - Runtime update failed, falling back to restart";
+                     << "/line/tailgating - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     // Build response
@@ -668,12 +670,12 @@ void SecuRTLineHandler::createTailgatingLineWithId(
                   << "/line/tailgating/" << lineId << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] PUT /v1/securt/instance/" << instanceId
-                     << "/line/tailgating/" << lineId << " - Runtime update failed, falling back to restart";
+                     << "/line/tailgating/" << lineId << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     // Build response
@@ -832,12 +834,12 @@ void SecuRTLineHandler::deleteAllLines(
                   << "/lines - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] DELETE /v1/securt/instance/" << instanceId
-                     << "/lines - Runtime update failed, falling back to restart";
+                     << "/lines - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -936,12 +938,12 @@ void SecuRTLineHandler::deleteLine(
                   << "/line/" << lineId << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime)
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] DELETE /v1/securt/instance/" << instanceId
-                     << "/line/" << lineId << " - Runtime update failed, falling back to restart";
+                     << "/line/" << lineId << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwapFromSecuRT(instanceId);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1332,5 +1334,43 @@ bool SecuRTLineHandler::restartInstanceForLineUpdate(
   restartThread.detach();
 
   return true;
+}
+
+bool SecuRTLineHandler::applyLinesUpdateViaHotSwapFromSecuRT(
+    const std::string &instanceId) const {
+  if (!instance_manager_ || !line_manager_) {
+    return false;
+  }
+  auto *coreInstanceManager = instance_manager_->getCoreInstanceManager();
+  if (!coreInstanceManager) {
+    return false;
+  }
+  std::string crossingLinesJson =
+      SecuRTPipelineIntegration::convertLinesToCrossingLinesFormat(
+          line_manager_, instanceId);
+  Json::Reader reader;
+  Json::Value linesArray;
+  if (!reader.parse(crossingLinesJson, linesArray) || !linesArray.isArray()) {
+    if (isApiLoggingEnabled()) {
+      PLOG_WARNING << "[API] applyLinesUpdateViaHotSwapFromSecuRT: failed to parse lines JSON for instance " << instanceId;
+    }
+    return false;
+  }
+  Json::Value patch(Json::objectValue);
+  patch["AdditionalParams"] = Json::Value(Json::objectValue);
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  patch["AdditionalParams"]["CrossingLines"] = Json::writeString(wb, linesArray);
+  bool ok = coreInstanceManager->updateInstanceFromConfig(instanceId, patch);
+  if (isApiLoggingEnabled()) {
+    if (ok) {
+      PLOG_INFO << "[API] applyLinesUpdateViaHotSwapFromSecuRT: instance " << instanceId
+                << " updated via hot swap (zero downtime)";
+    } else {
+      PLOG_WARNING << "[API] applyLinesUpdateViaHotSwapFromSecuRT: instance " << instanceId
+                   << " update failed, consider manual restart";
+    }
+  }
+  return ok;
 }
 

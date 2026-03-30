@@ -6,11 +6,73 @@ Tài liệu này mô tả các tính năng logging của edgeos-api Server, bao 
 
 edgeos-api Server cung cấp các tính năng logging chi tiết để giúp bạn theo dõi và debug hệ thống. Các tính năng logging có thể được bật/tắt thông qua command-line arguments khi khởi động server.
 
-**✅ Kết Luận Quan Trọng:** Hệ thống logging đã được thiết kế với nhiều cơ chế bảo vệ để **ngăn chặn tràn bộ nhớ**:
-- ✅ Log rotation (50MB/file, daily rotation)
-- ✅ Automatic cleanup (30 ngày mặc định)
-- ✅ Disk space monitoring (85% threshold)
-- ✅ Size-based rolling
+**✅ Kết Luận Quan Trọng:** Hệ thống logging đã được thiết kế với nhiều cơ chế bảo vệ để **ngăn chặn tràn đĩa / tràn log**:
+- ✅ Theo ngày (`YYYY-MM-DD.log`), tối đa **100MB/file** (cấu hình `max_log_file_size`)
+- ✅ **Tự ngắt ghi file** khi đĩa gần đầy (`suspend_disk_percent` / `resume_disk_percent`)
+- ✅ Cleanup log cũ (retention + khi đĩa > `max_disk_usage_percent`)
+- ✅ Thư mục gốc log: **production** vs **development** (`log_paths_mode`)
+
+### Cấu hình `system.logging` (config.json)
+
+| Khóa | Mô tả | Mặc định |
+|------|--------|----------|
+| `log_paths_mode` | `auto` \| `production` \| `development` — rỗng = legacy (dùng `log_dir`) | (rỗng) |
+| `log_dir_production` | Thư mục log khi production | `/opt/edgeos-api/logs` |
+| `log_dir_development` | Thư mục log khi development | `./logs` |
+| `log_dir` | Legacy / override khi không dùng mode | `./logs` |
+| `max_log_file_size` | Bytes tối đa mỗi file (API/general/sdk + mỗi instance) | `104857600` (100MB) |
+| `suspend_disk_percent` | % đĩa đã dùng → **dừng ghi log ra file** | `95` |
+| `resume_disk_percent` | % đĩa đã dùng ≤ giá trị này → ghi lại | `88` |
+| `max_disk_usage_percent` | Ngưỡng cleanup mạnh | `85` |
+| `retention_days` | Xóa file log cũ hơn N ngày | `30` |
+
+**`auto`:** binary chạy từ đường dẫn chứa `/opt/edgeos-api` → `log_dir_production`, ngược lại → `log_dir_development` (ví dụ chạy trong repo → `./logs`).
+
+**Ưu tiên:** biến môi trường `LOG_DIR` (nếu set) **luôn thắt** mọi giá trị trên.
+
+**Tắt log file theo instance:** trong JSON instance thêm:
+```json
+"Logging": { "file_enabled": false }
+```
+(vẫn cần `--log-instance` để bật nhánh instance; khi `file_enabled: false` không ghi file cho instance đó).
+
+**API đọc log instance:** bắt buộc query `instance_id`, ví dụ:
+`GET /v1/core/log/instance?instance_id=<uuid>&tail=100`
+
+### Log console từ CVEDIX SDK (`cvedix_node`, meta queue…)
+
+Các dòng kiểu `[Debug] ... before handling meta, in_queue.size()` là **log nội bộ SDK**, không phải plog của API.
+
+- **`system.logging.cvedix_log_level`**: `warning` (mặc định) | `error` | `info` | `debug` — mặc định **warning** để **ẩn DEBUG/INFO** ồn ào.
+- **`CVEDIX_LOG_LEVEL`** (env): nếu set thì **ghi đè** config (DEBUG / INFO / WARNING / ERROR).
+
+Ví dụ tắt hẳn log SDK trừ lỗi: giữ `cvedix_log_level: "warning"` hoặc `"error"`. Cần debug pipeline: `CVEDIX_LOG_LEVEL=DEBUG` hoặc `cvedix_log_level: "debug"`.
+
+---
+
+## Ghi log ra file (dễ kiểm tra)
+
+**Cách nhanh nhất** — khi chạy server thêm một trong hai:
+
+```bash
+./build/bin/edgeos-api --log-files
+```
+
+hoặc (ví dụ systemd / docker):
+
+```bash
+export EDGEOS_LOG_FILES=1
+./build/bin/edgeos-api
+```
+
+Khi đó sẽ ghi:
+
+- **`logs/api/YYYY-MM-DD.log`** — log có prefix `[API]` (request/handler).
+- **`logs/instance/<InstanceId>/YYYY-MM-DD.log`** — vòng đời instance (start/stop…), cần instance đang bật file log (mặc định bật).
+
+Thư mục gốc: `LOG_DIR` hoặc `system.logging` (`log_paths_mode`, `log_dir_development`…). Luôn còn **`logs/general/`** cho log không gắn prefix API/instance/SDK.
+
+SDK output (rất lớn): chỉ bật khi cần: `--log-sdk-output`.
 
 ---
 
@@ -51,6 +113,11 @@ Log tất cả các request và response của REST API.
 ./build/bin/edgeos-api --log-api
 ```
 
+**Cấu hình qua API (ưu tiên hơn command-line):** Có thể bật/tắt và đổi mức log qua API, không cần restart:
+- **GET** `/v1/core/log/config` — xem cấu hình hiện tại (enabled, log_level, api_enabled, instance_enabled, sdk_output_enabled).
+- **PUT** `/v1/core/log/config` — cập nhật cấu hình; body JSON: `enabled`, `log_level` (none, fatal, error, warning, info, debug, verbose), `api_enabled`, `instance_enabled`, `sdk_output_enabled`. Các cờ category có hiệu lực ngay; đổi `log_level` có thể cần restart.
+- Cấu hình cũng có thể đặt trong `config.json` → `system.logging` (enabled, log_level, api_enabled, instance_enabled, sdk_output_enabled).
+
 ---
 
 ### 2. Instance Execution Logging (`--log-instance` hoặc `--debug-instance`)
@@ -78,16 +145,44 @@ Log các sự kiện liên quan đến vòng đời của instance (start, stop,
 [Instance] Instance stopped successfully: xyz-789 (Face Detection File Source, solution: face_detection)
 ```
 
-**File location:** `logs/instance/YYYY-MM-DD.log`
+**File location:** `logs/instance/YYYY-MM-DD.log` (log chung) hoặc `logs/instance/<instance_id>/YYYY-MM-DD.log` (log riêng từng instance khi bật).
 
 **Cách sử dụng:**
 ```bash
 ./build/bin/edgeos-api --log-instance
 ```
 
+**Log riêng theo từng instance:** Có thể bật ghi log vào thư mục riêng cho từng instance (theo tên instance):
+- **GET** `/v1/core/instance/{instanceId}/log/config` — xem cấu hình log của instance (enabled).
+- **PUT** `/v1/core/instance/{instanceId}/log/config` — bật/tắt; body: `{"enabled": true}`. Khi bật, log của instance đó ghi vào `logs/instance/<instance_id>/`. Instance khác không bật vẫn dùng log chung (hoặc không ghi nếu tắt instance logging toàn hệ thống).
+
 ---
 
-### 3. SDK Output Logging (`--log-sdk-output` hoặc `--debug-sdk-output`)
+### 3. Worker process logs (chế độ subprocess)
+
+Khi chạy **subprocess mode** (mỗi instance chạy trong process worker riêng), mọi dòng log từ worker (prefix `[Worker:<instance_id>]`) — ví dụ `UPDATE_INSTANCE received`, `Zero-downtime pipeline swap`, hot-swap, start/stop — được ghi vào **file riêng theo instance**, không qua LogManager/plog.
+
+**Vị trí file:**
+
+- Thư mục log: biến môi trường **`LOG_DIR`** (nếu có) hoặc mặc định **`logs`** (tương đối thư mục hiện tại khi API khởi động).
+- File: **`<LOG_DIR>/worker_<instance_id>.log`**  
+  Ví dụ: `logs/worker_abc-123.log` hoặc `/opt/edgeos-api/logs/worker_abc-123.log` nếu `LOG_DIR=/opt/edgeos-api/logs`.
+
+**Cách xem log worker (debug update instance, hot-swap):**
+
+```bash
+# Theo instance_id
+tail -f logs/worker_<instance_id>.log
+
+# Hoặc khi dùng LOG_DIR (vd: deploy /opt/edgeos-api)
+tail -f /opt/edgeos-api/logs/worker_<instance_id>.log
+```
+
+**Lưu ý:** File `log/YYYY-MM-DD.txt` trong repo (nếu có) thường là output SDK/omniruntime hoặc log redirect tùy cách chạy; log **worker** nằm trong `logs/worker_<instance_id>.log` như trên.
+
+---
+
+### 4. SDK Output Logging (`--log-sdk-output` hoặc `--debug-sdk-output`)
 
 Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detection results, metadata, etc.).
 
@@ -124,7 +219,7 @@ Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detec
 
 ---
 
-### 4. General Logs (`logs/general/`)
+### 5. General Logs (`logs/general/`)
 
 **Luôn được ghi** (không cần flag)
 

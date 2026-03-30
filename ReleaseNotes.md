@@ -374,7 +374,7 @@ cd packaging/scripts
 
 # Ví dụ:
 ./packaging/scripts/build_deb_all_in_one.sh \
-    --sdk-deb ../cvedix-ai-runtime-2025.0.1.3-x86_64.deb
+    --sdk-deb ../edgeos-sdk-2025.0.1.3-x86_64.deb
 
 # Tùy chọn
 ./packaging/scripts/build_deb_all_in_one.sh --sdk-deb <path> --clean

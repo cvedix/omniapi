@@ -10,6 +10,8 @@
 
       **Input Types:**
 
+      - **File**: Local video file path (e.g. ``./video.mp4`` or path after upload via ``POST /v1/core/video/upload``)
+
       - **RTSP**: Uses `rtsp_src` node for RTSP streams
 
       - **HLS**: Uses `hls_src` node for HLS streams
@@ -37,9 +39,17 @@
         application/json:
           schema:
             $ref: '#/components/schemas/SetInputRequest'
-          example:
-            type: Manual
-            uri: http://localhost
+          examples:
+            fileInput:
+              summary: Input from video file
+              value:
+                type: File
+                uri: ./test_video.mp4
+            manualInput:
+              summary: Input from V4L2 device
+              value:
+                type: Manual
+                uri: /dev/video0
     responses:
       '204':
         description: Input settings updated successfully

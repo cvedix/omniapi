@@ -1,0 +1,40 @@
+{
+  "name": "securt_rtmp_rtmp_loitering",
+  "group": "security",
+  "solution": "securt",
+  "persistent": true,
+  "autoStart": false,
+  "detectionSensitivity": "High",
+  "detectorMode": "FullRegionInference",
+  "performanceMode": "Balanced",
+  "frameRateLimit": 15,
+  "recommendedFrameRate": 5,
+  "inputPixelLimit": 2000000,
+  "metadataMode": true,
+  "statisticsMode": true,
+  "diagnosticsMode": false,
+  "debugMode": false,
+  "detectorModelFile": "pva_det_full_frame_512",
+  "animalConfidenceThreshold": 0.3,
+  "personConfidenceThreshold": 0.3,
+  "vehicleConfidenceThreshold": 0.3,
+  "faceConfidenceThreshold": 0.1,
+  "licensePlateConfidenceThreshold": 0.1,
+  "confThreshold": 0.2,
+  "detectorThermalModelFile": "pva_det_mosaic_320",
+  "additionalParams": {
+    "input": {
+      "RTMP_SRC_URL": "rtmp://localhost:1935/live/securt_input",
+      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "RESIZE_RATIO": "1.0",
+      "SKIP_INTERVAL": "0",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
+    },
+    "output": {
+      "RTMP_URL": "rtmp://localhost:1935/live/securt_output",
+      "RTMP_DES_URL": "rtmp://localhost:1935/live/securt_output",
+      "ENABLE_SCREEN_DES": "false"
+    },
+    "LoiteringAreas": "[{\"id\":\"area1\",\"name\":\"RTMP Loitering Zone\",\"coordinates\":[{\"x\":100,\"y\":100},{\"x\":500,\"y\":100},{\"x\":500,\"y\":400},{\"x\":100,\"y\":400}],\"minDuration\":5,\"classes\":[\"Person\"],\"color\":[255,255,0,128]}]"
+  }
+}

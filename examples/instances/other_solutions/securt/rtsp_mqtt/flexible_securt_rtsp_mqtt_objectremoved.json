@@ -1,5 +1,5 @@
 {
-  "name": "CAMERA FACE",
+  "name": "securt_rtsp_mqtt_objectremoved",
   "group": "security",
   "solution": "securt",
   "persistent": true,
@@ -24,8 +24,17 @@
   "detectorThermalModelFile": "pva_det_mosaic_320",
   "additionalParams": {
     "input": {
-      "RTSP_URL": "rtsp://localhost:8554/live/vanphong",
-      "MODEL_PATH": "/opt/edgeos-api/models/detection/pva_det_full_frame_512.trt"
-    }
+      "RTSP_SRC_URL": "rtsp://192.168.1.100:554/stream1",
+      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "RESIZE_RATIO": "1.0",
+      "SKIP_INTERVAL": "0",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
+    },
+    "output": {
+      "MQTT_BROKER_URL": "localhost",
+      "MQTT_PORT": "1883",
+      "MQTT_TOPIC": "securt/events"
+    },
+    "ObjectRemovedAreas": "[{\"id\":\"area1\",\"name\":\"Object Removed Detection Zone\",\"coordinates\":[{\"x\":150,\"y\":150},{\"x\":450,\"y\":150},{\"x\":450,\"y\":350},{\"x\":150,\"y\":350}],\"classes\":[\"Object\"],\"color\":[255,165,0,128]}]"
   }
 }

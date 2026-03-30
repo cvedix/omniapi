@@ -1,77 +1,82 @@
 {
-    "solutionId": "ba_jam",
-    "solutionName": "Behavior Analysis - Traffic Jam (Default)",
-    "solutionType": "behavior_analysis",
-    "isDefault": false,
-    "pipeline": [
-        {
-            "nodeType": "file_src",
-            "nodeName": "file_src_{instanceId}",
-            "parameters": {
-                "file_path": "${FILE_PATH}",
-                "channel": "0",
-                "resize_ratio": "${RESIZE_RATIO}"
-            }
-        },
-        {
-            "nodeType": "trt_vehicle_detector",
-            "nodeName": "vehicle_detector_{instanceId}",
-            "parameters": {
-                "trt_path": "${TRT_PATH}"
-            }
-        },
-        {
-            "nodeType": "sort_track",
-            "nodeName": "sort_tracker_{instanceId}",
-            "parameters": {}
-        },
-        {
-            "nodeType": "ba_jam",
-            "nodeName": "ba_jam_{instanceId}",
-            "parameters": {
-                "region_channel": "0",
-                "check_interval_frames": "${CHECK_INTERVAL_FRAMES}",
-                "check_min_hit_frames": "${CHECK_MIN_HIT_FRAMES}",
-                "check_max_distance": "${CHECK_MAX_DISTANCE}",
-                "check_min_stops": "${CHECK_MIN_STOPS}",
-                "check_notify_interval": "${CHECK_NOTIFY_INTERVAL}"
-            }
-        },
-        {
-            "nodeType": "json_crossline_mqtt_broker",
-            "nodeName": "json_jam_mqtt_broker_{instanceId}",
-            "parameters": {}
-        },
-        {
-            "nodeType": "ba_jam_osd",
-            "nodeName": "osd_{instanceId}",
-            "parameters": {}
-        },
-        {
-            "nodeType": "screen_des",
-            "nodeName": "screen_des_{instanceId}",
-            "parameters": {
-                "channel": "0",
-                "enabled": "${ENABLE_SCREEN_DES}"
-            }
-        },
-        {
-            "nodeType": "rtmp_des",
-            "nodeName": "rtmp_des_{instanceId}",
-            "parameters": {
-                "rtmp_url": "${RTMP_URL}",
-                "channel": "0"
-            }
-        }
-    ],
-    "defaults": {
-        "detectorMode": "SmartDetection",
-        "detectionSensitivity": "0.7",
-        "sensorModality": "RGB",
-        "CHECK_INTERVAL_FRAMES": "20",
-        "CHECK_MIN_HIT_FRAMES": "50",
-        "CHECK_MAX_DISTANCE": "8",
-        "CHECK_MIN_STOPS": "8",
-        "CHECK_NOTIFY_INTERVAL": "10"
+  "solutionId": "ba_jam",
+  "solutionName": "Behavior Analysis - Traffic Jam (Default)",
+  "solutionType": "behavior_analysis",
+  "isDefault": false,
+  "pipeline": [
+    {
+      "nodeType": "file_src",
+      "nodeName": "file_src_{instanceId}",
+      "parameters": {
+        "file_path": "${FILE_PATH}",
+        "channel": "0",
+        "resize_ratio": "${RESIZE_RATIO}"
+      }
+    },
+    {
+      "nodeType": "yolo_detector",
+      "nodeName": "vehicle_detector_{instanceId}",
+      "parameters": {
+        "model_path": "${MODEL_PATH}",
+        "labels_path": "${LABELS_PATH}",
+        "backend_type": "${BACKEND_TYPE}",
+        "score_threshold": "${detectionSensitivity}",
+        "nms_threshold": "0.4"
+      }
+    },
+    {
+      "nodeType": "sort_track",
+      "nodeName": "sort_tracker_{instanceId}",
+      "parameters": {}
+    },
+    {
+      "nodeType": "ba_jam",
+      "nodeName": "ba_jam_{instanceId}",
+      "parameters": {
+        "region_channel": "0",
+        "check_interval_frames": "${CHECK_INTERVAL_FRAMES}",
+        "check_min_hit_frames": "${CHECK_MIN_HIT_FRAMES}",
+        "check_max_distance": "${CHECK_MAX_DISTANCE}",
+        "check_min_stops": "${CHECK_MIN_STOPS}",
+        "check_notify_interval": "${CHECK_NOTIFY_INTERVAL}"
+      }
+    },
+    {
+      "nodeType": "json_crossline_mqtt_broker",
+      "nodeName": "json_jam_mqtt_broker_{instanceId}",
+      "parameters": {}
+    },
+    {
+      "nodeType": "ba_jam_osd",
+      "nodeName": "osd_{instanceId}",
+      "parameters": {}
+    },
+    {
+      "nodeType": "screen_des",
+      "nodeName": "screen_des_{instanceId}",
+      "parameters": {
+        "channel": "0",
+        "enabled": "${ENABLE_SCREEN_DES}"
+      }
+    },
+    {
+      "nodeType": "rtmp_des",
+      "nodeName": "rtmp_des_{instanceId}",
+      "parameters": {
+        "rtmp_url": "${RTMP_URL}",
+        "channel": "0"
+      }
     }
+  ],
+  "defaults": {
+    "detectorMode": "SmartDetection",
+    "detectionSensitivity": "0.7",
+    "sensorModality": "RGB",
+    "CHECK_INTERVAL_FRAMES": "20",
+    "CHECK_MIN_HIT_FRAMES": "50",
+    "CHECK_MAX_DISTANCE": "8",
+    "CHECK_MIN_STOPS": "8",
+    "CHECK_NOTIFY_INTERVAL": "10",
+    "BACKEND_TYPE": "tensorrt"
+  }
 }

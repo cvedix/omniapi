@@ -2,6 +2,11 @@
 
 Thư mục này chứa các scripts và tài liệu liên quan đến việc build Debian package (.deb).
 
+## 📌 Tên gói / Naming
+
+- **edgeos-api**: API server (project đổi tên từ edge-ai-api).
+- **edgeos-sdk**: SDK/runtime (đổi tên từ cvedix-ai-runtime). Cài tại `/opt/edgeos-sdk`, lib tại `/opt/edgeos-sdk/lib/cvedix`.
+
 ## 📁 Cấu Trúc
 
 ```

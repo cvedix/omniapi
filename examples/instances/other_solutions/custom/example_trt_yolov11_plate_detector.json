@@ -31,6 +31,7 @@
       "nodeName": "trt_yolov11_plate_detector",
       "parameters": {
         "model_path": "${MODEL_PATH}",
+        "labels_path": "",
         "conf_threshold": "${CONF_THRESHOLD}",
         "nms_threshold": "${NMS_THRESHOLD}"
       }

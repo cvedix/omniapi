@@ -120,34 +120,74 @@ LinesHandler::loadLinesFromConfig(const std::string &instanceId) const {
   }
 
   const auto &info = optInfo.value();
+
+  // 1) Prefer CrossingLines (JSON array string) when present.
+  // Line ids: if user provided id it is kept for the whole instance lifecycle;
+  // if not provided, PATCH/save paths normalize and store a generated UUID once.
+  // Here we only generate for display when stored data has no id (e.g. legacy).
   auto it = info.additionalParams.find("CrossingLines");
   if (it != info.additionalParams.end() && !it->second.empty()) {
-    // Parse JSON string to JSON array
     Json::Reader reader;
     Json::Value parsedLines;
     if (reader.parse(it->second, parsedLines) && parsedLines.isArray()) {
-      // Ensure all lines have an id - generate UUID if missing
       for (Json::ArrayIndex i = 0; i < parsedLines.size(); ++i) {
         Json::Value &line = parsedLines[i];
-        if (!line.isObject()) {
-          continue;
-        }
-
-        // Check if id is missing or empty
+        if (!line.isObject()) continue;
         if (!line.isMember("id") || !line["id"].isString() ||
             line["id"].asString().empty()) {
-          // Generate UUID for line without id
           line["id"] = UUIDGenerator::generateUUID();
           if (isApiLoggingEnabled()) {
-            PLOG_DEBUG
-                << "[API] loadLinesFromConfig: Generated UUID for line at "
-                   "index "
-                << i;
+            PLOG_DEBUG << "[API] loadLinesFromConfig: Generated UUID for line at index " << i;
           }
         }
       }
       return parsedLines;
     }
+  }
+
+  // 2) When CrossingLines is absent, build one line from CROSSLINE_START_* / CROSSLINE_END_*
+  //    (same format used in additionalParams.input for ba_crossline)
+  //    Use a stable id so GET /lines returns the same id every time until user updates with CrossingLines.
+  auto sx = info.additionalParams.find("CROSSLINE_START_X");
+  auto sy = info.additionalParams.find("CROSSLINE_START_Y");
+  auto ex = info.additionalParams.find("CROSSLINE_END_X");
+  auto ey = info.additionalParams.find("CROSSLINE_END_Y");
+  if (sx != info.additionalParams.end() && !sx->second.empty() &&
+      sy != info.additionalParams.end() && !sy->second.empty() &&
+      ex != info.additionalParams.end() && !ex->second.empty() &&
+      ey != info.additionalParams.end() && !ey->second.empty()) {
+    int startX = 0, startY = 0, endX = 0, endY = 0;
+    try {
+      startX = std::stoi(sx->second);
+      startY = std::stoi(sy->second);
+      endX = std::stoi(ex->second);
+      endY = std::stoi(ey->second);
+    } catch (...) {
+      return linesArray;
+    }
+    Json::Value line(Json::objectValue);
+    line["id"] = "line_1";  // Stable id for single line from CROSSLINE_* (no random UUID per GET)
+    line["name"] = "Line 1";
+    Json::Value coords(Json::arrayValue);
+    Json::Value p1(Json::objectValue);
+    p1["x"] = startX;
+    p1["y"] = startY;
+    Json::Value p2(Json::objectValue);
+    p2["x"] = endX;
+    p2["y"] = endY;
+    coords.append(p1);
+    coords.append(p2);
+    line["coordinates"] = coords;
+    line["direction"] = "Both";
+    line["classes"] = Json::arrayValue;
+    line["classes"].append("Vehicle");
+    line["color"] = Json::arrayValue;
+    line["color"].append(255);
+    line["color"].append(0);
+    line["color"].append(0);
+    line["color"].append(255);
+    linesArray.append(line);
+    return linesArray;
   }
 
   return linesArray;
@@ -696,13 +736,13 @@ void LinesHandler::createLine(
                   << "/lines - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING
             << "[API] POST /v1/core/instance/" << instanceId
-            << "/lines - Runtime update failed, falling back to restart";
+            << "/lines - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, linesArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -825,13 +865,13 @@ void LinesHandler::deleteAllLines(
                   << "/lines - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING
             << "[API] DELETE /v1/core/instance/" << instanceId
-            << "/lines - Runtime update failed, falling back to restart";
+            << "/lines - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, emptyArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1206,13 +1246,13 @@ void LinesHandler::updateLine(
                   << lineId << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] PUT /v1/core/instance/" << instanceId
                      << "/lines/" << lineId
-                     << " - Runtime update failed, falling back to restart";
+                     << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, linesArray);
     }
 
     // Find updated line to return
@@ -1375,13 +1415,13 @@ void LinesHandler::deleteLine(
                   << " - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] DELETE /v1/core/instance/" << instanceId
                      << "/lines/" << lineId
-                     << " - Runtime update failed, falling back to restart";
+                     << " - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, newLinesArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1598,13 +1638,12 @@ void LinesHandler::batchUpdateLines(
                   << "/lines/batch - Lines updated runtime without restart";
       }
     } else {
-      // Fallback to restart if runtime update failed
+      // Fallback to hot swap (zero downtime) instead of restart
       if (isApiLoggingEnabled()) {
         PLOG_WARNING << "[API] POST /v1/core/instance/" << instanceId
-                     << "/lines/batch - Runtime update failed, falling back to "
-                        "restart";
+                     << "/lines/batch - Runtime update failed, applying via hot swap (zero downtime)";
       }
-      restartInstanceForLineUpdate(instanceId);
+      applyLinesUpdateViaHotSwap(instanceId, linesArray);
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -1744,12 +1783,35 @@ bool LinesHandler::restartInstanceForLineUpdate(
   return true;
 }
 
+bool LinesHandler::applyLinesUpdateViaHotSwap(const std::string &instanceId,
+                                               const Json::Value &linesArray) const {
+  if (!instance_manager_) {
+    return false;
+  }
+  Json::Value patch(Json::objectValue);
+  patch["AdditionalParams"] = Json::Value(Json::objectValue);
+  Json::StreamWriterBuilder wb;
+  wb["indentation"] = "";
+  patch["AdditionalParams"]["CrossingLines"] = Json::writeString(wb, linesArray);
+  bool ok = instance_manager_->updateInstanceFromConfig(instanceId, patch);
+  if (isApiLoggingEnabled()) {
+    if (ok) {
+      PLOG_INFO << "[API] applyLinesUpdateViaHotSwap: instance " << instanceId
+                << " updated via hot swap (zero downtime)";
+    } else {
+      PLOG_WARNING << "[API] applyLinesUpdateViaHotSwap: instance " << instanceId
+                   << " update failed, consider manual restart";
+    }
+  }
+  return ok;
+}
+
 std::shared_ptr<cvedix_nodes::cvedix_ba_line_crossline_node>
 LinesHandler::findBACrosslineNode(const std::string &instanceId) const {
   // Note: In subprocess mode, we cannot access nodes directly
   // as they run in separate worker processes.
   // This method will return nullptr in subprocess mode,
-  // and updateLinesRuntime() will fallback to restart.
+  // and updateLinesRuntime() will fallback to hot swap or restart.
 
   if (!instance_manager_) {
     return nullptr;

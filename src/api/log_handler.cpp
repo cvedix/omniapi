@@ -1,4 +1,6 @@
 #include "api/log_handler.h"
+#include "config/system_config.h"
+#include "core/apply_logging_config.h"
 #include "core/log_manager.h"
 #include "core/metrics_interceptor.h"
 #include <algorithm>
@@ -12,6 +14,110 @@
 #include <sstream>
 
 namespace fs = std::filesystem;
+
+void LogHandler::getLogConfig(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  MetricsInterceptor::setHandlerStartTime(req);
+  try {
+    auto &config = SystemConfig::getInstance();
+    auto logConfig = config.getLoggingConfig();
+    Json::Value out;
+    out["enabled"] = logConfig.enabled;
+    out["log_level"] = logConfig.logLevel;
+    out["api_enabled"] = logConfig.apiEnabled;
+    out["instance_enabled"] = logConfig.instanceEnabled;
+    out["sdk_output_enabled"] = logConfig.sdkOutputEnabled;
+    out["log_dir"] = logConfig.logDir;
+    out["current_log_dir"] = LogManager::getBaseDir();
+    out["log_file"] = logConfig.logFile;
+    out["max_log_file_size"] = static_cast<Json::Int64>(logConfig.maxLogFileSize);
+    out["max_log_files"] = logConfig.maxLogFiles;
+    out["retention_days"] = logConfig.retentionDays;
+    out["max_disk_usage_percent"] = logConfig.maxDiskUsagePercent;
+    out["cleanup_interval_hours"] = logConfig.cleanupIntervalHours;
+    out["_description"] = Json::objectValue;
+    out["_description"]["enabled"] = "Master switch: when false, all logging categories are effectively off.";
+    out["_description"]["log_level"] = "Minimum level: none, fatal, error, warning, info, debug, verbose. Restart may be required for full effect.";
+    out["_description"]["api_enabled"] = "Log API requests/responses (applies immediately).";
+    out["_description"]["instance_enabled"] = "Log instance start/stop/status (applies immediately).";
+    out["_description"]["sdk_output_enabled"] = "Log SDK output when instances process data (applies immediately).";
+    out["_description"]["log_dir"] = "Configured log directory (from config or env); may differ from current_log_dir until restart.";
+    out["_description"]["current_log_dir"] = "Actual base directory where log files are written at runtime. Use this to verify log location.";
+    Json::Value response;
+    response["config"] = out;
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k200OK);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+  } catch (const std::exception &e) {
+    auto err = createErrorResponse(k500InternalServerError, "Internal server error", e.what());
+    MetricsInterceptor::callWithMetrics(req, err, std::move(callback));
+  }
+}
+
+void LogHandler::putLogConfig(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  MetricsInterceptor::setHandlerStartTime(req);
+  try {
+    auto json = req->getJsonObject();
+    if (!json) {
+      callback(createErrorResponse(k400BadRequest, "Invalid request", "Request body must be valid JSON"));
+      return;
+    }
+    auto &config = SystemConfig::getInstance();
+    auto current = config.getLoggingConfig();
+    if (json->isMember("enabled") && (*json)["enabled"].isBool())
+      current.enabled = (*json)["enabled"].asBool();
+    if (json->isMember("log_level") && (*json)["log_level"].isString())
+      current.logLevel = (*json)["log_level"].asString();
+    if (json->isMember("api_enabled") && (*json)["api_enabled"].isBool())
+      current.apiEnabled = (*json)["api_enabled"].asBool();
+    if (json->isMember("instance_enabled") && (*json)["instance_enabled"].isBool())
+      current.instanceEnabled = (*json)["instance_enabled"].asBool();
+    if (json->isMember("sdk_output_enabled") && (*json)["sdk_output_enabled"].isBool())
+      current.sdkOutputEnabled = (*json)["sdk_output_enabled"].asBool();
+    if (json->isMember("log_dir") && (*json)["log_dir"].isString())
+      current.logDir = (*json)["log_dir"].asString();
+    if (json->isMember("log_file") && (*json)["log_file"].isString())
+      current.logFile = (*json)["log_file"].asString();
+    if (json->isMember("max_log_file_size") && (*json)["max_log_file_size"].isInt())
+      current.maxLogFileSize = static_cast<size_t>((*json)["max_log_file_size"].asInt());
+    if (json->isMember("max_log_files") && (*json)["max_log_files"].isInt())
+      current.maxLogFiles = (*json)["max_log_files"].asInt();
+    if (json->isMember("retention_days") && (*json)["retention_days"].isInt())
+      current.retentionDays = (*json)["retention_days"].asInt();
+    if (json->isMember("max_disk_usage_percent") && (*json)["max_disk_usage_percent"].isInt())
+      current.maxDiskUsagePercent = (*json)["max_disk_usage_percent"].asInt();
+    if (json->isMember("cleanup_interval_hours") && (*json)["cleanup_interval_hours"].isInt())
+      current.cleanupIntervalHours = (*json)["cleanup_interval_hours"].asInt();
+    config.setLoggingConfig(current);
+    config.saveConfig();
+    applyLoggingConfig(current);
+    Json::Value response;
+    response["message"] = "Logging configuration updated and applied (category flags apply immediately; log_level may require restart).";
+    response["config"] = Json::objectValue;
+    response["config"]["enabled"] = current.enabled;
+    response["config"]["log_level"] = current.logLevel;
+    response["config"]["api_enabled"] = current.apiEnabled;
+    response["config"]["instance_enabled"] = current.instanceEnabled;
+    response["config"]["sdk_output_enabled"] = current.sdkOutputEnabled;
+    response["config"]["log_dir"] = current.logDir;
+    response["config"]["current_log_dir"] = LogManager::getBaseDir();
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k200OK);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+  } catch (const std::exception &e) {
+    auto err = createErrorResponse(k500InternalServerError, "Internal server error", e.what());
+    MetricsInterceptor::callWithMetrics(req, err, std::move(callback));
+  }
+}
 
 void LogHandler::listLogFiles(
     const HttpRequestPtr &req,
@@ -31,6 +137,20 @@ void LogHandler::listLogFiles(
         {LogManager::Category::GENERAL, "general"}};
 
     for (const auto &[category, name] : categoryList) {
+      if (category == LogManager::Category::INSTANCE) {
+        auto instFiles = LogManager::listInstanceLogTree();
+        Json::Value categoryFiles(Json::arrayValue);
+        for (const auto &e : instFiles) {
+          Json::Value fileInfo;
+          fileInfo["instance_id"] = e.instance_id;
+          fileInfo["date"] = e.date;
+          fileInfo["size"] = static_cast<Json::Int64>(e.size);
+          fileInfo["path"] = e.path;
+          categoryFiles.append(fileInfo);
+        }
+        categories[name] = categoryFiles;
+        continue;
+      }
       auto files = LogManager::listLogFiles(category);
       Json::Value categoryFiles(Json::arrayValue);
 
@@ -133,7 +253,8 @@ void LogHandler::getLogsByCategory(
       return;
     }
 
-    // Get query parameters
+    std::string instance_id_param = req->getParameter("instance_id");
+
     std::string level_filter = req->getParameter("level");
     std::string from_timestamp = req->getParameter("from");
     std::string to_timestamp = req->getParameter("to");
@@ -149,9 +270,57 @@ void LogHandler::getLogsByCategory(
       }
     }
 
-    // Get all log files for this category
+    if (category == LogManager::Category::INSTANCE && instance_id_param.empty()) {
+      callback(createErrorResponse(
+          k400BadRequest, "Bad request",
+          "instance_id query parameter is required for category instance"));
+      return;
+    }
+
     std::string category_dir = LogManager::getCategoryDir(category);
-    auto files = LogManager::listLogFiles(category);
+    if (category == LogManager::Category::INSTANCE) {
+      category_dir += "/" + instance_id_param;
+    }
+
+    std::vector<std::pair<std::string, uint64_t>> files;
+    if (category == LogManager::Category::INSTANCE) {
+      if (fs::exists(category_dir) && fs::is_directory(category_dir)) {
+        for (const auto &entry : fs::directory_iterator(category_dir)) {
+          if (!fs::is_regular_file(entry)) {
+            continue;
+          }
+          std::string fn = entry.path().filename().string();
+          if (fn.size() < 5 || fn.substr(fn.size() - 4) != ".log") {
+            continue;
+          }
+          std::string base = fn.substr(0, fn.size() - 4);
+          size_t dotp = base.find('.');
+          if (dotp != std::string::npos) {
+            base = base.substr(0, dotp);
+          }
+          if (base.size() == 10 && base[4] == '-' && base[7] == '-') {
+            bool dup = false;
+            for (const auto &pr : files) {
+              if (pr.first == base) {
+                dup = true;
+                break;
+              }
+            }
+            if (!dup) {
+              try {
+                files.push_back({base, fs::file_size(entry.path())});
+              } catch (...) {
+              }
+            }
+          }
+        }
+        std::sort(files.begin(), files.end(), [](const auto &a, const auto &b) {
+          return a.first > b.first;
+        });
+      }
+    } else {
+      files = LogManager::listLogFiles(category);
+    }
 
     // Build response (declare once)
     Json::Value response;
@@ -179,18 +348,36 @@ void LogHandler::getLogsByCategory(
 
     // If tail is specified, only read from the latest file
     if (tail_count > 0 && !files.empty()) {
-      std::string latest_file =
-          LogManager::getLogFilePath(category, files[0].first);
+      std::string latest_file;
+      if (category == LogManager::Category::INSTANCE) {
+        latest_file = category_dir + "/" + files[0].first + ".log";
+      } else {
+        latest_file = LogManager::getLogFilePath(category, files[0].first);
+      }
       auto logs = readLogFile(latest_file, tail_count);
       allLogs.insert(allLogs.end(), logs.begin(), logs.end());
       totalLines = static_cast<int>(logs.size());
     } else {
-      // Read from all files
       for (const auto &[date, size] : files) {
-        std::string file_path = LogManager::getLogFilePath(category, date);
-        auto logs = readLogFile(file_path, 0);
-        allLogs.insert(allLogs.end(), logs.begin(), logs.end());
-        totalLines += static_cast<int>(logs.size());
+        std::vector<std::string> paths;
+        if (category == LogManager::Category::INSTANCE) {
+          std::string p0 = category_dir + "/" + date + ".log";
+          paths.push_back(p0);
+          for (int p = 1; p < 20; ++p) {
+            std::string pp =
+                category_dir + "/" + date + "." + std::to_string(p) + ".log";
+            if (fs::exists(pp)) {
+              paths.push_back(pp);
+            }
+          }
+        } else {
+          paths.push_back(LogManager::getLogFilePath(category, date));
+        }
+        for (const auto &fp : paths) {
+          auto logs = readLogFile(fp, 0);
+          allLogs.insert(allLogs.end(), logs.begin(), logs.end());
+          totalLines += static_cast<int>(logs.size());
+        }
       }
     }
 
@@ -254,7 +441,14 @@ void LogHandler::getLogsByCategoryAndDate(
       return;
     }
 
-    // Get query parameters
+    std::string inst_id2 = req->getParameter("instance_id");
+    if (category == LogManager::Category::INSTANCE && inst_id2.empty()) {
+      callback(createErrorResponse(
+          k400BadRequest, "Bad request",
+          "instance_id query parameter is required for category instance"));
+      return;
+    }
+
     std::string level_filter = req->getParameter("level");
     std::string from_timestamp = req->getParameter("from");
     std::string to_timestamp = req->getParameter("to");
@@ -270,18 +464,42 @@ void LogHandler::getLogsByCategoryAndDate(
       }
     }
 
-    // Get log file path
-    std::string file_path = LogManager::getLogFilePath(category, date_str);
-
-    // Check if file exists
-    if (!fs::exists(file_path)) {
-      callback(createErrorResponse(k404NotFound, "Not found",
-                                   "Log file not found for date: " + date_str));
-      return;
+    std::vector<Json::Value> logs;
+    if (category == LogManager::Category::INSTANCE) {
+      std::string idir = LogManager::getCategoryDir(
+                             LogManager::Category::INSTANCE) +
+                         "/" + inst_id2;
+      std::vector<std::string> paths;
+      std::string p0 = idir + "/" + date_str + ".log";
+      if (fs::exists(p0)) {
+        paths.push_back(p0);
+      }
+      for (int p = 1; p < 50; ++p) {
+        std::string pp =
+            idir + "/" + date_str + "." + std::to_string(p) + ".log";
+        if (fs::exists(pp)) {
+          paths.push_back(pp);
+        }
+      }
+      if (paths.empty()) {
+        callback(createErrorResponse(k404NotFound, "Not found",
+                                     "Log file not found for date: " + date_str));
+        return;
+      }
+      for (const auto &fp : paths) {
+        auto part = readLogFile(fp, 0);
+        logs.insert(logs.end(), part.begin(), part.end());
+      }
+    } else {
+      std::string file_path = LogManager::getLogFilePath(category, date_str);
+      if (!fs::exists(file_path)) {
+        callback(createErrorResponse(k404NotFound, "Not found",
+                                     "Log file not found for date: " + date_str));
+        return;
+      }
+      logs = readLogFile(file_path, tail_count);
     }
 
-    // Read log file
-    auto logs = readLogFile(file_path, tail_count);
     int totalLines = static_cast<int>(logs.size());
 
     // Apply filters

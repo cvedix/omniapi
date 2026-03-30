@@ -5,8 +5,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -18,6 +20,29 @@
  * with default values and validation.
  */
 namespace EnvConfig {
+
+/**
+ * @brief Root directory for runtime data (instances, models, logs, …)
+ *
+ * Set EDGEOS_API_INSTALL_DIR (or legacy EDGEOS_HOME) to override.
+ * Default: /opt/edgeos-api
+ */
+inline std::string getDataInstallRoot() {
+  const char *p = std::getenv("EDGEOS_API_INSTALL_DIR");
+  if (!p || p[0] == '\0') {
+    p = std::getenv("EDGEOS_HOME");
+  }
+  if (p && p[0] != '\0') {
+    std::string s(p);
+    while (!s.empty() && (s.back() == '/' || s.back() == '\\')) {
+      s.pop_back();
+    }
+    if (!s.empty()) {
+      return s;
+    }
+  }
+  return "/opt/edgeos-api";
+}
 
 /**
  * @brief Get string environment variable
@@ -339,8 +364,8 @@ inline std::vector<std::string>
 getAllPossibleDirectories(const std::string &subdir) {
   std::vector<std::string> paths;
 
-  // Tier 1: Production path
-  paths.push_back("/opt/edgeos-api/" + subdir);
+  // Tier 1: Install root (default /opt/edgeos-api)
+  paths.push_back(getDataInstallRoot() + "/" + subdir);
 
   // Tier 2: User directory
   const char *home = std::getenv("HOME");
@@ -359,7 +384,7 @@ getAllPossibleDirectories(const std::string &subdir) {
  *
  * Priority:
  * 1. Environment variable (if set) - highest priority
- * 2. Use /opt/edgeos-api/{subdir} as default (production path)
+ * 2. Use {EDGEOS_API_INSTALL_DIR}/{subdir} (default /opt/edgeos-api/{subdir})
  * 3. Fallback to ~/.local/share/edgeos-api/{subdir} (user directory)
  * 4. Last resort: ./{subdir} (current directory)
  *
@@ -400,8 +425,8 @@ inline std::string resolveDataDir(const char *env_var_name,
     }
   }
 
-  // Tier 2: Use /opt/edgeos-api/{subdir} as default (production path)
-  std::string default_path = "/opt/edgeos-api/" + subdir;
+  // Tier 2: Install root + subdir (default under /opt/edgeos-api)
+  std::string default_path = getDataInstallRoot() + "/" + subdir;
 
   // Try to create production directory
   try {
@@ -743,6 +768,142 @@ inline std::string resolveConfigPath() {
                "/opt/edgeos-api/config"
             << std::endl;
   return "./config.json";
+}
+
+/**
+ * @brief Load KEY=VALUE from a .env file and setenv (for dev startup).
+ * Skips empty lines and lines starting with #. Overwrites existing env.
+ * @param path Full path to .env file
+ * @return true if file was read (even if no valid lines), false if file missing/unreadable
+ */
+inline bool loadDotenv(const std::string &path) {
+  std::ifstream f(path);
+  if (!f.is_open()) {
+    return false;
+  }
+  std::string line;
+  int count = 0;
+  while (std::getline(f, line)) {
+    // Trim and skip empty / comment
+    auto start = line.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) {
+      continue;
+    }
+    if (line[start] == '#') {
+      continue;
+    }
+    auto eq = line.find('=', start);
+    if (eq == std::string::npos) {
+      continue;
+    }
+    std::string key = line.substr(start, eq - start);
+    std::string value = line.substr(eq + 1);
+    auto key_end = key.find_last_not_of(" \t");
+    if (key_end != std::string::npos) {
+      key = key.substr(0, key_end + 1);
+    }
+    auto val_start = value.find_first_not_of(" \t\"'");
+    if (val_start != std::string::npos) {
+      value = value.substr(val_start);
+      auto val_end = value.find_last_not_of(" \t\"'\r");
+      if (val_end != std::string::npos) {
+        value = value.substr(0, val_end + 1);
+      }
+    } else {
+      value.clear();
+    }
+    if (!key.empty()) {
+      setenv(key.c_str(), value.c_str(), 1);
+      count++;
+    }
+  }
+  if (count > 0) {
+    std::cerr << "[EnvConfig] Loaded " << count << " variable(s) from " << path
+              << std::endl;
+  }
+  return true;
+}
+
+/**
+ * @brief When --dev: load .env (or .env.example) from project root.
+ * Walks up from executable directory, tries .env then .env.example at each level.
+ * setenv(..., 1) so values override existing env. Use when --dev flag is passed.
+ * @param argv0 argv[0] from main (executable path)
+ * @return true if a file was loaded
+ */
+inline bool loadDotenvFromProjectRootOrExample(const char *argv0) {
+  if (!argv0 || !argv0[0]) {
+    return false;
+  }
+  try {
+    std::filesystem::path path(argv0);
+    if (!path.is_absolute()) {
+      path = std::filesystem::absolute(path);
+    }
+    path = path.parent_path();
+    for (int up = 0; up < 5 && path.has_parent_path(); ++up) {
+      std::string env_path = (path / ".env").string();
+      if (loadDotenv(env_path)) {
+        return true;
+      }
+      std::string example_path = (path / ".env.example").string();
+      if (loadDotenv(example_path)) {
+        return true;
+      }
+      path = path.parent_path();
+    }
+  } catch (...) {
+  }
+  return false;
+}
+
+/**
+ * @brief When in dev (binary not under /opt/edgeos-api), try to load .env
+ * so config/env is taken from project .env without needing to source it.
+ * Set EDGEOS_LOAD_DOTENV=1 to force load; set EDGEOS_DOTENV_PATH to path to .env
+ * @param argv0 argv[0] from main (executable path)
+ */
+inline void tryLoadDotenvForDev(const char *argv0) {
+  const char *force = std::getenv("EDGEOS_LOAD_DOTENV");
+  bool is_dev = true;
+  if (argv0 && std::strstr(argv0, "/opt/edgeos-api") != nullptr) {
+    is_dev = false;
+  }
+  if (force && (std::strcmp(force, "1") == 0 || std::strcmp(force, "true") == 0 ||
+                std::strcmp(force, "yes") == 0)) {
+    is_dev = true;
+  }
+  if (!is_dev) {
+    return;
+  }
+  const char *explicit_path = std::getenv("EDGEOS_DOTENV_PATH");
+  if (explicit_path && explicit_path[0]) {
+    if (loadDotenv(explicit_path)) {
+      return;
+    }
+  }
+  try {
+    std::string cwd = std::filesystem::current_path().string();
+    std::string cwd_env = cwd + "/.env";
+    if (loadDotenv(cwd_env)) {
+      return;
+    }
+    if (argv0 && argv0[0]) {
+      std::filesystem::path exe(argv0);
+      if (!exe.is_absolute()) {
+        exe = std::filesystem::absolute(exe);
+      }
+      std::filesystem::path root = exe.parent_path();
+      for (int i = 0; i < 3 && root.has_parent_path(); ++i) {
+        root = root.parent_path();
+        std::string candidate = (root / ".env").string();
+        if (loadDotenv(candidate)) {
+          return;
+        }
+      }
+    }
+  } catch (...) {
+  }
 }
 
 } // namespace EnvConfig

@@ -17,6 +17,10 @@ namespace edgeos {
 /**
  * Proxy between OSD and rtmp_des. If incoming frame is empty, sends
  * last valid frame so the RTMP destination always has data to push.
+ *
+ * inject_frame() allows an external "last-frame pump" to push a frame
+ * (e.g. during instance update / hot swap) so the RTMP connection is
+ * kept alive and the stream server does not drop the stream key.
  */
 class RtmpLastFrameFallbackProxyNode : public cvedix_nodes::cvedix_node {
  public:
@@ -24,6 +28,14 @@ class RtmpLastFrameFallbackProxyNode : public cvedix_nodes::cvedix_node {
   ~RtmpLastFrameFallbackProxyNode() override;
 
   cvedix_nodes::cvedix_node_type node_type() override;
+
+  /**
+   * Inject a frame from outside (e.g. last captured frame) so it is
+   * forwarded to rtmp_des. Use during update/hot-swap to keep sending
+   * while the new pipeline is building, avoiding stream disconnect.
+   * Thread-safe; no-op if frame is empty.
+   */
+  void inject_frame(const cv::Mat& frame);
 
  protected:
   std::shared_ptr<cvedix_objects::cvedix_meta> handle_frame_meta(

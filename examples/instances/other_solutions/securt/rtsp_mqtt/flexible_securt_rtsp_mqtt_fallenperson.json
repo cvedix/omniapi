@@ -1,0 +1,40 @@
+{
+  "name": "securt_rtsp_mqtt_fallenperson",
+  "group": "security",
+  "solution": "securt",
+  "persistent": true,
+  "autoStart": false,
+  "detectionSensitivity": "High",
+  "detectorMode": "FullRegionInference",
+  "performanceMode": "Balanced",
+  "frameRateLimit": 15,
+  "recommendedFrameRate": 5,
+  "inputPixelLimit": 2000000,
+  "metadataMode": true,
+  "statisticsMode": true,
+  "diagnosticsMode": false,
+  "debugMode": false,
+  "detectorModelFile": "pva_det_full_frame_512",
+  "animalConfidenceThreshold": 0.3,
+  "personConfidenceThreshold": 0.3,
+  "vehicleConfidenceThreshold": 0.3,
+  "faceConfidenceThreshold": 0.1,
+  "licensePlateConfidenceThreshold": 0.1,
+  "confThreshold": 0.2,
+  "detectorThermalModelFile": "pva_det_mosaic_320",
+  "additionalParams": {
+    "input": {
+      "RTSP_SRC_URL": "rtsp://192.168.1.100:554/stream1",
+      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "RESIZE_RATIO": "1.0",
+      "SKIP_INTERVAL": "0",
+      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
+    },
+    "output": {
+      "MQTT_BROKER_URL": "localhost",
+      "MQTT_PORT": "1883",
+      "MQTT_TOPIC": "securt/events"
+    },
+    "FallenPersonAreas": "[{\"id\":\"area1\",\"name\":\"Fallen Person Detection Zone\",\"coordinates\":[{\"x\":0,\"y\":0},{\"x\":640,\"y\":0},{\"x\":640,\"y\":480},{\"x\":0,\"y\":480}],\"classes\":[\"Person\"],\"color\":[255,0,0,128]}]"
+  }
+}

@@ -6,12 +6,12 @@
   "autoStart": false,
   "additionalParams": {
     "input": {
-      "RTSP_URL": "rtsp://localhost:8554/stream",
       "MODEL_NAME": "llava",
       "API_BASE_URL": "http://localhost:11434",
       "PROMPT": "Describe what you see in this image. Focus on objects, people, and activities.",
       "API_KEY": "",
-      "BACKEND_TYPE": "ollama"
+      "BACKEND_TYPE": "ollama",
+      "RTSP_SRC_URL": "rtsp://localhost:8554/stream"
     }
   }
 }
