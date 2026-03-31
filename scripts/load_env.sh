@@ -4,7 +4,7 @@
 # ============================================
 #
 # This script loads environment variables from .env file
-# and runs the omniapi server.
+# and runs the OmniAPI.
 #
 # Usage:
 #   ./scripts/load_env.sh                    # Load .env and run server
@@ -267,7 +267,7 @@ fi
 echo "Configuration validated successfully!"
 echo ""
 echo "=========================================="
-echo "Starting OmniAPI Server..."
+echo "Starting OmniAPI..."
 echo "=========================================="
 echo "Executable: $EXECUTABLE"
 echo "Environment file: $ENV_FILE"

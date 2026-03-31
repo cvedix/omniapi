@@ -1100,8 +1100,8 @@ Depends: ${misc:Depends},
          libavcodec58 | libavcodec57,
          libavformat58 | libavformat57,
          libswscale5 | libswscale4
-Description: OmniAPI Server - RESTful API for CVEDIX Edge AI SDK
- OmniAPI Server provides a RESTful control plane for managing
+Description: OmniAPI - RESTful API for CVEDIX Edge AI SDK
+ OmniAPI provides a RESTful control plane for managing
  CVEDIX Edge AI SDK instances remotely. It allows backend services
  or remote operators to configure, launch, and monitor real-time
  computer vision instances on edge devices without direct access.

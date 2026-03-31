@@ -103,7 +103,7 @@
 #include <vector>
 
 /**
- * @brief OmniAPI Server
+ * @brief OmniAPI
  *
  * REST API server using Drogon framework
  * Provides health check and version endpoints
@@ -2160,7 +2160,7 @@ int main(int argc, char *argv[]) {
     CategorizedLogger::init(logParams, plogSev, true);
 
     PLOG_INFO << "========================================";
-    PLOG_INFO << "OmniAPI Server";
+    PLOG_INFO << "OmniAPI";
     PLOG_INFO << "========================================";
     if (g_debug_mode.load()) {
       PLOG_INFO << "Debug mode: ENABLED";

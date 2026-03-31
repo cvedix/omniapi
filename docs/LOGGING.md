@@ -1,10 +1,10 @@
 # Logging Documentation
 
-Tài liệu này mô tả các tính năng logging của omniapi Server, bao gồm cách sử dụng, cấu hình và phân tích hệ thống logging.
+Tài liệu này mô tả các tính năng logging của OmniAPI, bao gồm cách sử dụng, cấu hình và phân tích hệ thống logging.
 
 ## 📋 Tổng Quan
 
-omniapi Server cung cấp các tính năng logging chi tiết để giúp bạn theo dõi và debug hệ thống. Các tính năng logging có thể được bật/tắt thông qua command-line arguments khi khởi động server.
+OmniAPI cung cấp các tính năng logging chi tiết để giúp bạn theo dõi và debug hệ thống. Các tính năng logging có thể được bật/tắt thông qua command-line arguments khi khởi động server.
 
 **✅ Kết Luận Quan Trọng:** Hệ thống logging đã được thiết kế với nhiều cơ chế bảo vệ để **ngăn chặn tràn đĩa / tràn log**:
 - ✅ Theo ngày (`YYYY-MM-DD.log`), tối đa **100MB/file** (cấu hình `max_log_file_size`)
@@ -231,7 +231,7 @@ Log output từ SDK khi instance gọi SDK và SDK trả về kết quả (detec
 
 **Ví dụ log:**
 ```
-[INFO] omniapi Server starting...
+[INFO] OmniAPI starting...
 [INFO] Server will listen on: 0.0.0.0:8080
 [ERROR] Failed to start instance: abc-123
 ```
@@ -329,7 +329,7 @@ tail -f ./logs/api/2025-12-04.log | grep "abc-123"
 
 ### 2. Sử dụng REST API (khuyến nghị)
 
-omniapi Server cung cấp các endpoints để truy cập logs qua REST API với nhiều tính năng filtering và querying:
+OmniAPI cung cấp các endpoints để truy cập logs qua REST API với nhiều tính năng filtering và querying:
 
 ```bash
 # List tất cả log files theo category

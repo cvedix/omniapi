@@ -1,5 +1,5 @@
 [Unit]
-Description=omniapi Server
+Description=OmniAPI
 Documentation=https://github.com/cvedix/omniapi
 After=network.target
 

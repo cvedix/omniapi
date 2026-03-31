@@ -98,7 +98,7 @@ extract_instance_id() {
 check_api_server() {
     if ! curl -s --connect-timeout 2 "${BASE_URL}/v1/core/instance/status/summary" >/dev/null 2>&1; then
         echo -e "${RED}Lỗi: Không thể kết nối đến API server tại ${BASE_URL}${NC}"
-        echo "Vui lòng đảm bảo OmniAPI server đang chạy."
+        echo "Vui lòng đảm bảo OmniAPI đang chạy."
         exit 1
     fi
 }
