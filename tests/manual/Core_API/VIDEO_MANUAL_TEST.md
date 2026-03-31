@@ -34,7 +34,7 @@ Sau khi test xong flow chính, bạn sẽ đã: list → upload → kiểm tra l
 
 | Hạng mục | Yêu cầu cụ thể | Cách kiểm tra / chuẩn bị |
 |----------|-----------------|---------------------------|
-| **1. API server** | Edge AI API đang chạy, có base URL (vd: `http://localhost:8080`). | Mở trình duyệt hoặc `curl -s http://localhost:8080/v1/core/health` → trả 200 và JSON `status`. |
+| **1. API server** | OmniAPI đang chạy, có base URL (vd: `http://localhost:8080`). | Mở trình duyệt hoặc `curl -s http://localhost:8080/v1/core/health` → trả 200 và JSON `status`. |
 | **2. Công cụ** | **curl** (bắt buộc). **jq** (nên có, để đọc JSON). | Chạy `curl --version` và `jq --version`. Windows: dùng PowerShell hoặc Postman thay curl. |
 | **3. File video test** | Ít nhất **một file video** (.mp4, .avi, .mkv, …) trên máy test. | Dùng file có sẵn hoặc tạo file nhỏ (xem bên dưới). |
 | **4. Quyền ghi** | Server có quyền ghi thư mục lưu video (thường do config `VIDEOS_DIR` hoặc mặc định). | Upload thành công (201) ở Bước 2 là đủ chứng minh. |

@@ -60,7 +60,7 @@ EXPOSE 8080
 
 # Tạo entrypoint script đơn giản
 RUN echo '#!/bin/bash\n\
-echo "=== Edge AI API Test Container (Simple) ==="\n\
+echo "=== OmniAPI Test Container (Simple) ==="\n\
 echo ""\n\
 echo "Package đã được cài đặt!"\n\
 echo ""\n\

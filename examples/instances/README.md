@@ -1,6 +1,6 @@
 # Examples Instances
 
-Thư mục này chứa các ví dụ cấu hình instances cho Edge AI API.
+Thư mục này chứa các ví dụ cấu hình instances cho OmniAPI.
 
 ## Cấu trúc Tổ chức
 

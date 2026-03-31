@@ -267,7 +267,7 @@ fi
 echo "Configuration validated successfully!"
 echo ""
 echo "=========================================="
-echo "Starting Edge AI API Server..."
+echo "Starting OmniAPI Server..."
 echo "=========================================="
 echo "Executable: $EXECUTABLE"
 echo "Environment file: $ENV_FILE"

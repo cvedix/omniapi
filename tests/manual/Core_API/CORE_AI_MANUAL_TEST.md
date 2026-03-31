@@ -34,7 +34,7 @@
 
 | Hạng mục | Yêu cầu cụ thể | Cách kiểm tra / chuẩn bị |
 |----------|----------------|---------------------------|
-| **1. API server** | Edge AI API đang chạy (vd: `http://localhost:8080`). | `curl -s http://localhost:8080/v1/core/health` → 200, JSON có `status`. |
+| **1. API server** | OmniAPI đang chạy (vd: `http://localhost:8080`). | `curl -s http://localhost:8080/v1/core/health` → 200, JSON có `status`. |
 | **2. Công cụ** | **curl**, **jq** (để đọc JSON). | `curl --version`, `jq --version`. Windows: PowerShell hoặc Postman. |
 | **3. Ảnh base64** | Chuỗi base64 của **một ảnh nhỏ** (PNG/JPEG) để gửi process/batch. | Dùng sẵn trong script (1x1 pixel) hoặc tạo từ file (xem bên dưới). |
 

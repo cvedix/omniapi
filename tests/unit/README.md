@@ -1,4 +1,4 @@
-# Unit Tests - Edge AI API
+# Unit Tests - OmniAPI
 
 Thư mục này chứa các unit tests tự động sử dụng Google Test framework, được tổ chức theo từng tính năng lớn.
 

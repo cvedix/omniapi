@@ -113,7 +113,7 @@ curl http://localhost:8848/v1/core/instance/${INSTANCE_ID}/output | jq '.'
    - RTSP: `rtsp://host:port/path`
    - File: Đường dẫn đến file video
 
-3. **API Server:** Edge AI API server phải đang chạy trên port 8848 (hoặc port bạn chỉ định)
+3. **API Server:** OmniAPI server phải đang chạy trên port 8848 (hoặc port bạn chỉ định)
 
 ## Giải Thích Workflow
 

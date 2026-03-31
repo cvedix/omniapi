@@ -10,7 +10,7 @@
 
 | Thành phần | Vai trò |
 |------------|--------|
-| **Edge AI API** | Nền tảng: REST API + xử lý AI (decode, inference, cache) |
+| **OmniAPI** | Nền tảng: REST API + xử lý AI (decode, inference, cache) |
 | **AI Runtime / SDK Helper** | Lớp thống nhất: InferenceSession, AIRuntimeFacade, PipelineHelper |
 | **CVEDIX SDK** | Tay hỗ trợ: pipeline (source → detector → broker → destination) |
 

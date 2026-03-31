@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# Edge AI API - Utility Scripts
+# OmniAPI - Utility Scripts
 # ============================================
 #
 # Gộp các utility scripts:
@@ -41,7 +41,7 @@ case "$COMMAND" in
         TEST_EXEC="${BUILD_DIR}/bin/omniapi_tests"
 
         echo "========================================"
-        echo "Running Edge AI API Unit Tests"
+        echo "Running OmniAPI Unit Tests"
         echo "========================================"
         echo ""
 
@@ -139,7 +139,7 @@ case "$COMMAND" in
         fi
 
         echo -e "${BLUE}===========================================${NC}"
-        echo -e "${BLUE}Edge AI API - Setup Face Database${NC}"
+        echo -e "${BLUE}OmniAPI - Setup Face Database${NC}"
         echo -e "${BLUE}===========================================${NC}"
         echo ""
 

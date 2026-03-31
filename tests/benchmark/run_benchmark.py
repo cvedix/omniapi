@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Benchmark runner for Edge AI API instance (ba_crossline_mqtt_with_lines_demo).
+Benchmark runner for OmniAPI instance (ba_crossline_mqtt_with_lines_demo).
 
 - Ensures instance exists (create from config if needed), starts it, collects
   FPS, CPU, RAM, latency, load average, and optionally GPU/thread info.

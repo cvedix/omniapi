@@ -1,6 +1,6 @@
 # Examples
 
-Thư mục này chứa các examples, documentation và scripts để làm việc với Edge AI API.
+Thư mục này chứa các examples, documentation và scripts để làm việc với OmniAPI.
 
 ## ⚠️ LƯU Ý QUAN TRỌNG
 

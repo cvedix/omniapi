@@ -52,7 +52,7 @@ get_lib_version() {
 
 # Create manifest
 {
-    echo "# Edge AI API Version Manifest"
+    echo "# OmniAPI Version Manifest"
     echo "# Generated: $BUILD_DATE"
     echo "#"
     echo "# This file contains version information for all bundled libraries"

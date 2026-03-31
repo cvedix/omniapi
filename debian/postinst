@@ -90,7 +90,7 @@ if ! id "$SERVICE_USER" &>/dev/null; then
         adduser --system --group --home "$INSTALL_DIR" --no-create-home --shell /bin/false "$SERVICE_USER" 2>/dev/null || {
             # Fallback to useradd if adduser fails
             if command -v useradd >/dev/null 2>&1; then
-                useradd --system --home-dir "$INSTALL_DIR" --shell /bin/false --comment "Edge AI API Service User" "$SERVICE_USER" 2>/dev/null || true
+                useradd --system --home-dir "$INSTALL_DIR" --shell /bin/false --comment "OmniAPI Service User" "$SERVICE_USER" 2>/dev/null || true
                 groupadd --system "$SERVICE_GROUP" 2>/dev/null || true
                 usermod -g "$SERVICE_GROUP" "$SERVICE_USER" 2>/dev/null || true
             else
@@ -99,7 +99,7 @@ if ! id "$SERVICE_USER" &>/dev/null; then
             fi
         }
     elif command -v useradd >/dev/null 2>&1; then
-        useradd --system --home-dir "$INSTALL_DIR" --shell /bin/false --comment "Edge AI API Service User" "$SERVICE_USER" 2>/dev/null || true
+        useradd --system --home-dir "$INSTALL_DIR" --shell /bin/false --comment "OmniAPI Service User" "$SERVICE_USER" 2>/dev/null || true
         groupadd --system "$SERVICE_GROUP" 2>/dev/null || true
         usermod -g "$SERVICE_GROUP" "$SERVICE_USER" 2>/dev/null || true
     else

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Benchmark runner cho bất kỳ instance Edge AI API.
+Benchmark runner cho bất kỳ instance OmniAPI.
 
 - Instance có output MQTT (additionalParams.output.MQTT_BROKER_URL): thu thêm thời gian từ
   phát hiện đến gửi MQTT (detection-to-MQTT), đồng thời vẫn thu FPS, latency pipeline, tài nguyên.
@@ -369,7 +369,7 @@ def collect_metrics_loop(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Benchmark bất kỳ instance Edge AI API. Có MQTT: thu thêm detection→MQTT. Không MQTT: chỉ FPS, latency pipeline, tài nguyên."
+        description="Benchmark bất kỳ instance OmniAPI. Có MQTT: thu thêm detection→MQTT. Không MQTT: chỉ FPS, latency pipeline, tài nguyên."
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_INSTANCE_CONFIG, help="Đường dẫn file config instance JSON (bất kỳ solution)")
     parser.add_argument("--base-url", default=os.environ.get("EDGE_AI_API_URL", "http://localhost:8080"), help="API base URL")

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# Fix RPATH for Edge AI API Executables
+# Fix RPATH for OmniAPI Executables
 # ============================================
 # Script này sửa RPATH cho các executables để trỏ đến bundled libraries
 # Usage: sudo ./fix_rpath.sh
@@ -51,7 +51,7 @@ if ! command -v patchelf >/dev/null 2>&1; then
     exit 1
 fi
 
-log_info "Fixing RPATH for Edge AI API executables..."
+log_info "Fixing RPATH for OmniAPI executables..."
 log_info "Expected RPATH: $EXPECTED_RPATH"
 echo ""
 

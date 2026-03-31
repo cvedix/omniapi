@@ -511,11 +511,11 @@ ScalarHandler::generateScalarDocumentHTML(const std::string &version,
   // Fallback to hardcoded HTML if file not found
   // Determine the OpenAPI spec URL based on version
   std::string specUrl = "/openapi.yaml";
-  std::string title = "Edge AI API - Scalar Documentation";
+  std::string title = "OmniAPI - Scalar Documentation";
 
   if (!version.empty()) {
     specUrl = "/" + version + "/openapi.yaml";
-    title = "Edge AI API " + version + " - Scalar Documentation";
+    title = "OmniAPI " + version + " - Scalar Documentation";
   }
 
   // Use absolute URL if baseUrl is provided, otherwise use relative URL

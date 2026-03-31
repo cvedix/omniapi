@@ -9,7 +9,7 @@ RTMP_URL="${2:-rtmp://localhost:1935/live/crossline_test}"
 API_BASE="${BASE_URL}/v1/core"
 
 echo "=========================================="
-echo "Edge AI API - Test BA Crossline với RTMP Stream"
+echo "OmniAPI - Test BA Crossline với RTMP Stream"
 echo "=========================================="
 echo "Base URL: ${BASE_URL}"
 echo "RTMP URL: ${RTMP_URL}"

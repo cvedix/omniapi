@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# Edge AI API - Complete Build & Deploy Script
+# OmniAPI - Complete Build & Deploy Script
 # ============================================
 #
 # Script này tổng hợp tất cả các bước:
@@ -121,7 +121,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "=========================================="
-echo "Edge AI API - Complete Build & Deploy"
+echo "OmniAPI - Complete Build & Deploy"
 echo "=========================================="
 echo ""
 

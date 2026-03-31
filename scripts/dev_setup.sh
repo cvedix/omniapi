@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# Edge AI API - Development Setup Script
+# OmniAPI - Development Setup Script
 # ============================================
 #
 # Script tổng hợp cho development setup:
@@ -100,7 +100,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "=========================================="
-echo "Edge AI API - Development Setup"
+echo "OmniAPI - Development Setup"
 echo "=========================================="
 echo ""
 

@@ -1,6 +1,6 @@
-# Edge AI API Specifications
+# OmniAPI Specifications
 
-Thư mục này chứa các tài liệu và đặc tả API cho Edge AI API với hỗ trợ đa ngôn ngữ.
+Thư mục này chứa các tài liệu và đặc tả API cho OmniAPI với hỗ trợ đa ngôn ngữ.
 
 ## Cấu trúc thư mục
 
@@ -135,5 +135,5 @@ API được tổ chức thành 3 topic chính:
 ## Liên hệ
 
 Nếu có câu hỏi hoặc cần hỗ trợ, vui lòng liên hệ:
-- **Edge AI API Support**: Xem thông tin trong `openapi.yaml`
+- **OmniAPI Support**: Xem thông tin trong `openapi.yaml`
 

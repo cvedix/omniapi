@@ -29,7 +29,7 @@
 
 | Hạng mục | Yêu cầu | Cách kiểm tra |
 |----------|---------|----------------|
-| API server | Edge AI API đang chạy, ví dụ tại `http://localhost:8080`. | Mở trình duyệt hoặc `curl -s http://localhost:8080/v1/core/health` → trả 200 và JSON. |
+| API server | OmniAPI đang chạy, ví dụ tại `http://localhost:8080`. | Mở trình duyệt hoặc `curl -s http://localhost:8080/v1/core/health` → trả 200 và JSON. |
 | Công cụ | **curl**, **jq** (tùy chọn). | `curl --version`, `jq --version`. |
 
 **Lưu ý:** Nếu test từ máy khác, thay `http://localhost:8080` bằng `http://<host>:<port>` thực tế trong mọi lệnh bên dưới.

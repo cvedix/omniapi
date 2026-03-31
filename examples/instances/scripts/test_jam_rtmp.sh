@@ -10,7 +10,7 @@ SOLUTION_ID="${3:-ba_jam_default}"
 API_BASE="${BASE_URL}/v1/core"
 
 echo "=========================================="
-echo "Edge AI API - Test Jam Node với RTMP Stream"
+echo "OmniAPI - Test Jam Node với RTMP Stream"
 echo "=========================================="
 echo "Base URL: ${BASE_URL}"
 echo "RTMP URL: ${RTMP_URL}"
@@ -98,7 +98,7 @@ extract_instance_id() {
 check_api_server() {
     if ! curl -s --connect-timeout 2 "${BASE_URL}/v1/core/instance/status/summary" >/dev/null 2>&1; then
         echo -e "${RED}Lỗi: Không thể kết nối đến API server tại ${BASE_URL}${NC}"
-        echo "Vui lòng đảm bảo Edge AI API server đang chạy."
+        echo "Vui lòng đảm bảo OmniAPI server đang chạy."
         exit 1
     fi
 }

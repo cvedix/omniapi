@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# Edge AI API - Create Directories Script
+# OmniAPI - Create Directories Script
 # ============================================
 #
 # Script để tự động tạo các thư mục cần thiết từ directories.conf
@@ -81,7 +81,7 @@ else
 fi
 
 echo "============================================"
-echo "Edge AI API - Create Directories"
+echo "OmniAPI - Create Directories"
 echo "============================================"
 echo "Install directory: $INSTALL_DIR"
 echo "Config file: $DIRS_CONF"

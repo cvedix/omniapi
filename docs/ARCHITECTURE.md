@@ -4,7 +4,7 @@ Tài liệu này mô tả kiến trúc hệ thống và các flow diagram của 
 
 ## API → AI Runtime → SDK
 
-Edge AI API định vị là **nền tảng Edge AI** (REST API + xử lý AI). CVEDIX SDK là tầng hỗ trợ; mọi luồng AI đi qua lớp **AI Runtime** (decode, inference, cache).
+OmniAPI định vị là **nền tảng Edge AI** (REST API + xử lý AI). CVEDIX SDK là tầng hỗ trợ; mọi luồng AI đi qua lớp **AI Runtime** (decode, inference, cache).
 
 ```mermaid
 flowchart LR
@@ -271,7 +271,7 @@ flowchart TD
 
 ## "Bảo Mẫu" Hệ Thống (Watchdog & Health Monitor)
 
-Hai luồng ngầm (Background Threads) này giúp đảm bảo Edge AI API có thể dùng ở Production 24/7/365 mà không sợ treo, tràn RAM hay đơ do lỗi nền tảng.
+Hai luồng ngầm (Background Threads) này giúp đảm bảo OmniAPI có thể dùng ở Production 24/7/365 mà không sợ treo, tràn RAM hay đơ do lỗi nền tảng.
 
 ```mermaid
 flowchart TD

@@ -92,7 +92,7 @@ EXPOSE 8080
 
 # Tạo entrypoint script để test
 RUN echo '#!/bin/bash\n\
-echo "=== Edge AI API Test Container ==="\n\
+echo "=== OmniAPI Test Container ==="\n\
 echo "Package đã được cài đặt tại:"\n\
 ls -la /usr/local/bin/omniapi 2>/dev/null || echo "Executable không tìm thấy"\n\
 echo ""\n\

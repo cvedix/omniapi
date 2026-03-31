@@ -1,4 +1,4 @@
-# Edge AI API
+# OmniAPI
 
 **Version:** 1.0.0
 

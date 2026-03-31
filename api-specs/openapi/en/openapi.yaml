@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Edge AI API
+  title: OmniAPI
   description: 'REST API for Edge AI operations and management.
 
 
@@ -53,7 +53,7 @@ info:
     '
   version: 1.0.0
   contact:
-    name: Edge AI API Support
+    name: OmniAPI Support
 servers:
 - url: http://localhost:8080
   description: Local development server

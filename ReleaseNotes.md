@@ -1,4 +1,4 @@
- # Release Notes - Edge AI API
+ # Release Notes - OmniAPI
 
 ## 📦 Version Information
 
@@ -10,7 +10,7 @@
 
 ## 🎯 Tổng Quan
 
-**Edge AI API** là REST API server cho CVEDIX Edge AI SDK, cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên thông qua giao diện RESTful API.
+**OmniAPI** là REST API server cho CVEDIX Edge AI SDK, cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên thông qua giao diện RESTful API.
 
 ### Tính Năng Chính
 

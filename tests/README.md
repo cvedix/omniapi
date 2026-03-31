@@ -1,6 +1,6 @@
-# Tests Directory - Edge AI API
+# Tests Directory - OmniAPI
 
-Thư mục này chứa tất cả các tests cho Edge AI API, được tổ chức thành 2 phần chính:
+Thư mục này chứa tất cả các tests cho OmniAPI, được tổ chức thành 2 phần chính:
 
 ## Cấu Trúc
 

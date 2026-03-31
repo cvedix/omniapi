@@ -1,6 +1,6 @@
 # Benchmark – Edge AI Instance
 
-Công cụ chạy benchmark cho instance Edge AI API: thu thập FPS, CPU, RAM, latency, load; với instance có output MQTT thì thu thêm **thời gian từ phát hiện đến gửi MQTT**. Báo cáo HTML dễ đọc cho người không chuyên dev.
+Công cụ chạy benchmark cho instance OmniAPI: thu thập FPS, CPU, RAM, latency, load; với instance có output MQTT thì thu thêm **thời gian từ phát hiện đến gửi MQTT**. Báo cáo HTML dễ đọc cho người không chuyên dev.
 
 - **`run_benchmark.py`** – Benchmark instance ba_crossline MQTT (config mặc định `instance_benchmark.json`).
 - **`run_benchmark_generic.py`** – Benchmark **bất kỳ instance nào** (truyền `--config` tới file JSON của instance):
@@ -50,7 +50,7 @@ Sau khi cài (cách 1), mỗi lần chạy benchmark nhớ `source venv/bin/acti
 
 ## Chạy benchmark
 
-1. **Đảm bảo Edge AI API đang chạy** (ví dụ `http://localhost:8080`).
+1. **Đảm bảo OmniAPI đang chạy** (ví dụ `http://localhost:8080`).
 
 2. Chạy với tham số mặc định (duration 120 giây, poll 2 giây, có MQTT, có báo cáo HTML):
 

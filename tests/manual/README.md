@@ -1,6 +1,6 @@
-# Manual Tests - Edge AI API
+# Manual Tests - OmniAPI
 
-Thư mục này chứa các tài liệu hướng dẫn test thủ công cho từng tính năng lớn của Edge AI API.
+Thư mục này chứa các tài liệu hướng dẫn test thủ công cho từng tính năng lớn của OmniAPI.
 
 ## Cấu Trúc
 

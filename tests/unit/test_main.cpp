@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
   setenv("DISABLE_KAFKA", "1", 1);
   
   std::cout << "========================================" << std::endl;
-  std::cout << "Edge AI API - Unit Tests" << std::endl;
+  std::cout << "OmniAPI - Unit Tests" << std::endl;
   std::cout << "========================================" << std::endl;
   std::cout << "Crash handling: Enabled" << std::endl;
   std::cout << "Kafka: Disabled (DISABLE_KAFKA=1)" << std::endl;

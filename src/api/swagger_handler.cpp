@@ -347,11 +347,11 @@ SwaggerHandler::generateSwaggerUIHTML(const std::string &version,
                                       const std::string &baseUrl) const {
   // Determine the OpenAPI spec URL based on version
   std::string specUrl = "/openapi.yaml";
-  std::string title = "Edge AI API - Swagger UI";
+  std::string title = "OmniAPI - Swagger UI";
 
   if (!version.empty()) {
     specUrl = "/" + version + "/openapi.yaml";
-    title = "Edge AI API " + version + " - Swagger UI";
+    title = "OmniAPI " + version + " - Swagger UI";
   }
 
   // Use absolute URL if baseUrl is provided, otherwise use relative URL

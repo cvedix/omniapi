@@ -1538,8 +1538,8 @@ Depends: ${misc:Depends},
          libgcc-s1,
          adduser,
          systemd
-Description: Edge AI API Server - ALL-IN-ONE Package
- Edge AI API Server provides a RESTful control plane for managing
+Description: OmniAPI Server - ALL-IN-ONE Package
+ OmniAPI Server provides a RESTful control plane for managing
  CVEDIX Edge AI SDK instances remotely. It allows backend services
  or remote operators to configure, launch, and monitor real-time
  computer vision instances on edge devices without direct access.
