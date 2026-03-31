@@ -77,7 +77,7 @@ TEST_F(HealthHandlerTest, HealthEndpointReturnsValidJson) {
   EXPECT_GE((*json)["uptime"].asInt64(), 0);
 
   // Check service name
-  EXPECT_EQ((*json)["service"].asString(), "edgeos-api");
+  EXPECT_EQ((*json)["service"].asString(), "omniapi");
 }
 
 // Test health endpoint status values

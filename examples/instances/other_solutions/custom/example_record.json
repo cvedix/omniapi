@@ -7,9 +7,9 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/opt/edgeos-api/test_video/face.mp4",
-      "FACE_DETECTION_MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx",
-      "FACE_RECOGNITION_MODEL_PATH": "/opt/edgeos-api/models/face/face_recognition_sface_2021dec.onnx",
+      "FILE_PATH": "/opt/omniapi/test_video/face.mp4",
+      "FACE_DETECTION_MODEL_PATH": "/opt/omniapi/models/face/yunet.onnx",
+      "FACE_RECOGNITION_MODEL_PATH": "/opt/omniapi/models/face/face_recognition_sface_2021dec.onnx",
       "IMAGE_DIR": "/tmp/record/images",
       "VIDEO_DIR": "/tmp/record/videos"
     }

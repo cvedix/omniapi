@@ -55,7 +55,7 @@ cmake .. -DBUILD_TESTS=ON
 make -j$(nproc)
 ```
 
-**Lưu ý:** Test executable sẽ được tạo tại `build/bin/edgeos-api_tests`
+**Lưu ý:** Test executable sẽ được tạo tại `build/bin/omniapi_tests`
 
 ### Chạy tests
 
@@ -71,7 +71,7 @@ make -j$(nproc)
 **Cách 2: Chạy trực tiếp**
 ```bash
 cd build
-./bin/edgeos-api_tests
+./bin/omniapi_tests
 ```
 
 **Cách 3: Sử dụng CTest**
@@ -156,7 +156,7 @@ Tests có thể được tích hợp vào CI/CD pipeline:
     mkdir build && cd build
     cmake .. -DBUILD_TESTS=ON
     make -j$(nproc)
-    ./bin/edgeos-api_tests
+    ./bin/omniapi_tests
 ```
 
 ## Troubleshooting
@@ -173,6 +173,6 @@ Tests có thể được tích hợp vào CI/CD pipeline:
 - Xem chi tiết lỗi trong test output
 
 ### Không tìm thấy test executable
-- Test executable nằm tại `build/bin/edgeos-api_tests`
+- Test executable nằm tại `build/bin/omniapi_tests`
 - Sử dụng script `./scripts/run_tests.sh` để tự động tìm đúng vị trí
-- Hoặc chạy trực tiếp: `./build/bin/edgeos-api_tests`
+- Hoặc chạy trực tiếp: `./build/bin/omniapi_tests`

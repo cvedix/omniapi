@@ -1,4 +1,4 @@
-# edgeos-api
+# omniapi
 
 **Nền tảng Edge AI**: REST API + xử lý AI trực tiếp trên thiết bị biên. CVEDIX SDK (EdgeOS SDK) là tầng hỗ trợ — API điều khiển instances, nhận diện khuôn mặt, push frame và metrics qua một lớp thống nhất (AI Runtime).
 
@@ -146,7 +146,7 @@ cmake ..
 make -j$(nproc)
 
 # 3. Chạy server
-./bin/edgeos-api
+./bin/omniapi
 ```
 
 ### Build và Cài Đặt Debian Package
@@ -167,9 +167,9 @@ make -j$(nproc)
 ./packaging/scripts/build_deb.sh
 
 # Cài đặt package
-sudo dpkg -i edgeos-api-all-in-one-*.deb
+sudo dpkg -i omniapi-all-in-one-*.deb
 sudo apt-get install -f  # Nếu có lỗi dependencies
-sudo systemctl start edgeos-api
+sudo systemctl start omniapi
 ```
 
 **Lưu ý:** Không cần `sudo` để build! Chỉ cần sudo khi **cài đặt** package.
@@ -201,7 +201,7 @@ nano .env  # Chỉnh sửa nếu cần
 ### Với Logging
 
 ```bash
-./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
+./build/bin/omniapi --log-api --log-instance --log-sdk-output
 ```
 
 ### Environment Variables
@@ -274,10 +274,10 @@ Xem đầy đủ: [docs/API.md](docs/API.md)
 
 ```bash
 # Development - full logging
-./build/bin/edgeos-api --log-api --log-instance --log-sdk-output
+./build/bin/omniapi --log-api --log-instance --log-sdk-output
 
 # Production - minimal logging
-./build/bin/edgeos-api --log-api
+./build/bin/omniapi --log-api
 ```
 
 **Logs API:**
@@ -298,12 +298,12 @@ sudo ./scripts/prod_setup.sh
 sudo ./deploy/deploy.sh
 
 # Kiểm tra service
-sudo systemctl status edgeos-api
-sudo journalctl -u edgeos-api -f
+sudo systemctl status omniapi
+sudo journalctl -u omniapi -f
 
 # Quản lý
-sudo systemctl restart edgeos-api
-sudo systemctl stop edgeos-api
+sudo systemctl restart omniapi
+sudo systemctl stop omniapi
 ```
 
 Xem chi tiết: [deploy/README.md](deploy/README.md)
@@ -345,7 +345,7 @@ Lần đầu build mất ~5-10 phút để download Drogon. Các lần sau nhanh
 | [docs/DEFAULT_SOLUTIONS_REFERENCE.md](docs/DEFAULT_SOLUTIONS_REFERENCE.md) | Default solutions |
 | [docs/VISION_AI_PROCESSING_PLATFORM.md](docs/VISION_AI_PROCESSING_PLATFORM.md) | Vision: nền tảng Edge AI |
 | [docs/AI_RUNTIME_DESIGN.md](docs/AI_RUNTIME_DESIGN.md) | Thiết kế AI Runtime (InferenceSession, Facade) |
-| [task/edgeos-api/00_MASTER_PLAN.md](task/edgeos-api/00_MASTER_PLAN.md) | Master plan & trạng thái phases |
+| [task/omniapi/00_MASTER_PLAN.md](task/omniapi/00_MASTER_PLAN.md) | Master plan & trạng thái phases |
 | [deploy/README.md](deploy/README.md) | Production deployment guide |
 | [packaging/docs/BUILD_DEB.md](packaging/docs/BUILD_DEB.md) | Build Debian package guide |
 | [packaging/docs/BUILD_ALL_IN_ONE.md](packaging/docs/BUILD_ALL_IN_ONE.md) | Build ALL-IN-ONE package guide |

@@ -5,7 +5,7 @@
   "autoStart": false,
   "additionalParams": {
     "input": {
-      "MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx",
+      "MODEL_PATH": "/opt/omniapi/models/face/yunet.onnx",
       "SAVE_DIR": "/tmp/output",
       "RTSP_SRC_URL": "rtsp://localhost:8554/stream"
     }

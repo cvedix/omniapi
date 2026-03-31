@@ -12,19 +12,19 @@ NC='\033[0m'
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Try build/bin first, then build/
-if [ -f "$PROJECT_ROOT/build/bin/edgeos-api" ]; then
-    BUILD_BINARY="$PROJECT_ROOT/build/bin/edgeos-api"
+if [ -f "$PROJECT_ROOT/build/bin/omniapi" ]; then
+    BUILD_BINARY="$PROJECT_ROOT/build/bin/omniapi"
     BUILD_WORKER="$PROJECT_ROOT/build/bin/edgeos-worker"
-elif [ -f "$PROJECT_ROOT/build/edgeos-api" ]; then
-    BUILD_BINARY="$PROJECT_ROOT/build/edgeos-api"
+elif [ -f "$PROJECT_ROOT/build/omniapi" ]; then
+    BUILD_BINARY="$PROJECT_ROOT/build/omniapi"
     BUILD_WORKER="$PROJECT_ROOT/build/edgeos-worker"
 else
     BUILD_BINARY=""
     BUILD_WORKER=""
 fi
-TARGET_BINARY="/usr/local/bin/edgeos-api"
-TARGET_WORKER="/usr/local/bin/edgeos-worker"
-SERVICE_NAME="edgeos-api"
+TARGET_BINARY="/opt/omniapi/bin/omniapi"
+TARGET_WORKER="/opt/omniapi/bin/edgeos-worker"
+SERVICE_NAME="omniapi"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Install New Binary to Production${NC}"

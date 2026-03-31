@@ -6,13 +6,13 @@
   "additionalParams": {
     "input": {
       "RTSP_SRC_URL": "rtsp://localhost:8554/mystream",
-      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
+      "LABELS_PATH": "/opt/omniapi/models/yolov11/tensorrt/labels.txt",
       "RESIZE_RATIO": "0.05",
       "RTSP_TRANSPORT": "tcp",
       "GST_DECODER_NAME": "avdec_h264",
       "SKIP_INTERVAL": "9",
       "CODEC_TYPE": "h264",
-      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
+      "MODEL_PATH": "/opt/omniapi/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "ENABLE_SCREEN_DES": "false",

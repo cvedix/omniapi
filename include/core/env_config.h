@@ -24,11 +24,11 @@ namespace EnvConfig {
 /**
  * @brief Root directory for runtime data (instances, models, logs, …)
  *
- * Set EDGEOS_API_INSTALL_DIR (or legacy EDGEOS_HOME) to override.
- * Default: /opt/edgeos-api
+ * Set OMNIAPI_INSTALL_DIR (or legacy EDGEOS_HOME) to override.
+ * Default: /opt/omniapi
  */
 inline std::string getDataInstallRoot() {
-  const char *p = std::getenv("EDGEOS_API_INSTALL_DIR");
+  const char *p = std::getenv("OMNIAPI_INSTALL_DIR");
   if (!p || p[0] == '\0') {
     p = std::getenv("EDGEOS_HOME");
   }
@@ -41,7 +41,7 @@ inline std::string getDataInstallRoot() {
       return s;
     }
   }
-  return "/opt/edgeos-api";
+  return "/opt/omniapi";
 }
 
 /**
@@ -257,13 +257,13 @@ inline int parseLogLevelInt(const std::string &level_str, int default_level) {
  * DIRECTORY_CREATION_GUIDE.md:
  * 1. Try to create preferred_path (production path)
  * 2. If permission denied, fallback to user directory
- * (~/.local/share/edgeos-api/{subdir})
+ * (~/.local/share/omniapi/{subdir})
  * 3. If that fails, fallback to current directory (./{subdir})
  *
  * Never throws exceptions - always returns a path (even if creation failed)
  *
  * @param preferred_path Preferred directory path (e.g.,
- * "/opt/edgeos-api/instances")
+ * "/opt/omniapi/instances")
  * @param subdir Subdirectory name for fallback (e.g., "instances")
  * @return Resolved directory path (may be different from preferred_path if
  * fallback was used)
@@ -288,7 +288,7 @@ inline std::string resolveDirectory(const std::string &preferred_path,
         const char *home = std::getenv("HOME");
         if (home && !subdir.empty()) {
           std::string fallback =
-              std::string(home) + "/.local/share/edgeos-api/" + subdir;
+              std::string(home) + "/.local/share/omniapi/" + subdir;
           try {
             std::filesystem::create_directories(fallback);
             std::cerr << "[EnvConfig] ✓ Using fallback: " << fallback
@@ -353,8 +353,8 @@ inline std::string resolveDirectory(const std::string &preferred_path,
  * from all tiers)
  *
  * Returns all possible paths in priority order:
- * 1. Production path: /opt/edgeos-api/{subdir}
- * 2. User directory: ~/.local/share/edgeos-api/{subdir}
+ * 1. Production path: /opt/omniapi/{subdir}
+ * 2. User directory: ~/.local/share/omniapi/{subdir}
  * 3. Current directory: ./{subdir}
  *
  * @param subdir Subdirectory name (e.g., "instances")
@@ -364,13 +364,13 @@ inline std::vector<std::string>
 getAllPossibleDirectories(const std::string &subdir) {
   std::vector<std::string> paths;
 
-  // Tier 1: Install root (default /opt/edgeos-api)
+  // Tier 1: Install root (default /opt/omniapi)
   paths.push_back(getDataInstallRoot() + "/" + subdir);
 
   // Tier 2: User directory
   const char *home = std::getenv("HOME");
   if (home) {
-    paths.push_back(std::string(home) + "/.local/share/edgeos-api/" + subdir);
+    paths.push_back(std::string(home) + "/.local/share/omniapi/" + subdir);
   }
 
   // Tier 3: Current directory
@@ -384,15 +384,15 @@ getAllPossibleDirectories(const std::string &subdir) {
  *
  * Priority:
  * 1. Environment variable (if set) - highest priority
- * 2. Use {EDGEOS_API_INSTALL_DIR}/{subdir} (default /opt/edgeos-api/{subdir})
- * 3. Fallback to ~/.local/share/edgeos-api/{subdir} (user directory)
+ * 2. Use {OMNIAPI_INSTALL_DIR}/{subdir} (default /opt/omniapi/{subdir})
+ * 3. Fallback to ~/.local/share/omniapi/{subdir} (user directory)
  * 4. Last resort: ./{subdir} (current directory)
  *
  * Directory will be created automatically if it doesn't exist.
  * Follows XDG Base Directory Specification for user fallback.
  *
  * @param env_var_name Environment variable name (e.g., "SOLUTIONS_DIR")
- * @param subdir Subdirectory name under /opt/edgeos-api (e.g., "solutions")
+ * @param subdir Subdirectory name under /opt/omniapi (e.g., "solutions")
  * @return Resolved directory path
  */
 inline std::string resolveDataDir(const char *env_var_name,
@@ -425,7 +425,7 @@ inline std::string resolveDataDir(const char *env_var_name,
     }
   }
 
-  // Tier 2: Install root + subdir (default under /opt/edgeos-api)
+  // Tier 2: Install root + subdir (default under /opt/omniapi)
   std::string default_path = getDataInstallRoot() + "/" + subdir;
 
   // Try to create production directory
@@ -454,12 +454,12 @@ inline std::string resolveDataDir(const char *env_var_name,
     // Fall through to fallback
   }
 
-  // Tier 3: Fallback to user directory (~/.local/share/edgeos-api/{subdir})
+  // Tier 3: Fallback to user directory (~/.local/share/omniapi/{subdir})
   // Follows XDG Base Directory Specification
   const char *home = std::getenv("HOME");
   if (home) {
     std::string fallback_path =
-        std::string(home) + "/.local/share/edgeos-api/" + subdir;
+        std::string(home) + "/.local/share/omniapi/" + subdir;
     try {
       std::filesystem::create_directories(fallback_path);
       std::cerr << "[EnvConfig] ✓ Using fallback user directory: "
@@ -592,10 +592,10 @@ inline std::string resolveDefaultFontPath() {
     }
   }
 
-  // Priority 5: /opt/edgeos-api/fonts/NotoSansCJKsc-Medium.otf (production
+  // Priority 5: /opt/omniapi/fonts/NotoSansCJKsc-Medium.otf (production
   // fonts directory)
   std::string productionFontPath =
-      "/opt/edgeos-api/fonts/NotoSansCJKsc-Medium.otf";
+      "/opt/omniapi/fonts/NotoSansCJKsc-Medium.otf";
   try {
     if (std::filesystem::exists(productionFontPath)) {
       std::cerr << "[EnvConfig] ✓ Using font from production fonts directory: "
@@ -608,7 +608,7 @@ inline std::string resolveDefaultFontPath() {
 
   // Priority 6: Development fallback:
   // ./cvedix_data/font/NotoSansCJKsc-Medium.otf NOTE: This path will NOT exist
-  // in production - all fonts should be in /opt/edgeos-api/fonts
+  // in production - all fonts should be in /opt/omniapi/fonts
   std::string relativePath = "./cvedix_data/font/NotoSansCJKsc-Medium.otf";
   try {
     if (std::filesystem::exists(relativePath)) {
@@ -634,9 +634,9 @@ inline std::string resolveDefaultFontPath() {
  * 1. CONFIG_FILE environment variable (if set) - highest priority
  * 2. Try paths in order:
  *    - ./config.json (current directory)
- *    - /opt/edgeos-api/config/config.json (production)
- *    - /etc/edgeos-api/config.json (system)
- *    - ~/.config/edgeos-api/config.json (user config - fallback)
+ *    - /opt/omniapi/config/config.json (production)
+ *    - /etc/omniapi/config.json (system)
+ *    - ~/.config/omniapi/config.json (user config - fallback)
  *    - ./config.json (last resort)
  *
  * Parent directories will be created automatically if needed.
@@ -680,8 +680,8 @@ inline std::string resolveConfigPath() {
     return current_dir_path;
   }
 
-  // Tier 2: Production path (/opt/edgeos-api/config/config.json)
-  std::string production_path = "/opt/edgeos-api/config/config.json";
+  // Tier 2: Production path (/opt/omniapi/config/config.json)
+  std::string production_path = "/opt/omniapi/config/config.json";
   if (std::filesystem::exists(production_path)) {
     std::cerr << "[EnvConfig] ✓ Found existing config file: " << production_path
               << " (production)" << std::endl;
@@ -710,8 +710,8 @@ inline std::string resolveConfigPath() {
               << ", trying fallback..." << std::endl;
   }
 
-  // Tier 3: System path (/etc/edgeos-api/config.json)
-  std::string system_path = "/etc/edgeos-api/config.json";
+  // Tier 3: System path (/etc/omniapi/config.json)
+  std::string system_path = "/etc/omniapi/config.json";
   if (std::filesystem::exists(system_path)) {
     std::cerr << "[EnvConfig] ✓ Found existing config file: " << system_path
               << " (system)" << std::endl;
@@ -740,11 +740,11 @@ inline std::string resolveConfigPath() {
               << ", trying fallback..." << std::endl;
   }
 
-  // Fallback 1: User config directory (~/.config/edgeos-api/config.json)
+  // Fallback 1: User config directory (~/.config/omniapi/config.json)
   const char *home = std::getenv("HOME");
   if (home) {
     std::string user_config =
-        std::string(home) + "/.config/edgeos-api/config.json";
+        std::string(home) + "/.config/omniapi/config.json";
     try {
       std::filesystem::path filePath(user_config);
       if (filePath.has_parent_path()) {
@@ -765,7 +765,7 @@ inline std::string resolveConfigPath() {
       << "[EnvConfig] ✓ Using last resort: ./config.json (current directory)"
       << std::endl;
   std::cerr << "[EnvConfig] ℹ Note: To use production path, run: sudo mkdir -p "
-               "/opt/edgeos-api/config"
+               "/opt/omniapi/config"
             << std::endl;
   return "./config.json";
 }
@@ -858,7 +858,7 @@ inline bool loadDotenvFromProjectRootOrExample(const char *argv0) {
 }
 
 /**
- * @brief When in dev (binary not under /opt/edgeos-api), try to load .env
+ * @brief When in dev (binary not under /opt/omniapi), try to load .env
  * so config/env is taken from project .env without needing to source it.
  * Set EDGEOS_LOAD_DOTENV=1 to force load; set EDGEOS_DOTENV_PATH to path to .env
  * @param argv0 argv[0] from main (executable path)
@@ -866,7 +866,7 @@ inline bool loadDotenvFromProjectRootOrExample(const char *argv0) {
 inline void tryLoadDotenvForDev(const char *argv0) {
   const char *force = std::getenv("EDGEOS_LOAD_DOTENV");
   bool is_dev = true;
-  if (argv0 && std::strstr(argv0, "/opt/edgeos-api") != nullptr) {
+  if (argv0 && std::strstr(argv0, "/opt/omniapi") != nullptr) {
     is_dev = false;
   }
   if (force && (std::strcmp(force, "1") == 0 || std::strcmp(force, "true") == 0 ||

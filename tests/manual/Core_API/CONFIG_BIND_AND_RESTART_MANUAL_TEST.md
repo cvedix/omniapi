@@ -141,7 +141,7 @@ Sau khi restart, truy cập API tại `http://localhost:9000` (hoặc `http://<I
 
 ### Kịch bản D: Đổi cấu hình nhưng **không** tự động restart
 
-Bỏ `auto_restart=true` (hoặc đặt `auto_restart=false`). Config vẫn được **lưu**, nhưng server **không** tự restart. Bạn cần **restart thủ công** (ví dụ: `systemctl restart edgeos-api` hoặc tắt/bật lại ứng dụng) thì thay đổi mới có hiệu lực.
+Bỏ `auto_restart=true` (hoặc đặt `auto_restart=false`). Config vẫn được **lưu**, nhưng server **không** tự restart. Bạn cần **restart thủ công** (ví dụ: `systemctl restart omniapi` hoặc tắt/bật lại ứng dụng) thì thay đổi mới có hiệu lực.
 
 Ví dụ – chỉ lưu, không restart:
 

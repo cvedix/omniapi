@@ -67,7 +67,7 @@
 
       - Nhóm được tự động lưu vào kho
 
-      - File nhóm lưu tại `/var/lib/edgeos-api/groups` (cấu hình qua biến môi trường `GROUPS_DIR`)
+      - File nhóm lưu tại `/var/lib/omniapi/groups` (cấu hình qua biến môi trường `GROUPS_DIR`)
 
 
       **Trả về:** Thông tin nhóm đã tạo kèm timestamp.

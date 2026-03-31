@@ -25,10 +25,10 @@
   "additionalParams": {
     "input": {
       "RTMP_SRC_URL": "rtmp://192.168.1.128:1935/live/camera_demo_sang_vehicle",
-      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "LABELS_PATH": "/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt",
       "RESIZE_RATIO": "1.0",
       "SKIP_INTERVAL": "0",
-      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
+      "MODEL_PATH": "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights"
     }
   }
 }

@@ -9,7 +9,7 @@ INSTANCE_ID="${1}"
 if [ -z "$INSTANCE_ID" ]; then
     echo "Không có instance ID được cung cấp, đang tìm trong logs..."
     if command -v journalctl >/dev/null 2>&1; then
-        DETECTED_INSTANCE_ID=$(journalctl -u edgeos-api --since "1 hour ago" --no-pager 2>/dev/null | \
+        DETECTED_INSTANCE_ID=$(journalctl -u omniapi --since "1 hour ago" --no-pager 2>/dev/null | \
             grep -i "open file failed" | \
             grep -oE "file_src_[a-f0-9-]+" | \
             sed 's/file_src_//' | \
@@ -66,7 +66,7 @@ echo "-----------------------------------"
 DETECTED_PORT=""
 if command -v journalctl >/dev/null 2>&1; then
     # Tìm port từ logs startup
-    DETECTED_PORT=$(journalctl -u edgeos-api --since "1 hour ago" --no-pager 2>/dev/null | \
+    DETECTED_PORT=$(journalctl -u omniapi --since "1 hour ago" --no-pager 2>/dev/null | \
         grep -iE "(listening|port|started.*port|server.*port)" | \
         grep -oE "port[:\s]+([0-9]+)" | \
         grep -oE "[0-9]+" | \
@@ -84,7 +84,7 @@ if command -v journalctl >/dev/null 2>&1; then
     # Nếu vẫn không tìm thấy, kiểm tra port nào đang được bind
     if [ -z "$DETECTED_PORT" ]; then
         # Tìm process và port nó đang sử dụng
-        PID=$(pgrep -f "edgeos-api\|edgeos-api" | head -1)
+        PID=$(pgrep -f "omniapi\|omniapi" | head -1)
         if [ ! -z "$PID" ]; then
             DETECTED_PORT=$(ss -tlnp 2>/dev/null | grep "pid=$PID" | grep LISTEN | \
                 grep -oE ":[0-9]+" | tr -d ':' | head -1)
@@ -217,11 +217,11 @@ else
     
     # Tìm file path từ logs
     LOG_DIRS=(
-        "/var/lib/edgeos-api/logs"
-        "/var/log/edgeos-api"
+        "/var/lib/omniapi/logs"
+        "/var/log/omniapi"
         "./logs"
-        "$HOME/.local/share/edgeos-api/logs"
-        "/opt/edgeos-api/logs"
+        "$HOME/.local/share/omniapi/logs"
+        "/opt/omniapi/logs"
     )
     
     for log_dir in "${LOG_DIRS[@]}"; do
@@ -290,7 +290,7 @@ else
             ACTUAL_FILE_PATH=""
             echo -e "   ${YELLOW}⚠ Không tìm thấy file path trong logs${NC}"
             echo "   Thử xem logs chi tiết hơn:"
-            echo "   journalctl -u edgeos-api --since '1 hour ago' | grep -i '$INSTANCE_ID'"
+            echo "   journalctl -u omniapi --since '1 hour ago' | grep -i '$INSTANCE_ID'"
         fi
     fi
 fi
@@ -463,11 +463,11 @@ echo ""
 echo "8. Kiểm tra logs từ file..."
 echo "-----------------------------------"
 LOG_DIRS=(
-    "/var/lib/edgeos-api/logs"
-    "/var/log/edgeos-api"
+    "/var/lib/omniapi/logs"
+    "/var/log/omniapi"
     "./logs"
-    "$HOME/.local/share/edgeos-api/logs"
-    "/opt/edgeos-api/logs"
+    "$HOME/.local/share/omniapi/logs"
+    "/opt/omniapi/logs"
 )
 
 FOUND_LOG=false
@@ -523,7 +523,7 @@ echo "9. Kiểm tra systemd logs..."
 echo "-----------------------------------"
 
 # Tìm service name có thể
-SERVICE_NAMES=("edgeos-api" "edgeai-api")
+SERVICE_NAMES=("omniapi" "edgeai-api")
 
 FOUND_SERVICE=false
 for service_name in "${SERVICE_NAMES[@]}"; do
@@ -596,7 +596,7 @@ if [ "$FOUND_SERVICE" = false ]; then
     echo "   Đang tìm process đang chạy..."
     
     # Tìm process có thể liên quan
-    PIDS=$(pgrep -f "edgeos-api\|edgeos-api" 2>/dev/null)
+    PIDS=$(pgrep -f "omniapi\|omniapi" 2>/dev/null)
     if [ ! -z "$PIDS" ]; then
         echo -e "   ${GREEN}✓ Tìm thấy process: $PIDS${NC}"
         echo "   Kiểm tra logs từ journal (tất cả services):"
@@ -614,7 +614,7 @@ echo ""
 echo ""
 echo "10. Kiểm tra user service đang chạy..."
 echo "-----------------------------------"
-SERVICE_USER=$(systemctl show -p User --value edgeos-api 2>/dev/null || systemctl show -p User --value edgeos-api 2>/dev/null || echo "edgeai")
+SERVICE_USER=$(systemctl show -p User --value omniapi 2>/dev/null || systemctl show -p User --value omniapi 2>/dev/null || echo "edgeai")
 echo "   Service user: $SERVICE_USER"
 echo ""
 echo "   Kiểm tra quyền với user này:"
@@ -654,7 +654,7 @@ if [ -z "$API_URL" ]; then
     echo "   - Instance có thể không tồn tại"
     echo ""
     echo "   Kiểm tra:"
-    echo "   - Service có đang chạy không: systemctl status edgeos-api"
+    echo "   - Service có đang chạy không: systemctl status omniapi"
     echo "   - Port nào đang được sử dụng: netstat -tlnp | grep 8080"
     echo "   - Thử các endpoint khác:"
     for base_url in "${BASE_URLS[@]}"; do

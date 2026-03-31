@@ -1,17 +1,17 @@
 #!/bin/bash
-# postinst script for edgeos-api
+# postinst script for omniapi
 
 # Use set -e for strict error handling
 # Non-critical commands should use || true to prevent script failure
 set -e
 
-PACKAGE_NAME="edgeos-api"
-INSTALL_DIR="/opt/edgeos-api"
+PACKAGE_NAME="omniapi"
+INSTALL_DIR="/opt/omniapi"
 BIN_DIR="/usr/local/bin"
-LIB_DIR="/opt/edgeos-api/lib"
+LIB_DIR="/opt/omniapi/lib"
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
-SERVICE_NAME="edgeos-api"
+SERVICE_NAME="omniapi"
 
 # Function to bundle libraries (libraries should already be bundled in package)
 bundle_libraries() {
@@ -67,8 +67,8 @@ bundle_libraries() {
 
     # Create ldconfig configuration
     if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
-        echo "$LIB_DIR" > /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null || {
-            echo "⚠  Warning: Cannot write to /etc/ld.so.conf.d/edgeos-api.conf"
+        echo "$LIB_DIR" > /etc/ld.so.conf.d/omniapi.conf 2>/dev/null || {
+            echo "⚠  Warning: Cannot write to /etc/ld.so.conf.d/omniapi.conf"
             echo "Library path may not be configured correctly."
         }
         if command -v ldconfig >/dev/null 2>&1; then
@@ -189,7 +189,7 @@ else
 fi
 
 # Setup permissions for external data directories (e.g., cvedix_data)
-# This handles cases where data is stored outside /opt/edgeos-api
+# This handles cases where data is stored outside /opt/omniapi
 echo "Setting up permissions for external data directories..."
 
 # Function to setup external data directory permissions
@@ -249,10 +249,10 @@ setup_external_data_permissions() {
 # Common external data directory locations
 # Check in order of likelihood
 EXTERNAL_DATA_DIRS=(
-    "/home/*/project/edgeos-api/cvedix_data"
-    "/home/*/edgeos-api/cvedix_data"
+    "/home/*/project/omniapi/cvedix_data"
+    "/home/*/omniapi/cvedix_data"
     "/opt/cvedix_data"
-    "/var/lib/edgeos-api/cvedix_data"
+    "/var/lib/omniapi/cvedix_data"
 )
 
 # Also check if CVEDIX_DATA_ROOT environment variable is set in any user's environment
@@ -260,7 +260,7 @@ for user_home in /home/*; do
     if [ -d "$user_home" ]; then
         username=$(basename "$user_home")
         # Check for cvedix_data in common project locations
-        for pattern in "$user_home/project/edgeos-api/cvedix_data" "$user_home/edgeos-api/cvedix_data"; do
+        for pattern in "$user_home/project/omniapi/cvedix_data" "$user_home/omniapi/cvedix_data"; do
             if [ -d "$pattern" ]; then
                 setup_external_data_permissions "$pattern" "User $username data directory"
             fi
@@ -294,7 +294,7 @@ done
 
 echo "External data directory permissions setup completed."
 
-# Note: Record directory (/opt/edgeos-api/record) is now created automatically
+# Note: Record directory (/opt/omniapi/record) is now created automatically
 # by create_directories.sh script from directories.conf configuration
 
 # Bundle libraries
@@ -402,7 +402,7 @@ setup_database_file "$INSTALL_DIR/data/$DB_FILENAME" "Production path"
 if id "$SERVICE_USER" &>/dev/null; then
     USER_HOME=$(getent passwd "$SERVICE_USER" | cut -d: -f6)
     if [ -n "$USER_HOME" ] && [ "$USER_HOME" != "/" ]; then
-        USER_DB_PATH="$USER_HOME/.local/share/edgeos-api/$DB_FILENAME"
+        USER_DB_PATH="$USER_HOME/.local/share/omniapi/$DB_FILENAME"
         setup_database_file "$USER_DB_PATH" "User directory"
     fi
 fi
@@ -417,7 +417,7 @@ API_HOST=0.0.0.0
 API_PORT=8080
 LOG_LEVEL=INFO
 # Runtime data root (instances, models, nodes, solutions, groups, default logs path)
-EDGEOS_API_INSTALL_DIR=$INSTALL_DIR
+OMNIAPI_INSTALL_DIR=$INSTALL_DIR
 # Default in binary is subprocess; set explicitly for clarity in deployments
 EDGE_AI_EXECUTION_MODE=subprocess
 EOF
@@ -593,7 +593,7 @@ install_opencv_410() {
     echo "OpenCV 4.10 Installation Required"
     echo "=========================================="
     echo ""
-    echo "OpenCV 4.10 with freetype support is required for edgeos-api."
+    echo "OpenCV 4.10 with freetype support is required for omniapi."
     echo "The installation process will take approximately 30-60 minutes."
     echo ""
     
@@ -997,17 +997,17 @@ fi
 
 # Verify RPATH is set correctly for executables (critical for finding bundled libraries)
 echo "Verifying RPATH configuration..."
-EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"
+EXPECTED_RPATH="/opt/omniapi/lib:/opt/edgeos-sdk/lib/cvedix"
 
 if command -v patchelf >/dev/null 2>&1; then
-    if [ -f "$BIN_DIR/edgeos-api" ]; then
-        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
+    if [ -f "$BIN_DIR/omniapi" ]; then
+        CURRENT_RPATH=$(patchelf --print-rpath "$BIN_DIR/omniapi" 2>/dev/null || echo "")
         if [ "$CURRENT_RPATH" != "$EXPECTED_RPATH" ]; then
-            echo "  Setting RPATH for edgeos-api..."
-            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/edgeos-api" 2>/dev/null || true
-            echo "  ✓ RPATH updated for edgeos-api"
+            echo "  Setting RPATH for omniapi..."
+            patchelf --set-rpath "$EXPECTED_RPATH" "$BIN_DIR/omniapi" 2>/dev/null || true
+            echo "  ✓ RPATH updated for omniapi"
         else
-            echo "  ✓ RPATH already correct for edgeos-api"
+            echo "  ✓ RPATH already correct for omniapi"
         fi
     fi
     if [ -f "$BIN_DIR/edgeos-worker" ]; then
@@ -1025,20 +1025,20 @@ else
         echo "  RPATH should be set during package build"
         echo "  Attempting to verify library search path..."
         # Verify that library directory is in ld.so.conf
-        if [ -f /etc/ld.so.conf.d/edgeos-api.conf ] && grep -q "^$LIB_DIR$" /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null; then
+        if [ -f /etc/ld.so.conf.d/omniapi.conf ] && grep -q "^$LIB_DIR$" /etc/ld.so.conf.d/omniapi.conf 2>/dev/null; then
             echo "  ✓ Library directory $LIB_DIR is in ld.so.conf"
         else
             echo "  ⚠  Warning: Library directory $LIB_DIR may not be in ld.so.conf"
             if [ -d "/etc/ld.so.conf.d" ] && [ -w "/etc/ld.so.conf.d" ]; then
                 echo "  Creating ld.so.conf entry..."
-                if echo "$LIB_DIR" > /etc/ld.so.conf.d/edgeos-api.conf 2>/dev/null; then
+                if echo "$LIB_DIR" > /etc/ld.so.conf.d/omniapi.conf 2>/dev/null; then
                     if command -v ldconfig >/dev/null 2>&1; then
                         ldconfig 2>&1 | grep -v "is not a symbolic link" || true
                     else
                         echo "  ⚠  Warning: ldconfig not found. Library cache may not be updated."
                     fi
                 else
-                    echo "  ⚠  Warning: Cannot write to /etc/ld.so.conf.d/edgeos-api.conf"
+                    echo "  ⚠  Warning: Cannot write to /etc/ld.so.conf.d/omniapi.conf"
                 fi
             else
                 echo "  ⚠  Warning: Cannot access /etc/ld.so.conf.d"
@@ -1092,10 +1092,10 @@ if [ -f "$INSTALL_DIR/scripts/validate_installation.sh" ]; then
 else
     # Fallback to basic verification
     echo "Verifying executable..."
-    if [ -f "$BIN_DIR/edgeos-api" ]; then
+    if [ -f "$BIN_DIR/omniapi" ]; then
         # Check if executable can find libraries
         if command -v ldd >/dev/null 2>&1; then
-            MISSING_LIBS=$(ldd "$BIN_DIR/edgeos-api" 2>&1 | grep "not found" || true)
+            MISSING_LIBS=$(ldd "$BIN_DIR/omniapi" 2>&1 | grep "not found" || true)
             if [ -n "$MISSING_LIBS" ]; then
                 echo "Warning: Some libraries may be missing:"
                 echo "$MISSING_LIBS"
@@ -1104,7 +1104,7 @@ else
 
         # Check RPATH
         if command -v patchelf >/dev/null 2>&1; then
-            RPATH=$(patchelf --print-rpath "$BIN_DIR/edgeos-api" 2>/dev/null || echo "")
+            RPATH=$(patchelf --print-rpath "$BIN_DIR/omniapi" 2>/dev/null || echo "")
             echo "Executable RPATH: ${RPATH:-not set}"
         fi
     fi
@@ -1136,7 +1136,7 @@ if command -v systemctl >/dev/null 2>&1 && [ -d "/etc/systemd/system" ]; then
 else
     echo "⚠  Warning: systemctl not found or systemd not available"
     echo "Service management commands will not work. Please start the service manually:"
-    echo "  $BIN_DIR/edgeos-api"
+    echo "  $BIN_DIR/omniapi"
 fi
 
 echo "Installation completed successfully!"
@@ -1148,8 +1148,8 @@ echo "  ✓ Permissions configured for data directories"
 echo "  ✓ Library cache updated"
 echo ""
 echo "If you encounter issues, check service status:"
-echo "  sudo systemctl status edgeos-api"
-echo "  sudo journalctl -u edgeos-api -n 50"
+echo "  sudo systemctl status omniapi"
+echo "  sudo journalctl -u omniapi -n 50"
 echo ""
 echo "Service status:"
 echo "  sudo systemctl status ${SERVICE_NAME}"
@@ -1182,9 +1182,9 @@ echo ""
 echo "4. If OpenCV 4.10 is NOT installed, install it using the build script:"
 echo "   # Download the build script if not available:"
 echo "   cd /tmp"
-echo "   wget https://raw.githubusercontent.com/cvedix/edgeos-api/main/scripts/build_opencv_safe.sh"
+echo "   wget https://raw.githubusercontent.com/cvedix/omniapi/main/scripts/build_opencv_safe.sh"
 echo "   # Or use the script from package source:"
-echo "   # cd /path/to/edgeos-api"
+echo "   # cd /path/to/omniapi"
 echo "   # sudo ./scripts/build_opencv_safe.sh"
 echo ""
 echo "   # Make script executable and run:"

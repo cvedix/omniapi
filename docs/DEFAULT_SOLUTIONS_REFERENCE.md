@@ -23,7 +23,7 @@ Khi bạn **chạy project**, các **default solutions** sẽ **TỰ ĐỘNG có
 
 ```bash
 cd build
-./edgeos-api
+./omniapi
 ```
 
 ### 2. Kiểm tra solutions có sẵn

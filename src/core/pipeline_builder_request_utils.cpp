@@ -21,7 +21,7 @@ std::string PipelineBuilderRequestUtils::getFilePath(
   }
 
   // Default fallback: Try production path first, then development path
-  std::string productionPath = "/opt/edgeos-api/videos/face.mp4";
+  std::string productionPath = "/opt/omniapi/videos/face.mp4";
   try {
     if (fs::exists(productionPath)) {
       if (verbose) {
@@ -40,7 +40,7 @@ std::string PipelineBuilderRequestUtils::getFilePath(
             << std::endl;
   if (verbose) {
     std::cerr << "[PipelineBuilder] ℹ NOTE: In production, provide 'FILE_PATH' "
-                 "in request body or upload videos to /opt/edgeos-api/videos/"
+                 "in request body or upload videos to /opt/omniapi/videos/"
               << std::endl;
   }
   return "./cvedix_data/test_video/face.mp4";

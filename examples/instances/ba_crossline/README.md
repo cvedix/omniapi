@@ -275,8 +275,8 @@ Mỗi MQTT event message giờ đây bao gồm thêm section `line_counts` hiể
 - Field `instance_name`: Tên instance (từ field `name` trong request, ví dụ: "ba_crossline_file_mqtt_only")
 
 **MQTT Client ID:**
-- MQTT Client ID được tự động set theo format: `edgeos-api_{instance_id}`
-- Ví dụ: Nếu instance_id là `ba_crossline_file_mqtt`, Client ID sẽ là `edgeos-api_ba_crossline_file_mqtt`
+- MQTT Client ID được tự động set theo format: `omniapi_{instance_id}`
+- Ví dụ: Nếu instance_id là `ba_crossline_file_mqtt`, Client ID sẽ là `omniapi_ba_crossline_file_mqtt`
 - Điều này giúp dễ dàng nhận biết và quản lý các MQTT connections từ các instances khác nhau
 
 ### 3. Kiểm Tra Statistics

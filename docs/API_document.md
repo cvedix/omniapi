@@ -119,7 +119,7 @@ curl -X 'GET' \
   "status": "healthy",
   "timestamp": "2024-01-01T00:00:00.000Z",
   "uptime": 3600,
-  "service": "edgeos-api",
+  "service": "omniapi",
   "version": "1.0.0"
 }
 ```
@@ -153,7 +153,7 @@ curl -X 'GET' \
     "build_time": "Jan 01 2024 00:00:00",
     "git_commit": "abc123def456",
     "api_version": "v1",
-    "service": "edgeos-api"
+    "service": "omniapi"
   }
   ```
 ### Get system hardware information
@@ -462,28 +462,28 @@ curl -X 'GET' \
         {
           "date": "2024-01-01",
           "size": 1024,
-          "path": "/var/log/edgeos-api/api_2024-01-01.log"
+          "path": "/var/log/omniapi/api_2024-01-01.log"
         }
       ],
       "instance": [
         {
           "date": "2024-01-01",
           "size": 2048,
-          "path": "/var/log/edgeos-api/instance_2024-01-01.log"
+          "path": "/var/log/omniapi/instance_2024-01-01.log"
         }
       ],
       "sdk_output": [
         {
           "date": "2024-01-01",
           "size": 512,
-          "path": "/var/log/edgeos-api/sdk_output_2024-01-01.log"
+          "path": "/var/log/omniapi/sdk_output_2024-01-01.log"
         }
       ],
       "general": [
         {
           "date": "2024-01-01",
           "size": 4096,
-          "path": "/var/log/edgeos-api/general_2024-01-01.log"
+          "path": "/var/log/omniapi/general_2024-01-01.log"
         }
       ]
     }
@@ -522,7 +522,7 @@ curl -X 'GET' \
   ```
   {
     "category": "api",
-    "category_dir": "/var/log/edgeos-api/api",
+    "category_dir": "/var/log/omniapi/api",
     "files_count": 1,
     "total_lines": 1000,
     "filtered_lines": 500,
@@ -1419,7 +1419,7 @@ Solution Types:
 Persistence:
 * If persistent: true, the instance will be saved to a JSON file in the instances directory
 * Persistent instances are automatically loaded when the server restarts
-* Instance configuration files are stored in /var/lib/edgeos-api/instances (configurable via INSTANCES_DIR environment variable)
+* Instance configuration files are stored in /var/lib/omniapi/instances (configurable via INSTANCES_DIR environment variable)
 
 Auto Start:
 * If autoStart: true, the instance will automatically start after creation
@@ -4086,7 +4086,7 @@ Validation:
 
 Persistence:
 * Groups are automatically saved to storage
-* Group files are stored in /var/lib/edgeos-api/groups (configurable via GROUPS_DIR environment variable)
+* Group files are stored in /var/lib/omniapi/groups (configurable via GROUPS_DIR environment variable)
 
 Returns: The created group information including timestamps. \
 API path: /v1/core/groups
@@ -6376,7 +6376,7 @@ curl -X 'POST' \
     {
       "message": "Database connection disabled. Using default face_database.txt file",
       "enabled": false,
-      "default_file": "/opt/edgeos-api/data/face_database.txt"
+      "default_file": "/opt/omniapi/data/face_database.txt"
     }
     ```
 * 400 - Bad request (missing required fields, invalid database type, etc.)
@@ -6434,7 +6434,7 @@ curl -X 'GET' \
     {
       "enabled": false,
       "message": "No database connection configured. Using default face_database.txt file",
-      "default_file": "/opt/edgeos-api/data/face_database.txt"
+      "default_file": "/opt/omniapi/data/face_database.txt"
     }
     ```
 * 500 - Server error
@@ -6473,7 +6473,7 @@ curl -X 'DELETE' \
     {
       "message": "Database connection configuration deleted successfully. System will now use default face_database.txt file",
       "enabled": false,
-      "default_file": "/opt/edgeos-api/data/face_database.txt"
+      "default_file": "/opt/omniapi/data/face_database.txt"
     }
     ```
   * No configuration to delete
@@ -6481,7 +6481,7 @@ curl -X 'DELETE' \
     {
       "message": "No database connection configured to delete",
       "enabled": false,
-      "default_file": "/opt/edgeos-api/data/face_database.txt"
+      "default_file": "/opt/omniapi/data/face_database.txt"
     }
     ```
 * 500 - Server error (failed to update configuration, etc.)

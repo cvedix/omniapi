@@ -29,7 +29,7 @@ void VersionHandler::getVersion(
     response["build_time"] = BUILD_TIME;
     response["git_commit"] = GIT_COMMIT;
     response["api_version"] = "v1";
-    response["service"] = "edgeos-api";
+    response["service"] = "omniapi";
 
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k200OK);

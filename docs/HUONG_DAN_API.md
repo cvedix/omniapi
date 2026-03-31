@@ -1,8 +1,8 @@
-# Hướng Dẫn Sử Dụng edgeos-api
+# Hướng Dẫn Sử Dụng omniapi
 
 ## Tổng Quan
 
-edgeos-api là REST API server cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên. API cung cấp các chức năng quản lý instance, nhận diện khuôn mặt, cấu hình hệ thống, và nhiều tính năng khác.
+omniapi là REST API server cho phép điều khiển và giám sát các AI processing instances trên thiết bị biên. API cung cấp các chức năng quản lý instance, nhận diện khuôn mặt, cấu hình hệ thống, và nhiều tính năng khác.
 
 **Base URL**: `http://localhost:8080`
 

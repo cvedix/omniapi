@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/face_multis.mp4",
-      "MODEL_PATH": "/opt/edgeos-api/models/face/yolov8n_face_detection.rknn",
+      "MODEL_PATH": "/opt/omniapi/models/face/yolov8n_face_detection.rknn",
       "SCORE_THRESHOLD": "0.5",
       "INPUT_WIDTH": "640",
       "INPUT_HEIGHT": "640",

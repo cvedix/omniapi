@@ -143,13 +143,13 @@ export DEVICE_REPORT_LATITUDE=21.0285
 export DEVICE_REPORT_LONGITUDE=105.8542
 
 # Khởi động lại server (vd. từ build)
-./build/edgeos_api
+./build/omniapi
 ```
 
 Hoặc một dòng để test nhanh (server URL có thể unreachable):
 
 ```bash
-DEVICE_REPORT_ENABLED=1 DEVICE_REPORT_SERVER_URL="http://127.0.0.1:5055" ./build/edgeos_api
+DEVICE_REPORT_ENABLED=1 DEVICE_REPORT_SERVER_URL="http://127.0.0.1:5055" ./build/omniapi
 ```
 
 ---
@@ -248,7 +248,7 @@ done
 
 ### 6. Cấu hình qua config.json
 
-Thêm hoặc sửa trong `config.json` (path tùy môi trường, vd. `./config.json` hoặc `/opt/edgeos-api/config/config.json`):
+Thêm hoặc sửa trong `config.json` (path tùy môi trường, vd. `./config.json` hoặc `/opt/omniapi/config/config.json`):
 
 ```json
 {
@@ -369,7 +369,7 @@ curl -s "${BASE}/report-now" | jq .
 export DEVICE_REPORT_ENABLED=1
 export DEVICE_REPORT_SERVER_URL="http://127.0.0.1:5055"
 export DEVICE_REPORT_DEVICE_ID="manual-test-device"
-./build/edgeos_api
+./build/omniapi
 # Hoặc cách chạy service của bạn
 ```
 

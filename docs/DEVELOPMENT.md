@@ -1,4 +1,4 @@
-# Hướng Dẫn Phát Triển - edgeos-api
+# Hướng Dẫn Phát Triển - omniapi
 
 Tài liệu này bao gồm setup môi trường, hướng dẫn phát triển API, tổ chức tests, và các tính năng như Swagger/Scalar documentation.
 
@@ -23,8 +23,8 @@ Tài liệu này bao gồm setup môi trường, hướng dẫn phát triển AP
 
 ```bash
 # Clone project
-git clone https://github.com/cvedix/edgeos-api.git
-cd edgeos-api
+git clone https://github.com/cvedix/omniapi.git
+cd omniapi
 
 # Development setup (cài dependencies, tạo thư mục, setup environment)
 ./scripts/dev_setup.sh
@@ -193,10 +193,10 @@ cmake .. -DAUTO_DOWNLOAD_DEPENDENCIES=ON -DBUILD_TESTS=ON
 
 # Hoặc chạy trực tiếp
 cd build
-./bin/edgeos-api
+./bin/omniapi
 
 # Với logging options
-./bin/edgeos-api --log-api --log-instance --log-sdk-output
+./bin/omniapi --log-api --log-instance --log-sdk-output
 ```
 
 ---
@@ -597,10 +597,10 @@ cmake .. -DBUILD_TESTS=ON
 make -j$(nproc)
 
 # Chạy tất cả tests
-./bin/edgeos_api_tests
+./bin/omniapi_tests
 
 # Chạy tests cụ thể
-./bin/edgeos_api_tests --gtest_filter=MyHandlerTest.*
+./bin/omniapi_tests --gtest_filter=MyHandlerTest.*
 
 # Sử dụng script (khuyến nghị)
 ./scripts/run_tests.sh
@@ -1083,7 +1083,7 @@ pre-commit install --hook-type pre-push
 ```bash
 # Xem chi tiết lỗi
 cd build
-./bin/edgeos_api_tests --gtest_output=xml
+./bin/omniapi_tests --gtest_output=xml
 
 # Hoặc với CTest
 ctest --output-on-failure -V
@@ -1118,7 +1118,7 @@ Khi log xuất hiện `free(): corrupted unsorted chunks` hoặc `[RECOVERY] Rec
 
 ```bash
 # Thoát ngay khi SIGABRT (không recovery) — khuyến nghị khi develop
-EDGE_AI_SIGABRT_IMMEDIATE_EXIT=1 sudo LD_PRELOAD=... EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api
+EDGE_AI_SIGABRT_IMMEDIATE_EXIT=1 sudo LD_PRELOAD=... EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/omniapi
 ```
 
 Hoặc sau khi process treo: **`kill -9 <pid>`** (hoặc `kill -ABRT` chỉ gửi lại SIGABRT, có thể vẫn vào recovery).
@@ -1154,7 +1154,7 @@ Hoặc sau khi process treo: **`kill -9 <pid>`** (hoặc `kill -ABRT` chỉ gử
 1. **Clone và setup**:
    ```bash
    git clone <repo-url>
-   cd edgeos-api
+   cd omniapi
    ./scripts/dev_setup.sh
    ```
 
@@ -1167,7 +1167,7 @@ Hoặc sau khi process treo: **`kill -9 <pid>`** (hoặc `kill -ABRT` chỉ gử
 
 3. **Chạy tests**:
    ```bash
-   ./bin/edgeos_api_tests
+   ./bin/omniapi_tests
    ```
 
 4. **Chạy server**:

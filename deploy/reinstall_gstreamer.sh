@@ -128,8 +128,8 @@ else
     echo -e "${YELLOW}========================================${NC}"
     echo ""
     echo "Có thể cần:"
-    echo "  1. Restart service: sudo systemctl restart edgeos-api"
+    echo "  1. Restart service: sudo systemctl restart omniapi"
     echo "  2. Kiểm tra lại: gst-inspect-1.0 filesrc"
-    echo "  3. Xem log: sudo journalctl -u edgeos-api -f"
+    echo "  3. Xem log: sudo journalctl -u omniapi -f"
     exit 1
 fi

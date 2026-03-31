@@ -1,6 +1,6 @@
 # Hướng Dẫn Cài Đặt CVEDIX SDK
 
-Tài liệu này hướng dẫn cách cài đặt CVEDIX SDK (Core AI Runtime / EdgeOS SDK) để sử dụng với edgeos-api.
+Tài liệu này hướng dẫn cách cài đặt CVEDIX SDK (Core AI Runtime / EdgeOS SDK) để sử dụng với omniapi.
 
 ## 📋 Tổng Quan
 
@@ -111,7 +111,7 @@ sudo ldconfig
 
 ### 2. Tạo Symlinks (nếu cần)
 
-edgeos-api có thể cần symlinks cho một số dependencies:
+omniapi có thể cần symlinks cho một số dependencies:
 
 ```bash
 # Fix symlinks cho CVEDIX SDK
@@ -122,16 +122,16 @@ sudo ln -sf /opt/cvedix/lib/libtinyexpr.so /usr/lib/libtinyexpr.so
 sudo ln -sf /opt/cvedix/lib/libcvedix_instance_sdk.so /usr/lib/libcvedix_instance_sdk.so
 ```
 
-### 3. Cấu hình CMake cho edgeos-api
+### 3. Cấu hình CMake cho omniapi
 
-edgeos-api sẽ tự động tìm EdgeOS SDK tại:
+omniapi sẽ tự động tìm EdgeOS SDK tại:
 - `/opt/edgeos-sdk/` (ưu tiên, cấu trúc: lib/cvedix, lib/opencv, lib/cuda, lib/cudnn, lib/tensorrt)
 - `/opt/cvedix/` hoặc `/usr/include/cvedix/` và `/usr/lib/`
 
 Nếu SDK ở vị trí khác, thêm vào `CMAKE_PREFIX_PATH`:
 
 ```bash
-cd edgeos-api/build
+cd omniapi/build
 cmake .. -DCMAKE_PREFIX_PATH=/path/to/edgeos-sdk
 ```
 
@@ -165,10 +165,10 @@ ls -la /opt/cvedix/lib/libcvedix_instance_sdk.so
 ls -la /opt/cvedix/include/cvedix/
 ```
 
-### Kiểm tra từ edgeos-api
+### Kiểm tra từ omniapi
 
 ```bash
-cd edgeos-api/build
+cd omniapi/build
 cmake ..  # Sẽ hiển thị thông tin về EdgeOS SDK nếu tìm thấy
 ```
 
@@ -206,16 +206,16 @@ sudo apt-get install -y \
     pkg-config
 ```
 
-## 🔧 Sử Dụng SDK trong edgeos-api
+## 🔧 Sử Dụng SDK trong omniapi
 
-edgeos-api đã được cấu hình để dùng lib có sẵn trong EdgeOS SDK (`/opt/edgeos-sdk/lib/cvedix`, `lib/opencv`, `lib/cuda`, `lib/cudnn`, `lib/tensorrt`). Sau khi cài đặt SDK:
+omniapi đã được cấu hình để dùng lib có sẵn trong EdgeOS SDK (`/opt/edgeos-sdk/lib/cvedix`, `lib/opencv`, `lib/cuda`, `lib/cudnn`, `lib/tensorrt`). Sau khi cài đặt SDK:
 
 1. **Chạy dev_setup.sh** để fix symlinks (nếu cần):
    ```bash
    sudo ./scripts/dev_setup.sh --skip-deps --skip-build
    ```
 
-2. **Build edgeos-api**:
+2. **Build omniapi**:
    ```bash
    ./scripts/dev_setup.sh --skip-deps
    # Hoặc
@@ -226,7 +226,7 @@ edgeos-api đã được cấu hình để dùng lib có sẵn trong EdgeOS SDK 
 
 3. **Kiểm tra build thành công**:
    ```bash
-   ./build/bin/edgeos-api --version
+   ./build/bin/omniapi --version
    ```
 
 ## ⚠️ Troubleshooting
@@ -300,18 +300,18 @@ sudo ./scripts/dev_setup.sh --skip-deps --skip-build
 
 ### SSE Broker – ASIO dependency issue
 
-**Mô tả**: Node **SSE broker** (`cvedix_sse_broker_node`) bị tắt tạm thời khi tích hợp edgeos-api với CVEDIX SDK do lỗi liên quan tới dependency **ASIO**.
+**Mô tả**: Node **SSE broker** (`cvedix_sse_broker_node`) bị tắt tạm thời khi tích hợp omniapi với CVEDIX SDK do lỗi liên quan tới dependency **ASIO**.
 
 **Thời điểm**: Từ khoảng **2026-02-03** (commit `9d01991` – *Fix build errors: comment ASIO/cereal dependencies temporarily*).
 
-**Vị trí trong edgeos-api**:
+**Vị trí trong omniapi**:
 - `src/core/pipeline_builder_broker_nodes.cpp`: `#include <cvedix/nodes/broker/cvedix_sse_broker_node.h>` bị comment; `createSSEBrokerNode()` throw thay vì tạo node.
 - `src/core/pipeline_builder.cpp`: với `nodeType == "sse_broker"` trả về `nullptr` và in cảnh báo.
 
 **Thông tin cần Team SDK hỗ trợ**:
-1. **Nội dung lỗi build gốc** không còn lưu trong repo (chỉ có workaround). Để lấy lại: bật lại include và implementation SSE broker trong edgeos-api rồi build với cùng bộ SDK/compiler.
+1. **Nội dung lỗi build gốc** không còn lưu trong repo (chỉ có workaround). Để lấy lại: bật lại include và implementation SSE broker trong omniapi rồi build với cùng bộ SDK/compiler.
 2. **Nguyên nhân khả dĩ**: conflict ASIO (standalone hoặc Boost.Asio) giữa SDK và Drogon/Trantor (HTTP server dùng Boost.Asio). Cần xác nhận phiên bản ASIO SDK dùng và cách export/include.
-3. **Đường dẫn ASIO hiện tại**: edgeos-api đã thêm  
+3. **Đường dẫn ASIO hiện tại**: omniapi đã thêm  
    `/opt/edgeos-sdk/include/cvedix/third_party/asio/include`  
    (xem `CMakeLists.txt`).
 
@@ -323,13 +323,13 @@ Chi tiết đầy đủ để report: xem `docs/SDK_ISSUE_REPORT_ASIO_SSE_BROKER
 
 - **SDK Documentation**: Xem `doc/README_SDK.md` trong repository `core_ai_runtime`
 - **SDK Integration**: Xem `doc/pages/sdk_integration.md`
-- **edgeos-api Development**: Xem `docs/DEVELOPMENT.md`
-- **edgeos-api Setup**: Xem `docs/SCRIPTS.md`
+- **omniapi Development**: Xem `docs/DEVELOPMENT.md`
+- **omniapi Setup**: Xem `docs/SCRIPTS.md`
 
 ## 🔗 Liên Kết
 
 - Repository SDK: `https://github.com/cvedix/core_ai_runtime` (private)
-- Repository edgeos-api: `https://github.com/cvedix/edgeos-api`
+- Repository omniapi: `https://github.com/cvedix/omniapi`
 
 ---
 

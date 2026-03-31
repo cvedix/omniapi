@@ -357,7 +357,7 @@ bool WorkerSupervisor::spawnWorker(const std::string &instance_id,
     std::cerr << "[Supervisor]      sudo mkdir -p " << socket_dir.string() 
               << " && sudo chmod 777 " << socket_dir.string() << std::endl;
     std::cerr << "[Supervisor]   5. Check CVEDIX SDK dependencies:" << std::endl;
-    std::cerr << "[Supervisor]      sudo systemctl restart edgeos-api" << std::endl;
+    std::cerr << "[Supervisor]      sudo systemctl restart omniapi" << std::endl;
     std::cerr << "[Supervisor]   6. Run diagnostic script:" << std::endl;
     std::cerr << "[Supervisor]      ./scripts/diagnose_spawn_worker.sh" << std::endl;
     std::cerr << "[Supervisor] ========================================" << std::endl;

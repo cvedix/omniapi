@@ -7,8 +7,8 @@
   "detectionSensitivity": "Low",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/opt/edgeos-api/videos/face.mp4",
-      "MODEL_PATH": "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx",
+      "FILE_PATH": "/opt/omniapi/videos/face.mp4",
+      "MODEL_PATH": "/opt/omniapi/models/face/face_detection_yunet_2023mar.onnx",
       "RESIZE_RATIO": "1.0"
     },
     "output": {

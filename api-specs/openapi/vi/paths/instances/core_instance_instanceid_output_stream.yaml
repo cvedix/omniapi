@@ -99,7 +99,7 @@
               summary: Bật ghi đầu ra ra đường dẫn cục bộ
               value:
                 enabled: true
-                path: /opt/edgeos-api/record
+                path: /opt/omniapi/record
             enableLocalRTMP:
               summary: Bật stream RTMP cục bộ
               value:

@@ -6,9 +6,9 @@
   "additionalParams": {
     "input": {
       "RTMP_SRC_URL": "rtmp://localhost:1935/live/input_stream",
-      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
+      "LABELS_PATH": "/opt/omniapi/models/yolov11/tensorrt/labels.txt",
       "RESIZE_RATIO": "1.0",
-      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
+      "MODEL_PATH": "/opt/omniapi/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "RTMP_URL": "rtmp://localhost:1935/live/output_stream",

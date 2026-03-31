@@ -44,7 +44,7 @@ void HealthHandler::getHealth(
     response["status"] = status;
     response["timestamp"] = getCurrentTimestamp();
     response["uptime"] = static_cast<Json::Int64>(uptime);
-    response["service"] = "edgeos-api";
+    response["service"] = "omniapi";
     response["version"] = "2026.0.1.1";
     response["checks"] = checks;
 

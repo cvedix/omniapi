@@ -31,7 +31,7 @@ Xem [DOCKER_TEST_README.md](DOCKER_TEST_README.md) để biết hướng dẫn c
 
 ## 📝 Lưu Ý
 
-- File `.deb` cần có sẵn ở project root: `edgeos-api-with-sdk-2026.0.1.21-amd64.deb`
+- File `.deb` cần có sẵn ở project root: `omniapi-with-sdk-2026.0.1.21-amd64.deb`
 - Docker build context là project root để có thể copy file `.deb`
 - Container cần `--privileged` flag để systemd hoạt động (nếu dùng `Dockerfile.test`)
 

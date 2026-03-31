@@ -7,8 +7,8 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/opt/edgeos-api/test_video/face.mp4",
-      "FACE_DETECTION_MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx"
+      "FILE_PATH": "/opt/omniapi/test_video/face.mp4",
+      "FACE_DETECTION_MODEL_PATH": "/opt/omniapi/models/face/yunet.onnx"
     }
   },
   "pipeline": [

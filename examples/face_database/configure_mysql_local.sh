@@ -30,7 +30,7 @@ fi
 echo -e "${GREEN}[1/4] Kiểm tra API server...${NC}"
 if ! curl -s "$API_URL/v1/core/health" > /dev/null; then
     echo -e "${RED}❌ API server không khả dụng tại $API_URL${NC}"
-    echo -e "${YELLOW}Đảm bảo server đang chạy: ./build/edgeos-api${NC}"
+    echo -e "${YELLOW}Đảm bảo server đang chạy: ./build/omniapi${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓ API server đang chạy${NC}\n"

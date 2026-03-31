@@ -1,9 +1,9 @@
 services:
-  edgeos-api-test:
+  omniapi-test:
     build:
       context: ../..  # Project root để có thể copy .deb file
       dockerfile: packaging/docker-test/Dockerfile.test
-    container_name: edgeos-api-test
+    container_name: omniapi-test
     # Privileged mode cần thiết cho systemd
     privileged: true
     # Mount systemd

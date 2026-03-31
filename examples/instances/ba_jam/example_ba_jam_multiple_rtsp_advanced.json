@@ -6,8 +6,8 @@
   "additionalParams": {
     "input": {
       "RTSP_URLS": "[{\"rtsp_url\":\"rtsp://camera1.example.com:8554/stream1\",\"channel\":0,\"resize_ratio\":0.6,\"gst_decoder_name\":\"avdec_h264\",\"codec_type\":\"h264\"},{\"rtsp_url\":\"rtsp://camera2.example.com:8554/stream2\",\"channel\":1,\"resize_ratio\":0.5,\"gst_decoder_name\":\"avdec_h265\",\"codec_type\":\"h265\"}]",
-      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
-      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
+      "LABELS_PATH": "/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt",
+      "MODEL_PATH": "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights"
     },
     "output": {
       "ENABLE_SCREEN_DES": "false"

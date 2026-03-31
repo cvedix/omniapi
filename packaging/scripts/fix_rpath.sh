@@ -16,9 +16,9 @@ NC='\033[0m'
 
 # Configuration
 BIN_DIR="/usr/local/bin"
-EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"
+EXPECTED_RPATH="/opt/omniapi/lib:/opt/edgeos-sdk/lib/cvedix"
 EXECUTABLES=(
-    "$BIN_DIR/edgeos-api"
+    "$BIN_DIR/omniapi"
     "$BIN_DIR/edgeos-worker"
 )
 

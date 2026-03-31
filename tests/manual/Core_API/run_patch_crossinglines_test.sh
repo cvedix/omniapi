@@ -2,12 +2,12 @@
 # Test PATCH CrossingLines (line-only update) với log ghi ra file.
 #
 # Cách 1 - Script tự start API và ghi log vào file:
-#   LOG_FILE=/tmp/edgeos-api.log ./run_patch_crossinglines_test.sh
+#   LOG_FILE=/tmp/omniapi.log ./run_patch_crossinglines_test.sh
 #
 # Cách 2 - Bạn start API trước, log ra file (để instance chạy ít in ra console):
-#   EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api >> /tmp/edgeos-api.log 2>&1
+#   EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/omniapi >> /tmp/omniapi.log 2>&1
 #   Rồi chạy test (không start lại API):
-#   START_SERVER=0 LOG_FILE=/tmp/edgeos-api.log ./run_patch_crossinglines_test.sh
+#   START_SERVER=0 LOG_FILE=/tmp/omniapi.log ./run_patch_crossinglines_test.sh
 #
 # Chạy từ repo root hoặc từ build/: LOG_FILE và API URL có thể tùy chỉnh.
 
@@ -21,8 +21,8 @@ BASE_URL="${SERVER}/v1/core/instance"
 START_SERVER="${START_SERVER:-1}"   # 1 = start API trong script; 0 = API đã chạy sẵn, chỉ cần LOG_FILE trỏ tới log
 
 # Binary (từ build)
-if [[ -x "${BUILD_DIR}/bin/edgeos-api" ]]; then
-  API_BIN="${BUILD_DIR}/bin/edgeos-api"
+if [[ -x "${BUILD_DIR}/bin/omniapi" ]]; then
+  API_BIN="${BUILD_DIR}/bin/omniapi"
 else
   API_BIN=""
 fi
@@ -63,8 +63,8 @@ if [[ "${START_SERVER}" = "1" ]] && [[ -n "${API_BIN}" ]]; then
     exit 1
   fi
 elif [[ "${START_SERVER}" = "1" ]]; then
-  echo "Build not found at ${BUILD_DIR}/bin/edgeos-api. Set BUILD_DIR or run API manually with log to file:"
-  echo "  ${REPO_ROOT}/build/bin/edgeos-api >> ${LOG_FILE} 2>&1"
+  echo "Build not found at ${BUILD_DIR}/bin/omniapi. Set BUILD_DIR or run API manually with log to file:"
+  echo "  ${REPO_ROOT}/build/bin/omniapi >> ${LOG_FILE} 2>&1"
   exit 1
 else
   echo "Assuming API is already running at ${SERVER}. Log file (if server was started with redirect): ${LOG_FILE}"
@@ -86,9 +86,9 @@ CREATE_RESP=$(curl -s -X POST "${BASE_URL}" \
     \"additionalParams\": {
       \"input\": {
         \"RTMP_SRC_URL\": \"rtmp://192.168.1.128:1935/live/camera_demo_sang_vehicle\",
-        \"WEIGHTS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
-        \"CONFIG_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg\",
-        \"LABELS_PATH\": \"/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt\",
+        \"WEIGHTS_PATH\": \"/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights\",
+        \"CONFIG_PATH\": \"/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg\",
+        \"LABELS_PATH\": \"/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt\",
         \"CROSSLINE_START_X\": \"0\",
         \"CROSSLINE_START_Y\": \"250\",
         \"CROSSLINE_END_X\": \"700\",

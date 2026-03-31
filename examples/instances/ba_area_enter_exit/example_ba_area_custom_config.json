@@ -13,10 +13,10 @@
   "sensorModality": "RGB",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/opt/edgeos-api/videos/vehicle_count.mp4",
-      "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+      "FILE_PATH": "/opt/omniapi/videos/vehicle_count.mp4",
+      "LABELS_PATH": "/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt",
       "RESIZE_RATIO": "0.8",
-      "MODEL_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights"
+      "MODEL_PATH": "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights"
     },
     "output": {
       "ENABLE_SCREEN_DES": "true",

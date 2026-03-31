@@ -16,9 +16,9 @@ if [[ "$WORKER_EXE" == /* ]]; then
     echo "✗ Worker executable not found or not executable: $WORKER_EXE"
   fi
 else
-  # Same dir as edgeos-api (when run from build/bin)
+  # Same dir as omniapi (when run from build/bin)
   API_EXE=""
-  for d in "./bin/edgeos-api" "./build/bin/edgeos-api" "/usr/local/bin/edgeos-api" "/usr/bin/edgeos-api" "/opt/edgeos-api/bin/edgeos-api"; do
+  for d in "./bin/omniapi" "./build/bin/omniapi" "/usr/local/bin/omniapi" "/usr/bin/omniapi" "/opt/omniapi/bin/omniapi"; do
     if [[ -x "$d" ]]; then API_EXE="$d"; break; fi
   done
   if [[ -n "$API_EXE" ]]; then
@@ -30,7 +30,7 @@ else
       echo "✗ Worker not found next to API: $W_PATH"
     fi
   else
-    echo "? edgeos-api not found in ./bin, ./build/bin, /usr/local/bin, /usr/bin, /opt/edgeos-api/bin"
+    echo "? omniapi not found in ./bin, ./build/bin, /usr/local/bin, /usr/bin, /opt/omniapi/bin"
   fi
   if command -v "$WORKER_EXE" &>/dev/null; then
     echo "✓ Worker in PATH: $(command -v "$WORKER_EXE")"
@@ -42,7 +42,7 @@ echo "  Fix: set EDGE_AI_WORKER_PATH to full path, e.g. $(pwd)/build/bin/edgeos-
 echo ""
 
 # 2) Socket directory
-SOCKET_DIR="${EDGE_AI_SOCKET_DIR:-/opt/edgeos-api/run}"
+SOCKET_DIR="${EDGE_AI_SOCKET_DIR:-/opt/omniapi/run}"
 echo "Socket directory: $SOCKET_DIR"
 if [[ -d "$SOCKET_DIR" ]]; then
   if [[ -w "$SOCKET_DIR" ]]; then

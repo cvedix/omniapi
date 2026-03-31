@@ -366,9 +366,9 @@ echo "To run the server:"
 echo "  ./scripts/load_env.sh"
 echo ""
 echo "Or manually:"
-if [ -f "build/bin/edgeos-api" ]; then
-    echo "  ./build/bin/edgeos-api"
-elif [ -f "build/edgeos-api" ]; then
-    echo "  ./build/edgeos-api"
+if [ -f "build/bin/omniapi" ]; then
+    echo "  ./build/bin/omniapi"
+elif [ -f "build/omniapi" ]; then
+    echo "  ./build/omniapi"
 fi
 echo ""

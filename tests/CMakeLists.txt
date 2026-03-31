@@ -44,8 +44,7 @@ set(TEST_SOURCES
     unit/Instance_Management/test_create_instance_handler.cpp
     unit/Instance_Management/test_instance_fps_handler.cpp
     
-    # Recognition tests
-    unit/Recognition/test_recognition_handler.cpp
+    
     
     # Solutions tests
     unit/Solutions/test_solution_handler.cpp
@@ -72,27 +71,27 @@ set(TEST_SOURCES
 )
 
 # Create test executable (EXCLUDE_FROM_ALL so default 'make' does not fail if test link is incomplete)
-add_executable(edgeos_api_tests EXCLUDE_FROM_ALL ${TEST_SOURCES})
+add_executable(omniapi_tests EXCLUDE_FROM_ALL ${TEST_SOURCES})
 
 # Link libraries
 # Note: We use gtest (not gtest_main) because we have our own main() in test_main.cpp
 # This allows us to add custom signal handlers and test event listeners
-target_link_libraries(edgeos_api_tests PRIVATE
+target_link_libraries(omniapi_tests PRIVATE
     gtest
 )
 
 # Link edgeos_core (e.g. logRuntimeUpdate used by subprocess_instance_manager)
-target_link_libraries(edgeos_api_tests PRIVATE edgeos_core)
+target_link_libraries(omniapi_tests PRIVATE edgeos_core)
 
 # Link Drogon (same as main project)
 if(TARGET Drogon::Drogon)
-    target_link_libraries(edgeos_api_tests PRIVATE Drogon::Drogon)
+    target_link_libraries(omniapi_tests PRIVATE Drogon::Drogon)
 elseif(TARGET drogon)
-    target_link_libraries(edgeos_api_tests PRIVATE drogon)
+    target_link_libraries(omniapi_tests PRIVATE drogon)
 endif()
 
 # Link source files (we need to compile them for tests)
-target_sources(edgeos_api_tests PRIVATE
+target_sources(omniapi_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/api/health_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/version_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/swagger_handler.cpp
@@ -101,7 +100,6 @@ target_sources(edgeos_api_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/api/endpoints_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/solution_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/instance_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/recognition_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/config_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/system_info_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/system_handler.cpp
@@ -210,10 +208,10 @@ target_sources(edgeos_api_tests PRIVATE
 
 # Link jsoncpp if available
 if(TARGET jsoncpp_lib)
-    target_link_libraries(edgeos_api_tests PRIVATE jsoncpp_lib)
+    target_link_libraries(omniapi_tests PRIVATE jsoncpp_lib)
 elseif(Jsoncpp_FOUND)
-    target_link_libraries(edgeos_api_tests PRIVATE ${JSONCPP_LIBRARIES})
-    target_include_directories(edgeos_api_tests PRIVATE ${JSONCPP_INCLUDE_DIRS})
+    target_link_libraries(omniapi_tests PRIVATE ${JSONCPP_LIBRARIES})
+    target_include_directories(omniapi_tests PRIVATE ${JSONCPP_INCLUDE_DIRS})
 endif()
 
 # ============================================
@@ -253,7 +251,7 @@ endforeach()
 
 # Link CVEDIX SDK (required for instance_registry and pipeline_builder)
 if(TARGET cvedix::cvedix_instance_sdk)
-    target_link_libraries(edgeos_api_tests PRIVATE cvedix::cvedix_instance_sdk)
+    target_link_libraries(omniapi_tests PRIVATE cvedix::cvedix_instance_sdk)
     message(STATUS "✓ CVEDIX SDK linked to tests")
 
     # Handle OpenCV CUDA libraries - filter them out if not available
@@ -293,11 +291,11 @@ if(TARGET cvedix::cvedix_instance_sdk)
     # Use linker flags based on CUDA availability
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         if(OPENCV_CUDA_AVAILABLE)
-            target_link_options(edgeos_api_tests PRIVATE
+            target_link_options(omniapi_tests PRIVATE
                 -Wl,--as-needed
             )
         else()
-            target_link_options(edgeos_api_tests PRIVATE
+            target_link_options(omniapi_tests PRIVATE
                 -Wl,--as-needed
                 -Wl,--allow-shlib-undefined
             )
@@ -318,7 +316,7 @@ if(CVEDIX_WITH_MQTT)
     )
 
     if(MOSQUITTO_LIBRARY)
-        target_link_libraries(edgeos_api_tests PRIVATE ${MOSQUITTO_LIBRARY})
+        target_link_libraries(omniapi_tests PRIVATE ${MOSQUITTO_LIBRARY})
         message(STATUS "✓ Linked mosquitto library to tests: ${MOSQUITTO_LIBRARY}")
     else()
         # Try pkg-config
@@ -326,8 +324,8 @@ if(CVEDIX_WITH_MQTT)
         if(PkgConfig_FOUND)
             pkg_check_modules(MOSQUITTO QUIET mosquitto)
             if(MOSQUITTO_FOUND)
-                target_link_libraries(edgeos_api_tests PRIVATE ${MOSQUITTO_LIBRARIES})
-                target_include_directories(edgeos_api_tests PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
+                target_link_libraries(omniapi_tests PRIVATE ${MOSQUITTO_LIBRARIES})
+                target_include_directories(omniapi_tests PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
                 message(STATUS "✓ Linked mosquitto library to tests via pkg-config: ${MOSQUITTO_LIBRARIES}")
             endif()
         endif()
@@ -361,7 +359,7 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Linking OpenCV without CUDA support for tests")
         endif()
 
-        target_link_libraries(edgeos_api_tests PRIVATE ${OPENCV_BASE_LIBS})
+        target_link_libraries(omniapi_tests PRIVATE ${OPENCV_BASE_LIBS})
     else()
         # Fallback to pkg-config libraries
         set(OPENCV_LIBS ${OpenCV_LIBRARIES})
@@ -374,7 +372,7 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Using OpenCV libraries from pkg-config for tests (with CUDA)")
         endif()
 
-        target_link_libraries(edgeos_api_tests PRIVATE ${OPENCV_LIBS})
+        target_link_libraries(omniapi_tests PRIVATE ${OPENCV_LIBS})
     endif()
     message(STATUS "✓ OpenCV linked to tests")
 endif()
@@ -382,42 +380,42 @@ endif()
 # Add include directories for cereal and CVEDIX (same as main project)
 # Note: CEREAL_INCLUDE_DIR is set in parent CMakeLists.txt
 if(DEFINED CEREAL_INCLUDE_DIR AND CEREAL_INCLUDE_DIR)
-    target_include_directories(edgeos_api_tests PRIVATE "${CMAKE_BINARY_DIR}")
-    target_include_directories(edgeos_api_tests PRIVATE "${CEREAL_INCLUDE_DIR}")
+    target_include_directories(omniapi_tests PRIVATE "${CMAKE_BINARY_DIR}")
+    target_include_directories(omniapi_tests PRIVATE "${CEREAL_INCLUDE_DIR}")
 endif()
 
 # Add CVEDIX SDK include directories (required for broker nodes with ASIO)
 if(EXISTS "${EDGEOS_SDK_ROOT}/include")
-    target_include_directories(edgeos_api_tests PRIVATE "${EDGEOS_SDK_ROOT}/include")
+    target_include_directories(omniapi_tests PRIVATE "${EDGEOS_SDK_ROOT}/include")
     # Add ASIO include path (required for SSE broker node)
-    target_include_directories(edgeos_api_tests PRIVATE "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/asio/include")
+    target_include_directories(omniapi_tests PRIVATE "${EDGEOS_SDK_ROOT}/include/cvedix/third_party/asio/include")
 endif()
 
 # Add Plog include directory (same as main project)
 if(DEFINED PLOG_INCLUDE_DIR AND PLOG_INCLUDE_DIR)
-    target_include_directories(edgeos_api_tests PRIVATE ${PLOG_INCLUDE_DIR})
+    target_include_directories(omniapi_tests PRIVATE ${PLOG_INCLUDE_DIR})
 endif()
 
 # Add hwinfo include directory (from FetchContent or submodule)
 # hwinfo is typically in build/_deps/hwinfo-src/include or via target
 if(EXISTS "${CMAKE_BINARY_DIR}/_deps/hwinfo-src/include")
-    target_include_directories(edgeos_api_tests PRIVATE "${CMAKE_BINARY_DIR}/_deps/hwinfo-src/include")
+    target_include_directories(omniapi_tests PRIVATE "${CMAKE_BINARY_DIR}/_deps/hwinfo-src/include")
 elseif(TARGET lfreist-hwinfo::hwinfo)
     # If hwinfo target exists, get its include directories
     get_target_property(HWINFO_INCLUDE_DIRS lfreist-hwinfo::hwinfo INTERFACE_INCLUDE_DIRECTORIES)
     if(HWINFO_INCLUDE_DIRS)
-        target_include_directories(edgeos_api_tests PRIVATE ${HWINFO_INCLUDE_DIRS})
+        target_include_directories(omniapi_tests PRIVATE ${HWINFO_INCLUDE_DIRS})
     endif()
 endif()
 
 # Link stdc++fs for std::experimental::filesystem (if needed)
 # Some systems require explicit linking for filesystem library
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
-    target_link_libraries(edgeos_api_tests PRIVATE stdc++fs)
+    target_link_libraries(omniapi_tests PRIVATE stdc++fs)
 endif()
 
 # Set compile definitions (same as main project)
-target_compile_definitions(edgeos_api_tests PRIVATE
+target_compile_definitions(omniapi_tests PRIVATE
     PROJECT_VERSION="${PROJECT_VERSION}"
     BUILD_TIME="Test Build"
     GIT_COMMIT="test"
@@ -429,9 +427,9 @@ find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(GSTREAMER QUIET gstreamer-1.0)
     if(GSTREAMER_FOUND)
-        target_compile_definitions(edgeos_api_tests PRIVATE CVEDIX_WITH_GSTREAMER)
-        target_include_directories(edgeos_api_tests PRIVATE ${GSTREAMER_INCLUDE_DIRS})
-        target_link_libraries(edgeos_api_tests PRIVATE ${GSTREAMER_LIBRARIES})
+        target_compile_definitions(omniapi_tests PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_include_directories(omniapi_tests PRIVATE ${GSTREAMER_INCLUDE_DIRS})
+        target_link_libraries(omniapi_tests PRIVATE ${GSTREAMER_LIBRARIES})
     endif()
 else()
     find_library(GSTREAMER_LIBRARY
@@ -442,7 +440,7 @@ else()
             /usr/local/lib
     )
     if(GSTREAMER_LIBRARY)
-        target_compile_definitions(edgeos_api_tests PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_compile_definitions(omniapi_tests PRIVATE CVEDIX_WITH_GSTREAMER)
         # Fallback: try to find GStreamer headers manually
         find_path(GSTREAMER_INCLUDE_DIR
             NAMES gst/gst.h
@@ -452,15 +450,15 @@ else()
                 ${EDGEOS_SDK_ROOT}/include/gstreamer-1.0
         )
         if(GSTREAMER_INCLUDE_DIR)
-            target_include_directories(edgeos_api_tests PRIVATE ${GSTREAMER_INCLUDE_DIR})
+            target_include_directories(omniapi_tests PRIVATE ${GSTREAMER_INCLUDE_DIR})
         endif()
-        target_link_libraries(edgeos_api_tests PRIVATE ${GSTREAMER_LIBRARY})
+        target_link_libraries(omniapi_tests PRIVATE ${GSTREAMER_LIBRARY})
     endif()
 endif()
 
 # Add Eigen include directory (required by BYTETracker)
 if(DEFINED EIGEN3_INCLUDE_DIR AND EIGEN3_INCLUDE_DIR)
-    target_include_directories(edgeos_api_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
+    target_include_directories(omniapi_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
 else()
     # Try to find Eigen if not already found
     find_path(EIGEN3_INCLUDE_DIR
@@ -473,30 +471,30 @@ else()
             /usr/local/include
     )
     if(EIGEN3_INCLUDE_DIR)
-        target_include_directories(edgeos_api_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
+        target_include_directories(omniapi_tests PRIVATE ${EIGEN3_INCLUDE_DIR})
     endif()
 endif()
 
 # Add MQTT support if enabled
 if(CVEDIX_WITH_MQTT)
-    target_compile_definitions(edgeos_api_tests PRIVATE CVEDIX_WITH_MQTT)
+    target_compile_definitions(omniapi_tests PRIVATE CVEDIX_WITH_MQTT)
 endif()
 
 # Link OpenSSL Crypto (required for ai_cache SHA256)
 find_package(OpenSSL QUIET)
 if(OpenSSL_FOUND)
-    target_link_libraries(edgeos_api_tests PRIVATE OpenSSL::Crypto)
+    target_link_libraries(omniapi_tests PRIVATE OpenSSL::Crypto)
 endif()
 
 # Link hwinfo (required for system_info_handler)
 if(TARGET lfreist-hwinfo::hwinfo)
-    target_link_libraries(edgeos_api_tests PRIVATE lfreist-hwinfo::hwinfo)
+    target_link_libraries(omniapi_tests PRIVATE lfreist-hwinfo::hwinfo)
 endif()
 
 # Enable testing
 enable_testing()
-add_test(NAME edgeos_api_tests COMMAND edgeos_api_tests)
+add_test(NAME omniapi_tests COMMAND omniapi_tests)
 # Set LD_LIBRARY_PATH for test to find OpenCV libraries
-set_tests_properties(edgeos_api_tests PROPERTIES
-    ENVIRONMENT "LD_LIBRARY_PATH=/opt/edgeos-sdk/lib/cvedix:/opt/edgeos-sdk/lib/opencv:/usr/local/lib:$<TARGET_FILE_DIR:edgeos_api_tests>/../lib:$ENV{LD_LIBRARY_PATH}"
+set_tests_properties(omniapi_tests PROPERTIES
+    ENVIRONMENT "LD_LIBRARY_PATH=/opt/edgeos-sdk/lib/cvedix:/opt/edgeos-sdk/lib/opencv:/usr/local/lib:$<TARGET_FILE_DIR:omniapi_tests>/../lib:$ENV{LD_LIBRARY_PATH}"
 )

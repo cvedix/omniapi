@@ -651,15 +651,15 @@ void SolutionRegistry::registerFaceSwapSolution() {
   // variables.
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
   config.defaults["FACE_DETECTION_MODEL_PATH"] =
-      "/opt/edgeos-api/models/face/yunet.onnx";
+      "/opt/omniapi/models/face/yunet.onnx";
   config.defaults["BUFFALO_L_FACE_ENCODING_MODEL"] =
-      "/opt/edgeos-api/models/face/buffalo_l.onnx";
+      "/opt/omniapi/models/face/buffalo_l.onnx";
   config.defaults["EMAP_FILE_FOR_EMBEDDINGS"] =
-      "/opt/edgeos-api/models/face/emap.onnx";
+      "/opt/omniapi/models/face/emap.onnx";
   config.defaults["FACE_SWAP_MODEL_PATH"] =
-      "/opt/edgeos-api/models/face/face_swap.onnx";
+      "/opt/omniapi/models/face/face_swap.onnx";
   config.defaults["SWAP_SOURCE_IMAGE"] =
-      "/opt/edgeos-api/models/face/source_face.jpg";
+      "/opt/omniapi/models/face/source_face.jpg";
   config.defaults["RTMP_URL"] = "rtmp://localhost:1935/live/stream";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -718,9 +718,9 @@ void SolutionRegistry::registerInsightFaceRecognitionSolution() {
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
   config.defaults["FACE_DETECTION_MODEL_PATH"] =
-      "/opt/edgeos-api/models/face/yunet.onnx";
+      "/opt/omniapi/models/face/yunet.onnx";
   config.defaults["FACE_RECOGNITION_MODEL_PATH"] =
-      "/opt/edgeos-api/models/face/insightface.onnx";
+      "/opt/omniapi/models/face/insightface.onnx";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -824,7 +824,7 @@ void SolutionRegistry::registerRKNNYOLOv11DetectionSolution() {
 
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
-  config.defaults["MODEL_PATH"] = "/opt/edgeos-api/models/yolov11/yolov11n.rknn";
+  config.defaults["MODEL_PATH"] = "/opt/omniapi/models/yolov11/yolov11n.rknn";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -885,9 +885,9 @@ void SolutionRegistry::registerTRTInsightFaceRecognitionSolution() {
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
   config.defaults["FACE_DETECTION_MODEL_PATH"] =
-      "/opt/edgeos-api/models/face/yunet.onnx";
+      "/opt/omniapi/models/face/yunet.onnx";
   config.defaults["FACE_RECOGNITION_MODEL_PATH"] =
-      "/opt/edgeos-api/models/face/insightface.trt";
+      "/opt/omniapi/models/face/insightface.trt";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";
@@ -1668,7 +1668,7 @@ void SolutionRegistry::registerYOLOv11DetectionSolution() {
 
   // Default configurations
   config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
-  config.defaults["MODEL_PATH"] = "/opt/edgeos-api/models/yolov11/yolov11n.onnx";
+  config.defaults["MODEL_PATH"] = "/opt/omniapi/models/yolov11/yolov11n.onnx";
   config.defaults["SAVE_DIR"] = "/tmp/output";
   config.defaults["detectorMode"] = "SmartDetection";
   config.defaults["detectionSensitivity"] = "0.7";

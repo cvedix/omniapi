@@ -133,7 +133,7 @@
               summary: Enable record output to local path
               value:
                 enabled: true
-                path: /opt/edgeos-api/record
+                path: /opt/omniapi/record
             enableLocalRTMP:
               summary: Enable local RTMP stream
               value:

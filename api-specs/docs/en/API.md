@@ -14,7 +14,7 @@ The server supports detailed logging features that can be enabled via command-li
 
 Example usage:
 ```bash
-./edgeos-api --log-api --log-instance --log-sdk-output
+./omniapi --log-api --log-instance --log-sdk-output
 ```
 
 For more details, see the [Logging Documentation](../docs/LOGGING.md).
@@ -2656,7 +2656,7 @@ Creates a new group for organizing instances. Groups help organize and manage mu
 
 **Persistence:**
 - Groups are automatically saved to storage
-- Group files are stored in `/var/lib/edgeos-api/groups` (configurable via `GROUPS_DIR` environment variable)
+- Group files are stored in `/var/lib/omniapi/groups` (configurable via `GROUPS_DIR` environment variable)
 
 **Returns:** The created group information including timestamps.
 
@@ -3045,7 +3045,7 @@ Creates and registers a new AI instance with the specified configuration. Return
 **Persistence:**
 - If `persistent: true`, the instance will be saved to a JSON file in the instances directory
 - Persistent instances are automatically loaded when the server restarts
-- Instance configuration files are stored in `/var/lib/edgeos-api/instances` (configurable via `INSTANCES_DIR` environment variable)
+- Instance configuration files are stored in `/var/lib/omniapi/instances` (configurable via `INSTANCES_DIR` environment variable)
 
 **Auto Start:**
 - If `autoStart: true`, the instance will automatically start **after** the pipeline build completes (in background). Until then, the instance is in **building** state.

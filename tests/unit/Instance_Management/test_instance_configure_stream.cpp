@@ -22,7 +22,7 @@ class InstanceConfigureStreamTest : public ::testing::Test {
 protected:
   void SetUp() override {
     // Create temporary directory for tests
-    test_dir_ = "/tmp/edgeos_api_test_instances_" + std::to_string(getpid());
+    test_dir_ = "/tmp/omniapi_test_instances_" + std::to_string(getpid());
     std::filesystem::create_directories(test_dir_);
 
     // Set font path environment variable to avoid permission errors

@@ -1,13 +1,13 @@
 #!/bin/bash
-# postrm script for edgeos-api
+# postrm script for omniapi
 
 set -e
 
-LIB_DIR="/opt/edgeos-api/lib"
+LIB_DIR="/opt/omniapi/lib"
 
 # Remove ldconfig configuration
-if [ -f "/etc/ld.so.conf.d/edgeos-api.conf" ]; then
-    rm -f /etc/ld.so.conf.d/edgeos-api.conf
+if [ -f "/etc/ld.so.conf.d/omniapi.conf" ]; then
+    rm -f /etc/ld.so.conf.d/omniapi.conf
     ldconfig
 fi
 

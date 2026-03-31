@@ -6,8 +6,8 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "/home/cvedix/project/edge_ai_sdk/cvedix_data/test_video/vehicle_count.mp4",
-      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
-      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
+      "LABELS_PATH": "/opt/omniapi/models/yolov11/tensorrt/labels.txt",
+      "MODEL_PATH": "/opt/omniapi/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "RTMP_URL": "rtmp://localhost:1935/live/sang_camera_demo_1",

@@ -112,7 +112,7 @@ done
 echo ""
 echo "4. Checking Disk Space..."
 
-INSTALL_DIR="/opt/edgeos-api"
+INSTALL_DIR="/opt/omniapi"
 REQUIRED_SPACE_MB=500  # Minimum 500MB
 
 if [ -d "$INSTALL_DIR" ]; then

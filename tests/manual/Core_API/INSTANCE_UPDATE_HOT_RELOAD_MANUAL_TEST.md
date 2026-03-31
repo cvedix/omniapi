@@ -52,8 +52,8 @@ Khi instance chạy, worker in rất nhiều log ra console. Để ghi log vào 
 **Test hot-swap với delay 5s (mô phỏng gap giữa stop pipeline cũ và build/start pipeline mới):**
 ```bash
 # Chỉ khi cần test: set EDGE_AI_HOTSWAP_DELAY_SEC=5. Chạy từ thư mục gốc project:
-EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api
-# Hoặc nếu đang ở trong build/: EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./bin/edgeos-api
+EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/omniapi
+# Hoặc nếu đang ở trong build/: EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./bin/omniapi
 ```
 **Lưu ý EDGE_AI_HOTSWAP_DELAY_SEC và output stream:**
 - **Legacy path** (pipeline không dùng persistent output leg): delay nằm **sau** khi stop pipeline cũ, **trước** khi build pipeline mới. Trong khoảng delay không có stream; sau đó build + start pipeline mới → RTMP kết nối lại khi start → stream hoạt động lại. Instance chỉ được coi là `running` sau khi start pipeline mới thành công.
@@ -62,19 +62,19 @@ EDGE_AI_HOTSWAP_DELAY_SEC=5 EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos
 
 **Cách 1 – Chạy API và ghi mọi output (API + worker) ra file:**
 ```bash
-# Subprocess mode (cần cho hot-reload line). Chạy từ thư mục gốc project (edgeos-api):
-EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/edgeos-api >> /tmp/edgeos-api.log 2>&1
-# Xem log: tail -f /tmp/edgeos-api.log
+# Subprocess mode (cần cho hot-reload line). Chạy từ thư mục gốc project (omniapi):
+EDGE_AI_EXECUTION_MODE=subprocess ./build/bin/omniapi >> /tmp/omniapi.log 2>&1
+# Xem log: tail -f /tmp/omniapi.log
 ```
 
 **Cách 2 – Script test vừa start API vừa ghi log:**
 ```bash
-LOG_FILE=/tmp/edgeos-api.log ./tests/manual/Core_API/run_patch_crossinglines_test.sh
+LOG_FILE=/tmp/omniapi.log ./tests/manual/Core_API/run_patch_crossinglines_test.sh
 ```
 
 **Cách 3 – API đã chạy sẵn (bạn đã start với redirect ở Cách 1), chỉ chạy test:**
 ```bash
-START_SERVER=0 LOG_FILE=/tmp/edgeos-api.log ./tests/manual/Core_API/run_patch_crossinglines_test.sh
+START_SERVER=0 LOG_FILE=/tmp/omniapi.log ./tests/manual/Core_API/run_patch_crossinglines_test.sh
 ```
 
 Script `run_patch_crossinglines_test.sh` kiểm tra trong log có dòng `Line-only update: applying CrossingLines at runtime (no hot-swap)` và không có hot swap khi PATCH chỉ CrossingLines.
@@ -84,10 +84,10 @@ Script `run_patch_crossinglines_test.sh` kiểm tra trong log có dòng `Line-on
 # Từ thư mục gốc project
 ./scripts/clean_workers.sh
 ```
-Script sẽ: (1) kill toàn bộ process `edgeos-worker`, (2) xóa socket `/tmp/edgeos_worker_*.sock` và `/opt/edgeos-api/run/edgeos_worker_*.sock`. Chạy sau khi đã Ctrl+C tắt edgeos-api.
+Script sẽ: (1) kill toàn bộ process `edgeos-worker`, (2) xóa socket `/tmp/edgeos_worker_*.sock` và `/opt/omniapi/run/edgeos_worker_*.sock`. Chạy sau khi đã Ctrl+C tắt omniapi.
 
 **Tại sao mỗi lần start API có rất nhiều worker (Exited cleanly)?**  
-Khi API khởi động, nó gọi `loadPersistentInstances()`: đọc **toàn bộ instance** trong storage (ví dụ `/opt/edgeos-api/instances/instances.json`), với mỗi instance có **`persistent: true`** thì **spawn một worker**. Do đó nếu trong storage có nhiều instance (tạo trước đó, hoặc nhiều máy dùng chung storage) và đều đánh dấu persistent → mỗi lần start sẽ có hàng chục worker. Khi tắt API (Ctrl+C), tất cả worker nhận tín hiệu thoát → log "[Worker:uuid] Exited cleanly" và "Accept thread join timeout" là bình thường.  
+Khi API khởi động, nó gọi `loadPersistentInstances()`: đọc **toàn bộ instance** trong storage (ví dụ `/opt/omniapi/instances/instances.json`), với mỗi instance có **`persistent: true`** thì **spawn một worker**. Do đó nếu trong storage có nhiều instance (tạo trước đó, hoặc nhiều máy dùng chung storage) và đều đánh dấu persistent → mỗi lần start sẽ có hàng chục worker. Khi tắt API (Ctrl+C), tất cả worker nhận tín hiệu thoát → log "[Worker:uuid] Exited cleanly" và "Accept thread join timeout" là bình thường.  
 **Cách giảm số worker khi start:** (1) Tạo instance test với **`persistent: false`**; (2) Xóa instance không dùng qua API `DELETE /v1/core/instance/{id}` hoặc chỉnh/xóa bớt trong file storage; (3) Trước khi start lại, chạy `./scripts/clean_workers.sh` để dọn process/socket cũ.
 
 ---
@@ -123,9 +123,9 @@ curl -X POST "${BASE_URL}" \
     "additionalParams": {
       "input": {
         "RTMP_SRC_URL": "rtmp://192.168.1.128:1935/live/camera_demo_sang_vehicle",
-        "WEIGHTS_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights",
-        "CONFIG_PATH": "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg",
-        "LABELS_PATH": "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt",
+        "WEIGHTS_PATH": "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights",
+        "CONFIG_PATH": "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg",
+        "LABELS_PATH": "/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt",
         "CROSSLINE_START_X": "0",
         "CROSSLINE_START_Y": "250",
         "CROSSLINE_END_X": "700",
@@ -419,7 +419,7 @@ Xem thêm biến `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` trong [ENVIRONMENT_VARIABLES.m
         ```bash
         export EDGE_AI_WORKER_PATH=/path/to/edgeos-worker   # ví dụ: ./build/bin/edgeos-worker (từ thư mục gốc)
         ```
-     3. Nếu không ghi được `/opt/edgeos-api/run`: `export EDGE_AI_SOCKET_DIR=/tmp` hoặc `sudo chown $USER /opt/edgeos-api/run`
+     3. Nếu không ghi được `/opt/omniapi/run`: `export EDGE_AI_SOCKET_DIR=/tmp` hoặc `sudo chown $USER /opt/omniapi/run`
      4. Xem **log server API (stderr)** khi tạo instance: sẽ có dòng chi tiết như "Worker executable not found", "Fork failed", hoặc "Worker failed to become ready".
 
 6. **PATCH không thấy server response (instance vẫn đang chạy)**

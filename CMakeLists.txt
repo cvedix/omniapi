@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(edgeos_api VERSION 2026.0.1.60)
+project(omniapi VERSION 2026.0.1.60)
 
 # EdgeOS SDK root: use libs from SDK instead of system for better adaptation
 set(EDGEOS_SDK_ROOT "/opt/edgeos-sdk" CACHE PATH "EdgeOS SDK installation root")
@@ -369,8 +369,7 @@ set(SOURCES
     src/api/area_handler.cpp
     src/api/node_handler.cpp
     src/api/onvif_handler.cpp
-    src/api/recognition_handler.cpp
-    src/api/system_info_handler.cpp
+    # src/api/system_info_handler.cpp
     src/api/license_handler.cpp
     src/api/log_handler.cpp
     src/models/model_upload_handler.cpp
@@ -490,13 +489,13 @@ set(SOURCES
 )
 
 # ============================================
-# Create executable (edgeos-api)
+# Create executable (omniapi)
 # ============================================
-add_executable(edgeos_api ${SOURCES})
-set_target_properties(edgeos_api PROPERTIES RUNTIME_OUTPUT_NAME edgeos-api)
+add_executable(omniapi ${SOURCES})
+set_target_properties(omniapi PROPERTIES RUNTIME_OUTPUT_NAME omniapi)
 
 # Set compile options for this target (modern CMake way)
-target_compile_options(edgeos_api PRIVATE -Wall -Wextra)
+target_compile_options(omniapi PRIVATE -Wall -Wextra)
 
 # Link and RPATH: prefer EdgeOS SDK libs (cvedix, opencv, cuda, cudnn, tensorrt)
 set(EDGEOS_SDK_LIB_DIRS "${EDGEOS_SDK_ROOT}/lib/cvedix")
@@ -515,7 +514,7 @@ endif()
 link_directories(${EDGEOS_SDK_LIB_DIRS})
 
 # Set RPATH configuration (SDK libs + build dir)
-set_target_properties(edgeos_api PROPERTIES
+set_target_properties(omniapi PROPERTIES
     BUILD_WITH_INSTALL_RPATH FALSE
     BUILD_RPATH_USE_ORIGIN TRUE
     BUILD_RPATH "${CMAKE_BINARY_DIR}/lib;${EDGEOS_SDK_LIB_DIRS};/usr/local/lib"
@@ -529,9 +528,9 @@ set_target_properties(edgeos_api PROPERTIES
 # ============================================
 # Link Drogon - try Drogon::Drogon first, fallback to drogon
 if(TARGET Drogon::Drogon)
-    target_link_libraries(edgeos_api PRIVATE Drogon::Drogon)
+    target_link_libraries(omniapi PRIVATE Drogon::Drogon)
 elseif(TARGET drogon)
-    target_link_libraries(edgeos_api PRIVATE drogon)
+    target_link_libraries(omniapi PRIVATE drogon)
 else()
     message(FATAL_ERROR "Drogon target not found. Cannot link.")
 endif()
@@ -865,9 +864,9 @@ else()
         "Please install EdgeOS SDK at ${EDGEOS_SDK_ROOT} to continue.")
 endif()
 
-# Add all include directories for edgeos_api target (modern CMake way)
+# Add all include directories for omniapi target (modern CMake way)
 # Base project include directory
-target_include_directories(edgeos_api PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(omniapi PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
 
 # OpenCV include directories
 if(OpenCV_FOUND)
@@ -875,24 +874,24 @@ if(OpenCV_FOUND)
         # Modern CMake way - targets handle includes automatically
         # But we may still need to add include dirs for pkg-config path
         if(OpenCV_INCLUDE_DIRS)
-            target_include_directories(edgeos_api PRIVATE ${OpenCV_INCLUDE_DIRS})
+            target_include_directories(omniapi PRIVATE ${OpenCV_INCLUDE_DIRS})
         endif()
     else()
         # Fallback to pkg-config libraries
         if(OpenCV_INCLUDE_DIRS)
-            target_include_directories(edgeos_api PRIVATE ${OpenCV_INCLUDE_DIRS})
+            target_include_directories(omniapi PRIVATE ${OpenCV_INCLUDE_DIRS})
         endif()
     endif()
 endif()
 
 # Plog include directory
 if(PLOG_INCLUDE_DIR)
-    target_include_directories(edgeos_api PRIVATE ${PLOG_INCLUDE_DIR})
+    target_include_directories(omniapi PRIVATE ${PLOG_INCLUDE_DIR})
 endif()
 
 # CVEDIX SDK include directory (when SDK is found)
 if(EDGEOS_SDK_FOUND)
-    target_include_directories(edgeos_api PRIVATE "${EDGEOS_SDK_ROOT}/include")
+    target_include_directories(omniapi PRIVATE "${EDGEOS_SDK_ROOT}/include")
 endif()
 
 # Add cereal and cpp-base64 include paths for CVEDIX SDK
@@ -901,15 +900,15 @@ endif()
 # We've created the structure in build directory, now add it to include paths
 if(CEREAL_INCLUDE_DIR)
     # Add build directory so compiler can resolve cvedix_third_party/cereal
-    target_include_directories(edgeos_api PRIVATE "${CMAKE_BINARY_DIR}")
-    target_include_directories(edgeos_api PRIVATE "${CEREAL_INCLUDE_DIR}")
+    target_include_directories(omniapi PRIVATE "${CMAKE_BINARY_DIR}")
+    target_include_directories(omniapi PRIVATE "${CEREAL_INCLUDE_DIR}")
     message(STATUS "✓ Added cereal include paths for CVEDIX SDK")
 endif()
 
 if(CPP_BASE64_INCLUDE_DIR)
     # Add build directory so compiler can resolve cvedix_third_party/cpp_base64
     # CMAKE_BINARY_DIR is already added above for cereal, so we don't need to add it again
-    target_include_directories(edgeos_api PRIVATE "${CPP_BASE64_INCLUDE_DIR}")
+    target_include_directories(omniapi PRIVATE "${CPP_BASE64_INCLUDE_DIR}")
     message(STATUS "✓ Added cpp-base64 include paths for CVEDIX SDK")
 endif()
 
@@ -975,7 +974,7 @@ else()
     message(STATUS "  This is normal for systems without CUDA/GPU support")
 endif()
 
-target_link_libraries(edgeos_api PRIVATE cvedix::cvedix_instance_sdk)
+target_link_libraries(omniapi PRIVATE cvedix::cvedix_instance_sdk)
 message(STATUS "✓ CVEDIX SDK linked: cvedix::cvedix_instance_sdk")
 
 # Handle OpenCV CUDA libraries - filter them out if not available
@@ -1047,7 +1046,7 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Linking OpenCV without CUDA support")
         endif()
 
-        target_link_libraries(edgeos_api PRIVATE ${OPENCV_BASE_LIBS})
+        target_link_libraries(omniapi PRIVATE ${OPENCV_BASE_LIBS})
     else()
         # Fallback to pkg-config libraries
         set(OPENCV_LIBS ${OpenCV_LIBRARIES})
@@ -1061,9 +1060,9 @@ if(OpenCV_FOUND)
             message(STATUS "✓ Using OpenCV libraries from pkg-config (with CUDA)")
         endif()
 
-        target_link_libraries(edgeos_api PRIVATE ${OPENCV_LIBS})
+        target_link_libraries(omniapi PRIVATE ${OPENCV_LIBS})
     endif()
-    message(STATUS "✓ OpenCV linked to edgeos_api")
+    message(STATUS "✓ OpenCV linked to omniapi")
 endif()
 
 # Use linker flags to handle missing libraries gracefully
@@ -1071,12 +1070,12 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     if(OPENCV_CUDA_AVAILABLE)
         # With CUDA available, use --as-needed to only link what's needed
-        target_link_options(edgeos_api PRIVATE
+        target_link_options(omniapi PRIVATE
             -Wl,--as-needed
         )
     else()
         # Without CUDA, allow missing shared library dependencies as fallback
-        target_link_options(edgeos_api PRIVATE
+        target_link_options(omniapi PRIVATE
             -Wl,--as-needed
             -Wl,--allow-shlib-undefined
         )
@@ -1091,7 +1090,7 @@ endif()
 # Copy from OpenCV 4.6 if available (temporary workaround)
 if(EXISTS "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0")
     set(FREETYPE_410_PATH "${CMAKE_BINARY_DIR}/lib/libopencv_freetype.so.410")
-    add_custom_command(TARGET edgeos_api POST_BUILD
+    add_custom_command(TARGET omniapi POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/lib"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "/usr/lib/x86_64-linux-gnu/libopencv_freetype.so.4.6.0"
@@ -1108,45 +1107,25 @@ endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/hwinfo/CMakeLists.txt")
     message(STATUS "Adding hwinfo submodule...")
     add_subdirectory(third_party/hwinfo)
-    target_link_libraries(edgeos_api PRIVATE lfreist-hwinfo::hwinfo)
-    message(STATUS "✓ hwinfo linked to edgeos_api")
+    target_link_libraries(omniapi PRIVATE lfreist-hwinfo::hwinfo)
+    message(STATUS "✓ hwinfo linked to omniapi")
     # Add system_info_handler if hwinfo is available
-    target_sources(edgeos_api PRIVATE src/api/system_info_handler.cpp)
+    target_sources(omniapi PRIVATE src/api/system_info_handler.cpp)
     # Define macro to enable SystemInfoHandler in main.cpp
-    target_compile_definitions(edgeos_api PRIVATE ENABLE_SYSTEM_INFO_HANDLER)
+    target_compile_definitions(omniapi PRIVATE ENABLE_SYSTEM_INFO_HANDLER)
     message(STATUS "✓ system_info_handler enabled (hwinfo available)")
 
     # Enable metrics handler - always enabled
-    target_compile_definitions(edgeos_api PRIVATE ENABLE_METRICS_HANDLER)
+    target_compile_definitions(omniapi PRIVATE ENABLE_METRICS_HANDLER)
     message(STATUS "✓ metrics_handler enabled")
 elseif(AUTO_DOWNLOAD_DEPENDENCIES)
     # Use FetchContent to download hwinfo automatically
-    message(STATUS "hwinfo submodule not found. Downloading via FetchContent...")
-
-    # Ensure FetchContent is included (may have been included for other dependencies)
-    if(NOT DEFINED FetchContent_MakeAvailable)
-        include(FetchContent)
-    endif()
-
-    FetchContent_Declare(
-        hwinfo
-        GIT_REPOSITORY https://github.com/lfreist/hwinfo.git
-        GIT_TAG        main
-        GIT_SHALLOW    TRUE
-    )
-
-    FetchContent_MakeAvailable(hwinfo)
-
-    target_link_libraries(edgeos_api PRIVATE lfreist-hwinfo::hwinfo)
-    message(STATUS "✓ hwinfo downloaded and linked to edgeos_api")
-    # Add system_info_handler if hwinfo is available
-    target_sources(edgeos_api PRIVATE src/api/system_info_handler.cpp)
-    # Define macro to enable SystemInfoHandler in main.cpp
-    target_compile_definitions(edgeos_api PRIVATE ENABLE_SYSTEM_INFO_HANDLER)
-    message(STATUS "✓ system_info_handler enabled (hwinfo available)")
+    message(WARNING "hwinfo auto-download disabled due to upstream API breakage. System info endpoints will not work.")
+    
+    # We purposefully do not add system_info_handler.cpp
 
     # Enable metrics handler - always enabled
-    target_compile_definitions(edgeos_api PRIVATE ENABLE_METRICS_HANDLER)
+    target_compile_definitions(omniapi PRIVATE ENABLE_METRICS_HANDLER)
     message(STATUS "✓ metrics_handler enabled")
 else()
     message(WARNING "hwinfo not found. System info endpoints will not work.")
@@ -1155,14 +1134,14 @@ else()
     message(WARNING "  2. Enable auto-download: cmake -DAUTO_DOWNLOAD_DEPENDENCIES=ON ..")
 
     # Enable metrics handler even if hwinfo is not available
-    target_compile_definitions(edgeos_api PRIVATE ENABLE_METRICS_HANDLER)
+    target_compile_definitions(omniapi PRIVATE ENABLE_METRICS_HANDLER)
     message(STATUS "✓ metrics_handler enabled")
 endif()
 
 # Additional libraries (if needed)
 # OpenSSL::Crypto is required for ai_cache SHA256 hashing
 if(OpenSSL_FOUND)
-    target_link_libraries(edgeos_api PRIVATE OpenSSL::Crypto)
+    target_link_libraries(omniapi PRIVATE OpenSSL::Crypto)
 endif()
 
 # ============================================
@@ -1198,7 +1177,7 @@ find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
     pkg_check_modules(GSTREAMER QUIET gstreamer-1.0)
     if(GSTREAMER_FOUND)
-        target_compile_definitions(edgeos_api PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_compile_definitions(omniapi PRIVATE CVEDIX_WITH_GSTREAMER)
         message(STATUS "✓ GStreamer support enabled (CVEDIX_WITH_GSTREAMER)")
     else()
         message(WARNING "⚠ GStreamer not found. RTSP/RTMP/Image/UDP source nodes will not be available.")
@@ -1214,7 +1193,7 @@ else()
             /usr/local/lib
     )
     if(GSTREAMER_LIBRARY)
-        target_compile_definitions(edgeos_api PRIVATE CVEDIX_WITH_GSTREAMER)
+        target_compile_definitions(omniapi PRIVATE CVEDIX_WITH_GSTREAMER)
         message(STATUS "✓ GStreamer support enabled (CVEDIX_WITH_GSTREAMER)")
     else()
         message(WARNING "⚠ GStreamer not found. RTSP/RTMP/Image/UDP source nodes will not be available.")
@@ -1226,7 +1205,7 @@ endif()
 option(CVEDIX_WITH_MQTT "Enable MQTT support (requires CVEDIX SDK built with MQTT)" ON)
 
 if(CVEDIX_WITH_MQTT)
-    target_compile_definitions(edgeos_api PRIVATE CVEDIX_WITH_MQTT)
+    target_compile_definitions(omniapi PRIVATE CVEDIX_WITH_MQTT)
     message(STATUS "✓ MQTT support enabled (CVEDIX_WITH_MQTT)")
 
     # cvedix_mqtt_client uses libmosquitto, need to link it
@@ -1240,7 +1219,7 @@ if(CVEDIX_WITH_MQTT)
     )
 
     if(MOSQUITTO_LIBRARY)
-        target_link_libraries(edgeos_api PRIVATE ${MOSQUITTO_LIBRARY})
+        target_link_libraries(omniapi PRIVATE ${MOSQUITTO_LIBRARY})
         message(STATUS "✓ Linked mosquitto library: ${MOSQUITTO_LIBRARY}")
     else()
         # Try pkg-config
@@ -1248,8 +1227,8 @@ if(CVEDIX_WITH_MQTT)
         if(PkgConfig_FOUND)
             pkg_check_modules(MOSQUITTO QUIET mosquitto)
             if(MOSQUITTO_FOUND)
-                target_link_libraries(edgeos_api PRIVATE ${MOSQUITTO_LIBRARIES})
-                target_include_directories(edgeos_api PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
+                target_link_libraries(omniapi PRIVATE ${MOSQUITTO_LIBRARIES})
+                target_include_directories(omniapi PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
                 message(STATUS "✓ Linked mosquitto library via pkg-config: ${MOSQUITTO_LIBRARIES}")
             else()
                 message(WARNING "⚠ mosquitto library not found. MQTT features may not work.")
@@ -1267,7 +1246,7 @@ endif()
 # ============================================
 # Compile definitions
 # ============================================
-target_compile_definitions(edgeos_api PRIVATE
+target_compile_definitions(omniapi PRIVATE
     PROJECT_VERSION="${PROJECT_VERSION}"
     BUILD_TIME="${BUILD_TIME}"
     GIT_COMMIT="${GIT_COMMIT}"
@@ -1283,7 +1262,7 @@ set(WORKER_IPC_SOURCES
 )
 
 # Add worker sources to main executable
-target_sources(edgeos_api PRIVATE ${WORKER_IPC_SOURCES})
+target_sources(omniapi PRIVATE ${WORKER_IPC_SOURCES})
 
 # ============================================
 # Edge AI Core Library (shared between main and worker)
@@ -1454,22 +1433,22 @@ endif()
 
 message(STATUS "✓ Edge AI Core library configured")
 
-# Link edgeos_core to edgeos_api
-target_link_libraries(edgeos_api PRIVATE edgeos_core)
+# Link edgeos_core to omniapi
+target_link_libraries(omniapi PRIVATE edgeos_core)
 
 # Link yaml-cpp if available
 if(TARGET yaml-cpp)
-    target_link_libraries(edgeos_api PRIVATE yaml-cpp)
-    target_include_directories(edgeos_api PRIVATE ${YAML_CPP_INCLUDE_DIRS})
-    target_compile_definitions(edgeos_api PRIVATE YAML_CPP_FOUND)
-    message(STATUS "✓ yaml-cpp linked to edgeos_api")
+    target_link_libraries(omniapi PRIVATE yaml-cpp)
+    target_include_directories(omniapi PRIVATE ${YAML_CPP_INCLUDE_DIRS})
+    target_compile_definitions(omniapi PRIVATE YAML_CPP_FOUND)
+    message(STATUS "✓ yaml-cpp linked to omniapi")
 elseif(yaml-cpp_FOUND)
-    target_link_libraries(edgeos_api PRIVATE yaml-cpp)
-    target_compile_definitions(edgeos_api PRIVATE YAML_CPP_FOUND)
-    message(STATUS "✓ yaml-cpp linked to edgeos_api")
+    target_link_libraries(omniapi PRIVATE yaml-cpp)
+    target_compile_definitions(omniapi PRIVATE YAML_CPP_FOUND)
+    message(STATUS "✓ yaml-cpp linked to omniapi")
 endif()
 
-message(STATUS "✓ edgeos_api linked to edgeos_core")
+message(STATUS "✓ omniapi linked to edgeos_core")
 
 # ============================================
 # Edge AI Worker executable (subprocess)
@@ -1524,7 +1503,7 @@ add_subdirectory(support/rtmp_fin_wrapper)
 # ============================================
 # Install target (optional)
 # ============================================
-install(TARGETS edgeos_api edgeos_worker edgeos_core close_fin
+install(TARGETS omniapi edgeos_worker edgeos_core close_fin
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
 )

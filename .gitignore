@@ -20,7 +20,7 @@ Testing/
 *.so
 *.dylib
 *.exe
-edgeos-api
+omniapi
 
 # IDE files
 .vscode/
@@ -34,7 +34,7 @@ edgeos-api
 _deps/
 
 # Test executables
-tests/edgeos_api_tests
+tests/omniapi_tests
 build/tests/
 
 # Logs
@@ -71,7 +71,7 @@ debian/.debhelper/
 debian/debhelper-build-stamp
 debian/*.substvars
 debian/files
-debian/edgeos-api/
+debian/omniapi/
 debian/sdk_extract/
 debian/opencv_lib_path.txt
 

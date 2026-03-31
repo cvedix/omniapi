@@ -43,10 +43,10 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Configuration
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
-INSTALL_DIR="/opt/edgeos-api"
+INSTALL_DIR="/opt/omniapi"
 BIN_DIR="/usr/local/bin"
 LIB_DIR="/usr/local/lib"
-SERVICE_NAME="edgeos-api"
+SERVICE_NAME="omniapi"
 SERVICE_FILE="${SERVICE_NAME}.service"
 
 # Load directory configuration
@@ -414,9 +414,9 @@ echo -e "${BLUE}[4/6]${NC} Cài đặt executable và libraries..."
 # Find executable - check multiple possible locations
 EXECUTABLE=""
 EXECUTABLE_PATHS=(
-    "$PROJECT_ROOT/build/bin/edgeos-api"
-    "$PROJECT_ROOT/build/edgeos-api"
-    "$PROJECT_ROOT/build/edgeos-api/edgeos-api"
+    "$PROJECT_ROOT/build/bin/omniapi"
+    "$PROJECT_ROOT/build/omniapi"
+    "$PROJECT_ROOT/build/omniapi/omniapi"
 )
 
 for path in "${EXECUTABLE_PATHS[@]}"; do
@@ -453,19 +453,19 @@ if systemctl is-active --quiet "${SERVICE_NAME}.service" 2>/dev/null; then
 fi
 
 # Copy executable with backup if exists
-if [ -f "$BIN_DIR/edgeos-api" ]; then
+if [ -f "$BIN_DIR/omniapi" ]; then
     echo "Backup executable cũ..."
-    cp "$BIN_DIR/edgeos-api" "$BIN_DIR/edgeos-api.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+    cp "$BIN_DIR/omniapi" "$BIN_DIR/omniapi.backup.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
 fi
 
 # Copy executable
-cp "$EXECUTABLE" "$BIN_DIR/edgeos-api"
-chmod +x "$BIN_DIR/edgeos-api"
-chown root:root "$BIN_DIR/edgeos-api"
-echo -e "${GREEN}✓${NC} Đã cài đặt: $BIN_DIR/edgeos-api"
+cp "$EXECUTABLE" "$BIN_DIR/omniapi"
+chmod +x "$BIN_DIR/omniapi"
+chown root:root "$BIN_DIR/omniapi"
+echo -e "${GREEN}✓${NC} Đã cài đặt: $BIN_DIR/omniapi"
 
 # Verify installation
-if [ ! -f "$BIN_DIR/edgeos-api" ] || [ ! -x "$BIN_DIR/edgeos-api" ]; then
+if [ ! -f "$BIN_DIR/omniapi" ] || [ ! -x "$BIN_DIR/omniapi" ]; then
     echo -e "${RED}Error: Không thể cài đặt executable${NC}"
     exit 1
 fi
@@ -627,7 +627,7 @@ READWRITE_PATHS="${READWRITE_PATHS# }"  # Trim leading space
 
 # Update service file paths and ReadWritePaths
 SERVICE_TEMP=$(mktemp)
-sed "s|/opt/edgeos-api|$INSTALL_DIR|g" "$SERVICE_FILE_PATH" > "$SERVICE_TEMP"
+sed "s|/opt/omniapi|$INSTALL_DIR|g" "$SERVICE_FILE_PATH" > "$SERVICE_TEMP"
 
 # Update ReadWritePaths in service file
 if grep -q "^ReadWritePaths=" "$SERVICE_TEMP"; then
