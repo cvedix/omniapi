@@ -390,49 +390,22 @@ IPCMessage WorkerHandler::handleUpdateInstance(const IPCMessage &msg) {
   bool canApplyRuntime = applyConfigToPipeline(oldConfig, config_);
   logRuntimeUpdate(instance_id_, "applyConfigToPipeline=" + std::string(canApplyRuntime ? "true" : "false"));
 
-  // Face detection toggle/model-path updates are not safe for hot-swap in some
-  // runtimes (can trigger worker abort in SDK internals). Force full rebuild.
-  auto oldParams = getParamsFromConfig(oldConfig);
-  auto newParams = getParamsFromConfig(config_);
-  auto changedParam = [&oldParams, &newParams](const std::string &key) -> bool {
-    std::string oldVal = oldParams.isMember(key) ? oldParams[key].asString() : "";
-    std::string newVal = newParams.isMember(key) ? newParams[key].asString() : "";
-    return oldVal != newVal;
-  };
-  bool forceRebuildWithoutHotSwap =
-      changedParam("ENABLE_FACE_DETECTION") ||
-      changedParam("FACE_DETECTION_MODEL_PATH") ||
-      changedParam("SECURT_FACE_DETECTION_ENABLE");
-  if (forceRebuildWithoutHotSwap) {
-    logRuntimeUpdate(instance_id_,
-                     "forceRebuildWithoutHotSwap=true (face detection toggle)");
-    needsRebuild = true;
-    canApplyRuntime = false;
-  }
-
   if (needsRebuild || !canApplyRuntime) {
     std::cout << "[Worker:" << instance_id_
               << "] Config changes require pipeline rebuild, using hot swap..."
               << std::endl;
     logRuntimeUpdate(instance_id_, "decision=hot_swap_or_rebuild");
     if (pipeline_running_.load()) {
-      if (!forceRebuildWithoutHotSwap && hotSwapPipeline(config_)) {
+      if (hotSwapPipeline(config_)) {
         std::cout << "[Worker:" << instance_id_
                   << "] ✓ Pipeline hot-swapped successfully (zero downtime)"
                   << std::endl;
         logRuntimeUpdate(instance_id_, "result=hot_swap_ok");
         response.payload = createResponse(ResponseStatus::OK, "Instance updated (hot swap)");
       } else {
-        if (forceRebuildWithoutHotSwap) {
-          std::cout << "[Worker:" << instance_id_
-                    << "] Skipping hot-swap for face detection toggle; using "
-                       "traditional rebuild"
-                    << std::endl;
-        } else {
-          std::cerr << "[Worker:" << instance_id_
-                    << "] Hot swap failed, falling back to traditional rebuild"
-                    << std::endl;
-        }
+        std::cerr << "[Worker:" << instance_id_
+                  << "] Hot swap failed, falling back to traditional rebuild"
+                  << std::endl;
         stopPipeline();
         if (!buildPipeline()) {
           last_error_ = "Failed to rebuild pipeline: " + last_error_;

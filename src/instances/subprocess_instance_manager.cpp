@@ -915,9 +915,9 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
   // worker merge and cache see CrossingLines/RTMP; avoids 500 and stream loss.
   Json::Value normalizedConfig = normalizeConfigKeys(configJson);
 
-  // Face detection toggles can trigger SDK aborts when applied through
-  // in-process UPDATE_INSTANCE rebuild flows. If request touches these keys,
-  // prefer controlled stop/start after persisting config.
+  // Detect face-detection related keys for observability only.
+  // Do NOT force respawn here: worker handles these updates via UPDATE_INSTANCE
+  // and can perform zero-downtime hot-swap.
   auto hasFaceToggleKey = [](const Json::Value &cfg) -> bool {
     auto hasAnyKey = [](const Json::Value &obj) -> bool {
       if (!obj.isObject()) return false;
@@ -948,90 +948,7 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
 
   if (touchesFaceToggleConfig) {
     logRuntimeUpdate(instanceId,
-                     "api: face toggle config detected -> respawn worker path");
-
-    bool wasRunning = false;
-    InstanceInfo cachedInfo;
-    bool hasCachedInfo = false;
-    {
-      std::lock_guard<std::mutex> lock(instances_mutex_);
-      auto it = instances_.find(instanceId);
-      if (it != instances_.end()) {
-        wasRunning = it->second.running;
-        cachedInfo = it->second;
-        hasCachedInfo = true;
-      }
-    }
-
-    auto workerState = supervisor_->getWorkerState(instanceId);
-    if (wasRunning && (workerState == worker::WorkerState::READY ||
-                       workerState == worker::WorkerState::BUSY)) {
-      std::cout << "[SubprocessInstanceManager] Face detection config updated - "
-                   "respawning worker for instance: "
-                << instanceId << std::endl;
-
-      // Best effort stop first (flush/cleanup inside worker), then force
-      // terminate process to avoid in-process SDK rebuild/teardown crashes.
-      stopInstance(instanceId);
-      supervisor_->terminateWorker(instanceId, false);
-
-      {
-        std::lock_guard<std::mutex> lock(gpu_allocations_mutex_);
-        auto it = gpu_allocations_.find(instanceId);
-        if (it != gpu_allocations_.end()) {
-          ResourceManager::getInstance().releaseGPU(it->second);
-          gpu_allocations_.erase(it);
-        }
-      }
-
-      InstanceInfo infoForRespawn;
-      if (hasCachedInfo) {
-        infoForRespawn = cachedInfo;
-      } else {
-        auto optStoredInfo = instance_storage_.loadInstance(instanceId);
-        if (!optStoredInfo.has_value()) {
-          logRuntimeUpdate(
-              instanceId,
-              "api: respawn skipped (no cache/storage info, config saved)");
-          return true;
-        }
-        infoForRespawn = optStoredInfo.value();
-      }
-
-      Json::Value workerConfig = buildWorkerConfigFromInstanceInfo(infoForRespawn);
-      std::string spawnError;
-      if (!allocateGPUAndSpawnWorker(instanceId, workerConfig, &spawnError)) {
-        std::cerr << "[SubprocessInstanceManager] Warning: respawn failed after "
-                     "face config update for instance: "
-                  << instanceId << " - " << spawnError << std::endl;
-        logRuntimeUpdate(instanceId,
-                         "api: respawn failed after face toggle (config saved)");
-        return true;
-      }
-
-      {
-        std::lock_guard<std::mutex> lock(instances_mutex_);
-        auto it = instances_.find(instanceId);
-        if (it != instances_.end()) {
-          it->second.running = false;
-        } else {
-          instances_[instanceId] = infoForRespawn;
-          instances_[instanceId].running = false;
-        }
-      }
-
-      if (!startInstance(instanceId, true)) {
-        logRuntimeUpdate(instanceId,
-                         "api: respawned worker but start failed (config saved)");
-        return true;
-      }
-      logRuntimeUpdate(instanceId, "api: face toggle respawn+start completed");
-      return true;
-    }
-
-    logRuntimeUpdate(instanceId,
-                     "api: face toggle config saved; worker not running/ready");
-    return true;
+                     "api: face toggle config detected -> send UPDATE_INSTANCE (no respawn)");
   }
 
   // Sync worker (best-effort); accept READY and BUSY

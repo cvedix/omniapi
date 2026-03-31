@@ -163,6 +163,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 #include <typeinfo>
 // Include cmath AFTER CVEDIX SDK headers to avoid macro conflict with rapidxml
 // The macro 'pi' from cmath conflicts with variable 'pi' in rapidxml
@@ -2820,9 +2821,6 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
       nodeConfig.nodeType == "yunet_face_detector" ||
       nodeConfig.nodeType == "rknn_face_detector" ||
       nodeConfig.nodeType == "trt_yolov11_face_detector";
-  const bool isBaSolution =
-      req.solution == "ba_crossline" || req.solution == "ba_jam" ||
-      req.solution == "ba_stop" || req.solution == "ba_loitering";
   
   for (const auto &param : nodeConfig.parameters) {
     std::string value = param.second;
@@ -2970,7 +2968,7 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
 
     // Override model_path if provided in additionalParams (even if not using
     // ${MODEL_PATH} placeholder)
-    if (param.first == "model_path" && !(isFaceDetectorNode && isBaSolution)) {
+    if (param.first == "model_path" && !isFaceDetectorNode) {
       // Priority: MODEL_NAME > MODEL_PATH
       std::string modelPath;
 
@@ -3958,6 +3956,24 @@ struct event_message {
 class cvedix_json_crossline_mqtt_broker_node
     : public cvedix_nodes::cvedix_json_enhanced_console_broker_node {
 private:
+  using LineCountMap = std::map<std::string, int>;
+  using LineNameMap = std::map<std::string, std::string>;
+
+  // Persist per-instance line counters across node recreation (hot-swap).
+  // Without this, toggling face detection rebuilds pipeline and counters reset.
+  static std::mutex &persistent_counts_mutex() {
+    static std::mutex m;
+    return m;
+  }
+  static std::unordered_map<std::string, LineCountMap> &persistent_line_counts() {
+    static std::unordered_map<std::string, LineCountMap> store;
+    return store;
+  }
+  static std::unordered_map<std::string, LineNameMap> &persistent_line_names() {
+    static std::unordered_map<std::string, LineNameMap> store;
+    return store;
+  }
+
   std::function<void(const std::string &)> mqtt_publisher_;
   std::string instance_id_;   // UUID thực sự của instance
   std::string instance_name_; // Tên instance (từ req.name)
@@ -4118,6 +4134,10 @@ private:
               if (line_names_.find(line_id) == line_names_.end()) {
                 line_names_[line_id] = line_name.empty() ? line_id : line_name;
               }
+              // Also persist current counters so hot-swap does not reset counts.
+              std::lock_guard<std::mutex> persistedLock(persistent_counts_mutex());
+              persistent_line_counts()[instance_id_] = line_counts_;
+              persistent_line_names()[instance_id_] = line_names_;
             }
 
             event_msg.events.push_back(evt);
@@ -4255,6 +4275,19 @@ public:
         mqtt_publisher_(mqtt_publisher), instance_id_(instance_id),
         instance_name_(instance_name), zone_id_(zone_id),
         zone_name_(zone_name) {
+    // Restore persisted counters/names for this instance if any (hot-swap case).
+    {
+      std::lock_guard<std::mutex> persistedLock(persistent_counts_mutex());
+      auto countsIt = persistent_line_counts().find(instance_id_);
+      if (countsIt != persistent_line_counts().end()) {
+        line_counts_ = countsIt->second;
+      }
+      auto namesIt = persistent_line_names().find(instance_id_);
+      if (namesIt != persistent_line_names().end()) {
+        line_names_ = namesIt->second;
+      }
+    }
+
     // Parse CrossingLines config to build channel -> line_id mapping
     if (!crossing_lines_json.empty()) {
       try {
@@ -4285,12 +4318,22 @@ public:
             }
 
             channel_to_line_info_[channel] = std::make_pair(line_id, line_name);
+            // Ensure line name map knows configured names even before first event.
+            if (line_names_.find(line_id) == line_names_.end()) {
+              line_names_[line_id] = line_name;
+            }
           }
         }
       } catch (...) {
         // If parsing fails, channel_to_line_info_ will remain empty
         // and code will fallback to zone_id
       }
+    }
+    // Keep restored/updated names+counts synced in persistent store.
+    {
+      std::lock_guard<std::mutex> persistedLock(persistent_counts_mutex());
+      persistent_line_counts()[instance_id_] = line_counts_;
+      persistent_line_names()[instance_id_] = line_names_;
     }
   }
 };
