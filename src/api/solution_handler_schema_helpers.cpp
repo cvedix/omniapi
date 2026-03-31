@@ -247,7 +247,7 @@ SolutionHandler::getPlaceholder(const std::string &paramName) const {
     return "/path/to/video.mp4";
   }
   if (upperParam.find("MODEL_PATH") != std::string::npos) {
-    return "/opt/edgeos-api/models/example.onnx";
+    return "/opt/omniapi/models/example.onnx";
   }
   if (upperParam == "MQTT_BROKER_URL") {
     return "localhost";
@@ -368,8 +368,8 @@ SolutionHandler::getParameterExamples(const std::string &paramName) const {
     examples.push_back("rtmp://youtube.com/live2/stream-key");
   }
   if (upperParam.find("MODEL_PATH") != std::string::npos) {
-    examples.push_back("/opt/edgeos-api/models/face/yunet.onnx");
-    examples.push_back("/opt/edgeos-api/models/trt/yolov8.engine");
+    examples.push_back("/opt/omniapi/models/face/yunet.onnx");
+    examples.push_back("/opt/omniapi/models/trt/yolov8.engine");
   }
   if (upperParam == "MQTT_BROKER_URL") {
     examples.push_back("localhost");

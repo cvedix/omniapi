@@ -44,7 +44,7 @@ std::string SolutionHandler::getDefaultSolutionsDir() const {
       "./examples/default_solutions",
       "../examples/default_solutions",
       "../../examples/default_solutions",
-      "/opt/edgeos-api/examples/default_solutions",
+      "/opt/omniapi/examples/default_solutions",
   };
 
   // Also try relative to executable path

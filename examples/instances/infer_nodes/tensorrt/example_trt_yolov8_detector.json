@@ -7,8 +7,8 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "MODEL_PATH": "/opt/edgeos-api/models/trt/others/yolov8s_v8.5.engine",
-      "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
+      "MODEL_PATH": "/opt/omniapi/models/trt/others/yolov8s_v8.5.engine",
+      "LABELS_PATH": "/opt/omniapi/models/coco_80classes.txt",
       "RTSP_SRC_URL": "rtsp://localhost:8554/stream"
     },
     "output": {

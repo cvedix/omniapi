@@ -265,7 +265,7 @@ PipelineBuilderBrokerNodes::createJSONMQTTBrokerNode(
               << mqtt_broker << ":" << mqtt_port << std::endl;
 
     std::string client_id =
-        "edgeos_api_" + nodeName + "_" + std::to_string(std::time(nullptr));
+        "omniapi_" + nodeName + "_" + std::to_string(std::time(nullptr));
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
         mqtt_broker, mqtt_port, client_id, 60);
     mqtt_client->set_auto_reconnect(true, 5000);
@@ -432,8 +432,8 @@ PipelineBuilderBrokerNodes::createJSONCrosslineMQTTBrokerNode(
     std::cerr << "  Topic: " << mqtt_topic << std::endl;
 
     // Create MQTT client using SDK (like in sample code)
-    // Use instance_id (UUID) for client ID: edgeos_api_{instance_id}
-    std::string client_id = "edgeos_api_" + instance_id;
+    // Use instance_id (UUID) for client ID: omniapi_{instance_id}
+    std::string client_id = "omniapi_" + instance_id;
     std::cerr << "[PipelineBuilderBrokerNodes] [MQTT] Client ID: '" << client_id << "'"
               << std::endl;
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
@@ -616,8 +616,8 @@ PipelineBuilderBrokerNodes::createJSONJamMQTTBrokerNode(
     std::cerr << "  Topic: " << mqtt_topic << std::endl;
 
     // Create MQTT client using SDK (like in sample code)
-    // Use instance_id (UUID) for client ID: edgeos_api_{instance_id}
-    std::string client_id = "edgeos_api_" + instance_id;
+    // Use instance_id (UUID) for client ID: omniapi_{instance_id}
+    std::string client_id = "omniapi_" + instance_id;
     std::cerr << "[PipelineBuilderBrokerNodes] [MQTT] Client ID: '" << client_id << "'"
               << std::endl;
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
@@ -794,8 +794,8 @@ PipelineBuilderBrokerNodes::createJSONStopMQTTBrokerNode(
     std::cerr << "  Topic: " << mqtt_topic << std::endl;
 
     // Create MQTT client using SDK (like in sample code)
-    // Use instance_id (UUID) for client ID: edgeos_api_{instance_id}
-    std::string client_id = "edgeos_api_" + instance_id;
+    // Use instance_id (UUID) for client ID: omniapi_{instance_id}
+    std::string client_id = "omniapi_" + instance_id;
     std::cerr << "[PipelineBuilderBrokerNodes] [MQTT] Client ID: '" << client_id << "'"
               << std::endl;
     auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(

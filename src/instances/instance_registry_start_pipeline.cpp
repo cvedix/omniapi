@@ -350,11 +350,11 @@ bool InstanceRegistry::startPipeline(
       std::cerr << "[InstanceRegistry]   2. Check CVEDIX SDK logs for "
                    "'rtspsrc' connection messages:"
                 << std::endl;
-      std::cerr << "[InstanceRegistry]      - Direct run: ./bin/edgeos-api "
+      std::cerr << "[InstanceRegistry]      - Direct run: ./bin/omniapi "
                    "2>&1 | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Service: sudo journalctl -u "
-                   "edgeos-api | grep -i rtspsrc"
+                   "omniapi | grep -i rtspsrc"
                 << std::endl;
       std::cerr << "[InstanceRegistry]      - Enable GStreamer debug: export "
                    "GST_DEBUG=rtspsrc:4"

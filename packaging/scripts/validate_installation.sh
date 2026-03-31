@@ -23,10 +23,10 @@ NC='\033[0m'
 
 # Configuration
 BIN_DIR="/usr/local/bin"
-INSTALL_DIR="/opt/edgeos-api"
+INSTALL_DIR="/opt/omniapi"
 LIB_DIR="$INSTALL_DIR/lib"
-SERVICE_NAME="edgeos-api"
-EXECUTABLE="$BIN_DIR/edgeos-api"
+SERVICE_NAME="omniapi"
+EXECUTABLE="$BIN_DIR/omniapi"
 WORKER="$BIN_DIR/edgeos-worker"
 
 ERRORS=0
@@ -119,7 +119,7 @@ echo "=========================================="
 echo "3. Verifying RPATH Configuration"
 echo "=========================================="
 
-EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"
+EXPECTED_RPATH="/opt/omniapi/lib:/opt/edgeos-sdk/lib/cvedix"
 RPATH_FIXED=false
 
 if [ -f "$EXECUTABLE" ]; then
@@ -162,7 +162,7 @@ if [ -f "$EXECUTABLE" ]; then
                 log_info "Please install patchelf and run: sudo patchelf --set-rpath '$EXPECTED_RPATH' $EXECUTABLE"
             fi
         # Check if RPATH contains production paths
-        elif echo "$rpath" | grep -q "/opt/edgeos-api/lib"; then
+        elif echo "$rpath" | grep -q "/opt/omniapi/lib"; then
             # Verify it matches expected exactly
             if [ "$rpath" = "$EXPECTED_RPATH" ]; then
                 log_success "RPATH correctly set: $rpath"

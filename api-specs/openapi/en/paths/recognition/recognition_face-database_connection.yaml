@@ -100,7 +100,7 @@
                 value:
                   message: Database connection disabled. Using default face_database.txt file
                   enabled: false
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
       '400':
         description: Bad request (missing required fields, invalid database type, etc.)
         content:
@@ -168,7 +168,7 @@
                 default_file:
                   type: string
                   description: Path to default face_database.txt file (only present if enabled is false)
-                  example: /opt/edgeos-api/data/face_database.txt
+                  example: /opt/omniapi/data/face_database.txt
             examples:
               enabled:
                 summary: Database enabled
@@ -187,7 +187,7 @@
                 value:
                   enabled: false
                   message: No database connection configured. Using default face_database.txt file
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
       '500':
         description: Server error
         content:
@@ -240,7 +240,7 @@
                 default_file:
                   type: string
                   description: Path to default face_database.txt file
-                  example: /opt/edgeos-api/data/face_database.txt
+                  example: /opt/omniapi/data/face_database.txt
             examples:
               deleted:
                 summary: Configuration deleted successfully
@@ -248,13 +248,13 @@
                   message: Database connection configuration deleted successfully. System will now use default face_database.txt
                     file
                   enabled: false
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
               notFound:
                 summary: No configuration to delete
                 value:
                   message: No database connection configured to delete
                   enabled: false
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
       '500':
         description: Server error (failed to update configuration, etc.)
         content:

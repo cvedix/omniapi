@@ -2529,7 +2529,7 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
         return nullptr;
       }
 
-      std::string client_id = "edgeos_api_" + instance_id;
+      std::string client_id = "omniapi_" + instance_id;
       auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
           mqtt_broker, mqtt_port, client_id, 60);
       mqtt_client->set_auto_reconnect(true, 5000);

@@ -446,7 +446,7 @@ curl -X DELETE http://localhost:8080/v1/core/instance/${INSTANCE_ID}
 **Kiểm tra:**
 ```bash
 # 1. Kiểm tra logs
-tail -f /opt/edgeos-api/logs/edgeos-api.log
+tail -f /opt/omniapi/logs/omniapi.log
 
 # 2. Kiểm tra status chi tiết
 curl http://localhost:8080/v1/core/instance/${INSTANCE_ID}

@@ -4,7 +4,7 @@ Thư mục này chứa các scripts và tài liệu liên quan đến việc bui
 
 ## 📌 Tên gói / Naming
 
-- **edgeos-api**: API server (project đổi tên từ edge-ai-api).
+- **omniapi**: API server (project đổi tên từ edge-ai-api).
 - **edgeos-sdk**: SDK/runtime (đổi tên từ cvedix-ai-runtime). Cài tại `/opt/edgeos-sdk`, lib tại `/opt/edgeos-sdk/lib/cvedix`.
 
 ## 📁 Cấu Trúc
@@ -37,7 +37,7 @@ Xem [docs/BUILD_DEB.md](docs/BUILD_DEB.md) để biết chi tiết về cách bu
 ./packaging/scripts/build_deb.sh
 
 # Cài đặt
-sudo dpkg -i edgeos-api-*.deb
+sudo dpkg -i omniapi-*.deb
 ```
 
 ### Test Package trong Docker
@@ -64,7 +64,7 @@ Xem [docker-test/README.md](docker-test/README.md) để biết thêm thông tin
 # Tạo VM tự động với script
 ./packaging/scripts/create_vm.sh Ubuntu-Test 4096 50000 2 \
     ~/Downloads/ubuntu-22.04.3-desktop-amd64.iso \
-    /home/cvedix/Data/project/edgeos-api
+    /home/cvedix/Data/project/omniapi
 
 # Khởi động VM
 ./packaging/scripts/vm_manage.sh start Ubuntu-Test

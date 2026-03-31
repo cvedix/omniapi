@@ -299,7 +299,7 @@ void SystemConfig::initializeDefaults() {
   logging["max_disk_usage_percent"] = 85;
   logging["cleanup_interval_hours"] = 24;
   logging["log_paths_mode"] = "";
-  logging["log_dir_production"] = "/opt/edgeos-api/logs";
+  logging["log_dir_production"] = "/opt/omniapi/logs";
   logging["log_dir_development"] = "./logs";
   logging["suspend_disk_percent"] = 95;
   logging["resume_disk_percent"] = 88;
@@ -712,7 +712,7 @@ std::string SystemConfig::resolveLogBaseDirectory(const char *argv0) const {
   std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
   if (mode == "auto") {
     std::string p = argv0 ? argv0 : "";
-    if (p.find("/opt/edgeos-api") != std::string::npos) {
+    if (p.find("/opt/omniapi") != std::string::npos) {
       return c.logDirProduction;
     }
     return c.logDirDevelopment;

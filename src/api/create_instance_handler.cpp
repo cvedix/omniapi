@@ -737,8 +737,8 @@ std::string CreateInstanceHandler::convertPathToProduction(
   std::string result = path;
 
   // Convert absolute development paths to production paths
-  // Pattern: /home/cvedix/project/edgeos-api/cvedix_data/... -> /opt/edgeos-api/...
-  const std::string devPrefix = "/home/cvedix/project/edgeos-api/cvedix_data/";
+  // Pattern: /home/cvedix/project/omniapi/cvedix_data/... -> /opt/omniapi/...
+  const std::string devPrefix = "/home/cvedix/project/omniapi/cvedix_data/";
   if (result.find(devPrefix) == 0) {
     // Extract path after cvedix_data/
     std::string relativePath = result.substr(devPrefix.length());
@@ -748,12 +748,12 @@ std::string CreateInstanceHandler::convertPathToProduction(
       relativePath = "videos/" + relativePath.substr(11);
     }
     
-    result = "/opt/edgeos-api/" + relativePath;
+    result = "/opt/omniapi/" + relativePath;
     return result;
   }
 
   // Also handle other common development paths
-  const std::string devPrefix2 = "/home/cvedix/project/edgeos-api/";
+  const std::string devPrefix2 = "/home/cvedix/project/omniapi/";
   if (result.find(devPrefix2) == 0) {
     std::string relativePath = result.substr(devPrefix2.length());
     
@@ -770,18 +770,18 @@ std::string CreateInstanceHandler::convertPathToProduction(
       relativePath = relativePath.substr(12);
     }
     
-    result = "/opt/edgeos-api/" + relativePath;
+    result = "/opt/omniapi/" + relativePath;
     return result;
   }
 
-  // Convert ./cvedix_data/ paths to /opt/edgeos-api/
+  // Convert ./cvedix_data/ paths to /opt/omniapi/
   if (result.find("./cvedix_data/") == 0) {
     result = result.substr(15); // Remove "./cvedix_data/"
     // Map test_video/ to videos/
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edgeos-api/" + result;
+    result = "/opt/omniapi/" + result;
     return result;
   } else if (result.find("cvedix_data/") == 0) {
     result = result.substr(12); // Remove "cvedix_data/"
@@ -789,20 +789,20 @@ std::string CreateInstanceHandler::convertPathToProduction(
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edgeos-api/" + result;
+    result = "/opt/omniapi/" + result;
     return result;
   }
 
   // Specific mappings
-  // Models: ./cvedix_data/models/ -> /opt/edgeos-api/models/
+  // Models: ./cvedix_data/models/ -> /opt/omniapi/models/
   if (result.find("./models/") == 0) {
-    result = "/opt/edgeos-api" + result.substr(1);
+    result = "/opt/omniapi" + result.substr(1);
     return result;
   }
 
-  // Videos: ./cvedix_data/test_video/ -> /opt/edgeos-api/videos/
+  // Videos: ./cvedix_data/test_video/ -> /opt/omniapi/videos/
   if (result.find("./test_video/") == 0) {
-    result = "/opt/edgeos-api/videos/" + result.substr(12);
+    result = "/opt/omniapi/videos/" + result.substr(12);
     return result;
   }
 

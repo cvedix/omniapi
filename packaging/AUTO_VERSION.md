@@ -53,7 +53,7 @@ Mỗi lần chạy `./build_deb.sh`, script sẽ:
 ```bash
 cat VERSION
 # Hoặc
-grep "project(edgeos_api VERSION" CMakeLists.txt
+grep "project(omniapi VERSION" CMakeLists.txt
 ```
 
 ## Ví Dụ
@@ -99,10 +99,10 @@ Nếu muốn thay đổi version thủ công (ví dụ: major/minor release):
 echo "2026.0.2.0" > VERSION
 
 # 2. Update CMakeLists.txt
-sed -i 's/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION 2026.0.2.0)/' CMakeLists.txt
+sed -i 's/project(omniapi VERSION [0-9.]*)/project(omniapi VERSION 2026.0.2.0)/' CMakeLists.txt
 
 # 3. Update debian/changelog
-sed -i '1s/edgeos-api ([0-9.]*)/edgeos-api (2026.0.2.0)/' debian/changelog
+sed -i '1s/omniapi ([0-9.]*)/omniapi (2026.0.2.0)/' debian/changelog
 
 # 4. Build với --no-increment để không tăng thêm
 ./build_deb.sh --no-increment

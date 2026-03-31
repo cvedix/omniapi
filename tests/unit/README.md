@@ -124,7 +124,7 @@ make -j$(nproc)
 **Cách 2: Chạy trực tiếp**
 ```bash
 cd build
-./bin/edgeos-api_tests
+./bin/omniapi_tests
 ```
 
 **Cách 3: Sử dụng CTest**
@@ -136,7 +136,7 @@ ctest
 **Cách 4: Chạy tests cụ thể**
 ```bash
 cd build
-./bin/edgeos-api_tests --gtest_filter=HealthHandler.*
+./bin/omniapi_tests --gtest_filter=HealthHandler.*
 ```
 
 ## Test Coverage
@@ -214,7 +214,7 @@ Tests được tích hợp vào CI/CD pipeline để chạy tự động sau m�
     mkdir build && cd build
     cmake .. -DBUILD_TESTS=ON
     make -j$(nproc)
-    ./bin/edgeos-api_tests
+    ./bin/omniapi_tests
 ```
 
 ## Troubleshooting

@@ -24,7 +24,7 @@ Thư mục chứa các script và file cấu hình cho production deployment.
   - Single source of truth cho directory structure
   - Format: `["directory_name"]="permissions"`
 
-- **`edgeos-api.service`** - Systemd service file
+- **`omniapi.service`** - Systemd service file
 
 ## Quick Start
 
@@ -123,7 +123,7 @@ Standalone script để tạo thư mục từ `directories.conf`:
 ```
 
 **Options:**
-- `INSTALL_DIR` - Thư mục cài đặt (default: `/opt/edgeos-api`)
+- `INSTALL_DIR` - Thư mục cài đặt (default: `/opt/omniapi`)
 - `--full-permissions` - Set quyền 755 cho tất cả thư mục (thay vì permissions trong config)
 
 **Examples:**
@@ -132,10 +132,10 @@ Standalone script để tạo thư mục từ `directories.conf`:
 ./scripts/create_directories.sh
 
 # Tạo thư mục tại custom location
-./scripts/create_directories.sh /opt/edgeos-api
+./scripts/create_directories.sh /opt/omniapi
 
 # Tạo thư mục với full permissions (755)
-./scripts/create_directories.sh /opt/edgeos-api --full-permissions
+./scripts/create_directories.sh /opt/omniapi --full-permissions
 ```
 
 ### Cách sử dụng

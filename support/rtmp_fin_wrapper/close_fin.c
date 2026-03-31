@@ -9,7 +9,7 @@
  *   LD_PRELOAD=/path/to/libclose_fin.so ./bin/edgeos-worker
  *
  * Or run the whole API with it (worker subprocess will inherit LD_PRELOAD):
- *   LD_PRELOAD=/path/to/libclose_fin.so ./bin/edgeos-api
+ *   LD_PRELOAD=/path/to/libclose_fin.so ./bin/omniapi
  *
  * See docs/ZERO_DOWNTIME_ATOMIC_PIPELINE_SWAP_DESIGN.md §12 and support/rtmp_fin_wrapper/README.md
  */

@@ -279,7 +279,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 
 # 4. Chạy server
-./bin/edgeos-api
+./bin/omniapi
 ```
 
 ### Build với Tests
@@ -288,7 +288,7 @@ make -j$(nproc)
 cd build
 cmake .. -DBUILD_TESTS=ON
 make -j$(nproc)
-./bin/edgeos-api_tests
+./bin/omniapi_tests
 ```
 
 ### Kiểm Tra Build
@@ -396,8 +396,8 @@ cd packaging/scripts
 ### Cài Đặt Package
 
 Sau khi build, file `.deb` sẽ được tạo tại project root:
-- Package thông thường: `edgeos-api-{VERSION}-amd64.deb`
-- ALL-IN-ONE package: `edgeos-api-all-in-one-{VERSION}-amd64.deb`
+- Package thông thường: `omniapi-{VERSION}-amd64.deb`
+- ALL-IN-ONE package: `omniapi-all-in-one-{VERSION}-amd64.deb`
 
 #### Cài Đặt ALL-IN-ONE Package (Khuyến nghị)
 
@@ -480,7 +480,7 @@ sudo apt-get install -y \
 
 ```bash
 # Bước 1: Cài đặt package
-sudo dpkg -i edgeos-api-all-in-one-*.deb
+sudo dpkg -i omniapi-all-in-one-*.deb
 
 # Trong quá trình cài đặt, nếu thiếu OpenCV 4.10, hệ thống sẽ hiển thị:
 # ==========================================
@@ -496,14 +496,14 @@ sudo dpkg -i edgeos-api-all-in-one-*.deb
 sudo apt-get install -f
 
 # Bước 3: Nếu OpenCV cài đặt bị lỗi hoặc bị gián đoạn, chạy lại script cài đặt:
-sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
+sudo /opt/omniapi/scripts/build_opencv_safe.sh
 
 # Bước 4: Khởi động service
-sudo systemctl start edgeos-api
-sudo systemctl enable edgeos-api  # Tự động chạy khi khởi động
+sudo systemctl start omniapi
+sudo systemctl enable omniapi  # Tự động chạy khi khởi động
 
 # Bước 5: Kiểm tra service
-sudo systemctl status edgeos-api
+sudo systemctl status omniapi
 
 # Bước 6: Test API
 curl http://localhost:8080/v1/core/health
@@ -512,7 +512,7 @@ curl http://localhost:8080/v1/core/health
 **Lưu ý về OpenCV:**
 - Nếu package đã bundle OpenCV 4.10, quá trình cài đặt sẽ không yêu cầu cài thêm.
 - Nếu thiếu OpenCV 4.10, quá trình cài đặt sẽ tự động phát hiện và cho phép cài đặt tự động.
-- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/edgeos-api/scripts/build_opencv_safe.sh`
+- Nếu cài đặt OpenCV bị lỗi, chạy lại: `sudo /opt/omniapi/scripts/build_opencv_safe.sh`
 
 #### Cài Đặt Package Thông Thường
 
@@ -547,17 +547,17 @@ sudo apt-get install -y \
     ffmpeg
 
 # 2. Cài đặt
-sudo dpkg -i edgeos-api-*.deb
+sudo dpkg -i omniapi-*.deb
 
 # 3. Nếu có lỗi dependencies, chạy:
 sudo apt-get install -f
 
 # 4. Khởi động service
-sudo systemctl start edgeos-api
-sudo systemctl enable edgeos-api
+sudo systemctl start omniapi
+sudo systemctl enable omniapi
 
 # 5. Kiểm tra service
-sudo systemctl status edgeos-api
+sudo systemctl status omniapi
 ```
 
 **Nếu chưa cài OpenCV 4.10, cài sau:**
@@ -571,37 +571,37 @@ sudo apt-get install -y \
     g++ \
     wget \
     ffmpeg
-sudo /opt/edgeos-api/scripts/build_opencv_safe.sh
-sudo systemctl restart edgeos-api
+sudo /opt/omniapi/scripts/build_opencv_safe.sh
+sudo systemctl restart omniapi
 ```
 
 ### Verify Installation
 
 ```bash
 # Kiểm tra package status
-dpkg -l | grep edgeos-api
+dpkg -l | grep omniapi
 
 # Kiểm tra libraries
-ls -la /opt/edgeos-api/lib/
+ls -la /opt/omniapi/lib/
 
 # Kiểm tra GStreamer plugins (ALL-IN-ONE)
-ls -la /opt/edgeos-api/lib/gstreamer-1.0/
+ls -la /opt/omniapi/lib/gstreamer-1.0/
 
 # Kiểm tra default fonts và models (ALL-IN-ONE)
-ls -la /opt/edgeos-api/fonts/
-ls -la /opt/edgeos-api/models/
+ls -la /opt/omniapi/fonts/
+ls -la /opt/omniapi/models/
 
 # Kiểm tra CVEDIX SDK
 ls -la /opt/cvedix/lib/
 
 # Test executable
-/usr/local/bin/edgeos-api --help
+/usr/local/bin/omniapi --help
 
 # Kiểm tra service status
-sudo systemctl status edgeos-api
+sudo systemctl status omniapi
 
 # Xem log
-sudo journalctl -u edgeos-api -f
+sudo journalctl -u omniapi -f
 
 # Test API
 curl http://localhost:8080/v1/core/health
@@ -612,42 +612,42 @@ curl http://localhost:8080/v1/core/version
 
 Sau khi cài đặt package, các file sẽ được đặt tại:
 
-- **Executable**: `/usr/local/bin/edgeos-api`
-- **Libraries**: `/opt/edgeos-api/lib/` (bundled - tự chứa)
-- **GStreamer plugins**: `/opt/edgeos-api/lib/gstreamer-1.0/` (ALL-IN-ONE)
-- **Config**: `/opt/edgeos-api/config/`
-- **Data**: `/opt/edgeos-api/` (instances, solutions, models, logs, etc.)
-- **Fonts**: `/opt/edgeos-api/fonts/` (default fonts - ALL-IN-ONE)
-- **Models**: `/opt/edgeos-api/models/` (default models - ALL-IN-ONE)
-- **Service**: `/etc/systemd/system/edgeos-api.service`
+- **Executable**: `/usr/local/bin/omniapi`
+- **Libraries**: `/opt/omniapi/lib/` (bundled - tự chứa)
+- **GStreamer plugins**: `/opt/omniapi/lib/gstreamer-1.0/` (ALL-IN-ONE)
+- **Config**: `/opt/omniapi/config/`
+- **Data**: `/opt/omniapi/` (instances, solutions, models, logs, etc.)
+- **Fonts**: `/opt/omniapi/fonts/` (default fonts - ALL-IN-ONE)
+- **Models**: `/opt/omniapi/models/` (default models - ALL-IN-ONE)
+- **Service**: `/etc/systemd/system/omniapi.service`
 
 ### Quản Lý Service
 
 ```bash
 # Khởi động
-sudo systemctl start edgeos-api
+sudo systemctl start omniapi
 
 # Dừng
-sudo systemctl stop edgeos-api
+sudo systemctl stop omniapi
 
 # Khởi động lại
-sudo systemctl restart edgeos-api
+sudo systemctl restart omniapi
 
 # Xem status
-sudo systemctl status edgeos-api
+sudo systemctl status omniapi
 
 # Xem log
-sudo journalctl -u edgeos-api -n 100
+sudo journalctl -u omniapi -n 100
 ```
 
 ### Gỡ Cài Đặt
 
 ```bash
 # Gỡ package
-sudo dpkg -r edgeos-api
+sudo dpkg -r omniapi
 
 # Hoặc gỡ hoàn toàn (bao gồm config files)
-sudo dpkg -P edgeos-api
+sudo dpkg -P omniapi
 ```
 
 ---
@@ -696,7 +696,7 @@ Xem đầy đủ: [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
 | **Build từ source** | `./scripts/dev_setup.sh` | ❌ **KHÔNG** |
 | **Build .deb** | `./build_deb.sh` | ❌ **KHÔNG** |
 | **Cài đặt package** | `sudo dpkg -i *.deb` | ✅ **CÓ** |
-| **Khởi động service** | `sudo systemctl start edgeos-api` | ✅ **CÓ** |
+| **Khởi động service** | `sudo systemctl start omniapi` | ✅ **CÓ** |
 
 ---
 
@@ -722,19 +722,19 @@ sudo apt-get install -y dpkg-dev debhelper
 
 Kiểm tra log:
 ```bash
-sudo journalctl -u edgeos-api -n 50
+sudo journalctl -u omniapi -n 50
 ```
 
 Kiểm tra permissions:
 ```bash
-sudo chown -R edgeai:edgeai /opt/edgeos-api
+sudo chown -R edgeai:edgeai /opt/omniapi
 ```
 
 ### Libraries không được tìm thấy
 
 Kiểm tra ldconfig:
 ```bash
-sudo ldconfig -v | grep edgeos-api
+sudo ldconfig -v | grep omniapi
 ```
 
 Nếu không có, chạy lại:
@@ -919,6 +919,6 @@ Toàn bộ danh sách API, request/response schema và ví dụ `curl` để **t
 
 Nếu gặp vấn đề, vui lòng:
 1. Kiểm tra [Troubleshooting](#-troubleshooting) section
-2. Xem log: `sudo journalctl -u edgeos-api -n 100`
+2. Xem log: `sudo journalctl -u omniapi -n 100`
 3. Liên hệ support team
 

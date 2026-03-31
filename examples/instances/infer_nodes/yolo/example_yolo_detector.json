@@ -7,9 +7,9 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "MODEL_PATH": "/opt/edgeos-api/models/yolo/yolov3.weights",
-      "MODEL_CONFIG_PATH": "/opt/edgeos-api/models/yolo/yolov3.cfg",
-      "LABELS_PATH": "/opt/edgeos-api/models/coco_80classes.txt",
+      "MODEL_PATH": "/opt/omniapi/models/yolo/yolov3.weights",
+      "MODEL_CONFIG_PATH": "/opt/omniapi/models/yolo/yolov3.cfg",
+      "LABELS_PATH": "/opt/omniapi/models/coco_80classes.txt",
       "INPUT_WIDTH": "416",
       "INPUT_HEIGHT": "416",
       "SCORE_THRESHOLD": "0.5",

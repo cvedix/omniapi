@@ -144,7 +144,7 @@ public:
     int cleanupIntervalHours = 24;
     /** empty = legacy (use log_dir); auto | production | development */
     std::string logPathsMode;
-    std::string logDirProduction = "/opt/edgeos-api/logs";
+    std::string logDirProduction = "/opt/omniapi/logs";
     std::string logDirDevelopment = "./logs";
     int suspendDiskPercent = 95;
     int resumeDiskPercent = 88;

@@ -2,7 +2,7 @@
 
 ## Tổng Quan
 
-Dự án edgeos-api sử dụng biến môi trường để cấu hình server và các thành phần. C++ sử dụng `std::getenv()` để đọc biến môi trường từ hệ thống.
+Dự án omniapi sử dụng biến môi trường để cấu hình server và các thành phần. C++ sử dụng `std::getenv()` để đọc biến môi trường từ hệ thống.
 
 > **📖 Xem thêm:**
 > - [Unified Configuration Approach](CONFIG_UNIFIED_APPROACH.md) - **Cách tiếp cận thống nhất** giữa config.json và env vars
@@ -24,7 +24,7 @@ Ví dụ:
 ```bash
 export API_HOST=0.0.0.0
 export API_PORT=8080
-./build/edgeos-api
+./build/omniapi
 ```
 
 ### Cơ chế khi chạy Dev (load .env / config)
@@ -32,7 +32,7 @@ export API_PORT=8080
 **Cách đơn giản — dùng cờ `--dev`:**
 
 ```bash
-./build/bin/edgeos-api --dev
+./build/bin/omniapi --dev
 ```
 
 Khi có **`--dev`**, server sẽ:
@@ -43,7 +43,7 @@ Khi có **`--dev`**, server sẽ:
 
 Không cần chạy `load_env.sh` hay `source .env`; chỉ cần có `.env` hoặc `.env.example` trong repo và chạy với `--dev`.
 
-**Nếu không dùng `--dev`:** khi binary không nằm dưới `/opt/edgeos-api`, app vẫn tự thử load `.env` (theo CWD hoặc `EDGEOS_DOTENV_PATH`). Set `EDGEOS_LOAD_DOTENV=1` để bắt buộc load.
+**Nếu không dùng `--dev`:** khi binary không nằm dưới `/opt/omniapi`, app vẫn tự thử load `.env` (theo CWD hoặc `EDGEOS_DOTENV_PATH`). Set `EDGEOS_LOAD_DOTENV=1` để bắt buộc load.
 
 **Script `./scripts/load_env.sh`**: load `.env` rồi chạy server từ project root (CWD = repo) → `./config.json` trong repo được dùng. Có thể dùng thay cho `--dev` nếu muốn.
 
@@ -66,12 +66,12 @@ Hoặc load thủ công:
 set -a
 source .env
 set +a
-./build/edgeos-api
+./build/omniapi
 ```
 
 ### Cách 3: Sử Dụng systemd Service
 
-File `deploy/edgeos-api.service` đã cấu hình sẵn:
+File `deploy/omniapi.service` đã cấu hình sẵn:
 ```ini
 Environment="API_HOST=0.0.0.0"
 Environment="API_PORT=8080"
@@ -84,7 +84,7 @@ Environment="API_PORT=8080"
 #### Server Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `CONFIG_FILE` | Đường dẫn đến file config.json | Tự động tìm: `./config.json` → `/opt/edgeos-api/config/config.json` → `/etc/edgeos-api/config.json` | `src/main.cpp` |
+| `CONFIG_FILE` | Đường dẫn đến file config.json | Tự động tìm: `./config.json` → `/opt/omniapi/config/config.json` → `/etc/omniapi/config.json` | `src/main.cpp` |
 | `API_HOST` | Địa chỉ host để bind server (vd. `127.0.0.1`, `0.0.0.0`) | Fallback khi `config.json` không có `ip_address`; có thể dùng `bind_mode` trong config | `src/config/system_config.cpp` |
 | `API_PORT` | Port của HTTP server | Fallback khi `config.json` không có `port` | `src/config/system_config.cpp` |
 | `CLIENT_MAX_BODY_SIZE` | Kích thước body tối đa (bytes) | `1048576` (1MB) | `src/main.cpp` |
@@ -96,16 +96,16 @@ Environment="API_PORT=8080"
 #### Configuration File
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `CONFIG_FILE` | Đường dẫn tuyệt đối đến file config.json | Tự động tìm theo thứ tự:<br/>1. `./config.json` (thư mục hiện tại)<br/>2. `/opt/edgeos-api/config/config.json`<br/>3. `/etc/edgeos-api/config.json`<br/>4. Tạo mới `./config.json` | `src/main.cpp` |
+| `CONFIG_FILE` | Đường dẫn tuyệt đối đến file config.json | Tự động tìm theo thứ tự:<br/>1. `./config.json` (thư mục hiện tại)<br/>2. `/opt/omniapi/config/config.json`<br/>3. `/etc/omniapi/config.json`<br/>4. Tạo mới `./config.json` | `src/main.cpp` |
 
 **Ví dụ sử dụng CONFIG_FILE:**
 ```bash
 # Sử dụng đường dẫn tùy chỉnh
-export CONFIG_FILE="/opt/edgeos-api/config/config.json"
-./build/edgeos-api
+export CONFIG_FILE="/opt/omniapi/config/config.json"
+./build/omniapi
 
 # Hoặc trong systemd service
-Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
+Environment="CONFIG_FILE=/opt/omniapi/config/config.json"
 ```
 
 **Lưu ý:** Nếu file không tồn tại, hệ thống sẽ tự động tạo file config mặc định tại đường dẫn đó.
@@ -120,7 +120,7 @@ Environment="CONFIG_FILE=/opt/edgeos-api/config/config.json"
 | `LOG_MAX_DISK_USAGE_PERCENT` | Ngưỡng dung lượng đĩa để trigger cleanup (%) | `85` | `src/core/log_manager.cpp` |
 | `LOG_CLEANUP_INTERVAL_HOURS` | Khoảng thời gian kiểm tra và cleanup (giờ) | `24` | `src/core/log_manager.cpp` |
 
-Dev cố định thư mục project: `LOG_DIR=/home/you/project/edge_ai_api/logs` hoặc trong config: `"log_paths_mode":"development"`, `"log_dir_development":"/abs/path/logs"`. Production: `"log_paths_mode":"auto"` (binary dưới `/opt/edgeos-api/...`) hoặc `"log_paths_mode":"production"`.
+Dev cố định thư mục project: `LOG_DIR=/home/you/project/edge_ai_api/logs` hoặc trong config: `"log_paths_mode":"development"`, `"log_dir_development":"/abs/path/logs"`. Production: `"log_paths_mode":"auto"` (binary dưới `/opt/omniapi/...`) hoặc `"log_paths_mode":"production"`.
 
 #### Performance Optimization Settings
 | Biến | Mô tả | Mặc định | File sử dụng |
@@ -163,13 +163,13 @@ Cấu hình qua config.json: `system.monitoring.device_report` (enabled, server_
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
 | `SOLUTIONS_DIR` | Thư mục lưu trữ custom solutions | `./solutions` | `src/main.cpp` |
-| `INSTANCES_DIR` | Thư mục lưu trữ instance configurations | `/opt/edgeos-api/instances` | `src/main.cpp` |
+| `INSTANCES_DIR` | Thư mục lưu trữ instance configurations | `/opt/omniapi/instances` | `src/main.cpp` |
 | `MODELS_DIR` | Thư mục lưu trữ model files | `./models` | `src/main.cpp` |
 
 **Lưu ý về Storage Directories:**
-- **Default**: `/opt/edgeos-api/instances` (tự động tạo nếu chưa tồn tại)
+- **Default**: `/opt/omniapi/instances` (tự động tạo nếu chưa tồn tại)
 - **Development**: Có thể override bằng biến môi trường `INSTANCES_DIR=./instances` để lưu ở project root
-- **Production**: Khuyến nghị sử dụng mặc định `/opt/edgeos-api/instances` hoặc `/var/lib/edgeos-api/instances`
+- **Production**: Khuyến nghị sử dụng mặc định `/opt/omniapi/instances` hoặc `/var/lib/omniapi/instances`
 - **⚠️ Không nên lưu trong `build/` directory** - Dữ liệu có thể bị mất khi clean build
 - Xem chi tiết: [Development Setup](DEVELOPMENT_SETUP.md) - Hướng dẫn tạo thư mục tự động với fallback
 
@@ -218,15 +218,15 @@ Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa
 #### Thư mục gốc cài đặt / dữ liệu
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
-| `EDGEOS_API_INSTALL_DIR` | Thư mục gốc cho `instances`, `models`, `nodes`, `solutions`, `groups`, `logs` (qua `resolveDataDir`), socket `…/run` (khi không set `EDGE_AI_SOCKET_DIR`) | `/opt/edgeos-api` | `env_config.h`, `main.cpp`, `unix_socket.cpp` |
-| `EDGEOS_HOME` | Alias tương thích cho `EDGEOS_API_INSTALL_DIR` (ưu tiên thấp hơn nếu cả hai được set — chỉ dùng khi `EDGEOS_API_INSTALL_DIR` trống) | — | `env_config.h` |
+| `OMNIAPI_INSTALL_DIR` | Thư mục gốc cho `instances`, `models`, `nodes`, `solutions`, `groups`, `logs` (qua `resolveDataDir`), socket `…/run` (khi không set `EDGE_AI_SOCKET_DIR`) | `/opt/omniapi` | `env_config.h`, `main.cpp`, `unix_socket.cpp` |
+| `EDGEOS_HOME` | Alias tương thích cho `OMNIAPI_INSTALL_DIR` (ưu tiên thấp hơn nếu cả hai được set — chỉ dùng khi `OMNIAPI_INSTALL_DIR` trống) | — | `env_config.h` |
 
 #### Subprocess Worker Configuration
 | Biến | Mô tả | Mặc định | File sử dụng |
 |------|-------|----------|--------------|
 | `EDGE_AI_EXECUTION_MODE` | Mặc định **subprocess**. Chỉ chạy in-process khi đặt `inprocess`, `in-process`, `legacy`, hoặc `main` | *(unset → subprocess)* | `instance_manager_factory.cpp` |
 | `EDGE_AI_WORKER_PATH` | Đường dẫn đến worker executable | `edgeos-worker` | `src/worker/worker_supervisor.cpp` |
-| `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/edgeos-api/run` | `src/worker/unix_socket.cpp` |
+| `EDGE_AI_SOCKET_DIR` | Thư mục chứa Unix socket files cho IPC | `/opt/omniapi/run` | `src/worker/unix_socket.cpp` |
 | `EDGE_AI_MAX_RESTARTS` | Số lần restart worker tối đa (subprocess) | (trong code) | `src/worker/worker_supervisor.cpp` |
 | `EDGE_AI_HEALTH_CHECK_INTERVAL` | Khoảng kiểm tra health worker (ms) | (trong code) | `src/worker/worker_supervisor.cpp` |
 | `EDGE_AI_RUNTIME_UPDATE_LOG_DIR` | Thư mục ghi log **runtime update** (PATCH/PUT instance, merge, apply line, rebuild). File: `runtime_update.log`. Dùng khi dev để kiểm tra lỗi. Nếu không set thì dùng `LOG_DIR`; nếu cả hai không set thì dùng **`/tmp`** (file: `/tmp/runtime_update.log`). | (dùng `LOG_DIR` hoặc `/tmp`) | `src/worker/worker_handler.cpp` |
@@ -234,9 +234,9 @@ Khi bật: grace period 15s (bỏ qua instance mới start), cooldown 30s giữa
 | `EDGE_AI_SIGABRT_IMMEDIATE_EXIT` | Khi `1`: nhận SIGABRT (vd. `free(): corrupted unsorted chunks`) thì **thoát ngay** (`_Exit(134)`), không chạy recovery. Tránh treo và Ctrl+C không thoát khi develop sau heap corruption. | (tắt — recovery như cũ) | `src/main.cpp` |
 
 **Lưu ý về Socket Directory:**
-- **Default**: `/opt/edgeos-api/run` (tự động tạo nếu chưa tồn tại)
-- **Fallback**: Nếu không thể tạo `/opt/edgeos-api/run` (permission denied), sẽ tự động fallback về `/tmp`
-- **Production**: Khuyến nghị sử dụng `/opt/edgeos-api/run` hoặc `/var/run/edgeos-api` (nếu có quyền)
+- **Default**: `/opt/omniapi/run` (tự động tạo nếu chưa tồn tại)
+- **Fallback**: Nếu không thể tạo `/opt/omniapi/run` (permission denied), sẽ tự động fallback về `/tmp`
+- **Production**: Khuyến nghị sử dụng `/opt/omniapi/run` hoặc `/var/run/omniapi` (nếu có quyền)
 - **Development**: Có thể override bằng `EDGE_AI_SOCKET_DIR=/tmp` để test
 - Socket files sẽ có format: `{EDGE_AI_SOCKET_DIR}/edgeos_worker_{instance_id}.sock`
 - **Dọn worker/socket sau khi tắt API:** chạy `./scripts/clean_workers.sh` để kill toàn bộ process `edgeos-worker` và xóa socket còn sót (tránh "Worker not ready" khi restart).
@@ -327,10 +327,10 @@ export API_PORT=8080
 ```bash
 export API_HOST=0.0.0.0
 export API_PORT=80
-export SOLUTIONS_DIR=/var/lib/edgeos-api/solutions
-export INSTANCES_DIR=/var/lib/edgeos-api/instances
-export MODELS_DIR=/var/lib/edgeos-api/models
-export LOG_DIR=/var/log/edgeos-api
+export SOLUTIONS_DIR=/var/lib/omniapi/solutions
+export INSTANCES_DIR=/var/lib/omniapi/instances
+export MODELS_DIR=/var/lib/omniapi/models
+export LOG_DIR=/var/log/omniapi
 ```
 
 ### Custom Port

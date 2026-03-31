@@ -13,7 +13,7 @@ Khi chạy ở **subprocess mode**, worker dùng **Atomic Pipeline Swap**:
 
 ## Môi trường
 
-- **Server**: `./bin/edgeos-api` (từ `build/`), chạy nền với log ghi ra `/tmp/edgeos-api-test.log` và terminal.
+- **Server**: `./bin/omniapi` (từ `build/`), chạy nền với log ghi ra `/tmp/omniapi-test.log` và terminal.
 - **Chế độ**: **In-process (legacy)** – log có dòng `[Main] Execution mode: in-process (legacy)`.
 - **Lưu ý**: Hot-reload line **không restart** được implement trong **worker** (subprocess mode). Ở in-process, PATCH/PUT update instance có thể hành xử khác (xem bên dưới).
 

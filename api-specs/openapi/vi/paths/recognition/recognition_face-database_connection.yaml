@@ -83,7 +83,7 @@
                 value:
                   message: Đã tắt kết nối database. Đang dùng file face_database.txt mặc định
                   enabled: false
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
       '400':
         description: Yêu cầu không hợp lệ (thiếu trường bắt buộc, loại database không hợp lệ, v.v.)
         content:
@@ -140,7 +140,7 @@
                 default_file:
                   type: string
                   description: Đường dẫn file face_database.txt mặc định (chỉ có khi enabled là false)
-                  example: /opt/edgeos-api/data/face_database.txt
+                  example: /opt/omniapi/data/face_database.txt
             examples:
               enabled:
                 summary: Đã bật database
@@ -159,7 +159,7 @@
                 value:
                   enabled: false
                   message: Chưa cấu hình kết nối database. Đang dùng file face_database.txt mặc định
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
       '500':
         description: Lỗi máy chủ
         content:
@@ -191,20 +191,20 @@
                 default_file:
                   type: string
                   description: Đường dẫn file face_database.txt mặc định
-                  example: /opt/edgeos-api/data/face_database.txt
+                  example: /opt/omniapi/data/face_database.txt
             examples:
               deleted:
                 summary: Đã xóa cấu hình thành công
                 value:
                   message: Đã xóa cấu hình kết nối database. Hệ thống sẽ dùng file face_database.txt mặc định
                   enabled: false
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
               notFound:
                 summary: Không có cấu hình để xóa
                 value:
                   message: Không có cấu hình kết nối database để xóa
                   enabled: false
-                  default_file: /opt/edgeos-api/data/face_database.txt
+                  default_file: /opt/omniapi/data/face_database.txt
       '500':
         description: Lỗi máy chủ (không cập nhật được cấu hình, v.v.)
         content:

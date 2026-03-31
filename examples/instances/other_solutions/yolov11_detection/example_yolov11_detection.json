@@ -7,7 +7,7 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/yolov11n.onnx",
+      "MODEL_PATH": "/opt/omniapi/models/yolov11/yolov11n.onnx",
       "SAVE_DIR": "/tmp/output/yolov11_detection",
       "RTSP_SRC_URL": "rtsp://localhost:8554/stream"
     }

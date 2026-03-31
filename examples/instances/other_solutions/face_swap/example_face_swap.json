@@ -7,11 +7,11 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FACE_DETECTION_MODEL_PATH": "/opt/edgeos-api/models/face/yunet.onnx",
-      "BUFFALO_L_FACE_ENCODING_MODEL": "/opt/edgeos-api/models/face/buffalo_l.onnx",
-      "EMAP_FILE_FOR_EMBEDDINGS": "/opt/edgeos-api/models/face/emap.onnx",
-      "FACE_SWAP_MODEL_PATH": "/opt/edgeos-api/models/face/face_swap.onnx",
-      "SWAP_SOURCE_IMAGE": "/opt/edgeos-api/models/face/source_face.jpg",
+      "FACE_DETECTION_MODEL_PATH": "/opt/omniapi/models/face/yunet.onnx",
+      "BUFFALO_L_FACE_ENCODING_MODEL": "/opt/omniapi/models/face/buffalo_l.onnx",
+      "EMAP_FILE_FOR_EMBEDDINGS": "/opt/omniapi/models/face/emap.onnx",
+      "FACE_SWAP_MODEL_PATH": "/opt/omniapi/models/face/face_swap.onnx",
+      "SWAP_SOURCE_IMAGE": "/opt/omniapi/models/face/source_face.jpg",
       "RTSP_SRC_URL": "rtsp://localhost:8554/stream"
     },
     "output": {

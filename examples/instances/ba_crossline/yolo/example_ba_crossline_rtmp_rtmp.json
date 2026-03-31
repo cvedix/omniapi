@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "RTMP_SRC_URL": "rtmp://192.168.1.128:1935/live/camera_demo_sang_vehicle",
-      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
+      "LABELS_PATH": "/opt/omniapi/models/yolov11/tensorrt/labels.txt",
       "CROSSLINE_START_X": "0",
       "CROSSLINE_START_Y": "250",
       "CROSSLINE_END_X": "700",
@@ -17,7 +17,7 @@
       "GST_DECODER_NAME": "avdec_h264",
       "SKIP_INTERVAL": "0",
       "CODEC_TYPE": "h264",
-      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
+      "MODEL_PATH": "/opt/omniapi/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "RTMP_DES_URL": "rtmp://192.168.1.128:1935/live/ba_crossing_stream_1",

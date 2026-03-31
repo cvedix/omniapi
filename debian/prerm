@@ -1,9 +1,9 @@
 #!/bin/bash
-# prerm script for edgeos-api
+# prerm script for omniapi
 
 set -e
 
-SERVICE_NAME="edgeos-api"
+SERVICE_NAME="omniapi"
 
 # Stop service before removal
 if systemctl is-active --quiet "${SERVICE_NAME}.service" 2>/dev/null; then

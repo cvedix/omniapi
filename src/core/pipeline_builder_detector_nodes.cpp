@@ -483,10 +483,10 @@ PipelineBuilderDetectorNodes::createFaceDetectorNode(
         std::cerr << "[PipelineBuilderDetectorNodes]   3. Directory should be traversable (755 or 775)"
                   << std::endl;
         std::cerr << "[PipelineBuilderDetectorNodes]   4. Fix permissions and symlinks:" << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]      sudo systemctl restart edgeos-api"
+        std::cerr << "[PipelineBuilderDetectorNodes]      sudo systemctl restart omniapi"
                   << std::endl;
         std::cerr << "[PipelineBuilderDetectorNodes]   5. Restart service:" << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]      sudo systemctl restart edgeos-api"
+        std::cerr << "[PipelineBuilderDetectorNodes]      sudo systemctl restart omniapi"
                   << std::endl;
         std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
                   << std::endl;

@@ -1,12 +1,12 @@
 #!/bin/bash
 # Clean all edgeos-worker processes and their socket files.
-# Use after stopping edgeos-api (Ctrl+C) to avoid stale workers and "Worker not ready" / mutex timeout.
-# Socket dir: EDGE_AI_SOCKET_DIR (default /opt/edgeos-api/run, fallback /tmp when permission denied).
+# Use after stopping omniapi (Ctrl+C) to avoid stale workers and "Worker not ready" / mutex timeout.
+# Socket dir: EDGE_AI_SOCKET_DIR (default /opt/omniapi/run, fallback /tmp when permission denied).
 
 set -e
 
 SOCKET_DIR="${EDGE_AI_SOCKET_DIR:-/tmp}"
-EXTRA_SOCKET_DIR="/opt/edgeos-api/run"
+EXTRA_SOCKET_DIR="/opt/omniapi/run"
 
 echo "=== Cleaning edgeos workers and sockets ==="
 

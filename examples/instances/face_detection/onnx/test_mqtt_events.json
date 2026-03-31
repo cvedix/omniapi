@@ -7,8 +7,8 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4",
-      "MODEL_PATH": "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx",
+      "FILE_PATH": "/home/cvedix/project/omniapi/cvedix_data/test_video/face.mp4",
+      "MODEL_PATH": "/opt/omniapi/models/face/face_detection_yunet_2023mar.onnx",
       "RESIZE_RATIO": "1.0"
     },
     "output": {

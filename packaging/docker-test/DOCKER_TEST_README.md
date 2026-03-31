@@ -5,7 +5,7 @@ Tài liệu này hướng dẫn cách test cài đặt file `.deb` trong môi tr
 ## 📋 Yêu Cầu
 
 - Docker đã được cài đặt
-- File `.deb` có sẵn: `edgeos-api-with-sdk-2026.0.1.21-amd64.deb`
+- File `.deb` có sẵn: `omniapi-with-sdk-2026.0.1.21-amd64.deb`
 
 ## 🚀 Cách Sử Dụng
 
@@ -40,7 +40,7 @@ docker-compose -f docker-compose.test.yml build
 docker-compose -f docker-compose.test.yml up -d
 
 # Vào container để test
-docker-compose -f docker-compose.test.yml exec edgeos-api-test bash
+docker-compose -f docker-compose.test.yml exec omniapi-test bash
 
 # Xem logs
 docker-compose -f docker-compose.test.yml logs -f
@@ -53,22 +53,22 @@ docker-compose -f docker-compose.test.yml down
 
 ```bash
 # Từ project root
-docker build -f packaging/docker-test/Dockerfile.test -t edgeos-api-test:latest .
+docker build -f packaging/docker-test/Dockerfile.test -t omniapi-test:latest .
 
 # Chạy container (interactive)
-docker run -it --privileged --name edgeos-api-test \
+docker run -it --privileged --name omniapi-test \
   -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
   -p 8080:8080 \
-  edgeos-api-test:latest
+  omniapi-test:latest
 
 # Hoặc chạy ở background
-docker run -d --privileged --name edgeos-api-test \
+docker run -d --privileged --name omniapi-test \
   -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
   -p 8080:8080 \
-  edgeos-api-test:latest
+  omniapi-test:latest
 
 # Vào container
-docker exec -it edgeos-api-test bash
+docker exec -it omniapi-test bash
 ```
 
 ## 🧪 Test Trong Container
@@ -78,29 +78,29 @@ Sau khi vào container, bạn có thể test:
 ### 1. Kiểm Tra Package Đã Cài Đặt
 
 ```bash
-dpkg -l | grep edgeos-api
+dpkg -l | grep omniapi
 ```
 
 ### 2. Kiểm Tra Executable
 
 ```bash
-ls -la /usr/local/bin/edgeos-api
-/usr/local/bin/edgeos-api --help
+ls -la /usr/local/bin/omniapi
+/usr/local/bin/omniapi --help
 ```
 
 ### 3. Kiểm Tra Service File
 
 ```bash
-cat /etc/systemd/system/edgeos-api.service
-ls -la /opt/edgeos-api/
+cat /etc/systemd/system/omniapi.service
+ls -la /opt/omniapi/
 ```
 
 ### 4. Test Chạy Trực Tiếp (Không Dùng Systemd)
 
 ```bash
 # Chạy với các options
-/usr/local/bin/edgeos-api --help
-/usr/local/bin/edgeos-api --log-api
+/usr/local/bin/omniapi --help
+/usr/local/bin/omniapi --log-api
 
 # Test API (từ container)
 curl http://localhost:8080/v1/core/health
@@ -112,11 +112,11 @@ curl http://localhost:8080/v1/core/version
 ```bash
 # Khởi động systemd (cần --privileged flag)
 systemctl daemon-reload
-systemctl start edgeos-api
-systemctl status edgeos-api
+systemctl start omniapi
+systemctl status omniapi
 
 # Xem logs
-journalctl -u edgeos-api -f
+journalctl -u omniapi -f
 ```
 
 ### 6. Test API Từ Host Machine
@@ -158,11 +158,11 @@ cd packaging/docker-test
 docker-compose -f docker-compose.test.yml down
 
 # Hoặc với docker run
-docker stop edgeos-api-test
-docker rm edgeos-api-test
+docker stop omniapi-test
+docker rm omniapi-test
 
 # Xóa image (nếu cần)
-docker rmi edgeos-api-test:latest
+docker rmi omniapi-test:latest
 ```
 
 ## 🔍 Troubleshooting
@@ -187,7 +187,7 @@ sudo usermod -aG docker $USER
 # Trong container, fix dependencies
 apt-get update
 apt-get install -f -y
-dpkg -i /tmp/edgeos-api-with-sdk-2026.0.1.21-amd64.deb
+dpkg -i /tmp/omniapi-with-sdk-2026.0.1.21-amd64.deb
 ```
 
 ### Lỗi: "systemd not running"
@@ -200,7 +200,7 @@ dpkg -i /tmp/edgeos-api-with-sdk-2026.0.1.21-amd64.deb
 
 ```bash
 # Xem logs
-docker logs edgeos-api-test
+docker logs omniapi-test
 
 # Hoặc với docker-compose
 docker-compose -f docker-compose.test.yml logs

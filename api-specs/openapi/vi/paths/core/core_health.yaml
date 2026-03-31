@@ -19,7 +19,7 @@
               status: healthy
               timestamp: '2024-01-01T00:00:00.000Z'
               uptime: 3600
-              service: edgeos-api
+              service: omniapi
               version: 1.0.0
       '500':
         description: Dịch vụ không hoạt động bình thường

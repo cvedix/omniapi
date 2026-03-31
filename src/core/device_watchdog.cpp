@@ -36,7 +36,7 @@ std::string buildOsmAndQuery(const DeviceReportSnapshot &s,
     << "&altitude=0&speed=0"
     << "&hostname=" << urlEncode(s.hostname)
     << "&deviceType=" << urlEncode(cfg.deviceType)
-    << "&serverVersion=EdgeOS-API"
+    << "&serverVersion=OmniAPI"
     << "&macAddress=" << urlEncode(s.macAddress)
     << "&localIp=" << urlEncode(s.localIp)
     << "&publicIp=" << urlEncode(s.publicIp)

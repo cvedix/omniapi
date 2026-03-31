@@ -9,23 +9,23 @@ Tài liệu này mô tả **từng API** một cách chi tiết: khi nào dùng,
 - **Toàn quyền bật/tắt qua API:** Có. Khi bạn **tắt** log (enabled = false hoặc tắt từng loại api_enabled/instance_enabled/sdk_output_enabled), hệ thống **không ghi** vào file log nữa. Không có trường hợp “đã tắt mà vẫn bị lỗi vì không có quyền ghi log” — vì khi tắt thì không có thao tác ghi file.
 - **Khi bật log:** Việc ghi log do **process server** thực hiện, vào thư mục trong `log_dir` (mặc định `./logs`). Cần đảm bảo **user chạy process** có quyền ghi vào thư mục đó (ví dụ: `./logs` trong thư mục cài đặt). Nếu không có quyền, log có thể không được tạo/cập nhật nhưng **API không trả về lỗi** (ứng dụng vẫn chạy bình thường). Nên dùng thư mục mặc định hoặc thư mục đã cấp quyền ghi cho user chạy server.
 
-### Ghi mọi log vào `/opt/edgeos-api/logs`
+### Ghi mọi log vào `/opt/omniapi/logs`
 
-Bạn có thể gom **toàn bộ log hoạt động hệ thống** (api, general, instance, sdk_output, và log theo instance) vào một thư mục cố định, ví dụ `/opt/edgeos-api/logs`.
+Bạn có thể gom **toàn bộ log hoạt động hệ thống** (api, general, instance, sdk_output, và log theo instance) vào một thư mục cố định, ví dụ `/opt/omniapi/logs`.
 
-- **Mặc định production:** Khi không set biến môi trường `LOG_DIR`, server tự dùng thư mục mặc định **`/opt/edgeos-api/logs`** (nếu process có quyền ghi). Cấu trúc sẽ là: `api/`, `general/`, `instance/`, `sdk_output/`, và `instance/<instance_id>/` khi bật log theo instance.
+- **Mặc định production:** Khi không set biến môi trường `LOG_DIR`, server tự dùng thư mục mặc định **`/opt/omniapi/logs`** (nếu process có quyền ghi). Cấu trúc sẽ là: `api/`, `general/`, `instance/`, `sdk_output/`, và `instance/<instance_id>/` khi bật log theo instance.
 - **Chắc chắn dùng thư mục này:** Trước khi chạy server, set biến môi trường:
   ```bash
-  export LOG_DIR=/opt/edgeos-api/logs
+  export LOG_DIR=/opt/omniapi/logs
   ```
-  Hoặc trong file systemd (vd. `Environment="LOG_DIR=/opt/edgeos-api/logs"`) / file `.env` nếu bạn dùng script khởi động.
-- **Quyền ghi:** User chạy process (vd. `edgeos-api`) phải có quyền ghi vào `/opt/edgeos-api/logs`. Ví dụ:
+  Hoặc trong file systemd (vd. `Environment="LOG_DIR=/opt/omniapi/logs"`) / file `.env` nếu bạn dùng script khởi động.
+- **Quyền ghi:** User chạy process (vd. `omniapi`) phải có quyền ghi vào `/opt/omniapi/logs`. Ví dụ:
   ```bash
-  sudo chown -R edgeos-api:edgeos-api /opt/edgeos-api/logs
+  sudo chown -R omniapi:omniapi /opt/omniapi/logs
   ```
-  Sau khi set `LOG_DIR` và quyền đúng, **mọi log** (API, instance, SDK, general, log theo instance) đều nằm trong `/opt/edgeos-api/logs`.
+  Sau khi set `LOG_DIR` và quyền đúng, **mọi log** (API, instance, SDK, general, log theo instance) đều nằm trong `/opt/omniapi/logs`.
 
-**Lưu ý:** Thư mục log được chọn **lúc server khởi động**. Nếu đổi `log_dir` qua API (PUT `/v1/core/log/config`), giá trị được lưu vào config nhưng **chỉ áp dụng sau khi restart** server. Để dùng `/opt/edgeos-api/logs` ngay từ đầu, nên set `LOG_DIR` khi khởi động.
+**Lưu ý:** Thư mục log được chọn **lúc server khởi động**. Nếu đổi `log_dir` qua API (PUT `/v1/core/log/config`), giá trị được lưu vào config nhưng **chỉ áp dụng sau khi restart** server. Để dùng `/opt/omniapi/logs` ngay từ đầu, nên set `LOG_DIR` khi khởi động.
 
 ---
 

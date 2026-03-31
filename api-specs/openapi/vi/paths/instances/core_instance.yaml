@@ -163,7 +163,7 @@
 
       - Persistent instances are automatically loaded when the server restarts
 
-      - Instance configuration files are stored in `/var/lib/edgeos-api/instances` (configurable via `INSTANCES_DIR` environment
+      - Instance configuration files are stored in `/var/lib/omniapi/instances` (configurable via `INSTANCES_DIR` environment
       variable)
 
 
@@ -189,10 +189,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /opt/edgeos-api/videos/vehicle_count.mp4
-                    WEIGHTS_PATH: /opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /opt/omniapi/videos/vehicle_count.mp4
+                    WEIGHTS_PATH: /opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '0.5'
                   output:
                     ENABLE_SCREEN_DES: 'false'
@@ -213,10 +213,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '1.0'
                   output:
                     ENABLE_SCREEN_DES: 'false'
@@ -240,10 +240,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/camera_demo_1
                     RTMP_DES_URL: rtmp://localhost:1935/live/camera_demo_1
@@ -280,10 +280,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/camera_demo_1
                     RTMP_DES_URL: rtmp://localhost:1935/live/camera_demo_1
@@ -300,10 +300,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /opt/edgeos-api/videos/vehicle_count.mp4
-                    WEIGHTS_PATH: /opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /opt/omniapi/videos/vehicle_count.mp4
+                    WEIGHTS_PATH: /opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '0.5'
                   output:
                     ENABLE_SCREEN_DES: 'true'
@@ -403,9 +403,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '0.05'
                     RTSP_TRANSPORT: tcp
                     GST_DECODER_NAME: avdec_h264
@@ -431,9 +431,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '1.0'
                     RTSP_TRANSPORT: udp
                     GST_DECODER_NAME: avdec_h264
@@ -452,9 +452,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '1.0'
                     GST_DECODER_NAME: avdec_h264
                     SKIP_INTERVAL: '0'
@@ -479,9 +479,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '1.0'
                     RTSP_TRANSPORT: udp
                     GST_DECODER_NAME: avdec_h264
@@ -501,10 +501,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '0.4'
                   output:
                     ENABLE_SCREEN_DES: 'true'
@@ -519,10 +519,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '0.4'
                   output:
                     ENABLE_SCREEN_DES: 'true'
@@ -543,9 +543,9 @@
                 additionalParams:
                   input:
                     RTMP_SRC_URL: rtmp://localhost:1935/live/input_stream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '1.0'
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/output_stream
@@ -568,9 +568,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '1.0'
                     GST_DECODER_NAME: avdec_h264
                   output:
@@ -588,10 +588,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '0.1'
                   output:
                     ENABLE_SCREEN_DES: 'false'
@@ -614,10 +614,10 @@
                 detectionSensitivity: Medium
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     CROSSLINE_START_X: '0'
                     CROSSLINE_START_Y: '250'
                     CROSSLINE_END_X: '700'
@@ -638,10 +638,10 @@
                 detectionSensitivity: Medium
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_count.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     CROSSLINE_START_X: '0'
                     CROSSLINE_START_Y: '250'
                     CROSSLINE_END_X: '700'
@@ -669,9 +669,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     CROSSLINE_START_X: '0'
                     CROSSLINE_START_Y: '250'
                     CROSSLINE_END_X: '700'
@@ -696,9 +696,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     CROSSLINE_START_X: '0'
                     CROSSLINE_START_Y: '250'
                     CROSSLINE_END_X: '700'
@@ -730,9 +730,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     CROSSLINE_START_X: '0'
                     CROSSLINE_START_Y: '250'
                     CROSSLINE_END_X: '700'
@@ -759,10 +759,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                     BROKE_FOR: NORMAL
@@ -780,9 +780,9 @@
                 additionalParams:
                   input:
                     RTSP_URLS: '["rtsp://camera1.example.com:8554/stream1", "rtsp://camera2.example.com:8554/stream2"]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                   JamZones: '[{"id":"zone1","name":"Camera 1 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Camera
@@ -797,9 +797,9 @@
                 additionalParams:
                   input:
                     RTSP_URLS: '[{"rtsp_url":"rtsp://camera1.example.com:8554/stream1","channel":0,"resize_ratio":0.6,"gst_decoder_name":"avdec_h264","codec_type":"h264"},{"rtsp_url":"rtsp://camera2.example.com:8554/stream2","channel":1,"resize_ratio":0.5,"gst_decoder_name":"avdec_h265","codec_type":"h265"}]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                   JamZones: '[{"id":"zone1","name":"Camera 1 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Camera
@@ -813,10 +813,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATHS: '["/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam.mp4", "/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam2.mp4"]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATHS: '["/home/cvedix/project/omniapi/cvedix_data/test_video/jam.mp4", "/home/cvedix/project/omniapi/cvedix_data/test_video/jam2.mp4"]'
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                   JamZones: '[{"id":"zone1","name":"Channel 0 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Channel
@@ -830,10 +830,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATHS: '[{"file_path":"/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam.mp4","channel":0,"resize_ratio":0.5},{"file_path":"/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam2.mp4","channel":1,"resize_ratio":0.6}]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATHS: '[{"file_path":"/home/cvedix/project/omniapi/cvedix_data/test_video/jam.mp4","channel":0,"resize_ratio":0.5},{"file_path":"/home/cvedix/project/omniapi/cvedix_data/test_video/jam2.mp4","channel":1,"resize_ratio":0.6}]'
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                   JamZones: '[{"id":"zone1","name":"Channel 0 Jam Zone","roi":[{"x":20,"y":360},{"x":400,"y":250},{"x":535,"y":250},{"x":555,"y":560},{"x":30,"y":550}],"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":8,"check_min_stops":8,"check_notify_interval":10},{"id":"zone2","name":"Channel
@@ -847,10 +847,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATHS: '["/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam.mp4", "/home/cvedix/project/edgeos-api/cvedix_data/test_video/jam2.mp4"]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATHS: '["/home/cvedix/project/omniapi/cvedix_data/test_video/jam.mp4", "/home/cvedix/project/omniapi/cvedix_data/test_video/jam2.mp4"]'
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/ba_jam_multiple
                     RTMP_DES_URL: rtmp://localhost:1935/live/ba_jam_multiple
@@ -866,10 +866,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/ba_jam_demo
                     RTMP_DES_URL: rtmp://localhost:1935/live/ba_jam_demo
@@ -941,10 +941,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                     BROKE_FOR: NORMAL
@@ -962,9 +962,9 @@
                 additionalParams:
                   input:
                     RTSP_URLS: '["rtsp://camera1.example.com:8554/stream1", "rtsp://camera2.example.com:8554/stream2"]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                   StopZones: '[{"id":"zone1","name":"Camera 1 Stop Zone","roi":[{"x":20,"y":30},{"x":600,"y":40},{"x":600,"y":300},{"x":10,"y":300}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5},{"id":"zone2","name":"Camera
@@ -978,10 +978,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATHS: '["/home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_stop.mp4", "/home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_stop.mp4"]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATHS: '["/home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_stop.mp4", "/home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_stop.mp4"]'
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                   StopZones: '[{"id":"zone1","name":"Channel 0 Stop Zone","roi":[{"x":20,"y":30},{"x":600,"y":40},{"x":600,"y":300},{"x":10,"y":300}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5},{"id":"zone2","name":"Channel
@@ -995,10 +995,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATHS: '[{"file_path":"/home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_stop.mp4","channel":0,"resize_ratio":0.6},{"file_path":"/home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_stop.mp4","channel":1,"resize_ratio":0.6}]'
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATHS: '[{"file_path":"/home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_stop.mp4","channel":0,"resize_ratio":0.6},{"file_path":"/home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_stop.mp4","channel":1,"resize_ratio":0.6}]'
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     ENABLE_SCREEN_DES: 'false'
                   StopZones: '[{"id":"zone1","name":"Channel 0 Stop Zone","roi":[{"x":20,"y":30},{"x":600,"y":40},{"x":600,"y":300},{"x":10,"y":300}],"min_stop_seconds":3,"check_interval_frames":20,"check_min_hit_frames":50,"check_max_distance":5},{"id":"zone2","name":"Channel
@@ -1012,10 +1012,10 @@
                 autoStart: false
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle.mp4
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/vehicle.mp4
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/ba_stop_demo
                     RTMP_DES_URL: rtmp://localhost:1935/live/ba_stop_demo
@@ -1051,9 +1051,9 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    WEIGHTS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
-                    CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
+                    WEIGHTS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721_best.weights
+                    CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3-tiny-2022-0721.cfg
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/det_cls/yolov3_tiny_5classes.txt
                     RESIZE_RATIO: '1.0'
                     GST_DECODER_NAME: avdec_h264
                     SKIP_INTERVAL: '0'
@@ -1081,8 +1081,8 @@
                 detectionSensitivity: Low
                 additionalParams:
                   input:
-                    FILE_PATH: /opt/edgeos-api/videos/face.mp4
-                    MODEL_PATH: /opt/edgeos-api/models/face/face_detection_yunet_2022mar.onnx
+                    FILE_PATH: /opt/omniapi/videos/face.mp4
+                    MODEL_PATH: /opt/omniapi/models/face/face_detection_yunet_2022mar.onnx
                     RESIZE_RATIO: '1.0'
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/camera_demo_1
@@ -1154,8 +1154,8 @@
                 detectionSensitivity: Medium
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4
-                    MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/face.mp4
+                    MODEL_PATH: /home/cvedix/project/omniapi/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
                     RESIZE_RATIO: '1.0'
                   output:
                     ENABLE_SCREEN_DES: 'true'
@@ -1170,8 +1170,8 @@
                 detectionSensitivity: Medium
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4
-                    MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/face.mp4
+                    MODEL_PATH: /home/cvedix/project/omniapi/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
                     RESIZE_RATIO: '1.0'
                   output:
                     ENABLE_SCREEN_DES: 'true'
@@ -1193,8 +1193,8 @@
                 detectionSensitivity: Medium
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/face.mp4
-                    MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/face.mp4
+                    MODEL_PATH: /home/cvedix/project/omniapi/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
                     RESIZE_RATIO: '1.0'
                   output:
                     RTMP_URL: rtmp://localhost:1935/live/face_stream
@@ -1212,7 +1212,7 @@
                 additionalParams:
                   input:
                     RTSP_SRC_URL: rtsp://localhost:8554/mystream
-                    MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
+                    MODEL_PATH: /home/cvedix/project/omniapi/cvedix_data/models/face/face_detection_yunet_2022mar.onnx
                     RESIZE_RATIO: '1.0'
                   output:
                     ENABLE_SCREEN_DES: 'true'
@@ -1767,10 +1767,10 @@
                 detectionSensitivity: Medium
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/mask_rcnn.mp4
-                    MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/mask_rcnn/frozen_inference_graph.pb
-                    MODEL_CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/coco_80classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/mask_rcnn.mp4
+                    MODEL_PATH: /home/cvedix/project/omniapi/cvedix_data/models/mask_rcnn/frozen_inference_graph.pb
+                    MODEL_CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/coco_80classes.txt
                     INPUT_WIDTH: '416'
                     INPUT_HEIGHT: '416'
                     SCORE_THRESHOLD: '0.5'
@@ -1788,10 +1788,10 @@
                 detectionSensitivity: Medium
                 additionalParams:
                   input:
-                    FILE_PATH: /home/cvedix/project/edgeos-api/cvedix_data/test_video/mask_rcnn.mp4
-                    MODEL_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/mask_rcnn/frozen_inference_graph.pb
-                    MODEL_CONFIG_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt
-                    LABELS_PATH: /home/cvedix/project/edgeos-api/cvedix_data/models/coco_80classes.txt
+                    FILE_PATH: /home/cvedix/project/omniapi/cvedix_data/test_video/mask_rcnn.mp4
+                    MODEL_PATH: /home/cvedix/project/omniapi/cvedix_data/models/mask_rcnn/frozen_inference_graph.pb
+                    MODEL_CONFIG_PATH: /home/cvedix/project/omniapi/cvedix_data/models/mask_rcnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt
+                    LABELS_PATH: /home/cvedix/project/omniapi/cvedix_data/models/coco_80classes.txt
                     INPUT_WIDTH: '416'
                     INPUT_HEIGHT: '416'
                     SCORE_THRESHOLD: '0.5'

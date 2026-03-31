@@ -1,10 +1,10 @@
 #!/bin/bash
 # ============================================
-# Copy cvedix_data to /opt/edgeos-api/
+# Copy cvedix_data to /opt/omniapi/
 # ============================================
 #
 # This script copies the contents of cvedix_data directory
-# to /opt/edgeos-api/ directory.
+# to /opt/omniapi/ directory.
 #
 # Usage:
 #   ./scripts/copy_cvedix_data.sh
@@ -26,7 +26,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Source and destination paths
 SOURCE_DIR="${PROJECT_ROOT}/cvedix_data"
-DEST_DIR="/opt/edgeos-api"
+DEST_DIR="/opt/omniapi"
 
 # Function to print colored messages
 print_info() {

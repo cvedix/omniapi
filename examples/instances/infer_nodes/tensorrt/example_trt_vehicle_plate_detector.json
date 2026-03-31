@@ -8,8 +8,8 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/plate.mp4",
-      "DET_MODEL_PATH": "/opt/edgeos-api/models/trt/plate/det_v8.5.trt",
-      "REC_MODEL_PATH": "/opt/edgeos-api/models/trt/plate/rec_v8.5.trt"
+      "DET_MODEL_PATH": "/opt/omniapi/models/trt/plate/det_v8.5.trt",
+      "REC_MODEL_PATH": "/opt/omniapi/models/trt/plate/rec_v8.5.trt"
     }
   }
 }

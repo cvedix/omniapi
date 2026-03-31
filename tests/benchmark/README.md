@@ -32,7 +32,7 @@ sudo apt install python3.12-venv
 **Cách 1 – Virtual environment (khuyến nghị):**
 
 ```bash
-cd /home/cvedix/Data/project/edgeos-api/tests/benchmark
+cd /home/cvedix/Data/project/omniapi/tests/benchmark
 python3 -m venv venv
 source venv/bin/activate    # Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -41,7 +41,7 @@ pip install -r requirements.txt
 **Cách 2 – Cài cho user (không dùng venv):**
 
 ```bash
-cd /home/cvedix/Data/project/edgeos-api/tests/benchmark
+cd /home/cvedix/Data/project/omniapi/tests/benchmark
 pip install --user -r requirements.txt
 # Nếu lệnh pip/python không tìm thấy sau khi cài: export PATH=$HOME/.local/bin:$PATH
 ```

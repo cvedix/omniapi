@@ -5,10 +5,10 @@
   "autoStart": false,
   "additionalParams": {
     "input": {
-      "FILE_PATH": "/home/cvedix/project/edgeos-api/cvedix_data/test_video/vehicle_count.mp4",
-      "LABELS_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/labels.txt",
+      "FILE_PATH": "/home/cvedix/project/omniapi/cvedix_data/test_video/vehicle_count.mp4",
+      "LABELS_PATH": "/opt/omniapi/models/yolov11/tensorrt/labels.txt",
       "RESIZE_RATIO": "0.4",
-      "MODEL_PATH": "/opt/edgeos-api/models/yolov11/tensorrt/yolo11n.engine"
+      "MODEL_PATH": "/opt/omniapi/models/yolov11/tensorrt/yolo11n.engine"
     },
     "output": {
       "ENABLE_SCREEN_DES": "true",

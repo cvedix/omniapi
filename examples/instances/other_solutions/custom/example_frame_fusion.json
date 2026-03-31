@@ -7,8 +7,8 @@
   "detectionSensitivity": "Medium",
   "additionalParams": {
     "input": {
-      "FILE_PATH_0": "/opt/edgeos-api/test_video/infrared.mp4",
-      "FILE_PATH_1": "/opt/edgeos-api/test_video/rgb.mp4",
+      "FILE_PATH_0": "/opt/omniapi/test_video/infrared.mp4",
+      "FILE_PATH_1": "/opt/omniapi/test_video/rgb.mp4",
       "SRC_CALI_POINTS": "133,111,338,110,15,330,14,214",
       "DES_CALI_POINTS": "1219,365,1787,367,891,982,892,659"
     }

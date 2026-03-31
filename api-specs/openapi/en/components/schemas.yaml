@@ -29,7 +29,7 @@ components:
         service:
           type: string
           description: Service name
-          example: edgeos-api
+          example: omniapi
         version:
           type: string
           description: Service version
@@ -90,7 +90,7 @@ components:
         service:
           type: string
           description: Service name
-          example: edgeos-api
+          example: omniapi
     ErrorResponse:
       type: object
       properties:
@@ -123,7 +123,7 @@ components:
         path:
           type: string
           description: Full path to the log file
-          example: /var/log/edgeos-api/api_2024-01-01.log
+          example: /var/log/omniapi/api_2024-01-01.log
     LogFilesResponse:
       type: object
       required:
@@ -140,11 +140,11 @@ components:
             api:
             - date: '2024-01-01'
               size: 1024
-              path: /var/log/edgeos-api/api_2024-01-01.log
+              path: /var/log/omniapi/api_2024-01-01.log
             instance:
             - date: '2024-01-01'
               size: 2048
-              path: /var/log/edgeos-api/instance_2024-01-01.log
+              path: /var/log/omniapi/instance_2024-01-01.log
     LogEntry:
       type: object
       required:
@@ -182,7 +182,7 @@ components:
         category_dir:
           type: string
           description: Directory path for this category
-          example: /var/log/edgeos-api/api
+          example: /var/log/omniapi/api
         files_count:
           type: integer
           description: Number of log files in this category
@@ -424,7 +424,7 @@ components:
             Directory will be created automatically if it doesn''t exist.
 
             '
-          example: /opt/edgeos-api/record
+          example: /opt/omniapi/record
         uri:
           type: string
           format: uri

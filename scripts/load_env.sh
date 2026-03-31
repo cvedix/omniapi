@@ -4,7 +4,7 @@
 # ============================================
 #
 # This script loads environment variables from .env file
-# and runs the edgeos-api server.
+# and runs the omniapi server.
 #
 # Usage:
 #   ./scripts/load_env.sh                    # Load .env and run server
@@ -80,8 +80,8 @@ set +a  # Stop automatically exporting
 
 # Config file path - Auto-detection will find config.json in order:
 # 1. ./config.json (current directory - development)
-# 2. /opt/edgeos-api/config/config.json (production)
-# 3. /etc/edgeos-api/config.json (system)
+# 2. /opt/omniapi/config/config.json (production)
+# 3. /etc/omniapi/config.json (system)
 # Can be overridden by CONFIG_FILE in .env file
 if [ -n "$CONFIG_FILE" ]; then
     echo "[Config] Using config.json from CONFIG_FILE: $CONFIG_FILE"
@@ -97,8 +97,8 @@ echo ""
 echo "Configuration Summary:"
 echo "----------------------"
 
-# Effective data root (binary default is /opt/edgeos-api when unset)
-EDGEOS_ROOT="${EDGEOS_API_INSTALL_DIR:-/opt/edgeos-api}"
+# Effective data root (binary default is /opt/omniapi when unset)
+EDGEOS_ROOT="${OMNIAPI_INSTALL_DIR:-/opt/omniapi}"
 
 # Server Configuration
 echo "Server:"
@@ -107,8 +107,8 @@ echo "  API_PORT=${API_PORT:-8080} (default: 8080)"
 echo "  THREAD_NUM=${THREAD_NUM:-0} (default: 0 = auto)"
 
 # Logging Configuration
-echo "Data root (unset in env → binary uses /opt/edgeos-api):"
-echo "  EDGEOS_API_INSTALL_DIR=${EDGEOS_API_INSTALL_DIR:-<unset → /opt/edgeos-api>}"
+echo "Data root (unset in env → binary uses /opt/omniapi):"
+echo "  OMNIAPI_INSTALL_DIR=${OMNIAPI_INSTALL_DIR:-<unset → /opt/omniapi>}"
 echo "Logging:"
 echo "  LOG_LEVEL=${LOG_LEVEL:-INFO} (default: INFO)"
 echo "  LOG_DIR=${LOG_DIR:-./logs} (dev: ./logs; production: often ${EDGEOS_ROOT}/logs via config)"
@@ -196,12 +196,12 @@ if [ "$LOAD_ONLY" = true ]; then
     echo ""
     echo "To run the server manually:"
     echo "  cd $PROJECT_ROOT"
-    if [ -f "build/bin/edgeos-api" ]; then
-        echo "  ./build/bin/edgeos-api"
-    elif [ -f "build/edgeos-api" ]; then
-        echo "  ./build/edgeos-api"
+    if [ -f "build/bin/omniapi" ]; then
+        echo "  ./build/bin/omniapi"
+    elif [ -f "build/omniapi" ]; then
+        echo "  ./build/omniapi"
     else
-        echo "  ./build/edgeos-api  # (after building)"
+        echo "  ./build/omniapi  # (after building)"
     fi
     echo ""
     echo "Note: Use 'source $0 --load-only' to load variables into current shell session."
@@ -216,13 +216,13 @@ fi
 
 # Check if executable exists (try both locations)
 EXECUTABLE=""
-if [ -f "build/bin/edgeos-api" ]; then
-    EXECUTABLE="build/bin/edgeos-api"
-elif [ -f "build/edgeos-api" ]; then
-    EXECUTABLE="build/edgeos-api"
+if [ -f "build/bin/omniapi" ]; then
+    EXECUTABLE="build/bin/omniapi"
+elif [ -f "build/omniapi" ]; then
+    EXECUTABLE="build/omniapi"
 else
-    echo "Error: edgeos-api executable not found."
-    echo "Searched in: build/bin/edgeos-api and build/edgeos-api"
+    echo "Error: omniapi executable not found."
+    echo "Searched in: build/bin/omniapi and build/omniapi"
     echo "Please build the project first."
     exit 1
 fi

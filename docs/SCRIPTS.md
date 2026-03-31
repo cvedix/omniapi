@@ -1,6 +1,6 @@
 # Scripts Documentation
 
-Tài liệu tổng hợp về tất cả các script trong project edgeos-api.
+Tài liệu tổng hợp về tất cả các script trong project omniapi.
 
 ## 📋 Tổng Quan
 
@@ -98,10 +98,10 @@ sudo ./scripts/prod_setup.sh --skip-build
 **Sau khi deploy:**
 ```bash
 # Kiểm tra service
-sudo systemctl status edgeos-api
+sudo systemctl status omniapi
 
 # Xem log
-sudo journalctl -u edgeos-api -f
+sudo journalctl -u omniapi -f
 ```
 
 ---
@@ -141,10 +141,10 @@ sudo journalctl -u edgeos-api -f
 **Sau khi build:**
 ```bash
 # Cài đặt package
-sudo dpkg -i edgeos-api-*.deb
+sudo dpkg -i omniapi-*.deb
 
 # Khởi động service
-sudo systemctl start edgeos-api
+sudo systemctl start omniapi
 ```
 
 Xem chi tiết: [packaging/docs/BUILD_DEB.md](../packaging/docs/BUILD_DEB.md)
@@ -171,10 +171,10 @@ Tạo thư mục từ `deploy/directories.conf`.
 
 ```bash
 # Tạo thư mục với permissions từ config
-./scripts/create_directories.sh /opt/edgeos-api
+./scripts/create_directories.sh /opt/omniapi
 
 # Tạo với full permissions
-./scripts/create_directories.sh /opt/edgeos-api --full-permissions
+./scripts/create_directories.sh /opt/omniapi --full-permissions
 ```
 
 ### `scripts/utils.sh setup-face-db`
@@ -223,7 +223,7 @@ sudo ./scripts/utils.sh setup-face-db --full-permissions
 ## 🗂️ Cấu Trúc Thư Mục
 
 ```
-edgeos-api/
+omniapi/
 ├── scripts/              # Development scripts
 │   ├── dev_setup.sh      # Development setup
 │   ├── prod_setup.sh     # Production setup (symlink)
@@ -233,7 +233,7 @@ edgeos-api/
 ├── deploy/               # Production deployment
 │   ├── deploy.sh         # Production deploy script
 │   ├── directories.conf  # Directory configuration
-│   └── edgeos-api.service
+│   └── omniapi.service
 └── packaging/            # Package building
     └── scripts/
         └── build_deb.sh  # Build .deb package
@@ -260,7 +260,7 @@ edgeos-api/
 sudo ./scripts/prod_setup.sh
 
 # 2. Kiểm tra
-sudo systemctl status edgeos-api
+sudo systemctl status omniapi
 ```
 
 ### Build Package
@@ -270,7 +270,7 @@ sudo systemctl status edgeos-api
 ./packaging/scripts/build_deb.sh
 
 # 2. Cài đặt
-sudo dpkg -i edgeos-api-*.deb
+sudo dpkg -i omniapi-*.deb
 ```
 
 ---

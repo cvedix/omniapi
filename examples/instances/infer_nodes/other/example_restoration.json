@@ -8,8 +8,8 @@
   "additionalParams": {
     "input": {
       "FILE_PATH": "./cvedix_data/test_video/low_quality.mp4",
-      "BG_RESTORATION_MODEL": "/opt/edgeos-api/models/restoration/RealESRGAN_x4plus.onnx",
-      "FACE_RESTORATION_MODEL": "/opt/edgeos-api/models/restoration/GFPGANv1.4.onnx",
+      "BG_RESTORATION_MODEL": "/opt/omniapi/models/restoration/RealESRGAN_x4plus.onnx",
+      "FACE_RESTORATION_MODEL": "/opt/omniapi/models/restoration/GFPGANv1.4.onnx",
       "RESTORATION_TO_OSD": "true"
     }
   }

@@ -571,7 +571,7 @@ chmod +x test_events_output.sh
 
 ## Related Documentation
 
-- [TASK-002: Events & Output Configuration](../../../task/edgeos-api_task/TASK-002-Events-Output.md)
+- [TASK-002: Events & Output Configuration](../../../task/omniapi_task/TASK-002-Events-Output.md)
 - [API Documentation](../../../api-specs/openapi/en/openapi.yaml)
 - [Scalar Documentation](../../../api-specs/README.md)
 

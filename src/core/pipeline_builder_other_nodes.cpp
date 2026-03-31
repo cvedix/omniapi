@@ -377,13 +377,13 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderOtherNodes::createOSDv
     // Priority 3: If no font_path in params/additionalParams or font file not
     // found, try default font
     if (fontPath.empty()) {
-      // Try default font from /opt/edgeos-api/fonts/ first
+      // Try default font from /opt/omniapi/fonts/ first
       std::string defaultFontPath =
-          "/opt/edgeos-api/fonts/NotoSansCJKsc-Medium.otf";
+          "/opt/omniapi/fonts/NotoSansCJKsc-Medium.otf";
       if (fs::exists(defaultFontPath)) {
         fontPath = defaultFontPath;
         std::cerr << "[PipelineBuilderOtherNodes] Using default font from "
-                     "/opt/edgeos-api/fonts/"
+                     "/opt/omniapi/fonts/"
                   << std::endl;
       } else {
         // Fallback to environment variable resolution

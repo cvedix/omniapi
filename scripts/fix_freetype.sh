@@ -8,7 +8,7 @@
 #
 # Usage:
 #   sudo ./scripts/fix_freetype.sh
-#   sudo /opt/edgeos-api/scripts/fix_freetype.sh
+#   sudo /opt/omniapi/scripts/fix_freetype.sh
 #
 # ============================================
 
@@ -22,9 +22,9 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-INSTALL_DIR="${INSTALL_DIR:-/opt/edgeos-api}"
+INSTALL_DIR="${INSTALL_DIR:-/opt/omniapi}"
 FREETYPE_410_TARGET="$INSTALL_DIR/lib/libopencv_freetype.so.410"
-SERVICE_NAME="edgeos-api"
+SERVICE_NAME="omniapi"
 SERVICE_USER="edgeai"
 SERVICE_GROUP="edgeai"
 
@@ -211,6 +211,6 @@ echo ""
 echo "If you still experience issues:"
 echo "  1. Check service status: sudo systemctl status $SERVICE_NAME"
 echo "  2. Check service logs: sudo journalctl -u $SERVICE_NAME -n 50"
-echo "  3. Verify library: ldd $INSTALL_DIR/bin/edgeos-api | grep freetype"
+echo "  3. Verify library: ldd $INSTALL_DIR/bin/omniapi | grep freetype"
 echo ""
 

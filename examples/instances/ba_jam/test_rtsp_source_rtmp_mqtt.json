@@ -8,7 +8,7 @@
   "additionalParams": {
     "input": {
       "RTSP_SRC_URL": "rtsp://localhost:8554/mystream",
-      "TRT_PATH": ".././opt/edgeos-api/models/vehicle/vehicle_v8.5.trt",
+      "TRT_PATH": ".././opt/omniapi/models/vehicle/vehicle_v8.5.trt",
       "JAM_REGION_X_1": "20",
       "JAM_REGION_Y_1": "360",
       "JAM_REGION_X_2": "400",

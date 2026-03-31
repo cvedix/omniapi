@@ -3,7 +3,7 @@
 # Build Debian Package with SDK Bundled
 # ============================================
 #
-# Script này build package edgeos-api và đóng gói kèm CVEDIX SDK runtime
+# Script này build package omniapi và đóng gói kèm CVEDIX SDK runtime
 # để user không cần cài SDK trước vẫn có thể cài đặt và chạy được.
 #
 # Usage:
@@ -90,14 +90,14 @@ update_version_files() {
     
     # Update CMakeLists.txt
     if [ -f "$cmake_file" ]; then
-        sed -i "s/project(edgeos_api VERSION [0-9.]*)/project(edgeos_api VERSION $new_version)/" "$cmake_file"
+        sed -i "s/project(omniapi VERSION [0-9.]*)/project(omniapi VERSION $new_version)/" "$cmake_file"
         echo -e "${GREEN}✓${NC} Updated CMakeLists.txt"
     fi
     
     # Update debian/changelog
     if [ -f "$changelog_file" ]; then
         # Update first line of changelog
-        sed -i "1s/edgeos-api ([0-9.]*)/edgeos-api ($new_version)/" "$changelog_file"
+        sed -i "1s/omniapi ([0-9.]*)/omniapi ($new_version)/" "$changelog_file"
         echo -e "${GREEN}✓${NC} Updated debian/changelog"
     fi
 }
@@ -769,8 +769,8 @@ fi
 if [ "$CLEAN_BUILD" = true ]; then
     echo -e "${BLUE}[3/6]${NC} Cleaning build directory..."
     rm -rf build
-    rm -rf debian/edgeos-api
-    rm -f ../edgeos-api_*.deb ../edgeos-api_*.changes ../edgeos-api_*.buildinfo
+    rm -rf debian/omniapi
+    rm -f ../omniapi_*.deb ../omniapi_*.changes ../omniapi_*.buildinfo
     echo -e "${GREEN}✓${NC} Cleaned"
     echo ""
 fi
@@ -810,9 +810,9 @@ fi
 # Check if executable exists
 EXECUTABLE=""
 EXECUTABLE_PATHS=(
-    "build/bin/edgeos-api"
-    "build/edgeos-api"
-    "build/edgeos-api/edgeos-api"
+    "build/bin/omniapi"
+    "build/omniapi"
+    "build/omniapi/omniapi"
 )
 
 for path in "${EXECUTABLE_PATHS[@]}"; do
@@ -1018,7 +1018,7 @@ SDK_DEPENDS=$(dpkg-deb -f "$SDK_DEB_FILE" Depends 2>/dev/null || echo "")
 # Update control file to include SDK runtime dependencies
 # We'll add OpenCV and GStreamer as dependencies based on SDK requirements
 cat > "$CONTROL_FILE" <<CONTROL_EOF
-Source: edgeos-api
+Source: omniapi
 Section: net
 Priority: optional
 Maintainer: CVEDIX <support@cvedix.com>
@@ -1062,9 +1062,9 @@ Build-Depends: debhelper (>= 13),
                python3-dev,
                python3-numpy
 Standards-Version: 4.6.0
-Homepage: https://github.com/cvedix/edgeos-api
+Homepage: https://github.com/cvedix/omniapi
 
-Package: edgeos-api
+Package: omniapi
 Architecture: amd64
 Depends: ${misc:Depends},
          libc6,
@@ -1127,7 +1127,7 @@ echo ""
 echo -e "${BLUE}[9/9]${NC} Updating changelog..."
 if [ -f "debian/changelog" ]; then
     # Add note about SDK bundling
-    sed -i "s/edgeos-api (.*) unstable/edgeos-api ($VERSION) unstable/" debian/changelog
+    sed -i "s/omniapi (.*) unstable/omniapi ($VERSION) unstable/" debian/changelog
     # Add entry about SDK bundling if not already present
     if ! grep -q "CVEDIX SDK bundled" debian/changelog; then
         sed -i "1a\\
@@ -1161,10 +1161,10 @@ echo "Running dpkg-buildpackage..."
 dpkg-buildpackage -b -us -uc
 
 # Find the generated .deb file
-DEB_FILE=$(find .. -maxdepth 1 -name "edgeos-api_${VERSION}_${ARCH}.deb" -o -name "edgeos-api_*.deb" 2>/dev/null | head -1)
+DEB_FILE=$(find .. -maxdepth 1 -name "omniapi_${VERSION}_${ARCH}.deb" -o -name "omniapi_*.deb" 2>/dev/null | head -1)
 
 if [ -z "$DEB_FILE" ]; then
-    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep edgeos-api | head -1)
+    DEB_FILE=$(find .. -maxdepth 1 -name "*.deb" -type f 2>/dev/null | grep omniapi | head -1)
 fi
 
 if [ -z "$DEB_FILE" ]; then
@@ -1175,7 +1175,7 @@ fi
 
 # Get absolute path and move to project root with proper name
 DEB_FILE=$(readlink -f "$DEB_FILE")
-FINAL_NAME="edgeos-api-with-sdk-${VERSION}-${ARCH}.deb"
+FINAL_NAME="omniapi-with-sdk-${VERSION}-${ARCH}.deb"
 
 if [ "$(basename "$DEB_FILE")" != "$FINAL_NAME" ]; then
     mv "$DEB_FILE" "$PROJECT_ROOT/$FINAL_NAME"
@@ -1188,10 +1188,10 @@ else
 fi
 
 # Clean up temporary files
-rm -rf debian/edgeos-api
+rm -rf debian/omniapi
 rm -rf debian/sdk_extract
 rm -f debian/opencv_lib_path.txt
-rm -f ../edgeos-api_*.changes ../edgeos-api_*.buildinfo 2>/dev/null || true
+rm -f ../omniapi_*.changes ../omniapi_*.buildinfo 2>/dev/null || true
 
 # Restore original files (cleanup will be handled by trap)
 # Files will be restored automatically on exit via cleanup function
@@ -1232,13 +1232,13 @@ echo "2. If there are dependency issues:"
 echo "   sudo apt-get install -f"
 echo ""
 echo "3. Verify installation:"
-echo "   sudo /opt/edgeos-api/scripts/validate_installation.sh --verbose"
+echo "   sudo /opt/omniapi/scripts/validate_installation.sh --verbose"
 echo ""
 echo "4. Start the service:"
-echo "   sudo systemctl start edgeos-api"
+echo "   sudo systemctl start omniapi"
 echo ""
 echo "5. Check status:"
-echo "   sudo systemctl status edgeos-api"
+echo "   sudo systemctl status omniapi"
 echo ""
 echo "=========================================="
 echo "Note"

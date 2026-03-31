@@ -371,8 +371,8 @@ QuickInstanceHandler::convertPathToProduction(const std::string &path) const {
   std::string result = path;
 
   // Convert absolute development paths to production paths
-  // Pattern: /home/cvedix/project/edgeos-api/cvedix_data/... -> /opt/edgeos-api/...
-  const std::string devPrefix = "/home/cvedix/project/edgeos-api/cvedix_data/";
+  // Pattern: /home/cvedix/project/omniapi/cvedix_data/... -> /opt/omniapi/...
+  const std::string devPrefix = "/home/cvedix/project/omniapi/cvedix_data/";
   if (result.find(devPrefix) == 0) {
     // Extract path after cvedix_data/
     std::string relativePath = result.substr(devPrefix.length());
@@ -382,12 +382,12 @@ QuickInstanceHandler::convertPathToProduction(const std::string &path) const {
       relativePath = "videos/" + relativePath.substr(11);
     }
     
-    result = "/opt/edgeos-api/" + relativePath;
+    result = "/opt/omniapi/" + relativePath;
     return result;
   }
 
   // Also handle other common development paths
-  const std::string devPrefix2 = "/home/cvedix/project/edgeos-api/";
+  const std::string devPrefix2 = "/home/cvedix/project/omniapi/";
   if (result.find(devPrefix2) == 0) {
     std::string relativePath = result.substr(devPrefix2.length());
     
@@ -404,18 +404,18 @@ QuickInstanceHandler::convertPathToProduction(const std::string &path) const {
       relativePath = relativePath.substr(12);
     }
     
-    result = "/opt/edgeos-api/" + relativePath;
+    result = "/opt/omniapi/" + relativePath;
     return result;
   }
 
-  // Convert ./cvedix_data/ paths to /opt/edgeos-api/
+  // Convert ./cvedix_data/ paths to /opt/omniapi/
   if (result.find("./cvedix_data/") == 0) {
     result = result.substr(15); // Remove "./cvedix_data/"
     // Map test_video/ to videos/
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edgeos-api/" + result;
+    result = "/opt/omniapi/" + result;
     return result;
   } else if (result.find("cvedix_data/") == 0) {
     result = result.substr(12); // Remove "cvedix_data/"
@@ -423,20 +423,20 @@ QuickInstanceHandler::convertPathToProduction(const std::string &path) const {
     if (result.find("test_video/") == 0) {
       result = "videos/" + result.substr(11);
     }
-    result = "/opt/edgeos-api/" + result;
+    result = "/opt/omniapi/" + result;
     return result;
   }
 
   // Specific mappings
-  // Models: ./cvedix_data/models/ -> /opt/edgeos-api/models/
+  // Models: ./cvedix_data/models/ -> /opt/omniapi/models/
   if (result.find("./models/") == 0) {
-    result = "/opt/edgeos-api" + result.substr(1);
+    result = "/opt/omniapi" + result.substr(1);
     return result;
   }
 
-  // Videos: ./cvedix_data/test_video/ -> /opt/edgeos-api/videos/
+  // Videos: ./cvedix_data/test_video/ -> /opt/omniapi/videos/
   if (result.find("./test_video/") == 0) {
-    result = "/opt/edgeos-api/videos/" + result.substr(12);
+    result = "/opt/omniapi/videos/" + result.substr(12);
     return result;
   }
 
@@ -463,38 +463,38 @@ QuickInstanceHandler::getDefaultParams(const std::string &solutionType,
   // Face detection defaults (Production paths)
   if (type == "face_detection" || type == "face") {
     if (input == "file" || input == "video") {
-      defaults["FILE_PATH"] = "/opt/edgeos-api/videos/face.mp4";
+      defaults["FILE_PATH"] = "/opt/omniapi/videos/face.mp4";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
+          "/opt/omniapi/models/face/face_detection_yunet_2023mar.onnx";
     } else if (input == "rtsp" || input == "stream") {
       defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
+          "/opt/omniapi/models/face/face_detection_yunet_2023mar.onnx";
     } else if (input == "rtmp") {
       defaults["RTMP_SRC_URL"] = "rtmp://localhost:1935/live/stream";
       defaults["MODEL_PATH"] =
-          "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
+          "/opt/omniapi/models/face/face_detection_yunet_2023mar.onnx";
     }
     defaults["RESIZE_RATIO"] = "1.0";
   }
   // BA Crossline defaults (Production paths)
-  // Updated to match actual file locations in /opt/edgeos-api/models/det_cls/
+  // Updated to match actual file locations in /opt/omniapi/models/det_cls/
   else if (type == "ba_crossline" || type == "crossline" ||
            type == "behavior_analysis") {
     // Only add FILE_PATH if input type is file/video
     // Only add RTSP_URL if input type is rtsp/stream
     if (input == "file" || input == "video") {
-      defaults["FILE_PATH"] = "/opt/edgeos-api/videos/face.mp4";
+      defaults["FILE_PATH"] = "/opt/omniapi/videos/face.mp4";
     } else if (input == "rtsp" || input == "stream") {
       defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
     }
     // Model paths are always needed regardless of input type
     defaults["WEIGHTS_PATH"] =
-        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights";
+        "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights";
     defaults["CONFIG_PATH"] =
-        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg";
+        "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg";
     defaults["LABELS_PATH"] =
-        "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt";
+        "/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt";
     defaults["RESIZE_RATIO"] = "1.0";
     // NOTE: CROSSLINE_START_X, CROSSLINE_START_Y, CROSSLINE_END_X,
     // CROSSLINE_END_Y are NOT set as defaults here. If user doesn't provide
@@ -507,27 +507,27 @@ QuickInstanceHandler::getDefaultParams(const std::string &solutionType,
     }
   }
   // Object detection defaults (Production paths)
-  // Updated to match actual file locations in /opt/edgeos-api/models/det_cls/
+  // Updated to match actual file locations in /opt/omniapi/models/det_cls/
   else if (type == "object_detection" || type == "yolo") {
-    defaults["FILE_PATH"] = "/opt/edgeos-api/videos/face.mp4";
+    defaults["FILE_PATH"] = "/opt/omniapi/videos/face.mp4";
     defaults["WEIGHTS_PATH"] =
-        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights";
+        "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights";
     defaults["CONFIG_PATH"] =
-        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg";
+        "/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg";
     defaults["LABELS_PATH"] =
-        "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt";
+        "/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt";
     defaults["RESIZE_RATIO"] = "1.0";
   }
   // MaskRCNN defaults (Production paths)
   // Updated to match actual config file name
   else if (type == "mask_rcnn" || type == "segmentation") {
-    defaults["FILE_PATH"] = "/opt/edgeos-api/videos/face.mp4";
+    defaults["FILE_PATH"] = "/opt/omniapi/videos/face.mp4";
     defaults["MODEL_PATH"] =
-        "/opt/edgeos-api/models/mask_rcnn/frozen_inference_graph.pb";
+        "/opt/omniapi/models/mask_rcnn/frozen_inference_graph.pb";
     defaults["MODEL_CONFIG_PATH"] =
-        "/opt/edgeos-api/models/mask_rcnn/"
+        "/opt/omniapi/models/mask_rcnn/"
         "mask_rcnn_inception_v2_coco_2018_01_28.pbtxt";
-    defaults["LABELS_PATH"] = "/opt/edgeos-api/models/coco_80classes.txt";
+    defaults["LABELS_PATH"] = "/opt/omniapi/models/coco_80classes.txt";
     if (output == "rtmp") {
       defaults["RTMP_URL"] = "rtmp://localhost:1935/live/stream";
     }

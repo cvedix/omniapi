@@ -22,7 +22,7 @@
 #include "api/log_handler.h"
 #include "api/node_handler.h"
 #include "api/onvif_handler.h"
-#include "api/recognition_handler.h"
+
 #include "api/solution_handler.h"
 #include "api/stops_handler.h"
 #include "api/securt_handler.h"
@@ -671,7 +671,7 @@ void signalHandler(int signal) {
     // → SIGABRT. Recovery below uses mutex/async and may deadlock; returning
     // leaves the process in undefined state so Ctrl+C often cannot exit cleanly
     // during develop. When set, exit immediately without recovery.
-    // Usage: EDGE_AI_SIGABRT_IMMEDIATE_EXIT=1 ./build/bin/edgeos-api
+    // Usage: EDGE_AI_SIGABRT_IMMEDIATE_EXIT=1 ./build/bin/omniapi
     {
       const char *sigabrt_exit = std::getenv("EDGE_AI_SIGABRT_IMMEDIATE_EXIT");
       if (sigabrt_exit && sigabrt_exit[0] == '1' && sigabrt_exit[1] == '\0') {
@@ -1872,8 +1872,8 @@ static void setupGStreamerPluginPath(bool enable_find_search = false) {
   // Method 1: Check for bundled plugins FIRST (ALL-IN-ONE package)
   // This is the most reliable for all-in-one packages
   std::vector<std::string> bundled_paths = {
-      "/opt/edgeos-api/lib/gstreamer-1.0",
-      "/usr/local/edgeos-api/lib/gstreamer-1.0"};
+      "/opt/omniapi/lib/gstreamer-1.0",
+      "/usr/local/omniapi/lib/gstreamer-1.0"};
   
   for (const auto &path : bundled_paths) {
     if (std::filesystem::exists(path) && std::filesystem::is_directory(path) &&
@@ -2269,8 +2269,8 @@ int main(int argc, char *argv[]) {
     static SolutionRegistry &solutionRegistry = SolutionRegistry::getInstance();
     static PipelineBuilder pipelineBuilder;
 
-    // Instances: INSTANCES_DIR or {EDGEOS_API_INSTALL_DIR}/instances (default
-    // /opt/edgeos-api/instances)
+    // Instances: INSTANCES_DIR or {OMNIAPI_INSTALL_DIR}/instances (default
+    // /opt/omniapi/instances)
     std::string instancesDir =
         EnvConfig::resolveDataDir("INSTANCES_DIR", "instances");
     if (std::filesystem::is_directory(instancesDir)) {
@@ -2357,7 +2357,7 @@ int main(int argc, char *argv[]) {
     nodePool.initializeDefaultTemplates();
     PLOG_INFO << "[Main] Node pool manager initialized with default templates";
 
-    // Nodes: NODES_DIR or {EDGEOS_API_INSTALL_DIR}/nodes
+    // Nodes: NODES_DIR or {OMNIAPI_INSTALL_DIR}/nodes
     std::string nodesDir = EnvConfig::resolveDataDir("NODES_DIR", "nodes");
     if (std::filesystem::is_directory(nodesDir)) {
       std::cerr << "[Main] ✓ Nodes directory is ready: " << nodesDir
@@ -2425,7 +2425,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Initialize solution storage and load custom solutions
-    // Default: /opt/edgeos-api/solutions (auto-created if needed, with
+    // Default: /opt/omniapi/solutions (auto-created if needed, with
     // fallback)
     std::string solutionsDir =
         EnvConfig::resolveDataDir("SOLUTIONS_DIR", "solutions");
@@ -2478,13 +2478,15 @@ int main(int argc, char *argv[]) {
     QuickInstanceHandler::setSolutionRegistry(&solutionRegistry);
     InstanceHandler::setInstanceManager(instanceManager.get());
     InstanceFpsHandler::setInstanceManager(instanceManager.get());
+#ifdef ENABLE_SYSTEM_INFO_HANDLER
     SystemInfoHandler::setInstanceManager(instanceManager.get());
+#endif
 
     // Register solution registry and storage with solution handler
     SolutionHandler::setSolutionRegistry(&solutionRegistry);
     SolutionHandler::setSolutionStorage(&solutionStorage);
 
-    // Groups: GROUPS_DIR or {EDGEOS_API_INSTALL_DIR}/groups
+    // Groups: GROUPS_DIR or {OMNIAPI_INSTALL_DIR}/groups
     std::string groupsDir = EnvConfig::resolveDataDir("GROUPS_DIR", "groups");
     PLOG_INFO << "[Main] Groups directory: " << groupsDir;
     static GroupStorage groupStorage(groupsDir);
@@ -2592,7 +2594,7 @@ int main(int argc, char *argv[]) {
     static SecuRTLineHandler securtLineHandler;
     static AreaHandler areaHandler;
 
-    // Models: MODELS_DIR or {EDGEOS_API_INSTALL_DIR}/models
+    // Models: MODELS_DIR or {OMNIAPI_INSTALL_DIR}/models
     std::string modelsDir = EnvConfig::resolveDataDir("MODELS_DIR", "models");
     if (std::filesystem::is_directory(modelsDir)) {
       std::cerr << "[Main] ✓ Models directory is ready: " << modelsDir
@@ -2606,7 +2608,7 @@ int main(int argc, char *argv[]) {
     ModelUploadHandler::setModelsDirectory(modelsDir);
     static ModelUploadHandler modelUploadHandler;
 
-    // Videos: VIDEOS_DIR or {EDGEOS_API_INSTALL_DIR}/videos
+    // Videos: VIDEOS_DIR or {OMNIAPI_INSTALL_DIR}/videos
     std::string videosDir = EnvConfig::resolveDataDir("VIDEOS_DIR", "videos");
     if (std::filesystem::is_directory(videosDir)) {
       std::cerr << "[Main] ✓ Videos directory is ready: " << videosDir
@@ -2619,9 +2621,9 @@ int main(int argc, char *argv[]) {
     PLOG_INFO << "[Main] Videos directory: " << videosDir;
     VideoUploadHandler::setVideosDirectory(videosDir);
     static VideoUploadHandler videoUploadHandler;
-    static RecognitionHandler recognitionHandler;
 
-    // Fonts: FONTS_DIR or {EDGEOS_API_INSTALL_DIR}/fonts
+
+    // Fonts: FONTS_DIR or {OMNIAPI_INSTALL_DIR}/fonts
     std::string fontsDir = EnvConfig::resolveDataDir("FONTS_DIR", "fonts");
 
     if (std::filesystem::is_directory(fontsDir)) {

@@ -103,9 +103,9 @@ Xem trong file example để biết chi tiết các tham số cấu hình.
 ## Model Configuration
 
 **QUAN TRỌNG**: SecuRT solution **BẮT BUỘC** cần YOLO models để start instance:
-- `WEIGHTS_PATH`: `/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights`
-- `CONFIG_PATH`: `/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg`
-- `LABELS_PATH`: `/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt`
+- `WEIGHTS_PATH`: `/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721_best.weights`
+- `CONFIG_PATH`: `/opt/omniapi/models/det_cls/yolov3-tiny-2022-0721.cfg`
+- `LABELS_PATH`: `/opt/omniapi/models/det_cls/yolov3_tiny_5classes.txt`
 
 Xem file `SECURT_SOLUTION_ANALYSIS.md` để biết:
 - Cách SecuRT solution hoạt động

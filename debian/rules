@@ -18,10 +18,10 @@ CMAKE_FLAGS = -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
               -DDROGON_USE_FETCHCONTENT=ON
 
 # Package configuration
-PACKAGE_NAME = edgeos-api
-INSTALL_DIR = /opt/edgeos-api
+PACKAGE_NAME = omniapi
+INSTALL_DIR = /opt/omniapi
 BIN_DIR = /usr/local/bin
-LIB_DIR = /opt/edgeos-api/lib
+LIB_DIR = /opt/omniapi/lib
 SERVICE_USER = edgeai
 SERVICE_GROUP = edgeai
 
@@ -44,18 +44,18 @@ override_dh_auto_build:
 override_dh_auto_install:
 	# Install executable - check multiple possible locations
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)
-	@if [ -f $(CURDIR)/build/bin/edgeos-api ]; then \
-		echo "Installing executable from build/bin/edgeos-api"; \
-		install -m 755 $(CURDIR)/build/bin/edgeos-api $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api; \
-	elif [ -f $(CURDIR)/build/edgeos-api ]; then \
-		echo "Installing executable from build/edgeos-api"; \
-		install -m 755 $(CURDIR)/build/edgeos-api $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api; \
+	@if [ -f $(CURDIR)/build/bin/omniapi ]; then \
+		echo "Installing executable from build/bin/omniapi"; \
+		install -m 755 $(CURDIR)/build/bin/omniapi $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/omniapi; \
+	elif [ -f $(CURDIR)/build/omniapi ]; then \
+		echo "Installing executable from build/omniapi"; \
+		install -m 755 $(CURDIR)/build/omniapi $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/omniapi; \
 	else \
 		echo "Error: Executable not found in build directory"; \
-		echo "Checked: $(CURDIR)/build/bin/edgeos-api"; \
-		echo "Checked: $(CURDIR)/build/edgeos-api"; \
+		echo "Checked: $(CURDIR)/build/bin/omniapi"; \
+		echo "Checked: $(CURDIR)/build/omniapi"; \
 		ls -la $(CURDIR)/build/bin/ 2>/dev/null || echo "build/bin does not exist"; \
-		ls -la $(CURDIR)/build/edgeos-api 2>/dev/null || echo "build/edgeos-api does not exist"; \
+		ls -la $(CURDIR)/build/omniapi 2>/dev/null || echo "build/omniapi does not exist"; \
 		exit 1; \
 	fi
 
@@ -77,10 +77,10 @@ override_dh_auto_install:
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)
 	# Find executable and bundle libraries
 	@EXEC_PATH=""; \
-	if [ -f $(CURDIR)/build/bin/edgeos-api ]; then \
-		EXEC_PATH="$(CURDIR)/build/bin/edgeos-api"; \
-	elif [ -f $(CURDIR)/build/edgeos-api ]; then \
-		EXEC_PATH="$(CURDIR)/build/edgeos-api"; \
+	if [ -f $(CURDIR)/build/bin/omniapi ]; then \
+		EXEC_PATH="$(CURDIR)/build/bin/omniapi"; \
+	elif [ -f $(CURDIR)/build/omniapi ]; then \
+		EXEC_PATH="$(CURDIR)/build/omniapi"; \
 	fi; \
 	if [ -n "$$EXEC_PATH" ] && [ -f "$$EXEC_PATH" ]; then \
 		LIB_TEMP_DIR=$(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR); \
@@ -92,9 +92,9 @@ override_dh_auto_install:
 		fi; \
 	fi; \
 	# Also try to copy from pre-bundled location if exists (from build_deb.sh, before dh clean)
-	if [ -d $(CURDIR)/debian/edgeos-api/opt/edgeos-api/lib ] && [ "$$(ls -A $(CURDIR)/debian/edgeos-api/opt/edgeos-api/lib 2>/dev/null)" ]; then \
+	if [ -d $(CURDIR)/debian/omniapi/opt/omniapi/lib ] && [ "$$(ls -A $(CURDIR)/debian/omniapi/opt/omniapi/lib 2>/dev/null)" ]; then \
 		echo "Copying pre-bundled libraries..."; \
-		cp -r $(CURDIR)/debian/edgeos-api/opt/edgeos-api/lib/* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
+		cp -r $(CURDIR)/debian/omniapi/opt/omniapi/lib/* $(CURDIR)/debian/$(PACKAGE_NAME)$(LIB_DIR)/ 2>/dev/null || true; \
 	fi
 
 	# Copy libopencv_freetype.so.410 from build/lib (created by CMakeLists.txt or build script)
@@ -156,21 +156,21 @@ override_dh_auto_install:
 	fi
 
 	# Update RPATH in executables to use bundled libraries
-	# RPATH: /opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix (relative to executable at /usr/local/bin)
+	# RPATH: /opt/omniapi/lib:/opt/edgeos-sdk/lib/cvedix (relative to executable at /usr/local/bin)
 	# CRITICAL: RPATH must be set correctly for bundled libraries to be found
-	@EXPECTED_RPATH="/opt/edgeos-api/lib:/opt/edgeos-sdk/lib/cvedix"; \
+	@EXPECTED_RPATH="/opt/omniapi/lib:/opt/edgeos-sdk/lib/cvedix"; \
 	if command -v patchelf >/dev/null 2>&1; then \
-		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api ]; then \
-			echo "Setting RPATH for edgeos-api..."; \
-			if patchelf --set-rpath "$$EXPECTED_RPATH" $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api 2>&1; then \
-				VERIFIED_RPATH=$$(patchelf --print-rpath $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-api 2>/dev/null || echo ""); \
+		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/omniapi ]; then \
+			echo "Setting RPATH for omniapi..."; \
+			if patchelf --set-rpath "$$EXPECTED_RPATH" $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/omniapi 2>&1; then \
+				VERIFIED_RPATH=$$(patchelf --print-rpath $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/omniapi 2>/dev/null || echo ""); \
 				if [ "$$VERIFIED_RPATH" = "$$EXPECTED_RPATH" ]; then \
-					echo "  ✓ RPATH set successfully for edgeos-api: $$VERIFIED_RPATH"; \
+					echo "  ✓ RPATH set successfully for omniapi: $$VERIFIED_RPATH"; \
 				else \
 					echo "  ⚠  Warning: RPATH may not be set correctly. Expected: $$EXPECTED_RPATH, Got: $$VERIFIED_RPATH"; \
 				fi; \
 			else \
-				echo "  ✗ ERROR: Failed to set RPATH for edgeos-api"; \
+				echo "  ✗ ERROR: Failed to set RPATH for omniapi"; \
 			fi; \
 		fi; \
 		if [ -f $(CURDIR)/debian/$(PACKAGE_NAME)$(BIN_DIR)/edgeos-worker ]; then \
@@ -193,7 +193,7 @@ override_dh_auto_install:
 
 	# Install systemd service
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)/etc/systemd/system
-	install -m 644 $(CURDIR)/deploy/edgeos-api.service $(CURDIR)/debian/$(PACKAGE_NAME)/etc/systemd/system/edgeos-api.service
+	install -m 644 $(CURDIR)/deploy/omniapi.service $(CURDIR)/debian/$(PACKAGE_NAME)/etc/systemd/system/omniapi.service
 
 	# Install config files (use config.json if present, else config/config.json.example)
 	install -d $(CURDIR)/debian/$(PACKAGE_NAME)$(INSTALL_DIR)/config
@@ -289,7 +289,7 @@ override_dh_auto_install:
 	fi
 
 	# Install default data from cvedix_data (fonts and models only)
-	# These will be installed to /opt/edgeos-api/fonts and /opt/edgeos-api/models
+	# These will be installed to /opt/omniapi/fonts and /opt/omniapi/models
 	# as default data for users on fresh installations
 	# NOTE: test_images and test_video are NOT copied to keep package size small
 	@echo "Installing default data from cvedix_data..."; \

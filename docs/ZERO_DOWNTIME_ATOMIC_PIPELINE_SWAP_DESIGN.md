@@ -457,7 +457,7 @@ When stopping or tearing down **rtmp_des** (e.g. instance stop, pipeline swap te
 
 This applies to any code path that disposes of rtmp_des: in-process instance stop (`InstanceRegistry`), worker pipeline teardown (`WorkerHandler`), and persistent output leg destruction (`PersistentOutputLeg::~PersistentOutputLeg()`). The actual socket is owned by the cvedix rtmp_des node; the SDK must implement the above in its stop/teardown (or destructor).
 
-**Workaround when the SDK cannot be changed:** use the LD_PRELOAD wrapper in `support/rtmp_fin_wrapper/`. It overrides `close()` and, for TCP socket fds, calls `shutdown(fd, SHUT_RDWR)` before the real `close()`. Build yields `build/lib/libclose_fin.so`; run e.g. `LD_PRELOAD=/path/to/libclose_fin.so ./bin/edgeos-api` (or only the worker). See `support/rtmp_fin_wrapper/README.md`.
+**Workaround when the SDK cannot be changed:** use the LD_PRELOAD wrapper in `support/rtmp_fin_wrapper/`. It overrides `close()` and, for TCP socket fds, calls `shutdown(fd, SHUT_RDWR)` before the real `close()`. Build yields `build/lib/libclose_fin.so`; run e.g. `LD_PRELOAD=/path/to/libclose_fin.so ./bin/omniapi` (or only the worker). See `support/rtmp_fin_wrapper/README.md`.
 
 **Zero-downtime path and EDGE_AI_HOTSWAP_DELAY_SEC:** The test delay is applied **after** the new pipeline has started (not before). A delay before start caused several seconds of only last-frame pump; some RTMP servers close the connection in that situation, so output was lost. With delay after start, the new pipeline is already sending real frames and the stream stays up.
 
