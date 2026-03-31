@@ -161,7 +161,7 @@
       schema:
         type: string
       description: Định danh instance (UUID)
-      example: 'ba_crossline_demo'
+      example: '{instanceId}'
     requestBody:
       required: true
       content:

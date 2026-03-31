@@ -2139,6 +2139,17 @@ void SolutionRegistry::registerSecuRTSolution() {
   baCrosslineOSD.nodeName = "osd_{instanceId}";
   config.pipeline.push_back(baCrosslineOSD);
 
+  // Optional face detection node for SecuRT.
+  // Enabled/disabled at runtime via AdditionalParams.SECURT_FACE_DETECTION_ENABLE.
+  SolutionConfig::NodeConfig securtFaceDetector;
+  securtFaceDetector.nodeType = "yunet_face_detector";
+  securtFaceDetector.nodeName = "securt_face_detector_{instanceId}";
+  securtFaceDetector.parameters["model_path"] = "${FACE_DETECTION_MODEL_PATH}";
+  securtFaceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  securtFaceDetector.parameters["nms_threshold"] = "0.5";
+  securtFaceDetector.parameters["top_k"] = "50";
+  config.pipeline.push_back(securtFaceDetector);
+
   // File Destination Node
   SolutionConfig::NodeConfig fileDes;
   fileDes.nodeType = "file_des";
@@ -2154,6 +2165,9 @@ void SolutionRegistry::registerSecuRTSolution() {
   config.defaults["movementSensitivity"] = "Medium";
   config.defaults["sensorModality"] = "RGB";
   config.defaults["RESIZE_RATIO"] = "1.0";
+  config.defaults["SECURT_FACE_DETECTION_ENABLE"] = "false";
+  config.defaults["FACE_DETECTION_MODEL_PATH"] =
+      "/opt/edgeos-api/models/face/face_detection_yunet_2023mar.onnx";
 
   registerSolution(config);
 }

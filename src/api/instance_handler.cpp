@@ -61,8 +61,28 @@ void InstanceHandler::setInstanceManager(IInstanceManager *manager) {
 
 std::string
 InstanceHandler::extractInstanceId(const HttpRequestPtr &req) const {
+  auto sanitizeInstanceId = [](std::string id) -> std::string {
+    auto trim = [](std::string s) -> std::string {
+      size_t f = s.find_first_not_of(" \t\n\r\f\v");
+      if (f == std::string::npos) {
+        return "";
+      }
+      size_t l = s.find_last_not_of(" \t\n\r\f\v");
+      return s.substr(f, l - f + 1);
+    };
+    id = trim(std::move(id));
+    // Copy-paste from JSON / malformed clients sometimes leave a stray quote.
+    while (!id.empty() && (id.front() == '"' || id.front() == '\'')) {
+      id.erase(0, 1);
+    }
+    while (!id.empty() && (id.back() == '"' || id.back() == '\'')) {
+      id.pop_back();
+    }
+    return trim(std::move(id));
+  };
+
   // Try getParameter first (standard way)
-  std::string instanceId = req->getParameter("instanceId");
+  std::string instanceId = sanitizeInstanceId(req->getParameter("instanceId"));
 
   // Fallback: extract from path if getParameter doesn't work
   if (instanceId.empty()) {
@@ -75,7 +95,7 @@ InstanceHandler::extractInstanceId(const HttpRequestPtr &req) const {
       if (end == std::string::npos) {
         end = path.length();
       }
-      instanceId = path.substr(start, end - start);
+      instanceId = sanitizeInstanceId(path.substr(start, end - start));
     } else {
       // Try /instance/ pattern (singular)
       size_t instancePos = path.find("/instance/");
@@ -85,7 +105,7 @@ InstanceHandler::extractInstanceId(const HttpRequestPtr &req) const {
         if (end == std::string::npos) {
           end = path.length();
         }
-        instanceId = path.substr(start, end - start);
+        instanceId = sanitizeInstanceId(path.substr(start, end - start));
       }
     }
   }

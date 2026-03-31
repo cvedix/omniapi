@@ -163,6 +163,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_map>
 #include <typeinfo>
 // Include cmath AFTER CVEDIX SDK headers to avoid macro conflict with rapidxml
 // The macro 'pi' from cmath conflicts with variable 'pi' in rapidxml
@@ -580,6 +581,41 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
   }
 
   // Build nodes in pipeline order
+  auto parseBoolParam = [](const std::map<std::string, std::string> &params,
+                           const std::string &key) -> bool {
+    auto it = params.find(key);
+    if (it == params.end()) {
+      return false;
+    }
+    std::string value = it->second;
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return (value == "1" || value == "true" || value == "yes" ||
+            value == "on");
+  };
+
+  auto hasFaceDetectorInBasePipeline = [&solution]() -> bool {
+    for (const auto &cfg : solution.pipeline) {
+      if (cfg.nodeType == "yunet_face_detector" ||
+          cfg.nodeType == "rknn_face_detector" ||
+          cfg.nodeType == "trt_yolov11_face_detector") {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  auto isDestinationNodeType = [](const std::string &nodeType) -> bool {
+    return nodeType == "file_des" || nodeType == "rtmp_des" ||
+           nodeType == "frame_router_sink" || nodeType == "rtsp_des" ||
+           nodeType == "screen_des" || nodeType == "app_des";
+  };
+
+  const bool globalFaceDetectionEnabled =
+      parseBoolParam(mutableReq.additionalParams, "ENABLE_FACE_DETECTION");
+  const bool pipelineAlreadyHasFaceDetector = hasFaceDetectorInBasePipeline();
+  bool optionalFaceDetectorInjected = false;
+
   for (const auto &nodeConfig : solution.pipeline) {
     try {
       std::cerr << "[PipelineBuilder] Creating node: " << nodeConfig.nodeType
@@ -636,6 +672,92 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                     << " node (no CrossingLines or CROSSLINE_* params - running ba_loitering only)"
                     << std::endl;
           continue;
+        }
+      }
+
+      // Backward compatibility for SecuRT-specific optional face detector node.
+      if (nodeConfig.nodeType == "yunet_face_detector" &&
+          nodeConfig.nodeName.find("securt_face_detector_") == 0) {
+        const bool securtFaceEnabled =
+            parseBoolParam(mutableReq.additionalParams,
+                           "SECURT_FACE_DETECTION_ENABLE") ||
+            parseBoolParam(mutableReq.additionalParams,
+                           "ENABLE_FACE_DETECTION");
+        if (!securtFaceEnabled) {
+          std::cerr << "[PipelineBuilder] Skipping securt_face_detector node "
+                       "(face detection disabled)"
+                    << std::endl;
+          continue;
+        }
+      }
+
+      // Global optional face detector for all solutions:
+      // inject once, right before the first destination node.
+      if (!optionalFaceDetectorInjected && globalFaceDetectionEnabled &&
+          !pipelineAlreadyHasFaceDetector &&
+          isDestinationNodeType(nodeConfig.nodeType)) {
+        SolutionConfig::NodeConfig optFaceCfg;
+        optFaceCfg.nodeType = "yunet_face_detector";
+        optFaceCfg.nodeName = "optional_face_detector_{instanceId}";
+        optFaceCfg.parameters["model_path"] = "${FACE_DETECTION_MODEL_PATH}";
+        optFaceCfg.parameters["score_threshold"] = "${detectionSensitivity}";
+        optFaceCfg.parameters["nms_threshold"] = "0.5";
+        optFaceCfg.parameters["top_k"] = "50";
+
+        std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> optExtraNodes;
+        auto optFaceNode = createNode(optFaceCfg, mutableReq, instanceId,
+                                      existingRTMPStreamKeys, &optExtraNodes);
+        if (optFaceNode) {
+          nodes.push_back(optFaceNode);
+          nodeTypes.push_back(optFaceCfg.nodeType);
+          for (const auto &extra : optExtraNodes) {
+            nodes.push_back(extra);
+            nodeTypes.push_back("rtmp_des");
+          }
+
+          if (nodes.size() > 1) {
+            size_t attachIndex = nodes.size() - 2 - optExtraNodes.size();
+            std::shared_ptr<cvedix_nodes::cvedix_node> attachTarget = nullptr;
+            if (attachIndex < nodes.size()) {
+              attachTarget = nodes[attachIndex];
+            }
+            if (attachTarget) {
+              optFaceNode->attach_to({attachTarget});
+            }
+          }
+
+          // Add face OSD right after optional face detector so face boxes/keypoints
+          // are rendered on stream output (especially for BA solutions with their
+          // own OSD node already present).
+          SolutionConfig::NodeConfig optFaceOsdCfg;
+          optFaceOsdCfg.nodeType = "face_osd_v2";
+          optFaceOsdCfg.nodeName = "optional_face_osd_{instanceId}";
+          std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>>
+              optFaceOsdExtraNodes;
+          auto optFaceOsdNode = createNode(optFaceOsdCfg, mutableReq, instanceId,
+                                           existingRTMPStreamKeys,
+                                           &optFaceOsdExtraNodes);
+          if (optFaceOsdNode) {
+            optFaceOsdNode->attach_to({optFaceNode});
+            nodes.push_back(optFaceOsdNode);
+            nodeTypes.push_back(optFaceOsdCfg.nodeType);
+            std::cerr << "[PipelineBuilder] Injected optional_face_osd node "
+                         "(face overlay enabled)"
+                      << std::endl;
+          } else {
+            std::cerr << "[PipelineBuilder] ⚠ Failed to inject optional "
+                         "face OSD node; face detector still enabled"
+                      << std::endl;
+          }
+
+          optionalFaceDetectorInjected = true;
+          std::cerr << "[PipelineBuilder] Injected optional_face_detector node "
+                       "(ENABLE_FACE_DETECTION=true)"
+                    << std::endl;
+        } else {
+          std::cerr << "[PipelineBuilder] ⚠ Failed to inject optional "
+                       "face detector node"
+                    << std::endl;
         }
       }
 
@@ -2695,6 +2817,10 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
                                     const CreateInstanceRequest &req,
                                     const std::string &instanceId) {
   std::map<std::string, std::string> params;
+  const bool isFaceDetectorNode =
+      nodeConfig.nodeType == "yunet_face_detector" ||
+      nodeConfig.nodeType == "rknn_face_detector" ||
+      nodeConfig.nodeType == "trt_yolov11_face_detector";
   
   for (const auto &param : nodeConfig.parameters) {
     std::string value = param.second;
@@ -2792,6 +2918,16 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
       } else {
         value = modelPath;
       }
+    } else if (param.first == "model_path" &&
+               value == "${FACE_DETECTION_MODEL_PATH}") {
+      // Face detector must not inherit MODEL_PATH from the main detector.
+      auto it = req.additionalParams.find("FACE_DETECTION_MODEL_PATH");
+      if (it != req.additionalParams.end() && !it->second.empty()) {
+        value = it->second;
+      } else {
+        value = PipelineBuilderModelResolver::resolveModelPath(
+            "models/face/yunet.onnx");
+      }
     } else if (param.first == "model_path" && value == "${SFACE_MODEL_PATH}") {
       // Handle SFace model path
       std::string modelPath;
@@ -2832,7 +2968,7 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
 
     // Override model_path if provided in additionalParams (even if not using
     // ${MODEL_PATH} placeholder)
-    if (param.first == "model_path") {
+    if (param.first == "model_path" && !isFaceDetectorNode) {
       // Priority: MODEL_NAME > MODEL_PATH
       std::string modelPath;
 
@@ -3820,6 +3956,24 @@ struct event_message {
 class cvedix_json_crossline_mqtt_broker_node
     : public cvedix_nodes::cvedix_json_enhanced_console_broker_node {
 private:
+  using LineCountMap = std::map<std::string, int>;
+  using LineNameMap = std::map<std::string, std::string>;
+
+  // Persist per-instance line counters across node recreation (hot-swap).
+  // Without this, toggling face detection rebuilds pipeline and counters reset.
+  static std::mutex &persistent_counts_mutex() {
+    static std::mutex m;
+    return m;
+  }
+  static std::unordered_map<std::string, LineCountMap> &persistent_line_counts() {
+    static std::unordered_map<std::string, LineCountMap> store;
+    return store;
+  }
+  static std::unordered_map<std::string, LineNameMap> &persistent_line_names() {
+    static std::unordered_map<std::string, LineNameMap> store;
+    return store;
+  }
+
   std::function<void(const std::string &)> mqtt_publisher_;
   std::string instance_id_;   // UUID thực sự của instance
   std::string instance_name_; // Tên instance (từ req.name)
@@ -3980,6 +4134,10 @@ private:
               if (line_names_.find(line_id) == line_names_.end()) {
                 line_names_[line_id] = line_name.empty() ? line_id : line_name;
               }
+              // Also persist current counters so hot-swap does not reset counts.
+              std::lock_guard<std::mutex> persistedLock(persistent_counts_mutex());
+              persistent_line_counts()[instance_id_] = line_counts_;
+              persistent_line_names()[instance_id_] = line_names_;
             }
 
             event_msg.events.push_back(evt);
@@ -4117,6 +4275,19 @@ public:
         mqtt_publisher_(mqtt_publisher), instance_id_(instance_id),
         instance_name_(instance_name), zone_id_(zone_id),
         zone_name_(zone_name) {
+    // Restore persisted counters/names for this instance if any (hot-swap case).
+    {
+      std::lock_guard<std::mutex> persistedLock(persistent_counts_mutex());
+      auto countsIt = persistent_line_counts().find(instance_id_);
+      if (countsIt != persistent_line_counts().end()) {
+        line_counts_ = countsIt->second;
+      }
+      auto namesIt = persistent_line_names().find(instance_id_);
+      if (namesIt != persistent_line_names().end()) {
+        line_names_ = namesIt->second;
+      }
+    }
+
     // Parse CrossingLines config to build channel -> line_id mapping
     if (!crossing_lines_json.empty()) {
       try {
@@ -4147,12 +4318,22 @@ public:
             }
 
             channel_to_line_info_[channel] = std::make_pair(line_id, line_name);
+            // Ensure line name map knows configured names even before first event.
+            if (line_names_.find(line_id) == line_names_.end()) {
+              line_names_[line_id] = line_name;
+            }
           }
         }
       } catch (...) {
         // If parsing fails, channel_to_line_info_ will remain empty
         // and code will fallback to zone_id
       }
+    }
+    // Keep restored/updated names+counts synced in persistent store.
+    {
+      std::lock_guard<std::mutex> persistedLock(persistent_counts_mutex());
+      persistent_line_counts()[instance_id_] = line_counts_;
+      persistent_line_names()[instance_id_] = line_names_;
     }
   }
 };

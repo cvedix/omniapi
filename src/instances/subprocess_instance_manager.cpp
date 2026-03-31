@@ -915,11 +915,40 @@ bool SubprocessInstanceManager::updateInstance(const std::string &instanceId,
   // worker merge and cache see CrossingLines/RTMP; avoids 500 and stream loss.
   Json::Value normalizedConfig = normalizeConfigKeys(configJson);
 
+  // Detect face-detection related keys for observability only.
+  // Do NOT force respawn here: worker handles these updates via UPDATE_INSTANCE
+  // and can perform zero-downtime hot-swap.
+  auto hasFaceToggleKey = [](const Json::Value &cfg) -> bool {
+    auto hasAnyKey = [](const Json::Value &obj) -> bool {
+      if (!obj.isObject()) return false;
+      return obj.isMember("ENABLE_FACE_DETECTION") ||
+             obj.isMember("FACE_DETECTION_MODEL_PATH") ||
+             obj.isMember("SECURT_FACE_DETECTION_ENABLE");
+    };
+    if (hasAnyKey(cfg["AdditionalParams"]) || hasAnyKey(cfg["additionalParams"])) {
+      return true;
+    }
+    if (cfg.isMember("config")) {
+      const auto &nested = cfg["config"];
+      if (hasAnyKey(nested["AdditionalParams"]) ||
+          hasAnyKey(nested["additionalParams"])) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const bool touchesFaceToggleConfig = hasFaceToggleKey(normalizedConfig);
+
   // Persist to cache and storage first (same as updateInstanceFromConfig) so
   // PATCH with only AdditionalParams.CrossingLines returns 200 and GET /lines
   // shows new data even if worker is slow or returns error.
   if (!mergeConfigIntoCacheAndSave(instanceId, normalizedConfig)) {
     return false;
+  }
+
+  if (touchesFaceToggleConfig) {
+    logRuntimeUpdate(instanceId,
+                     "api: face toggle config detected -> send UPDATE_INSTANCE (no respawn)");
   }
 
   // Sync worker (best-effort); accept READY and BUSY

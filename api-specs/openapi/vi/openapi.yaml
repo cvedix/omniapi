@@ -7664,7 +7664,7 @@ paths:
         schema:
           type: string
         description: Định danh instance (UUID)
-        example: ba_crossline_demo
+        example: '{instanceId}'
       requestBody:
         required: true
         content:
@@ -7920,7 +7920,7 @@ paths:
         schema:
           type: string
         description: Định danh duy nhất của instance (UUID)
-        example: '{Test}'
+        example: '{instanceId}'
       requestBody:
         required: true
         content:
@@ -7938,6 +7938,70 @@ paths:
                 value:
                   path: Output/handlers/Mqtt
                   jsonValue: '{"uri":"mqtt://localhost:1883/events"}'
+      responses:
+        '204':
+          description: Đã thiết lập giá trị cấu hình thành công
+        '400':
+          description: Yêu cầu không hợp lệ (đầu vào sai hoặc thiếu trường bắt buộc)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Lỗi máy chủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Đặt giá trị config tại đường dẫn cụ thể
+      description: 'PUT alias của POST để đặt giá trị cấu hình tại đường dẫn chỉ định.
+
+
+        Hữu ích cho client muốn cập nhật tài nguyên theo ngữ nghĩa PUT.
+
+
+        Để bật/tắt face detection global cho instance, dùng:
+
+        - path: `"AdditionalParams/ENABLE_FACE_DETECTION"`, jsonValue: `"\"true\""` hoặc `"\"false\""`
+
+        - path: `"AdditionalParams/FACE_DETECTION_MODEL_PATH"`, jsonValue: `"\"/opt/cvedix/models/face/yunet.onnx\""`
+
+        '
+      operationId: setConfigPut
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Định danh duy nhất của instance (UUID)
+        example: '{instanceId}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetConfigRequest'
+            examples:
+              enableFaceDetection:
+                summary: Bật face detection global
+                value:
+                  path: AdditionalParams/ENABLE_FACE_DETECTION
+                  jsonValue: '"true"'
+              setFaceDetectionModelPath:
+                summary: Thiết lập đường dẫn model face detection
+                value:
+                  path: AdditionalParams/FACE_DETECTION_MODEL_PATH
+                  jsonValue: '"/opt/cvedix/models/face/yunet.onnx"'
       responses:
         '204':
           description: Đã thiết lập giá trị cấu hình thành công
@@ -8163,6 +8227,63 @@ paths:
     options:
       summary: CORS preflight cho thiết lập input
       operationId: setInstanceInputOptions
+      tags:
+      - Instances
+      responses:
+        '200':
+          description: Phản hồi CORS preflight
+  /v1/core/instance/{instanceId}/face_detection:
+    post:
+      summary: Bật hoặc tắt face detection cho instance
+      description: Bật/tắt face detection cho một instance cụ thể bằng cách cập nhật cấu hình runtime.
+      operationId: setInstanceFaceDetection
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Định danh duy nhất của instance (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enable
+              properties:
+                enable:
+                  type: boolean
+                  description: true để bật face detection, false để tắt
+            example:
+              enable: true
+      responses:
+        '204':
+          description: Đã cập nhật cấu hình face detection thành công
+        '400':
+          description: Yêu cầu không hợp lệ (đầu vào sai)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Không tìm thấy instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Lỗi máy chủ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight cho bật/tắt face detection
+      operationId: setInstanceFaceDetectionOptions
       tags:
       - Instances
       responses:

@@ -6341,7 +6341,7 @@ paths:
         schema:
           type: string
         description: Instance ID (UUID)
-        example: "{threshold}"
+        example: "{instanceId}"
       requestBody:
         required: true
         content:
@@ -7779,6 +7779,63 @@ paths:
       responses:
         '200':
           description: CORS preflight response
+  /v1/core/instance/{instanceId}/face_detection:
+    post:
+      summary: Enable or disable face detection for an instance
+      description: Toggles face detection for a specific instance by updating runtime configuration.
+      operationId: setInstanceFaceDetection
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the instance (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - enable
+              properties:
+                enable:
+                  type: boolean
+                  description: true to enable face detection, false to disable it
+            example:
+              enable: true
+      responses:
+        '204':
+          description: Face detection setting updated successfully
+        '400':
+          description: Bad request (invalid input)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      summary: CORS preflight for face detection toggle
+      operationId: setInstanceFaceDetectionOptions
+      tags:
+      - Instances
+      responses:
+        '200':
+          description: CORS preflight response
   /v1/core/instance/{instanceId}/push/encoded/{codecId}:
     post:
       summary: Push encoded frame into instance
@@ -8047,7 +8104,7 @@ paths:
         schema:
           type: string
         description: Unique identifier of the instance (UUID)
-        example: "{Test}"
+        example: "{instanceId}"
       requestBody:
         required: true
         content:
@@ -8065,6 +8122,70 @@ paths:
                 value:
                   path: Output/handlers/Mqtt
                   jsonValue: '{"uri":"mqtt://localhost:1883/events"}'
+      responses:
+        '204':
+          description: Config value set successfully
+        '400':
+          description: Bad request (invalid input or missing required fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Set config value at a specific path
+      description: 'PUT alias of POST for setting a configuration value at the specified path.
+
+
+        This is useful for clients that update resources using PUT semantics.
+
+
+        To enable face detection globally for a running instance, use:
+
+        - path: `"AdditionalParams/ENABLE_FACE_DETECTION"`, jsonValue: `"\"true\""`
+
+        - path: `"AdditionalParams/FACE_DETECTION_MODEL_PATH"`, jsonValue: `"\"/opt/cvedix/models/face/yunet.onnx\""`
+
+        '
+      operationId: setConfigPut
+      tags:
+      - Instances
+      parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the instance (UUID)
+        example: "{instanceId}"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetConfigRequest'
+            examples:
+              enableFaceDetection:
+                summary: Enable global face detection
+                value:
+                  path: AdditionalParams/ENABLE_FACE_DETECTION
+                  jsonValue: '"true"'
+              setFaceDetectionModelPath:
+                summary: Set face detection model path
+                value:
+                  path: AdditionalParams/FACE_DETECTION_MODEL_PATH
+                  jsonValue: '"/opt/cvedix/models/face/yunet.onnx"'
       responses:
         '204':
           description: Config value set successfully

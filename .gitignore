@@ -51,6 +51,7 @@ task/
 sample/
 samples/
 cvedix_data/
+build_samples/
 # Environment files
 .env
 .env.local
