@@ -1902,9 +1902,15 @@ void SolutionRegistry::registerBAAreaEnterExitSolution() {
   SolutionConfig::NodeConfig yoloDetector;
   yoloDetector.nodeType = "yolo_detector";
   yoloDetector.nodeName = "yolo_detector_{instanceId}";
+  // Updated to support modern ONNX-based YOLO models (e.g., YOLO11 .onnx).
+  // - For plugin-based yolo_detector builds, set backend_type=onnx and pass an .onnx model path.
+  // - For legacy Darknet weights, backend_type can be omitted and CONFIG_PATH is used.
   yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
   yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  yoloDetector.parameters["backend_type"] = "${BACKEND_TYPE}";
+  yoloDetector.parameters["score_threshold"] = "${detectionSensitivity}";
+  yoloDetector.parameters["nms_threshold"] = "0.5";
   config.pipeline.push_back(yoloDetector);
 
   // ByteTrack Tracker Node
@@ -1948,6 +1954,12 @@ void SolutionRegistry::registerBAAreaEnterExitSolution() {
   config.defaults["detectionSensitivity"] = "0.7";
   config.defaults["sensorModality"] = "RGB";
   config.defaults["RESIZE_RATIO"] = "0.6";
+  // Prefer ONNX backend by default (matches updated samples).
+  config.defaults["BACKEND_TYPE"] = "onnx";
+  config.defaults["WEIGHTS_PATH"] = "/opt/edgeos-api/models/yolov11/onnx/yolo11n.onnx";
+  config.defaults["LABELS_PATH"] = "/opt/edgeos-api/models/yolov11/onnx/labels.txt";
+  // CONFIG_PATH is unused for ONNX backend; keep empty for clarity.
+  config.defaults["CONFIG_PATH"] = "";
 
   registerSolution(config);
 }
@@ -2108,8 +2120,11 @@ void SolutionRegistry::registerSecuRTSolution() {
   yoloDetector.nodeType = "yolo_detector";
   yoloDetector.nodeName = "yolo_detector_{instanceId}";
   yoloDetector.parameters["weights_path"] = "${WEIGHTS_PATH}";
-  yoloDetector.parameters["config_path"] = "${CONFIG_PATH}";
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
+  // Prefer explicit backend selection for plugin-based YOLO detector builds.
+  // When the SDK uses the plugin API, the backend determines which model file
+  // extensions are supported (e.g. .onnx for ONNX backend).
+  yoloDetector.parameters["backend_type"] = "onnx";
   yoloDetector.parameters["score_threshold"] = "${detectionSensitivity}";
   yoloDetector.parameters["nms_threshold"] = "0.4";
   config.pipeline.push_back(yoloDetector);

@@ -250,16 +250,14 @@ CreateInstanceRequest SecuRTInstanceManager::createCoreInstanceRequest(
   // These defaults ensure the instance can start without requiring explicit model paths
   // Users can override these by providing values in additionalParams when configuring input
   if (req.additionalParams.find("WEIGHTS_PATH") == req.additionalParams.end()) {
-    req.additionalParams["WEIGHTS_PATH"] = 
-        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721_best.weights";
-  }
-  if (req.additionalParams.find("CONFIG_PATH") == req.additionalParams.end()) {
-    req.additionalParams["CONFIG_PATH"] = 
-        "/opt/edgeos-api/models/det_cls/yolov3-tiny-2022-0721.cfg";
+    // Use an ONNX detector by default to match plugin-based YOLO detector builds
+    // (where backend/model extension compatibility is enforced by the SDK).
+    req.additionalParams["WEIGHTS_PATH"] =
+        "/opt/edgeos-api/models/yolov11/onnx/yolo11n.onnx";
   }
   if (req.additionalParams.find("LABELS_PATH") == req.additionalParams.end()) {
-    req.additionalParams["LABELS_PATH"] = 
-        "/opt/edgeos-api/models/det_cls/yolov3_tiny_5classes.txt";
+    req.additionalParams["LABELS_PATH"] =
+        "/opt/edgeos-api/models/yolov11/onnx/labels.txt";
   }
   
   // Set instance ID in additional params if needed

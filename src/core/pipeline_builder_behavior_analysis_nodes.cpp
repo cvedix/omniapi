@@ -1210,7 +1210,10 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
       throw std::invalid_argument("Node name cannot be empty");
     }
 
-    std::map<int, std::vector<cvedix_objects::cvedix_rect>> areas;
+    // SDK expects polygons per channel:
+    //   map<int, vector<vector<cvedix_point>>>
+    // Keep polygons directly to support non-rectangular ROIs.
+    std::map<int, std::vector<std::vector<cvedix_objects::cvedix_point>>> areas_poly;
     std::map<int, std::vector<cvedix_nodes::area_alert_config>> configs;
 
     // Parse Areas from additionalParams
@@ -1221,35 +1224,69 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
         Json::Reader reader;
         Json::Value areasJson;
         if (reader.parse(areasIt->second, areasJson) && areasJson.isArray()) {
-          for (const auto &areaObj : areasJson) {
-            if (!areaObj.isMember("channel") || !areaObj.isMember("roi") ||
-                !areaObj["roi"].isArray() || areaObj["roi"].size() < 3) {
+          // Supported element formats:
+          // 1) Rectangle list (legacy/demo):
+          //    {"x":50,"y":150,"width":200,"height":200}  (channel defaults to 0)
+          // 2) Polygon in "roi" (API style):
+          //    {"channel":0,"roi":[{"x":..,"y":..}, ...]}
+          // 3) Polygon in "coordinates":
+          //    {"channel":0,"coordinates":[{"x":..,"y":..}, ...]}
+          for (Json::ArrayIndex i = 0; i < areasJson.size(); ++i) {
+            const Json::Value &areaObj = areasJson[i];
+            int channel = 0;
+            if (areaObj.isMember("channel") && areaObj["channel"].isNumeric()) {
+              channel = areaObj["channel"].asInt();
+            }
+
+            // Case 1: rectangle
+            if (areaObj.isMember("x") && areaObj.isMember("y") &&
+                areaObj.isMember("width") && areaObj.isMember("height") &&
+                areaObj["x"].isNumeric() && areaObj["y"].isNumeric() &&
+                areaObj["width"].isNumeric() && areaObj["height"].isNumeric()) {
+              int x = areaObj["x"].asInt();
+              int y = areaObj["y"].asInt();
+              int w = areaObj["width"].asInt();
+              int h = areaObj["height"].asInt();
+              if (w > 0 && h > 0) {
+                areas_poly[channel].push_back({
+                    cvedix_objects::cvedix_point(x, y),
+                    cvedix_objects::cvedix_point(x + w, y),
+                    cvedix_objects::cvedix_point(x + w, y + h),
+                    cvedix_objects::cvedix_point(x, y + h),
+                });
+              }
               continue;
             }
-            int channel = areaObj["channel"].asInt();
-            const Json::Value &roi = areaObj["roi"];
-            
-            // Convert polygon to bounding rect (simplified - use first 3 points)
-            if (roi.size() >= 3) {
-              int min_x = INT_MAX, min_y = INT_MAX;
-              int max_x = INT_MIN, max_y = INT_MIN;
-              for (const auto &point : roi) {
-                if (point.isMember("x") && point.isMember("y")) {
-                  int x = point["x"].asInt();
-                  int y = point["y"].asInt();
-                  min_x = std::min(min_x, x);
-                  min_y = std::min(min_y, y);
-                  max_x = std::max(max_x, x);
-                  max_y = std::max(max_y, y);
-                }
+
+            // Case 2/3: polygon array in "roi" or "coordinates"
+            const Json::Value *poly = nullptr;
+            if (areaObj.isMember("roi") && areaObj["roi"].isArray()) {
+              poly = &areaObj["roi"];
+            } else if (areaObj.isMember("coordinates") && areaObj["coordinates"].isArray()) {
+              poly = &areaObj["coordinates"];
+            }
+            if (!poly || poly->size() < 3) {
+              continue;
+            }
+
+            std::vector<cvedix_objects::cvedix_point> pts;
+            pts.reserve(poly->size());
+            bool ok = true;
+            for (const auto &p : *poly) {
+              if (!p.isObject() || !p.isMember("x") || !p.isMember("y") ||
+                  !p["x"].isNumeric() || !p["y"].isNumeric()) {
+                ok = false;
+                break;
               }
-              if (min_x < max_x && min_y < max_y) {
-                cvedix_objects::cvedix_rect rect(min_x, min_y, max_x - min_x, max_y - min_y);
-                areas[channel].push_back(rect);
-              }
+              pts.push_back(cvedix_objects::cvedix_point(
+                  static_cast<int>(p["x"].asDouble()),
+                  static_cast<int>(p["y"].asDouble())));
+            }
+            if (ok && pts.size() >= 3) {
+              areas_poly[channel].push_back(std::move(pts));
             }
           }
-          areasParsed = !areas.empty();
+          areasParsed = !areas_poly.empty();
         }
       } catch (const std::exception &e) {
         std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] WARNING: Failed to parse Areas JSON: "
@@ -1264,31 +1301,49 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
         Json::Reader reader;
         Json::Value configsJson;
         if (reader.parse(configsIt->second, configsJson) && configsJson.isArray()) {
-          for (const auto &configObj : configsJson) {
-            if (!configObj.isMember("channel") || !configObj.isMember("index")) {
-              continue;
+          for (Json::ArrayIndex i = 0; i < configsJson.size(); ++i) {
+            const Json::Value &configObj = configsJson[i];
+
+            // Channel/index are optional; default channel=0 and index=array order.
+            int channel = 0;
+            if (configObj.isMember("channel") && configObj["channel"].isNumeric()) {
+              channel = configObj["channel"].asInt();
             }
-            int channel = configObj["channel"].asInt();
-            int index = configObj["index"].asInt();
-            
-            bool alert_enter = configObj.get("alert_enter", true).asBool();
-            bool alert_exit = configObj.get("alert_exit", true).asBool();
+            int index = static_cast<int>(i);
+            if (configObj.isMember("index") && configObj["index"].isNumeric()) {
+              index = configObj["index"].asInt();
+            }
+
+            // Support both snake_case and camelCase.
+            bool alert_enter = true;
+            if (configObj.isMember("alert_enter"))
+              alert_enter = configObj.get("alert_enter", true).asBool();
+            else if (configObj.isMember("alertOnEnter"))
+              alert_enter = configObj.get("alertOnEnter", true).asBool();
+
+            bool alert_exit = true;
+            if (configObj.isMember("alert_exit"))
+              alert_exit = configObj.get("alert_exit", true).asBool();
+            else if (configObj.isMember("alertOnExit"))
+              alert_exit = configObj.get("alertOnExit", true).asBool();
+
             std::string name = configObj.get("name", "").asString();
-            
-            cv::Scalar color(0, 220, 0); // Default green
+
+            cv::Scalar color(0, 220, 0); // Default green (BGR)
             if (configObj.isMember("color") && configObj["color"].isArray() &&
                 configObj["color"].size() >= 3) {
               int r = configObj["color"][0].asInt();
               int g = configObj["color"][1].asInt();
               int b = configObj["color"][2].asInt();
-              color = cv::Scalar(b, g, r); // BGR format
+              color = cv::Scalar(b, g, r);
             }
-            
+
+            if (index < 0) continue;
             if (configs[channel].size() <= static_cast<size_t>(index)) {
-              configs[channel].resize(index + 1);
+              configs[channel].resize(static_cast<size_t>(index) + 1);
             }
-            configs[channel][index] = cvedix_nodes::area_alert_config(
-                alert_enter, alert_exit, name, color);
+            configs[channel][index] =
+                cvedix_nodes::area_alert_config(alert_enter, alert_exit, name, color);
           }
         }
       } catch (const std::exception &e) {
@@ -1307,21 +1362,9 @@ std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderBehaviorAnalysisNodes:
     std::cerr << "[PipelineBuilderBehaviorAnalysisNodes] Creating BA area enter/exit node:"
               << std::endl;
     std::cerr << "  Name: '" << nodeName << "'" << std::endl;
-    std::cerr << "  Areas configured for " << areas.size() << " channel(s)"
+    std::cerr << "  Areas configured for " << areas_poly.size() << " channel(s)"
               << std::endl;
 
-    // SDK expects map<int, vector<vector<cvedix_point>>> (polygons per channel). Convert rects to polygons.
-    std::map<int, std::vector<std::vector<cvedix_objects::cvedix_point>>> areas_poly;
-    for (const auto& kv : areas) {
-      for (const auto& r : kv.second) {
-        areas_poly[kv.first].push_back({
-          cvedix_objects::cvedix_point(r.x, r.y),
-          cvedix_objects::cvedix_point(r.x + r.width, r.y),
-          cvedix_objects::cvedix_point(r.x + r.width, r.y + r.height),
-          cvedix_objects::cvedix_point(r.x, r.y + r.height)
-        });
-      }
-    }
     // Create node with areas (polygons) and configs (image_recording=false, video_recording=false)
     auto node = std::make_shared<cvedix_nodes::cvedix_ba_area_enter_exit_node>(
         nodeName, areas_poly, configs, false, false);
