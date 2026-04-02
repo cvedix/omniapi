@@ -1012,6 +1012,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
              nodeConfig.nodeType == "json_crossline_mqtt_broker" ||
              nodeConfig.nodeType == "json_jam_mqtt_broker" ||
              nodeConfig.nodeType == "json_stop_mqtt_broker" ||
+             nodeConfig.nodeType == "json_face_mqtt_broker" ||
              nodeConfig.nodeType == "json_kafka_broker" ||
              nodeConfig.nodeType == "xml_file_broker" ||
              nodeConfig.nodeType == "xml_socket_broker" ||
@@ -1982,6 +1983,57 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                     << e.what() << std::endl;
         }
       }
+
+      // Auto-add FACE MQTT broker (publish face detection results to the same
+      // MQTT_TOPIC as BA events).
+      if (globalFaceDetectionEnabled &&
+          !hasNodeType("json_face_mqtt_broker")) {
+        try {
+          auto findAttachTargetForFaceBroker =
+              [&nodes, &nodeTypes]() -> std::shared_ptr<cvedix_nodes::cvedix_node> {
+            for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
+              if (nodeTypes[i] == "yunet_face_detector") {
+                return nodes[i];
+              }
+            }
+            return nullptr;
+          };
+
+          auto attachTarget = findAttachTargetForFaceBroker();
+          if (attachTarget) {
+            std::cerr << "[PipelineBuilder] Auto-adding json_face_mqtt_broker "
+                         "(shared topic: MQTT_TOPIC) due to ENABLE_FACE_DETECTION=true"
+                      << std::endl;
+
+            SolutionConfig::NodeConfig faceMqttConfig;
+            faceMqttConfig.nodeType = "json_face_mqtt_broker";
+            faceMqttConfig.nodeName = "json_face_mqtt_broker_{instanceId}";
+            faceMqttConfig.parameters = {};
+
+            std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> faceExtraNodes;
+            auto faceNode = createNode(faceMqttConfig, mutableReq, instanceId,
+                                         existingRTMPStreamKeys, &faceExtraNodes);
+            if (faceNode) {
+              faceNode->attach_to({attachTarget});
+              nodes.push_back(faceNode);
+              nodeTypes.push_back("json_face_mqtt_broker");
+              std::cerr << "[PipelineBuilder] ✓ Auto-added json_face_mqtt_broker "
+                           "(attached to yunet_face_detector)"
+                        << std::endl;
+            } else {
+              std::cerr << "[PipelineBuilder] ⚠ Failed to create json_face_mqtt_broker"
+                        << std::endl;
+            }
+          } else {
+            std::cerr
+                << "[PipelineBuilder] ⚠ ENABLE_FACE_DETECTION=true but no yunet_face_detector found to attach json_face_mqtt_broker"
+                << std::endl;
+          }
+        } catch (const std::exception &e) {
+          std::cerr << "[PipelineBuilder] ⚠ Failed to auto-add json_face_mqtt_broker: "
+                    << e.what() << std::endl;
+        }
+      }
     }
   }
 #endif
@@ -2371,6 +2423,12 @@ std::shared_ptr<cvedix_nodes::cvedix_node> createCrosslineMQTTBrokerNode(
     const std::string &zone_id, const std::string &zone_name,
     const std::string &crossing_lines_json);
 }
+
+namespace pipeline_builder_face_mqtt {
+std::shared_ptr<cvedix_nodes::cvedix_node> createFaceMQTTBrokerNode(
+    const std::string &nodeName,
+    std::function<void(const std::string &)> mqtt_publish_func);
+}
 #endif
 
 std::shared_ptr<cvedix_nodes::cvedix_node>
@@ -2712,6 +2770,81 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
 #else
       std::cerr << "[PipelineBuilder] json_stop_mqtt_broker requires "
                    "CVEDIX_WITH_MQTT to be enabled"
+                << std::endl;
+      return nullptr;
+#endif
+    } else if (nodeConfig.nodeType == "json_face_mqtt_broker") {
+#ifdef CVEDIX_WITH_MQTT
+      std::string mqtt_broker;
+      int mqtt_port = 1883;
+      std::string mqtt_topic = "events";
+      std::string mqtt_username, mqtt_password;
+
+      auto brokerIt = req.additionalParams.find("MQTT_BROKER_URL");
+      if (brokerIt != req.additionalParams.end() && !brokerIt->second.empty()) {
+        mqtt_broker = brokerIt->second;
+        size_t p = mqtt_broker.find_first_not_of(" \t\n\r");
+        if (p != std::string::npos) {
+          size_t q = mqtt_broker.find_last_not_of(" \t\n\r");
+          mqtt_broker =
+              mqtt_broker.substr(p, q != std::string::npos ? q - p + 1 : std::string::npos);
+        }
+      }
+
+      auto portIt = req.additionalParams.find("MQTT_PORT");
+      if (portIt != req.additionalParams.end() && !portIt->second.empty()) {
+        try {
+          mqtt_port = std::stoi(portIt->second);
+        } catch (...) {
+        }
+      }
+
+      auto topicIt = req.additionalParams.find("MQTT_TOPIC");
+      if (topicIt != req.additionalParams.end() && !topicIt->second.empty())
+        mqtt_topic = topicIt->second;
+
+      auto usernameIt = req.additionalParams.find("MQTT_USERNAME");
+      if (usernameIt != req.additionalParams.end())
+        mqtt_username = usernameIt->second;
+
+      auto passwordIt = req.additionalParams.find("MQTT_PASSWORD");
+      if (passwordIt != req.additionalParams.end())
+        mqtt_password = passwordIt->second;
+
+      if (mqtt_broker.empty()) {
+        std::cerr << "[PipelineBuilder] json_face_mqtt_broker: MQTT_BROKER_URL empty, skipping"
+                  << std::endl;
+        return nullptr;
+      }
+
+      std::string client_id = "edgeos_api_face_" + instanceId;
+      auto mqtt_client = std::make_unique<cvedix_utils::cvedix_mqtt_client>(
+          mqtt_broker, mqtt_port, client_id, 60);
+      mqtt_client->set_auto_reconnect(true, 5000);
+      (void)mqtt_client->connect(mqtt_username, mqtt_password);
+
+      static std::mutex mqtt_face_publish_mutex;
+      auto mqtt_client_ptr =
+          std::shared_ptr<cvedix_utils::cvedix_mqtt_client>(mqtt_client.release());
+
+      auto mqtt_publish_func =
+          [mqtt_client_ptr, mqtt_topic](const std::string &json_message) {
+            std::lock_guard<std::mutex> lock(mqtt_face_publish_mutex);
+            if (!mqtt_client_ptr || !mqtt_client_ptr->is_ready()) return;
+            if (json_message.empty()) return;
+            mqtt_client_ptr->publish(mqtt_topic, json_message, 1, false);
+          };
+
+      try {
+        return pipeline_builder_face_mqtt::createFaceMQTTBrokerNode(
+            nodeName, mqtt_publish_func);
+      } catch (const std::exception &e) {
+        std::cerr << "[PipelineBuilder] Failed to create json_face_mqtt_broker: "
+                  << e.what() << std::endl;
+        return nullptr;
+      }
+#else
+      std::cerr << "[PipelineBuilder] json_face_mqtt_broker requires CVEDIX_WITH_MQTT to be enabled"
                 << std::endl;
       return nullptr;
 #endif
@@ -3952,6 +4085,78 @@ struct event_message {
 };
 } // namespace crossline_event_format
 
+// Custom Broker Node for FACE MQTT
+class cvedix_json_face_mqtt_broker_node
+    : public cvedix_nodes::cvedix_json_enhanced_console_broker_node {
+private:
+  std::function<void(const std::string &)> mqtt_publisher_;
+
+public:
+  cvedix_json_face_mqtt_broker_node(
+      std::string node_name,
+      std::function<void(const std::string &)> mqtt_publisher)
+      : cvedix_nodes::cvedix_json_enhanced_console_broker_node(
+            node_name, cvedix_nodes::cvedix_broke_for::FACE, 100, 500, false),
+        mqtt_publisher_(std::move(mqtt_publisher)) {}
+
+  virtual void broke_msg(const std::string &msg) override {
+    if (msg.empty()) return;
+    if (!mqtt_publisher_) return;
+
+    // Publish FACE only when there is at least one detected face.
+    // Keep it lightweight (no full JSON parse).
+    int face_target_size = 0;
+    const std::string key = "\"face_target_size\"";
+    const size_t key_pos = msg.find(key);
+    if (key_pos != std::string::npos) {
+      const size_t colon = msg.find(':', key_pos + key.size());
+      if (colon != std::string::npos) {
+        size_t i = colon + 1;
+        while (i < msg.size() && std::isspace(static_cast<unsigned char>(msg[i]))) ++i;
+        size_t j = i;
+        while (j < msg.size() &&
+               (std::isdigit(static_cast<unsigned char>(msg[j])) || msg[j] == '-')) {
+          ++j;
+        }
+        if (j > i) {
+          try {
+            face_target_size = std::stoi(msg.substr(i, j - i));
+          } catch (...) {
+            face_target_size = 0;
+          }
+        }
+      }
+    } else {
+      // Fallback: if face_targets is explicitly empty, do not publish.
+      if (msg.find("\"face_targets\":[]") != std::string::npos ||
+          msg.find("\"face_targets\": []") != std::string::npos) {
+        return;
+      }
+    }
+
+    if (face_target_size <= 0) return;
+
+    // Wrap so subscribers can reliably distinguish message type on shared topic.
+    const std::string out_msg =
+        "{\"source\":\"face_detection\",\"payload\":" + msg + "}";
+
+    try {
+      mqtt_publisher_(out_msg);
+    } catch (...) {
+      // Avoid crashing the pipeline thread on any MQTT publish issues.
+    }
+  }
+};
+
+namespace pipeline_builder_face_mqtt {
+std::shared_ptr<cvedix_nodes::cvedix_node> createFaceMQTTBrokerNode(
+    const std::string &nodeName,
+    std::function<void(const std::string &)> mqtt_publish_func) {
+  return std::make_shared<cvedix_json_face_mqtt_broker_node>(nodeName,
+                                                            mqtt_publish_func);
+}
+} // namespace pipeline_builder_face_mqtt
+
 // Custom Broker Node for Crossline MQTT
 class cvedix_json_crossline_mqtt_broker_node
     : public cvedix_nodes::cvedix_json_enhanced_console_broker_node {
@@ -4252,6 +4457,8 @@ private:
         out_msg.reserve(msg.size() + suffix.size());
         out_msg = msg.substr(0, insert_pos + 1) + suffix + msg.substr(insert_pos + 1);
       }
+      // Wrap so subscribers can reliably distinguish message type on shared topic.
+      out_msg = "{\"source\":\"ba_crossline\",\"payload\":" + out_msg + "}";
       std::cerr
           << "[MQTT] [broke_msg] Calling mqtt_publisher_ with message length: "
           << out_msg.length() << std::endl;
