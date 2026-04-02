@@ -15,46 +15,46 @@ using namespace drogon;
  * Handles font file uploads for AI instances.
  *
  * Endpoints:
- * - POST /v1/core/font/upload - Upload a font file
- * - GET /v1/core/font/list - List uploaded fonts
- * - PUT /v1/core/font/{fontName} - Rename a font file
- * - DELETE /v1/core/font/{fontName} - Delete a font file
+ * - POST /v1/securt/font/upload - Upload a font file
+ * - GET /v1/securt/font/list - List uploaded fonts
+ * - PUT /v1/securt/font/{fontName} - Rename a font file
+ * - DELETE /v1/securt/font/{fontName} - Delete a font file
  */
 class FontUploadHandler : public drogon::HttpController<FontUploadHandler> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(FontUploadHandler::uploadFont, "/v1/core/font/upload", Post);
-  ADD_METHOD_TO(FontUploadHandler::listFonts, "/v1/core/font/list", Get);
-  ADD_METHOD_TO(FontUploadHandler::renameFont, "/v1/core/font/{fontName}", Put);
-  ADD_METHOD_TO(FontUploadHandler::deleteFont, "/v1/core/font/{fontName}",
+  ADD_METHOD_TO(FontUploadHandler::uploadFont, "/v1/securt/font/upload", Post);
+  ADD_METHOD_TO(FontUploadHandler::listFonts, "/v1/securt/font/list", Get);
+  ADD_METHOD_TO(FontUploadHandler::renameFont, "/v1/securt/font/{fontName}", Put);
+  ADD_METHOD_TO(FontUploadHandler::deleteFont, "/v1/securt/font/{fontName}",
                 Delete);
-  ADD_METHOD_TO(FontUploadHandler::handleOptions, "/v1/core/font/upload",
+  ADD_METHOD_TO(FontUploadHandler::handleOptions, "/v1/securt/font/upload",
                 Options);
   METHOD_LIST_END
 
   /**
-   * @brief Handle POST /v1/core/font/upload
+   * @brief Handle POST /v1/securt/font/upload
    * Uploads a font file (multipart/form-data)
    */
   void uploadFont(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle GET /v1/core/font/list
+   * @brief Handle GET /v1/securt/font/list
    * Lists all uploaded font files
    */
   void listFonts(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle PUT /v1/core/font/{fontName}
+   * @brief Handle PUT /v1/securt/font/{fontName}
    * Renames a font file
    */
   void renameFont(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle DELETE /v1/core/font/{fontName}
+   * @brief Handle DELETE /v1/securt/font/{fontName}
    * Deletes a font file
    */
   void deleteFont(const HttpRequestPtr &req,

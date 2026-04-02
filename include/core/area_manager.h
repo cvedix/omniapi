@@ -60,6 +60,8 @@ public:
                                      const FaceCoveredAreaWrite &write);
   std::string createObjectEnterExitArea(const std::string &instanceId,
                                          const ObjectEnterExitAreaWrite &write);
+  std::string createStopArea(const std::string &instanceId,
+                              const StopAreaWrite &write);
 
   // ========================================================================
   // Create Area with ID Methods (PUT)
@@ -115,6 +117,9 @@ public:
   std::string createObjectEnterExitAreaWithId(const std::string &instanceId,
                                                const std::string &areaId,
                                                const ObjectEnterExitAreaWrite &write);
+  std::string createStopAreaWithId(const std::string &instanceId,
+                                    const std::string &areaId,
+                                    const StopAreaWrite &write);
 
   // ========================================================================
   // Get Methods

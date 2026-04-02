@@ -5,120 +5,372 @@
 #include <iostream>
 #include <json/json.h>
 #include <sstream>
+#include <sqlite3.h>
 
-SolutionStorage::SolutionStorage(const std::string &storage_dir)
-    : storage_dir_(storage_dir) {
-  ensureStorageDir();
-}
+// ============================================================================
+// Constructor
+// ============================================================================
 
-void SolutionStorage::ensureStorageDir() {
-  // Extract subdir name from storage_dir_ for fallback
-  std::filesystem::path path(storage_dir_);
-  std::string subdir = path.filename().string();
-  if (subdir.empty()) {
-    subdir = "solutions"; // Default fallback subdir
-  }
-
-  // Use resolveDirectory with 3-tier fallback strategy
-  std::string resolved_dir = EnvConfig::resolveDirectory(storage_dir_, subdir);
-
-  // Update storage_dir_ if fallback was used
-  if (resolved_dir != storage_dir_) {
-    std::cerr << "[SolutionStorage] ⚠ Storage directory changed from "
-              << storage_dir_ << " to " << resolved_dir << " (fallback)"
+SolutionStorage::SolutionStorage(sqlite3 *db,
+                                 const std::string &legacy_storage_dir)
+    : db_(db), legacy_storage_dir_(legacy_storage_dir) {
+  if (!db_) {
+    std::cerr << "[SolutionStorage] WARNING: Database handle is null"
               << std::endl;
-    storage_dir_ = resolved_dir;
+    return;
   }
 
-  // Don't throw - let the application continue even if directory creation
-  // failed
+  if (!createTable()) {
+    std::cerr << "[SolutionStorage] Error creating solutions table" << std::endl;
+    return;
+  }
+
+  // Auto-migrate from JSON file if legacy directory is provided
+  if (!legacy_storage_dir_.empty()) {
+    migrateFromJson();
+  }
+
+  std::cerr << "[SolutionStorage] ✓ SolutionStorage ready (SQLite backend)"
+            << std::endl;
 }
 
-std::string SolutionStorage::getSolutionsFilePath() const {
-  return storage_dir_ + "/solutions.json";
+// ============================================================================
+// Table Creation
+// ============================================================================
+
+bool SolutionStorage::createTable() {
+  if (!db_)
+    return false;
+
+  const char *sql = R"(
+    CREATE TABLE IF NOT EXISTS solutions (
+      solution_id   TEXT PRIMARY KEY,
+      solution_name TEXT NOT NULL,
+      solution_type TEXT DEFAULT '',
+      config_json   TEXT NOT NULL DEFAULT '{}',
+      is_custom     INTEGER DEFAULT 1,
+      created_at    TEXT DEFAULT (datetime('now')),
+      updated_at    TEXT DEFAULT (datetime('now'))
+    );
+  )";
+
+  char *errmsg = nullptr;
+  int rc = sqlite3_exec(db_, sql, nullptr, nullptr, &errmsg);
+  if (rc != SQLITE_OK) {
+    std::cerr << "[SolutionStorage] Error creating table: "
+              << (errmsg ? errmsg : "unknown") << std::endl;
+    if (errmsg)
+      sqlite3_free(errmsg);
+    return false;
+  }
+  return true;
 }
 
-Json::Value SolutionStorage::loadSolutionsFile() const {
-  Json::Value root(Json::objectValue);
+// ============================================================================
+// Migration from solutions.json
+// ============================================================================
 
-  // Extract subdir for checking all tiers
-  std::filesystem::path path(storage_dir_);
+void SolutionStorage::migrateFromJson() {
+  if (legacy_storage_dir_.empty())
+    return;
+
+  // Check all possible directories for legacy solutions.json
+  std::filesystem::path path(legacy_storage_dir_);
   std::string subdir = path.filename().string();
-  if (subdir.empty()) {
+  if (subdir.empty())
     subdir = "solutions";
-  }
 
-  // Get all possible directories in priority order
   std::vector<std::string> allDirs =
       EnvConfig::getAllPossibleDirectories(subdir);
+  allDirs.insert(allDirs.begin(), legacy_storage_dir_);
 
-  // Try to load from all tiers, merge data (later tiers override earlier ones)
   for (const auto &dir : allDirs) {
-    std::string filepath = dir + "/solutions.json";
-    if (!std::filesystem::exists(filepath)) {
-      continue; // Skip if file doesn't exist
-    }
+    std::string jsonPath = dir + "/solutions.json";
+    if (!std::filesystem::exists(jsonPath))
+      continue;
+
+    std::cerr << "[SolutionStorage] Found solutions.json, migrating: "
+              << jsonPath << std::endl;
 
     try {
-      std::ifstream file(filepath);
-      if (!file.is_open()) {
+      std::ifstream file(jsonPath);
+      if (!file.is_open())
         continue;
-      }
 
       Json::CharReaderBuilder builder;
       std::string errors;
-      Json::Value tierData(Json::objectValue);
-      if (Json::parseFromStream(builder, file, &tierData, &errors)) {
-        // Merge data: later tiers override earlier ones
-        for (const auto &key : tierData.getMemberNames()) {
-          root[key] = tierData[key];
-        }
-        std::cerr << "[SolutionStorage] Loaded data from tier: " << dir
+      Json::Value root(Json::objectValue);
+      if (!Json::parseFromStream(builder, file, &root, &errors)) {
+        std::cerr << "[SolutionStorage] JSON parse error: " << errors
                   << std::endl;
+        continue;
       }
+      file.close();
+
+      int migrated = 0;
+      int failed = 0;
+
+      for (const auto &key : root.getMemberNames()) {
+        auto config = jsonToSolutionConfig(root[key]);
+        if (!config.has_value()) {
+          failed++;
+          continue;
+        }
+
+        // Skip default solutions
+        if (config->isDefault) {
+          continue;
+        }
+
+        // Check if already exists
+        if (solutionExists(config->solutionId))
+          continue;
+
+        if (saveSolution(config.value())) {
+          migrated++;
+        } else {
+          failed++;
+        }
+      }
+
+      if (migrated > 0) {
+        std::cerr << "[SolutionStorage] ✓ Migrated " << migrated
+                  << " solutions from JSON (" << failed << " failed)"
+                  << std::endl;
+
+        // Rename original file
+        std::string backupPath = jsonPath + ".migrated";
+        try {
+          std::filesystem::rename(jsonPath, backupPath);
+          std::cerr << "[SolutionStorage] ✓ Renamed " << jsonPath << " → "
+                    << backupPath << std::endl;
+        } catch (const std::exception &e) {
+          std::cerr << "[SolutionStorage] Warning: Could not rename JSON: "
+                    << e.what() << std::endl;
+        }
+      }
+
+      break; // Only migrate from the first found file
     } catch (const std::exception &e) {
-      // Continue to next tier
-      continue;
+      std::cerr << "[SolutionStorage] Migration exception: " << e.what()
+                << std::endl;
     }
   }
-
-  return root;
 }
 
-bool SolutionStorage::saveSolutionsFile(const Json::Value &solutions) {
+// ============================================================================
+// CRUD Operations
+// ============================================================================
+
+bool SolutionStorage::saveSolution(const SolutionConfig &config) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!db_)
+    return false;
+
+  // SECURITY: Never save default solutions to storage
+  if (config.isDefault) {
+    std::cerr
+        << "[SolutionStorage] Security: Attempted to save default solution '"
+        << config.solutionId << "'. Ignoring." << std::endl;
+    return false;
+  }
+
   try {
-    ensureStorageDir();
+    // Serialize full config to JSON string
+    Json::Value configJson = solutionConfigToJson(config);
+    configJson["isDefault"] = false; // Double protection
+    Json::StreamWriterBuilder writerBuilder;
+    writerBuilder["indentation"] = "";
+    std::string configStr = Json::writeString(writerBuilder, configJson);
 
-    std::string filepath = getSolutionsFilePath();
-    std::cerr << "[SolutionStorage] Saving solutions to: " << filepath
-              << std::endl;
+    const char *upsertSql =
+        "INSERT OR REPLACE INTO solutions "
+        "(solution_id, solution_name, solution_type, config_json, is_custom, "
+        "updated_at) "
+        "VALUES (?, ?, ?, ?, 1, datetime('now'))";
 
-    std::ofstream file(filepath);
-    if (!file.is_open()) {
-      std::cerr << "[SolutionStorage] Error: Failed to open file for writing: "
-                << filepath << std::endl;
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, upsertSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+      std::cerr << "[SolutionStorage] Prepare error: " << sqlite3_errmsg(db_)
+                << std::endl;
       return false;
     }
 
-    Json::StreamWriterBuilder builder;
-    builder["indentation"] = "    "; // 4 spaces for indentation
-    std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-    writer->write(solutions, &file);
-    file.close();
+    sqlite3_bind_text(stmt, 1, config.solutionId.c_str(), -1,
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, config.solutionName.c_str(), -1,
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, config.solutionType.c_str(), -1,
+                      SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, configStr.c_str(), -1, SQLITE_TRANSIENT);
 
-    std::cerr << "[SolutionStorage] Successfully saved solutions file"
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) {
+      std::cerr << "[SolutionStorage] Insert error: " << sqlite3_errmsg(db_)
+                << std::endl;
+      return false;
+    }
+
+    std::cerr << "[SolutionStorage] ✓ Saved solution: " << config.solutionId
               << std::endl;
     return true;
   } catch (const std::exception &e) {
-    std::cerr << "[SolutionStorage] Exception saving solutions file: "
-              << e.what() << std::endl;
-    return false;
-  } catch (...) {
-    std::cerr << "[SolutionStorage] Unknown exception saving solutions file"
+    std::cerr << "[SolutionStorage] Exception in saveSolution: " << e.what()
               << std::endl;
     return false;
   }
 }
+
+std::optional<SolutionConfig>
+SolutionStorage::loadSolution(const std::string &solutionId) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!db_)
+    return std::nullopt;
+
+  try {
+    const char *selectSql =
+        "SELECT config_json FROM solutions WHERE solution_id = ?";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return std::nullopt;
+
+    sqlite3_bind_text(stmt, 1, solutionId.c_str(), -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+      sqlite3_finalize(stmt);
+      return std::nullopt;
+    }
+
+    const char *configText =
+        reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+    std::string configStr = configText ? configText : "{}";
+    sqlite3_finalize(stmt);
+
+    // Parse JSON
+    Json::CharReaderBuilder readerBuilder;
+    std::string parseErrors;
+    Json::Value config;
+    std::istringstream stream(configStr);
+    if (!Json::parseFromStream(readerBuilder, stream, &config, &parseErrors)) {
+      return std::nullopt;
+    }
+
+    return jsonToSolutionConfig(config);
+  } catch (const std::exception &e) {
+    std::cerr << "[SolutionStorage] Exception in loadSolution: " << e.what()
+              << std::endl;
+    return std::nullopt;
+  }
+}
+
+std::vector<SolutionConfig> SolutionStorage::loadAllSolutions() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::vector<SolutionConfig> result;
+
+  if (!db_)
+    return result;
+
+  try {
+    const char *selectSql = "SELECT config_json FROM solutions WHERE is_custom = 1";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return result;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *configText =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      std::string configStr = configText ? configText : "{}";
+
+      Json::CharReaderBuilder readerBuilder;
+      std::string parseErrors;
+      Json::Value config;
+      std::istringstream stream(configStr);
+      if (Json::parseFromStream(readerBuilder, stream, &config, &parseErrors)) {
+        auto solutionConfig = jsonToSolutionConfig(config);
+        if (solutionConfig.has_value()) {
+          // SECURITY: Skip default solutions
+          if (solutionConfig->isDefault) {
+            continue;
+          }
+          solutionConfig->isDefault = false;
+          result.push_back(solutionConfig.value());
+        }
+      }
+    }
+    sqlite3_finalize(stmt);
+  } catch (const std::exception &e) {
+    std::cerr << "[SolutionStorage] Exception in loadAllSolutions: " << e.what()
+              << std::endl;
+  }
+
+  return result;
+}
+
+bool SolutionStorage::deleteSolution(const std::string &solutionId) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!db_)
+    return false;
+
+  try {
+    const char *deleteSql = "DELETE FROM solutions WHERE solution_id = ?";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, deleteSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return false;
+
+    sqlite3_bind_text(stmt, 1, solutionId.c_str(), -1, SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+      return false;
+
+    int changes = sqlite3_changes(db_);
+    if (changes > 0) {
+      std::cerr << "[SolutionStorage] ✓ Deleted solution: " << solutionId
+                << std::endl;
+    }
+    return changes > 0;
+  } catch (const std::exception &e) {
+    std::cerr << "[SolutionStorage] Exception in deleteSolution: " << e.what()
+              << std::endl;
+    return false;
+  }
+}
+
+bool SolutionStorage::solutionExists(const std::string &solutionId) const {
+  if (!db_)
+    return false;
+
+  try {
+    const char *selectSql =
+        "SELECT 1 FROM solutions WHERE solution_id = ? LIMIT 1";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return false;
+
+    sqlite3_bind_text(stmt, 1, solutionId.c_str(), -1, SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc == SQLITE_ROW;
+  } catch (...) {
+    return false;
+  }
+}
+
+// ============================================================================
+// JSON Conversion (preserved from original)
+// ============================================================================
 
 Json::Value
 SolutionStorage::solutionConfigToJson(const SolutionConfig &config) const {
@@ -177,9 +429,6 @@ SolutionStorage::jsonToSolutionConfig(const Json::Value &json) const {
     config.solutionType = json["solutionType"].asString();
 
     // SECURITY: Always set isDefault to false when loading from storage
-    // Users cannot create default solutions - they are hardcoded in the
-    // application Even if someone manually edits the storage file, we ignore
-    // the isDefault flag
     config.isDefault = false;
 
     // Parse pipeline
@@ -227,147 +476,5 @@ SolutionStorage::jsonToSolutionConfig(const Json::Value &json) const {
         << "[SolutionStorage] Exception converting JSON to SolutionConfig: "
         << e.what() << std::endl;
     return std::nullopt;
-  }
-}
-
-bool SolutionStorage::saveSolution(const SolutionConfig &config) {
-  std::cerr << "[SolutionStorage] saveSolution called for solution: "
-            << config.solutionId << std::endl;
-  std::cerr << "[SolutionStorage] Storage directory: " << storage_dir_
-            << std::endl;
-
-  // SECURITY: Never save default solutions to storage
-  // Default solutions are hardcoded in the application and should never be
-  // persisted
-  if (config.isDefault) {
-    std::cerr
-        << "[SolutionStorage] Security: Attempted to save default solution '"
-        << config.solutionId
-        << "' to storage. This is not allowed. Ignoring save operation."
-        << std::endl;
-    return false;
-  }
-
-  try {
-    Json::Value solutions = loadSolutionsFile();
-    std::cerr << "[SolutionStorage] Loaded existing solutions file, found "
-              << solutions.size() << " solutions" << std::endl;
-
-    // Convert solution to JSON
-    Json::Value solutionJson = solutionConfigToJson(config);
-    // Ensure isDefault is always false in storage (double protection)
-    solutionJson["isDefault"] = false;
-    std::cerr
-        << "[SolutionStorage] Successfully converted SolutionConfig to JSON"
-        << std::endl;
-
-    // Store solution
-    solutions[config.solutionId] = solutionJson;
-    std::cerr << "[SolutionStorage] Added solution to JSON object" << std::endl;
-
-    // Save updated solutions file
-    if (!saveSolutionsFile(solutions)) {
-      std::cerr << "[SolutionStorage] Failed to save solutions file"
-                << std::endl;
-      return false;
-    }
-
-    std::cerr << "[SolutionStorage] ✓ Successfully saved solution: "
-              << config.solutionId << std::endl;
-    return true;
-  } catch (const std::exception &e) {
-    std::cerr << "[SolutionStorage] Exception in saveSolution: " << e.what()
-              << std::endl;
-    return false;
-  } catch (...) {
-    std::cerr << "[SolutionStorage] Unknown exception in saveSolution"
-              << std::endl;
-    return false;
-  }
-}
-
-std::optional<SolutionConfig>
-SolutionStorage::loadSolution(const std::string &solutionId) {
-  try {
-    Json::Value solutions = loadSolutionsFile();
-
-    if (!solutions.isMember(solutionId)) {
-      return std::nullopt;
-    }
-
-    return jsonToSolutionConfig(solutions[solutionId]);
-  } catch (const std::exception &e) {
-    std::cerr << "[SolutionStorage] Exception in loadSolution: " << e.what()
-              << std::endl;
-    return std::nullopt;
-  }
-}
-
-std::vector<SolutionConfig> SolutionStorage::loadAllSolutions() {
-  std::vector<SolutionConfig> result;
-
-  try {
-    Json::Value solutions = loadSolutionsFile();
-
-    for (const auto &key : solutions.getMemberNames()) {
-      auto config = jsonToSolutionConfig(solutions[key]);
-      if (config.has_value()) {
-        // SECURITY: Filter out any solutions marked as default
-        // Even if someone manually edits the storage file and sets
-        // isDefault=true, we will never load them. Default solutions must come
-        // from code only.
-        if (config.value().isDefault) {
-          std::cerr << "[SolutionStorage] Security: Found solution '"
-                    << config.value().solutionId
-                    << "' marked as default in storage. Skipping (default "
-                       "solutions must be hardcoded)."
-                    << std::endl;
-          continue;
-        }
-        // Ensure isDefault is false (double protection)
-        config.value().isDefault = false;
-        result.push_back(config.value());
-      }
-    }
-  } catch (const std::exception &e) {
-    std::cerr << "[SolutionStorage] Exception in loadAllSolutions: " << e.what()
-              << std::endl;
-  }
-
-  return result;
-}
-
-bool SolutionStorage::deleteSolution(const std::string &solutionId) {
-  try {
-    Json::Value solutions = loadSolutionsFile();
-
-    if (!solutions.isMember(solutionId)) {
-      return false; // Solution doesn't exist
-    }
-
-    solutions.removeMember(solutionId);
-
-    // Save updated solutions file
-    if (!saveSolutionsFile(solutions)) {
-      std::cerr
-          << "[SolutionStorage] Failed to save solutions file after deletion"
-          << std::endl;
-      return false;
-    }
-
-    return true;
-  } catch (const std::exception &e) {
-    std::cerr << "[SolutionStorage] Exception in deleteSolution: " << e.what()
-              << std::endl;
-    return false;
-  }
-}
-
-bool SolutionStorage::solutionExists(const std::string &solutionId) const {
-  try {
-    Json::Value solutions = loadSolutionsFile();
-    return solutions.isMember(solutionId);
-  } catch (const std::exception &e) {
-    return false;
   }
 }

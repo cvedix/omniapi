@@ -273,10 +273,10 @@ FontUploadHandler::extractFontName(const HttpRequestPtr &req) const {
       path = pathWithoutQuery;
     }
 
-    // Try /v1/core/font/ pattern first
-    size_t fontPos = path.find("/v1/core/font/");
+    // Try /v1/securt/font/ pattern first
+    size_t fontPos = path.find("/v1/securt/font/");
     if (fontPos != std::string::npos) {
-      size_t start = fontPos + 14;        // length of "/v1/core/font/"
+      size_t start = fontPos + 14;        // length of "/v1/securt/font/"
       size_t end = path.find("?", start); // Stop at query string if present
       if (end == std::string::npos) {
         end = path.length();
@@ -702,7 +702,7 @@ void FontUploadHandler::uploadFont(
           fileInfo["originalFilename"] = partFilename;
           fileInfo["path"] = std::filesystem::canonical(partFilePath).string();
           fileInfo["size"] = static_cast<Json::Int64>(fileSize);
-          fileInfo["url"] = "/v1/core/font/" + finalFilename;
+          fileInfo["url"] = "/v1/securt/font/" + finalFilename;
           uploadedFiles.append(fileInfo);
 
           fileCount++;
@@ -1024,7 +1024,7 @@ void FontUploadHandler::uploadFont(
     response["originalFilename"] = originalFilename;
     response["path"] = canonicalPath;
     response["size"] = fileSize;
-    response["url"] = "/v1/core/font/" + sanitizedFilename;
+    response["url"] = "/v1/securt/font/" + sanitizedFilename;
 
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k201Created);

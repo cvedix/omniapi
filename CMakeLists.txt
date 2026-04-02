@@ -326,48 +326,15 @@ set(SOURCES
     src/api/health_handler.cpp
     src/api/version_handler.cpp
     src/api/watchdog_handler.cpp
-    src/api/endpoints_handler.cpp
     src/api/swagger_handler.cpp
     src/api/scalar_handler.cpp
     src/api/hls_handler.cpp
-    src/api/create_instance_handler.cpp
-    src/api/quick_instance_handler.cpp
-    src/api/instance_handler.cpp
-    src/api/instance_handler_get_start_restart.cpp
-    src/api/instance_handler_update_delete.cpp
-    src/api/instance_handler_config_stats_frame.cpp
-    src/api/instance_handler_input_stream.cpp
-    src/api/instance_handler_configure_stream.cpp
-    src/api/instance_handler_classes_preview.cpp
-    src/api/instance_handler_options_parse.cpp
-    src/api/instance_handler_batch.cpp
-    src/api/instance_handler_instance_output.cpp
-    src/api/instance_handler_nested_set_config.cpp
-    src/api/instance_handler_log_config.cpp
-    src/api/instance_handler_load_unload_state.cpp
-    src/api/instance_handler_set_state_patch.cpp
-    src/api/instance_handler_events_hls.cpp
-    src/api/instance_handler_configure_rtsp.cpp
-    src/api/instance_handler_push_encoded.cpp
-    src/api/instance_handler_push_compressed.cpp
-    src/api/instance_fps_handler.cpp
-    src/api/solution_handler.cpp
-    src/api/solution_handler_create_update.cpp
-    src/api/solution_handler_delete_parameters.cpp
-    src/api/solution_handler_instance_body.cpp
-    src/api/solution_handler_options_defaults.cpp
-    src/api/solution_handler_load_schema.cpp
-    src/api/solution_handler_schema_helpers.cpp
-    src/api/group_handler.cpp
     src/api/config_handler.cpp
     src/api/system_handler.cpp
-    src/api/lines_handler.cpp
-    src/api/jams_handler.cpp
-    src/api/stops_handler.cpp
     src/api/securt_handler.cpp
+    src/api/quick_instance_parser.cpp
     src/api/securt_line_handler.cpp
     src/api/area_handler.cpp
-    src/api/node_handler.cpp
     src/api/onvif_handler.cpp
     # src/api/system_info_handler.cpp
     src/api/license_handler.cpp
@@ -376,6 +343,7 @@ set(SOURCES
     src/videos/video_upload_handler.cpp
     src/fonts/font_upload_handler.cpp
     src/core/watchdog.cpp
+    src/core/omni_database.cpp
     src/core/health_monitor.cpp
     src/core/system_metrics.cpp
     src/core/device_report_collector.cpp
@@ -473,7 +441,7 @@ set(SOURCES
     src/models/update_instance_request.cpp
     src/models/solution_config.cpp
     src/models/group_info.cpp
-    src/api/group_handler.cpp
+
     # Infrastructure components (available but not used in main yet)
     src/core/resource_manager.cpp
     src/core/shutdown_flag.cpp
@@ -485,7 +453,7 @@ set(SOURCES
     # AI handlers (not needed for base code)
     # src/api/ai_handler.cpp
     src/api/ai_websocket.cpp
-    src/api/metrics_handler.cpp
+
 )
 
 # ============================================
@@ -1288,6 +1256,8 @@ set(CORE_LIB_SOURCES
     src/core/cvedix_validator.cpp
     src/solutions/solution_registry.cpp
     src/solutions/solution_storage.cpp
+    third_party/sqlite3/sqlite3.c
+    src/core/omni_database.cpp
     src/models/solution_config.cpp
     src/models/create_instance_request.cpp
     src/core/uuid_generator.cpp
@@ -1312,7 +1282,7 @@ set(CORE_LIB_SOURCES
 
 add_library(edgeos_core SHARED ${CORE_LIB_SOURCES})
 
-target_include_directories(edgeos_core PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(edgeos_core PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src third_party/sqlite3)
 
 # Link dependencies to core library
 if(TARGET jsoncpp_lib)

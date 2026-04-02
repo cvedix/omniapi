@@ -79,6 +79,40 @@ public:
    */
   void initializeDefaultSolutions();
 
+  // ── Tiered Solution API ──────────────────────────────────────────────
+
+  /**
+   * @brief Resolve the best solution ID for a category + optional feature.
+   *
+   * Enables a tiered API where users specify a high-level category
+   * (e.g. "security", "its") and optionally a feature (e.g. "crossline", "jam")
+   * instead of knowing internal solution IDs.
+   *
+   * @param category  Application category: "security", "its", "armed",
+   *                  "firefighting", "custom"
+   * @param feature   Optional feature within the category (e.g. "crossline",
+   *                  "jam", "loitering"). Empty string selects the default
+   *                  solution for that category.
+   * @return solutionId that matches the category/feature, or empty string
+   */
+  std::string resolveSolutionByCategory(
+      const std::string &category,
+      const std::string &feature = "") const;
+
+  /**
+   * @brief List all available solution categories
+   * @return Vector of category names (e.g. "security", "its", ...)
+   */
+  std::vector<std::string> listCategories() const;
+
+  /**
+   * @brief List features available in a specific category
+   * @param category  Category name
+   * @return Vector of feature names available in that category
+   */
+  std::vector<std::string> listCategoryFeatures(
+      const std::string &category) const;
+
 private:
   SolutionRegistry() = default;
   ~SolutionRegistry() = default;

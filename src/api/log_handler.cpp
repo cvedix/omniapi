@@ -190,7 +190,7 @@ std::string LogHandler::extractCategory(const HttpRequestPtr &req) const {
   // Fallback: extract from path if getParameter doesn't work
   if (category.empty()) {
     std::string path = req->getPath();
-    // Look for "/log/" (singular) in path like "/v1/core/log/{category}"
+    // Look for "/log/" (singular) in path like "/v1/securt/log/{category}"
     size_t logPos = path.find("/log/");
     if (logPos != std::string::npos) {
       size_t start = logPos + 5; // length of "/log/"

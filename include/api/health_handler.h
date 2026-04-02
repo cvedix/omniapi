@@ -14,17 +14,17 @@ using namespace drogon;
 /**
  * @brief Health check endpoint handler
  *
- * Endpoint: GET /v1/core/health
+ * Endpoint: GET /v1/securt/health
  * Returns: JSON with status, timestamp, and uptime
  */
 class HealthHandler : public drogon::HttpController<HealthHandler> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(HealthHandler::getHealth, "/v1/core/health", Get);
+  ADD_METHOD_TO(HealthHandler::getHealth, "/v1/securt/health", Get);
   METHOD_LIST_END
 
   /**
-   * @brief Handle GET /v1/core/health
+   * @brief Handle GET /v1/securt/health
    *
    * @param req HTTP request
    * @param callback Response callback

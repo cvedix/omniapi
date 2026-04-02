@@ -437,6 +437,39 @@ std::string AreaStorage::createObjectEnterExitArea(
   return finalAreaId;
 }
 
+std::string AreaStorage::createStopArea(const std::string &instanceId,
+                                         const std::string &areaId,
+                                         const StopAreaWrite &write) {
+  std::unique_lock<std::shared_mutex> lock(mutex_);
+
+  std::string finalAreaId =
+      areaId.empty() ? UUIDGenerator::generateUUID() : areaId;
+
+  auto [type, index] = findAreaIndex(instanceId, finalAreaId);
+  if (index != SIZE_MAX) {
+    return "";
+  }
+
+  StopArea area;
+  area.id = finalAreaId;
+  area.name = write.name;
+  area.coordinates = write.coordinates;
+  area.classes = write.classes;
+  area.color = write.color;
+  area.enterAlert = write.enterAlert;
+  area.exitAlert = write.exitAlert;
+
+  storage_[instanceId][AreaType::Stop].push_back(
+      std::make_shared<StopArea>(area));
+
+  std::cerr << "[AreaStorage::createStopArea] DEBUG: Stored area ID: " << finalAreaId 
+            << ", Name: " << area.name 
+            << ", Type: Stop (enum: " << static_cast<int>(AreaType::Stop) << ")"
+            << ", enterAlert: " << area.enterAlert << ", exitAlert: " << area.exitAlert << std::endl;
+
+  return finalAreaId;
+}
+
 std::unordered_map<std::string, std::vector<Json::Value>>
 AreaStorage::getAllAreas(const std::string &instanceId) const {
   std::shared_lock<std::shared_mutex> lock(mutex_);
@@ -663,6 +696,10 @@ Json::Value AreaStorage::areaToJson(AreaType type,
   case AreaType::ObjectEnterExit: {
     auto *objectEnterExitArea = static_cast<ObjectEnterExitArea *>(area.get());
     return objectEnterExitArea->toJson();
+  }
+  case AreaType::Stop: {
+    auto *stopArea = static_cast<StopArea *>(area.get());
+    return stopArea->toJson();
   }
   default:
     return Json::Value();

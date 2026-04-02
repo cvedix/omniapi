@@ -783,6 +783,108 @@ void AreaHandler::createObjectEnterExitArea(
   }
 }
 
+void AreaHandler::createStopArea(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto start_time = std::chrono::steady_clock::now();
+
+  if (isApiLoggingEnabled()) {
+    PLOG_INFO << "[API] POST /v1/securt/instance/{instanceId}/area/stop - Create stop area (ba_stop_node)";
+    PLOG_DEBUG << "[API] Request from: " << req->getPeerAddr().toIpPort();
+  }
+
+  try {
+    if (!area_manager_) {
+      if (isApiLoggingEnabled()) {
+        PLOG_ERROR << "[API] POST /area/stop - Error: Area manager not initialized";
+      }
+      callback(createErrorResponse(500, "Internal server error",
+                                   "Area manager not initialized"));
+      return;
+    }
+
+    std::string instanceId = extractInstanceId(req);
+    if (instanceId.empty()) {
+      callback(createErrorResponse(400, "Invalid request",
+                                   "Instance ID is required"));
+      return;
+    }
+
+    auto json = req->getJsonObject();
+    if (!json) {
+      callback(createErrorResponse(400, "Invalid request",
+                                   "Request body must be valid JSON"));
+      return;
+    }
+
+    if (isApiLoggingEnabled()) {
+      Json::StreamWriterBuilder builder;
+      builder["indentation"] = "";
+      std::string jsonStr = Json::writeString(builder, *json);
+      PLOG_DEBUG << "[API] POST /v1/securt/instance/" << instanceId << "/area/stop - Request body: " << jsonStr;
+    }
+
+    StopAreaWrite write = StopAreaWrite::fromJson(*json);
+    if (isApiLoggingEnabled()) {
+      PLOG_DEBUG << "[API] POST /v1/securt/instance/" << instanceId << "/area/stop - Parsed area data - name: " << write.name
+                 << ", coordinates count: " << write.coordinates.size()
+                 << ", enterAlert: " << write.enterAlert
+                 << ", exitAlert: " << write.exitAlert;
+    }
+
+    std::string areaId = area_manager_->createStopArea(instanceId, write);
+
+    if (areaId.empty()) {
+      auto end_time = std::chrono::steady_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+          end_time - start_time);
+      if (isApiLoggingEnabled()) {
+        PLOG_WARNING << "[API] POST /area/stop - Failed to create area - " << duration.count() << "ms";
+      }
+      callback(createErrorResponse(400, "Invalid request",
+                                   "Failed to create stop area. Check validation errors."));
+      return;
+    }
+
+    Json::Value response;
+    response["areaId"] = areaId;
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time);
+
+    if (isApiLoggingEnabled()) {
+      PLOG_INFO << "[API] POST /v1/securt/instance/" << instanceId << "/area/stop - Success: Created area " << areaId << " - " << duration.count() << "ms";
+    }
+
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k201Created);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+
+  } catch (const std::exception &e) {
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time);
+    if (isApiLoggingEnabled()) {
+      PLOG_ERROR << "[API] POST /area/stop - Exception: " << e.what() << " - " << duration.count() << "ms";
+    }
+    callback(createErrorResponse(500, "Internal server error", e.what()));
+  } catch (...) {
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time);
+    if (isApiLoggingEnabled()) {
+      PLOG_ERROR << "[API] POST /area/stop - Unknown exception - " << duration.count() << "ms";
+    }
+    callback(createErrorResponse(500, "Internal server error",
+                                 "Unknown error occurred"));
+  }
+}
+
 // ========================================================================
 // Standard Areas - PUT handlers (create with ID)
 // ========================================================================
@@ -1394,6 +1496,75 @@ void AreaHandler::createObjectEnterExitAreaWithId(
     if (isApiLoggingEnabled()) {
       PLOG_ERROR << "[API] PUT /v1/securt/instance/{instanceId}/area/objectEnterExit/{areaId} - Unknown exception - " << duration.count() << "ms";
     }
+    callback(createErrorResponse(500, "Internal server error",
+                                 "Unknown error occurred"));
+  }
+}
+
+void AreaHandler::createStopAreaWithId(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto start_time = std::chrono::steady_clock::now();
+
+  try {
+    if (!area_manager_) {
+      callback(createErrorResponse(500, "Internal server error",
+                                   "Area manager not initialized"));
+      return;
+    }
+
+    std::string instanceId = extractInstanceId(req);
+    if (instanceId.empty()) {
+      callback(createErrorResponse(400, "Invalid request",
+                                   "Instance ID is required"));
+      return;
+    }
+
+    std::string areaId = extractAreaId(req);
+    if (areaId.empty()) {
+      callback(createErrorResponse(400, "Invalid request",
+                                   "Area ID is required"));
+      return;
+    }
+
+    auto json = req->getJsonObject();
+    if (!json) {
+      callback(createErrorResponse(400, "Invalid request",
+                                   "Request body must be valid JSON"));
+      return;
+    }
+
+    StopAreaWrite write = StopAreaWrite::fromJson(*json);
+    std::string resultId = area_manager_->createStopAreaWithId(instanceId, areaId, write);
+
+    if (resultId.empty()) {
+      callback(createErrorResponse(400, "Invalid request",
+                                   "Failed to create stop area."));
+      return;
+    }
+
+    Json::Value response;
+    response["areaId"] = resultId;
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        end_time - start_time);
+
+    if (isApiLoggingEnabled()) {
+      PLOG_INFO << "[API] PUT /area/stop/" << areaId << " - Success: Created area " << resultId << " - " << duration.count() << "ms";
+    }
+
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(k201Created);
+    resp->addHeader("Access-Control-Allow-Origin", "*");
+    resp->addHeader("Access-Control-Allow-Methods", "PUT, OPTIONS");
+    resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+
+  } catch (const std::exception &e) {
+    callback(createErrorResponse(500, "Internal server error", e.what()));
+  } catch (...) {
     callback(createErrorResponse(500, "Internal server error",
                                  "Unknown error occurred"));
   }

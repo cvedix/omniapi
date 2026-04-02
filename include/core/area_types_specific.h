@@ -685,3 +685,65 @@ struct ObjectEnterExitAreaWrite : public AreaBaseWrite {
   }
 };
 
+/**
+ * @brief Stop Area
+ * Maps directly to ba_stop_node in OmniCore SDK.
+ * Detects objects entering/exiting/stopping in a polygon zone.
+ */
+struct StopArea : public AreaBase {
+  bool enterAlert = true;
+  bool exitAlert = true;
+
+  Json::Value toJson() const {
+    Json::Value json = AreaBase::toJson();
+    json["enterAlert"] = enterAlert;
+    json["exitAlert"] = exitAlert;
+    return json;
+  }
+
+  static StopArea fromJson(const Json::Value &json) {
+    StopArea area;
+    AreaBase base = AreaBase::fromJson(json);
+    area.id = base.id;
+    area.name = base.name;
+    area.coordinates = base.coordinates;
+    area.classes = base.classes;
+    area.color = base.color;
+
+    if (json.isMember("enterAlert") && json["enterAlert"].isBool()) {
+      area.enterAlert = json["enterAlert"].asBool();
+    }
+    if (json.isMember("exitAlert") && json["exitAlert"].isBool()) {
+      area.exitAlert = json["exitAlert"].asBool();
+    }
+
+    return area;
+  }
+};
+
+/**
+ * @brief Stop Area Write Schema
+ */
+struct StopAreaWrite : public AreaBaseWrite {
+  bool enterAlert = true;
+  bool exitAlert = true;
+
+  static StopAreaWrite fromJson(const Json::Value &json) {
+    StopAreaWrite write;
+    AreaBaseWrite base = AreaBaseWrite::fromJson(json);
+    write.name = base.name;
+    write.coordinates = base.coordinates;
+    write.classes = base.classes;
+    write.color = base.color;
+
+    if (json.isMember("enterAlert") && json["enterAlert"].isBool()) {
+      write.enterAlert = json["enterAlert"].asBool();
+    }
+    if (json.isMember("exitAlert") && json["exitAlert"].isBool()) {
+      write.exitAlert = json["exitAlert"].asBool();
+    }
+
+    return write;
+  }
+};
+

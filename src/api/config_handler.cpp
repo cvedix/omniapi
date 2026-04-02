@@ -26,7 +26,7 @@ void ConfigHandler::getConfig(
   auto start_time = std::chrono::steady_clock::now();
 
   if (isApiLoggingEnabled()) {
-    PLOG_INFO << "[API] GET /v1/core/config - Get full configuration";
+    PLOG_INFO << "[API] GET /v1/securt/config - Get full configuration";
   }
 
   try {
@@ -38,7 +38,7 @@ void ConfigHandler::getConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[API] GET /v1/core/config - Success - " << duration.count()
+      PLOG_INFO << "[API] GET /v1/securt/config - Success - " << duration.count()
                 << "ms";
     }
 
@@ -51,7 +51,7 @@ void ConfigHandler::getConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] GET /v1/core/config - Exception: " << e.what()
+      PLOG_ERROR << "[API] GET /v1/securt/config - Exception: " << e.what()
                  << " - " << duration.count() << "ms";
     }
 
@@ -63,7 +63,7 @@ void ConfigHandler::getConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] GET /v1/core/config - Unknown exception - "
+      PLOG_ERROR << "[API] GET /v1/securt/config - Unknown exception - "
                  << duration.count() << "ms";
     }
 
@@ -85,14 +85,14 @@ void ConfigHandler::getConfigSection(
   }
 
   if (isApiLoggingEnabled()) {
-    PLOG_INFO << "[API] GET /v1/core/config/" << path
+    PLOG_INFO << "[API] GET /v1/securt/config/" << path
               << " - Get configuration section";
   }
 
   try {
     if (path.empty()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] GET /v1/core/config/{path} - Empty path";
+        PLOG_WARNING << "[API] GET /v1/securt/config/{path} - Empty path";
       }
       callback(createErrorResponse(400, "Invalid request",
                                    "Path parameter is required"));
@@ -108,7 +108,7 @@ void ConfigHandler::getConfigSection(
           end_time - start_time);
 
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] GET /v1/core/config/" << path
+        PLOG_WARNING << "[API] GET /v1/securt/config/" << path
                      << " - Not found - " << duration.count() << "ms";
       }
 
@@ -122,7 +122,7 @@ void ConfigHandler::getConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[API] GET /v1/core/config/" << path << " - Success - "
+      PLOG_INFO << "[API] GET /v1/securt/config/" << path << " - Success - "
                 << duration.count() << "ms";
     }
 
@@ -134,7 +134,7 @@ void ConfigHandler::getConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] GET /v1/core/config/" << path
+      PLOG_ERROR << "[API] GET /v1/securt/config/" << path
                  << " - Exception: " << e.what() << " - " << duration.count()
                  << "ms";
     }
@@ -146,7 +146,7 @@ void ConfigHandler::getConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] GET /v1/core/config/" << path
+      PLOG_ERROR << "[API] GET /v1/securt/config/" << path
                  << " - Unknown exception - " << duration.count() << "ms";
     }
 
@@ -161,14 +161,14 @@ void ConfigHandler::createOrUpdateConfig(
   auto start_time = std::chrono::steady_clock::now();
 
   if (isApiLoggingEnabled()) {
-    PLOG_INFO << "[API] POST /v1/core/config - Create or update configuration";
+    PLOG_INFO << "[API] POST /v1/securt/config - Create or update configuration";
   }
 
   try {
     auto json = req->getJsonObject();
     if (!json) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] POST /v1/core/config - Error: Invalid JSON body";
+        PLOG_WARNING << "[API] POST /v1/securt/config - Error: Invalid JSON body";
       }
       callback(createErrorResponse(400, "Invalid request",
                                    "Request body must be valid JSON"));
@@ -178,7 +178,7 @@ void ConfigHandler::createOrUpdateConfig(
     std::string error;
     if (!validateConfigJson(*json, error)) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] POST /v1/core/config - Validation failed: "
+        PLOG_WARNING << "[API] POST /v1/securt/config - Validation failed: "
                      << error;
       }
       callback(createErrorResponse(400, "Validation failed", error));
@@ -196,7 +196,7 @@ void ConfigHandler::createOrUpdateConfig(
     if (!config.updateConfig(*json)) {
       if (isApiLoggingEnabled()) {
         PLOG_ERROR
-            << "[API] POST /v1/core/config - Failed to update configuration";
+            << "[API] POST /v1/securt/config - Failed to update configuration";
       }
       callback(createErrorResponse(500, "Internal server error",
                                    "Failed to update configuration"));
@@ -206,7 +206,7 @@ void ConfigHandler::createOrUpdateConfig(
     // Save to file
     if (!config.saveConfig()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] POST /v1/core/config - Updated but failed to "
+        PLOG_WARNING << "[API] POST /v1/securt/config - Updated but failed to "
                         "save to file";
       }
     }
@@ -221,7 +221,7 @@ void ConfigHandler::createOrUpdateConfig(
 
     if (configChanged && !autoRestartRequested) {
       if (isApiLoggingEnabled()) {
-        PLOG_INFO << "[API] POST /v1/core/config - Web server config changed "
+        PLOG_INFO << "[API] POST /v1/securt/config - Web server config changed "
                      "(port/host), but auto_restart not requested. "
                      "Server restart required manually.";
       }
@@ -229,7 +229,7 @@ void ConfigHandler::createOrUpdateConfig(
 
     if (needsRestart) {
       std::string reason =
-          "[API] POST /v1/core/config - auto_restart requested";
+          "[API] POST /v1/securt/config - auto_restart requested";
       if (configChanged) {
         reason += " (web server config changed)";
         if (isApiLoggingEnabled()) {
@@ -250,7 +250,7 @@ void ConfigHandler::createOrUpdateConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[API] POST /v1/core/config - Success - " << duration.count()
+      PLOG_INFO << "[API] POST /v1/securt/config - Success - " << duration.count()
                 << "ms";
     }
 
@@ -277,7 +277,7 @@ void ConfigHandler::createOrUpdateConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] POST /v1/core/config - Exception: " << e.what()
+      PLOG_ERROR << "[API] POST /v1/securt/config - Exception: " << e.what()
                  << " - " << duration.count() << "ms";
     }
 
@@ -288,7 +288,7 @@ void ConfigHandler::createOrUpdateConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] POST /v1/core/config - Unknown exception - "
+      PLOG_ERROR << "[API] POST /v1/securt/config - Unknown exception - "
                  << duration.count() << "ms";
     }
 
@@ -303,14 +303,14 @@ void ConfigHandler::replaceConfig(
   auto start_time = std::chrono::steady_clock::now();
 
   if (isApiLoggingEnabled()) {
-    PLOG_INFO << "[API] PUT /v1/core/config - Replace entire configuration";
+    PLOG_INFO << "[API] PUT /v1/securt/config - Replace entire configuration";
   }
 
   try {
     auto json = req->getJsonObject();
     if (!json) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] PUT /v1/core/config - Error: Invalid JSON body";
+        PLOG_WARNING << "[API] PUT /v1/securt/config - Error: Invalid JSON body";
       }
       callback(createErrorResponse(400, "Invalid request",
                                    "Request body must be valid JSON"));
@@ -320,7 +320,7 @@ void ConfigHandler::replaceConfig(
     std::string error;
     if (!validateConfigJson(*json, error)) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] PUT /v1/core/config - Validation failed: "
+        PLOG_WARNING << "[API] PUT /v1/securt/config - Validation failed: "
                      << error;
       }
       callback(createErrorResponse(400, "Validation failed", error));
@@ -338,7 +338,7 @@ void ConfigHandler::replaceConfig(
     if (!config.replaceConfig(*json)) {
       if (isApiLoggingEnabled()) {
         PLOG_ERROR
-            << "[API] PUT /v1/core/config - Failed to replace configuration";
+            << "[API] PUT /v1/securt/config - Failed to replace configuration";
       }
       callback(createErrorResponse(500, "Internal server error",
                                    "Failed to replace configuration"));
@@ -348,7 +348,7 @@ void ConfigHandler::replaceConfig(
     // Save to file
     if (!config.saveConfig()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] PUT /v1/core/config - Replaced but failed to "
+        PLOG_WARNING << "[API] PUT /v1/securt/config - Replaced but failed to "
                         "save to file";
       }
     }
@@ -363,14 +363,14 @@ void ConfigHandler::replaceConfig(
 
     if (configChanged && !autoRestartRequested) {
       if (isApiLoggingEnabled()) {
-        PLOG_INFO << "[API] PUT /v1/core/config - Web server config changed "
+        PLOG_INFO << "[API] PUT /v1/securt/config - Web server config changed "
                      "(port/host), but auto_restart not requested. "
                      "Server restart required manually.";
       }
     }
 
     if (needsRestart) {
-      std::string reason = "[API] PUT /v1/core/config - auto_restart requested";
+      std::string reason = "[API] PUT /v1/securt/config - auto_restart requested";
       if (configChanged) {
         reason += " (web server config changed)";
         if (isApiLoggingEnabled()) {
@@ -391,7 +391,7 @@ void ConfigHandler::replaceConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[API] PUT /v1/core/config - Success - " << duration.count()
+      PLOG_INFO << "[API] PUT /v1/securt/config - Success - " << duration.count()
                 << "ms";
     }
 
@@ -418,7 +418,7 @@ void ConfigHandler::replaceConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] PUT /v1/core/config - Exception: " << e.what()
+      PLOG_ERROR << "[API] PUT /v1/securt/config - Exception: " << e.what()
                  << " - " << duration.count() << "ms";
     }
 
@@ -429,7 +429,7 @@ void ConfigHandler::replaceConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] PUT /v1/core/config - Unknown exception - "
+      PLOG_ERROR << "[API] PUT /v1/securt/config - Unknown exception - "
                  << duration.count() << "ms";
     }
 
@@ -450,14 +450,14 @@ void ConfigHandler::updateConfigSection(
   }
 
   if (isApiLoggingEnabled()) {
-    PLOG_INFO << "[API] PATCH /v1/core/config/" << path
+    PLOG_INFO << "[API] PATCH /v1/securt/config/" << path
               << " - Update configuration section";
   }
 
   try {
     if (path.empty()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] PATCH /v1/core/config/{path} - Empty path";
+        PLOG_WARNING << "[API] PATCH /v1/securt/config/{path} - Empty path";
       }
       callback(createErrorResponse(400, "Invalid request",
                                    "Path parameter is required"));
@@ -467,7 +467,7 @@ void ConfigHandler::updateConfigSection(
     auto json = req->getJsonObject();
     if (!json) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] PATCH /v1/core/config/" << path
+        PLOG_WARNING << "[API] PATCH /v1/securt/config/" << path
                      << " - Error: Invalid JSON body";
       }
       callback(createErrorResponse(400, "Invalid request",
@@ -489,7 +489,7 @@ void ConfigHandler::updateConfigSection(
 
     if (!config.updateConfigSection(path, *json)) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] PATCH /v1/core/config/" << path
+        PLOG_WARNING << "[API] PATCH /v1/securt/config/" << path
                      << " - Failed to update section";
       }
       callback(createErrorResponse(500, "Internal server error",
@@ -500,7 +500,7 @@ void ConfigHandler::updateConfigSection(
     // Save to file
     if (!config.saveConfig()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] PATCH /v1/core/config/" << path
+        PLOG_WARNING << "[API] PATCH /v1/securt/config/" << path
                      << " - Updated but failed to save to file";
       }
     }
@@ -520,7 +520,7 @@ void ConfigHandler::updateConfigSection(
 
       if (configChanged && !autoRestartRequested) {
         if (isApiLoggingEnabled()) {
-          PLOG_INFO << "[API] PATCH /v1/core/config/" << path
+          PLOG_INFO << "[API] PATCH /v1/securt/config/" << path
                     << " - Web server config changed (port/host), "
                        "but auto_restart not requested. "
                        "Server restart required manually.";
@@ -529,7 +529,7 @@ void ConfigHandler::updateConfigSection(
 
       if (needsRestart) {
         std::string reason =
-            "[API] PATCH /v1/core/config/" + path + " - auto_restart requested";
+            "[API] PATCH /v1/securt/config/" + path + " - auto_restart requested";
         if (configChanged) {
           reason += " (web server config changed)";
           if (isApiLoggingEnabled()) {
@@ -549,7 +549,7 @@ void ConfigHandler::updateConfigSection(
       // If auto_restart is requested but path is not web_server related, still
       // restart
       std::string reason =
-          "[API] PATCH /v1/core/config/" + path + " - auto_restart requested";
+          "[API] PATCH /v1/securt/config/" + path + " - auto_restart requested";
       scheduleRestartIfNeeded(true, reason, 3.0);
       needsRestart = true;
     }
@@ -559,7 +559,7 @@ void ConfigHandler::updateConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[API] PATCH /v1/core/config/" << path << " - Success - "
+      PLOG_INFO << "[API] PATCH /v1/securt/config/" << path << " - Success - "
                 << duration.count() << "ms";
     }
 
@@ -587,7 +587,7 @@ void ConfigHandler::updateConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] PATCH /v1/core/config/" << path
+      PLOG_ERROR << "[API] PATCH /v1/securt/config/" << path
                  << " - Exception: " << e.what() << " - " << duration.count()
                  << "ms";
     }
@@ -599,7 +599,7 @@ void ConfigHandler::updateConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] PATCH /v1/core/config/" << path
+      PLOG_ERROR << "[API] PATCH /v1/securt/config/" << path
                  << " - Unknown exception - " << duration.count() << "ms";
     }
 
@@ -622,14 +622,14 @@ void ConfigHandler::deleteConfigSection(
   }
 
   if (isApiLoggingEnabled()) {
-    PLOG_INFO << "[API] DELETE /v1/core/config/" << path
+    PLOG_INFO << "[API] DELETE /v1/securt/config/" << path
               << " - Delete configuration section";
   }
 
   try {
     if (path.empty()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] DELETE /v1/core/config/{path} - Empty path";
+        PLOG_WARNING << "[API] DELETE /v1/securt/config/{path} - Empty path";
       }
       callback(createErrorResponse(400, "Invalid request",
                                    "Path parameter is required"));
@@ -654,7 +654,7 @@ void ConfigHandler::deleteConfigSection(
           end_time - start_time);
 
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] DELETE /v1/core/config/" << path
+        PLOG_WARNING << "[API] DELETE /v1/securt/config/" << path
                      << " - Not found - " << duration.count() << "ms";
       }
 
@@ -666,7 +666,7 @@ void ConfigHandler::deleteConfigSection(
     // Save to file
     if (!config.saveConfig()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] DELETE /v1/core/config/" << path
+        PLOG_WARNING << "[API] DELETE /v1/securt/config/" << path
                      << " - Deleted but failed to save to file";
       }
     }
@@ -685,7 +685,7 @@ void ConfigHandler::deleteConfigSection(
 
       if (configChanged && !autoRestartRequested) {
         if (isApiLoggingEnabled()) {
-          PLOG_INFO << "[API] DELETE /v1/core/config/" << path
+          PLOG_INFO << "[API] DELETE /v1/securt/config/" << path
                     << " - Web server config changed (port/host), "
                        "but auto_restart not requested. "
                        "Server restart required manually.";
@@ -693,7 +693,7 @@ void ConfigHandler::deleteConfigSection(
       }
 
       if (needsRestart) {
-        std::string reason = "[API] DELETE /v1/core/config/" + path +
+        std::string reason = "[API] DELETE /v1/securt/config/" + path +
                              " - auto_restart requested";
         if (configChanged) {
           reason += " (web server config changed)";
@@ -710,7 +710,7 @@ void ConfigHandler::deleteConfigSection(
       // If auto_restart is requested but path is not web_server related, still
       // restart
       std::string reason =
-          "[API] DELETE /v1/core/config/" + path + " - auto_restart requested";
+          "[API] DELETE /v1/securt/config/" + path + " - auto_restart requested";
       scheduleRestartIfNeeded(true, reason, 3.0);
       needsRestart = true;
     }
@@ -720,7 +720,7 @@ void ConfigHandler::deleteConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[API] DELETE /v1/core/config/" << path << " - Success - "
+      PLOG_INFO << "[API] DELETE /v1/securt/config/" << path << " - Success - "
                 << duration.count() << "ms";
     }
 
@@ -747,7 +747,7 @@ void ConfigHandler::deleteConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] DELETE /v1/core/config/" << path
+      PLOG_ERROR << "[API] DELETE /v1/securt/config/" << path
                  << " - Exception: " << e.what() << " - " << duration.count()
                  << "ms";
     }
@@ -759,7 +759,7 @@ void ConfigHandler::deleteConfigSection(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] DELETE /v1/core/config/" << path
+      PLOG_ERROR << "[API] DELETE /v1/securt/config/" << path
                  << " - Unknown exception - " << duration.count() << "ms";
     }
 
@@ -775,7 +775,7 @@ void ConfigHandler::resetConfig(
 
   if (isApiLoggingEnabled()) {
     PLOG_INFO
-        << "[API] POST /v1/core/config/reset - Reset configuration to defaults";
+        << "[API] POST /v1/securt/config/reset - Reset configuration to defaults";
   }
 
   try {
@@ -794,7 +794,7 @@ void ConfigHandler::resetConfig(
           end_time - start_time);
 
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] POST /v1/core/config/reset - Failed to reset "
+        PLOG_WARNING << "[API] POST /v1/securt/config/reset - Failed to reset "
                         "configuration - "
                      << duration.count() << "ms";
       }
@@ -808,7 +808,7 @@ void ConfigHandler::resetConfig(
     // Save to file
     if (!config.saveConfig()) {
       if (isApiLoggingEnabled()) {
-        PLOG_WARNING << "[API] POST /v1/core/config/reset - Reset but failed "
+        PLOG_WARNING << "[API] POST /v1/securt/config/reset - Reset but failed "
                         "to save to file";
       }
     }
@@ -824,7 +824,7 @@ void ConfigHandler::resetConfig(
     if (configChanged && !autoRestartRequested) {
       if (isApiLoggingEnabled()) {
         PLOG_INFO
-            << "[API] POST /v1/core/config/reset - Web server config changed "
+            << "[API] POST /v1/securt/config/reset - Web server config changed "
                "(port/host), but auto_restart not requested. "
                "Server restart required manually.";
       }
@@ -832,7 +832,7 @@ void ConfigHandler::resetConfig(
 
     if (needsRestart) {
       std::string reason =
-          "[API] POST /v1/core/config/reset - auto_restart requested";
+          "[API] POST /v1/securt/config/reset - auto_restart requested";
       if (configChanged) {
         reason += " (web server config changed)";
         if (isApiLoggingEnabled()) {
@@ -853,7 +853,7 @@ void ConfigHandler::resetConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_INFO << "[API] POST /v1/core/config/reset - Success - "
+      PLOG_INFO << "[API] POST /v1/securt/config/reset - Success - "
                 << duration.count() << "ms";
     }
 
@@ -880,7 +880,7 @@ void ConfigHandler::resetConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] POST /v1/core/config/reset - Exception: " << e.what()
+      PLOG_ERROR << "[API] POST /v1/securt/config/reset - Exception: " << e.what()
                  << " - " << duration.count() << "ms";
     }
 
@@ -891,7 +891,7 @@ void ConfigHandler::resetConfig(
         end_time - start_time);
 
     if (isApiLoggingEnabled()) {
-      PLOG_ERROR << "[API] POST /v1/core/config/reset - Unknown exception - "
+      PLOG_ERROR << "[API] POST /v1/securt/config/reset - Unknown exception - "
                  << duration.count() << "ms";
     }
 

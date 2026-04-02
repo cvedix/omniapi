@@ -110,6 +110,13 @@ private:
   Json::Value getFallenPersonAreas(const std::string &instanceId) const;
 
   /**
+   * @brief Get stop areas (direct ba_stop_node mapping)
+   * @param instanceId Instance ID
+   * @return JSON array of stop areas
+   */
+  Json::Value getStopAreas(const std::string &instanceId) const;
+
+  /**
    * @brief Get crossing lines
    * @param instanceId Instance ID
    * @return JSON array of crossing lines

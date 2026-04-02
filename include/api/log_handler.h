@@ -15,50 +15,50 @@ using namespace drogon;
  * @brief Log endpoint handler
  *
  * Endpoints:
- * - GET /v1/core/log - List all log files by category
- * - GET /v1/core/log/{category} - Get logs of a category with filtering
- * - GET /v1/core/log/{category}/{date} - Get logs of category and specific
+ * - GET /v1/securt/log - List all log files by category
+ * - GET /v1/securt/log/{category} - Get logs of a category with filtering
+ * - GET /v1/securt/log/{category}/{date} - Get logs of category and specific
  * date with filtering
  */
 class LogHandler : public drogon::HttpController<LogHandler> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(LogHandler::listLogFiles, "/v1/core/log", Get);
-  ADD_METHOD_TO(LogHandler::getLogConfig, "/v1/core/log/config", Get);
-  ADD_METHOD_TO(LogHandler::putLogConfig, "/v1/core/log/config", Put);
-  ADD_METHOD_TO(LogHandler::getLogsByCategory, "/v1/core/log/{category}", Get);
+  ADD_METHOD_TO(LogHandler::listLogFiles, "/v1/securt/log", Get);
+  ADD_METHOD_TO(LogHandler::getLogConfig, "/v1/securt/log/config", Get);
+  ADD_METHOD_TO(LogHandler::putLogConfig, "/v1/securt/log/config", Put);
+  ADD_METHOD_TO(LogHandler::getLogsByCategory, "/v1/securt/log/{category}", Get);
   ADD_METHOD_TO(LogHandler::getLogsByCategoryAndDate,
-                "/v1/core/log/{category}/{date}", Get);
-  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log", Options);
-  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log/config", Options);
-  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log/{category}", Options);
-  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/core/log/{category}/{date}",
+                "/v1/securt/log/{category}/{date}", Get);
+  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/securt/log", Options);
+  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/securt/log/config", Options);
+  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/securt/log/{category}", Options);
+  ADD_METHOD_TO(LogHandler::handleOptions, "/v1/securt/log/{category}/{date}",
                 Options);
   METHOD_LIST_END
 
   /**
-   * @brief Handle GET /v1/core/log
+   * @brief Handle GET /v1/securt/log
    * List all log files organized by category
    */
   void listLogFiles(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle GET /v1/core/log/config
+   * @brief Handle GET /v1/securt/log/config
    * Get current logging configuration (enabled, log_level, per-category flags).
    */
   void getLogConfig(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle PUT /v1/core/log/config
+   * @brief Handle PUT /v1/securt/log/config
    * Update logging configuration; category flags apply immediately.
    */
   void putLogConfig(const HttpRequestPtr &req,
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle GET /v1/core/log/{category}
+   * @brief Handle GET /v1/securt/log/{category}
    * Get logs of a category with optional filtering
    * Query params: level, from, to, tail
    *
@@ -70,7 +70,7 @@ public:
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle GET /v1/core/log/{category}/{date}
+   * @brief Handle GET /v1/securt/log/{category}/{date}
    * Get logs of category and specific date with optional filtering
    * Query params: level, from, to, tail
    *

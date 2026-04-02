@@ -13,45 +13,45 @@ using namespace drogon;
  * Handles system configuration CRUD operations.
  *
  * Endpoints:
- * - GET /v1/core/config - Get full configuration
- * - GET /v1/core/config/{path} - Get configuration section
- * - POST /v1/core/config - Create/update configuration (merge)
- * - PUT /v1/core/config - Replace entire configuration
- * - PATCH /v1/core/config/{path} - Update configuration section
- * - DELETE /v1/core/config/{path} - Delete configuration section
- * - POST /v1/core/config/reset - Reset configuration to defaults
+ * - GET /v1/securt/config - Get full configuration
+ * - GET /v1/securt/config/{path} - Get configuration section
+ * - POST /v1/securt/config - Create/update configuration (merge)
+ * - PUT /v1/securt/config - Replace entire configuration
+ * - PATCH /v1/securt/config/{path} - Update configuration section
+ * - DELETE /v1/securt/config/{path} - Delete configuration section
+ * - POST /v1/securt/config/reset - Reset configuration to defaults
  */
 class ConfigHandler : public drogon::HttpController<ConfigHandler> {
 public:
   METHOD_LIST_BEGIN
   // Route with path parameter (more specific, must come first)
-  ADD_METHOD_TO(ConfigHandler::getConfigSection, "/v1/core/config/{path}", Get);
-  ADD_METHOD_TO(ConfigHandler::updateConfigSection, "/v1/core/config/{path}",
+  ADD_METHOD_TO(ConfigHandler::getConfigSection, "/v1/securt/config/{path}", Get);
+  ADD_METHOD_TO(ConfigHandler::updateConfigSection, "/v1/securt/config/{path}",
                 Patch);
-  ADD_METHOD_TO(ConfigHandler::deleteConfigSection, "/v1/core/config/{path}",
+  ADD_METHOD_TO(ConfigHandler::deleteConfigSection, "/v1/securt/config/{path}",
                 Delete);
-  ADD_METHOD_TO(ConfigHandler::handleOptions, "/v1/core/config/{path}",
+  ADD_METHOD_TO(ConfigHandler::handleOptions, "/v1/securt/config/{path}",
                 Options);
   // Route without path parameter (less specific, comes after)
-  ADD_METHOD_TO(ConfigHandler::getConfig, "/v1/core/config", Get);
-  ADD_METHOD_TO(ConfigHandler::createOrUpdateConfig, "/v1/core/config", Post);
-  ADD_METHOD_TO(ConfigHandler::replaceConfig, "/v1/core/config", Put);
-  ADD_METHOD_TO(ConfigHandler::updateConfigSection, "/v1/core/config", Patch);
-  ADD_METHOD_TO(ConfigHandler::deleteConfigSection, "/v1/core/config", Delete);
-  ADD_METHOD_TO(ConfigHandler::resetConfig, "/v1/core/config/reset", Post);
-  ADD_METHOD_TO(ConfigHandler::handleOptions, "/v1/core/config", Options);
-  ADD_METHOD_TO(ConfigHandler::handleOptions, "/v1/core/config/reset", Options);
+  ADD_METHOD_TO(ConfigHandler::getConfig, "/v1/securt/config", Get);
+  ADD_METHOD_TO(ConfigHandler::createOrUpdateConfig, "/v1/securt/config", Post);
+  ADD_METHOD_TO(ConfigHandler::replaceConfig, "/v1/securt/config", Put);
+  ADD_METHOD_TO(ConfigHandler::updateConfigSection, "/v1/securt/config", Patch);
+  ADD_METHOD_TO(ConfigHandler::deleteConfigSection, "/v1/securt/config", Delete);
+  ADD_METHOD_TO(ConfigHandler::resetConfig, "/v1/securt/config/reset", Post);
+  ADD_METHOD_TO(ConfigHandler::handleOptions, "/v1/securt/config", Options);
+  ADD_METHOD_TO(ConfigHandler::handleOptions, "/v1/securt/config/reset", Options);
   METHOD_LIST_END
 
   /**
-   * @brief Handle GET /v1/core/config
+   * @brief Handle GET /v1/securt/config
    * Gets full system configuration
    */
   void getConfig(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle GET /v1/core/config/{path}
+   * @brief Handle GET /v1/securt/config/{path}
    * Gets configuration section at specified path
    */
   void
@@ -59,7 +59,7 @@ public:
                    std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle POST /v1/core/config
+   * @brief Handle POST /v1/securt/config
    * Creates or updates configuration (merge)
    */
   void
@@ -67,14 +67,14 @@ public:
                        std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle PUT /v1/core/config
+   * @brief Handle PUT /v1/securt/config
    * Replaces entire configuration
    */
   void replaceConfig(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle PATCH /v1/core/config/{path}
+   * @brief Handle PATCH /v1/securt/config/{path}
    * Updates configuration section at specified path
    */
   void
@@ -82,7 +82,7 @@ public:
                       std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle DELETE /v1/core/config/{path}
+   * @brief Handle DELETE /v1/securt/config/{path}
    * Deletes configuration section at specified path
    */
   void
@@ -90,7 +90,7 @@ public:
                       std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle POST /v1/core/config/reset
+   * @brief Handle POST /v1/securt/config/reset
    * Resets configuration to default values
    */
   void resetConfig(const HttpRequestPtr &req,

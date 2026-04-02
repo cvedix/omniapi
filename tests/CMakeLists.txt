@@ -24,7 +24,6 @@ set(TEST_SOURCES
     unit/Core_API/test_version_handler.cpp
     unit/Core_API/test_swagger_handler.cpp
     unit/Core_API/test_watchdog_handler.cpp
-    unit/Core_API/test_endpoints_handler.cpp
     unit/Core_API/test_config_handler.cpp
     unit/Core_API/test_system_info_handler.cpp
     unit/Core_API/test_system_handler.cpp
@@ -33,7 +32,6 @@ set(TEST_SOURCES
     unit/Core_API/test_decoder_detector.cpp
     unit/Core_API/test_inference_session.cpp
     unit/Core_API/test_ai_processor.cpp
-    unit/Core_API/test_metrics_handler.cpp
     
     # Instance Management tests
     unit/Instance_Management/test_instance_storage.cpp
@@ -41,25 +39,17 @@ set(TEST_SOURCES
     unit/Instance_Management/test_instance_status_summary.cpp
     unit/Instance_Management/test_instance_get_config.cpp
     unit/Instance_Management/test_instance_configure_stream.cpp
-    unit/Instance_Management/test_create_instance_handler.cpp
-    unit/Instance_Management/test_instance_fps_handler.cpp
     
     
     
     # Solutions tests
-    unit/Solutions/test_solution_handler.cpp
     
     # Groups tests
-    unit/Groups/test_group_handler.cpp
     
     # Nodes tests
-    unit/Nodes/test_node_handler.cpp
     # unit/Nodes/test_node_pool_handler.cpp  # Commented out: node_pool_handler.cpp implementation missing
     
     # Analytics tests
-    unit/Analytics/test_lines_handler.cpp
-    unit/Analytics/test_jams_handler.cpp
-    unit/Analytics/test_stops_handler.cpp
     unit/Analytics/test_ba_jam_detection_params.cpp
     unit/Analytics/test_ba_jam_pipeline.cpp
     unit/Analytics/test_securt_handler.cpp
@@ -97,9 +87,6 @@ target_sources(omniapi_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/api/swagger_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/scalar_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/watchdog_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/endpoints_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/solution_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/instance_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/config_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/system_info_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/system_handler.cpp
@@ -107,14 +94,6 @@ target_sources(omniapi_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/preferences_manager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/decoder_detector.cpp
     ${CMAKE_SOURCE_DIR}/src/core/instance_logging_config.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/metrics_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/node_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/group_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/create_instance_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/instance_fps_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/lines_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/jams_handler.cpp
-    ${CMAKE_SOURCE_DIR}/src/api/stops_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/securt_handler.cpp
     ${CMAKE_SOURCE_DIR}/src/api/area_handler.cpp
     # ${CMAKE_SOURCE_DIR}/src/api/ai_handler.cpp  # Commented out: requires C++20 for counting_semaphore, but project uses C++17

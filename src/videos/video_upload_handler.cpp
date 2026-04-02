@@ -278,10 +278,10 @@ VideoUploadHandler::extractVideoName(const HttpRequestPtr &req) const {
       path = req->getPath();
     }
 
-    // Try /v1/core/video/ pattern first
-    size_t videoPos = path.find("/v1/core/video/");
+    // Try /v1/securt/video/ pattern first
+    size_t videoPos = path.find("/v1/securt/video/");
     if (videoPos != std::string::npos) {
-      size_t start = videoPos + 15;       // length of "/v1/core/video/"
+      size_t start = videoPos + 15;       // length of "/v1/securt/video/"
       size_t end = path.find("?", start); // Stop at query string if present
       if (end == std::string::npos) {
         end = path.length();
@@ -715,7 +715,7 @@ void VideoUploadHandler::uploadVideo(
           fileInfo["originalFilename"] = partFilename;
           fileInfo["path"] = std::filesystem::canonical(partFilePath).string();
           fileInfo["size"] = static_cast<Json::Int64>(fileSize);
-          fileInfo["url"] = "/v1/core/video/" + finalFilename;
+          fileInfo["url"] = "/v1/securt/video/" + finalFilename;
           uploadedFiles.append(fileInfo);
 
           fileCount++;
@@ -1042,7 +1042,7 @@ void VideoUploadHandler::uploadVideo(
     response["originalFilename"] = originalFilename;
     response["path"] = canonicalPath;
     response["size"] = fileSize;
-    response["url"] = "/v1/core/video/" + sanitizedFilename;
+    response["url"] = "/v1/securt/video/" + sanitizedFilename;
 
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k201Created);

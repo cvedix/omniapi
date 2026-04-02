@@ -95,6 +95,7 @@ SecuRTFeatureManager::getPerformanceProfile(
   return std::nullopt;
 }
 
+
 bool SecuRTFeatureManager::setFaceDetection(const std::string &instanceId,
                                              bool enable) {
   std::unique_lock<std::shared_mutex> lock(mutex_);

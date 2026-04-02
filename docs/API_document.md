@@ -32,7 +32,6 @@ See also **[Server settings and monitoring API](SERVER_SETTINGS_AND_MONITORING_A
 ### [List all instances](#list-all-instances)
 ### [Delete all instance](#delete-all-instance)
 ### [Create a new AI instance](#create-a-new-ai-instance)
-### [Create a new AI instance (Quick)](#create-a-new-ai-instance-quick)
 ### [Get instance details](#get-instance-details)
 ### [Update instance information](#update-instance-information)
 ### [Delete an instance](#delete-an-instance)
@@ -100,7 +99,7 @@ See also **[Server settings and monitoring API](SERVER_SETTINGS_AND_MONITORING_A
 ## Core API
 ### Health check endpoint
 Returns the health status of the API service.       \
-API path: /v1/core/health                           
+API path: /v1/securt/health                           
 
 **No parameter**                                    
 
@@ -109,7 +108,7 @@ API path: /v1/core/health
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/health' \
+  'http://localhost:8080/v1/securt/health' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -133,7 +132,7 @@ curl -X 'GET' \
 ```
 ### Get version information
 Returns version information about the API service.  \
-API path: /v1/core/version                          
+API path: /v1/securt/version                          
 
 **No parameter**                                    
 
@@ -142,7 +141,7 @@ API path: /v1/core/version
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/version' \
+  'http://localhost:8080/v1/securt/version' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -158,7 +157,7 @@ curl -X 'GET' \
   ```
 ### Get system hardware information
 Returns detailed hardware information including CPU, GPU, RAM, Disk, Mainboard, OS, and Battery.  \
-API path: /v1/core/system/info                                                                    
+API path: /v1/securt/system/info                                                                    
 
 **No parameter**                                                                                  
 
@@ -167,7 +166,7 @@ API path: /v1/core/system/info
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/system/info' \
+  'http://localhost:8080/v1/securt/system/info' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -264,7 +263,7 @@ curl -X 'GET' \
   ```
 ### Get system status
 Returns current system status including CPU usage, RAM usage, load average, and uptime.   \
-API path: /v1/core/system/status                                                          
+API path: /v1/securt/system/status                                                          
 
 **No parameter**                                                                          
 
@@ -273,7 +272,7 @@ API path: /v1/core/system/status
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/system/status' \
+  'http://localhost:8080/v1/securt/system/status' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -312,7 +311,7 @@ curl -X 'GET' \
   ```
 ### Get resource status
 Returns configured resource limits (max_running_instances, max_cpu_percent, max_ram_percent), current usage (instance_count, cpu_usage_percent, ram_usage_percent), and over-limit flags. Use this to monitor and tune limits via config; when limits are exceeded, creating new instances returns 503. \
-API path: /v1/core/system/resource-status
+API path: /v1/securt/system/resource-status
 
 **No parameter**
 
@@ -321,7 +320,7 @@ API path: /v1/core/system/resource-status
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/system/resource-status' \
+  'http://localhost:8080/v1/securt/system/resource-status' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -349,8 +348,8 @@ curl -X 'GET' \
   }
   ```
   * `limits.max_running_instances`: 0 = unlimited. When > 0, new instance creation returns 429 when instance_count >= limit.
-  * `limits.max_cpu_percent` / `limits.max_ram_percent`: 0 = disabled. When > 0, new instance creation returns 503 when system CPU or RAM usage >= limit. Configure via `system.monitoring` (GET/POST /v1/core/config).
-  * `limits.thread_num`, `limits.min_threads`, `limits.max_threads`: HTTP server thread limits. thread_num 0 = auto. Configure via `system.performance` (GET/PATCH /v1/core/config?path=system/performance); change takes effect after server restart.
+  * `limits.max_cpu_percent` / `limits.max_ram_percent`: 0 = disabled. When > 0, new instance creation returns 503 when system CPU or RAM usage >= limit. Configure via `system.monitoring` (GET/POST /v1/securt/config).
+  * `limits.thread_num`, `limits.min_threads`, `limits.max_threads`: HTTP server thread limits. thread_num 0 = auto. Configure via `system.performance` (GET/PATCH /v1/securt/config?path=system/performance); change takes effect after server restart.
 * 500 - Server error
   ```
   {
@@ -361,7 +360,7 @@ curl -X 'GET' \
   ```
 ### Get watchdog status
 Returns watchdog and health monitor statistics including instance health checks, restart counts, and monitoring information.                    \
-API path: /v1/core/watchdog      
+API path: /v1/securt/watchdog      
 
 **No parameter**                
 
@@ -370,7 +369,7 @@ API path: /v1/core/watchdog
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/watchdog' \
+  'http://localhost:8080/v1/securt/watchdog' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -396,7 +395,7 @@ curl -X 'GET' \
   ```
 ### Get endpoint statistics
 Returns statistics for each API endpoint including request counts, response times, error rates, and other performance metrics.                            \
-API path: /v1/core/endpoint         
+API path: /v1/securt/endpoint         
 
 **No parameter**                    
 
@@ -405,7 +404,7 @@ API path: /v1/core/endpoint
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/endpoints' \
+  'http://localhost:8080/v1/securt/endpoints' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -418,7 +417,7 @@ curl -X 'GET' \
   ```
 ### Get Prometheus format metrics
 Returns system metrics in Prometheus format for monitoring and alerting. This endpoint is typically used by Prometheus scrapers.                           \
-API path: /v1/core/metrics          
+API path: /v1/securt/metrics          
 
 **No parameter**                    
 
@@ -427,7 +426,7 @@ API path: /v1/core/metrics
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/metrics' \
+  'http://localhost:8080/v1/securt/metrics' \
   -H 'accept: text/plain'
 ```
 **Responses schema**
@@ -435,13 +434,13 @@ curl -X 'GET' \
   ```
   # HELP http_requests_total Total number of HTTP requests
   # TYPE http_requests_total counter
-  http_requests_total{method="GET",path="/v1/core/health"} 100
+  http_requests_total{method="GET",path="/v1/securt/health"} 100
   ```
 
 ## Logs API
 ### List all log files by category
 Returns a list of all log files organized by category (api, instance, sdk_output, general). Each category contains an array of log files with their date, size, and path.     \
-API path: /v1/core/log                                  
+API path: /v1/securt/log                                  
 
 **No parameter**                                        
 
@@ -450,7 +449,7 @@ API path: /v1/core/log
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/log' \
+  'http://localhost:8080/v1/securt/log' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -499,7 +498,7 @@ curl -X 'GET' \
   ```
 ### Get logs by category
 Returns logs from a specific category with optional filtering.    \
-API path: /v1/core/log/{category}                                 
+API path: /v1/securt/log/{category}                                 
 
 **Parameter** 
 * *Categories*: {api, instance, sdk_output, general}
@@ -514,7 +513,7 @@ API path: /v1/core/log/{category}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/log/api?level=INFO&from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-01T23%3A59%3A59.999Z&tail=100' \
+  'http://localhost:8080/v1/securt/log/api?level=INFO&from=2024-01-01T00%3A00%3A00.000Z&to=2024-01-01T23%3A59%3A59.999Z&tail=100' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -557,7 +556,7 @@ curl -X 'GET' \
   ```
 ### Get logs by category and date
 Returns logs from a specific category and date with optional filtering.     \
-API path: /v1/core/log/{category}/{date}                                    
+API path: /v1/securt/log/{category}/{date}                                    
 
 **Parameter** 
 * *Categories*: {api, instance, sdk_output, general}
@@ -573,7 +572,7 @@ API path: /v1/core/log/{category}/{date}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/log/general/2025-12-26?level=INFO&from=2024-01-01T00%3A00%3A00.000Z&to=2026-01-01T23%3A59%3A59.999Z&tail=100' \
+  'http://localhost:8080/v1/securt/log/general/2025-12-26?level=INFO&from=2024-01-01T00%3A00%3A00.000Z&to=2026-01-01T23%3A59%3A59.999Z&tail=100' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -617,7 +616,7 @@ curl -X 'GET' \
 ## AI API
 ### Process single image/frame
 Processes a single image/frame through the AI processing pipeline. Supports priority-based queuing and rate limiting.            \
-API path: /v1/core/ai/process         
+API path: /v1/securt/ai/process         
 
 **No parameter**                      
 
@@ -632,7 +631,7 @@ API path: /v1/core/ai/process
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/ai/process' \
+  'http://localhost:8080/v1/securt/ai/process' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -682,7 +681,7 @@ curl -X 'POST' \
   ```
 ### Process batch of images/frames
 Processes multiple images/frames in a batch through the AI processing pipeline. Currently returns 501 Not Implemented. \
-API path: /v1/core/ai/batch 
+API path: /v1/securt/ai/batch 
 
 **No parameter** 
 
@@ -698,7 +697,7 @@ API path: /v1/core/ai/batch
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/ai/batch' \
+  'http://localhost:8080/v1/securt/ai/batch' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -734,7 +733,7 @@ curl -X 'POST' \
   ```
 ### Get AI processing status
 Returns the current status of the AI processing system including queue size, queue max capacity, GPU availability, and other resource information. \
-API path: /v1/core/ai/status 
+API path: /v1/securt/ai/status 
 
 **No parameter** 
 
@@ -743,7 +742,7 @@ API path: /v1/core/ai/status
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/ai/status' \
+  'http://localhost:8080/v1/securt/ai/status' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -758,7 +757,7 @@ curl -X 'GET' \
   ```
 ### Get AI processing metrics
 Returns detailed metrics about AI processing including performance statistics, cache statistics, and rate limiter information. \
-API path: /v1/core/ai/metrics 
+API path: /v1/securt/ai/metrics 
 
 **No parameter** 
 
@@ -767,7 +766,7 @@ API path: /v1/core/ai/metrics
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/ai/metrics' \
+  'http://localhost:8080/v1/securt/ai/metrics' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -789,7 +788,7 @@ curl -X 'GET' \
 ## Config API
 ### Get system configuration
 Returns system configuration. If path query parameter is provided, returns the specific configuration section. Otherwise, returns the complete system configuration. \
-API path: /v1/core/config 
+API path: /v1/securt/config 
 
 **Parameter**
 * *path* (string): Configuration path to get a specific section
@@ -802,7 +801,7 @@ API path: /v1/core/config
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/config?path=system%2Fmax_running_instances' \
+  'http://localhost:8080/v1/securt/config?path=system%2Fmax_running_instances' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -850,7 +849,7 @@ curl -X 'GET' \
   ```
 ### Create or update configuration (merge)
 Updates the system configuration by merging the provided JSON with the existing configuration. Only the provided fields will be updated; other fields remain unchanged. The configuration is saved to the config file after update. \
-API path: /v1/core/config 
+API path: /v1/securt/config 
 
 **No parameter**
 
@@ -867,7 +866,7 @@ API path: /v1/core/config
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/config' \
+  'http://localhost:8080/v1/securt/config' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -906,7 +905,7 @@ curl -X 'POST' \
 
 ### Replace entire configuration
 Replaces the entire system configuration with the provided JSON. All existing configuration will be replaced with the new values. The configuration is saved to the config file after replacement. \
-API path: /v1/core/config 
+API path: /v1/securt/config 
 
 **No parameter** 
 
@@ -927,7 +926,7 @@ API path: /v1/core/config
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/config' \
+  'http://localhost:8080/v1/securt/config' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -970,7 +969,7 @@ curl -X 'PUT' \
 ### Update configuration section (query parameter)
 Updates a specific section of the system configuration at the given path. \
 Only the provided fields in the section will be updated. The configuration is saved to the config file after update. \
-API path: /v1/core/config 
+API path: /v1/securt/config 
 
 **Parameter**
 * *path* (string): Configuration path using / or . as separators
@@ -986,7 +985,7 @@ API path: /v1/core/config
 **Request schema**
 ```
 curl -X 'PATCH' \
-  'http://localhost:8080/v1/core/config?path=system%2Fmax_running_instances' \
+  'http://localhost:8080/v1/securt/config?path=system%2Fmax_running_instances' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -1022,7 +1021,7 @@ curl -X 'PATCH' \
 ### Delete configuration section (query parameter)
 Deletes a specific section of the system configuration at the given path. \
 The configuration is saved to the config file after deletion. \
-API path: /v1/core/config
+API path: /v1/securt/config
 
 **Parameter**
 * *path* (string): Configuration path using / or . as separators
@@ -1034,7 +1033,7 @@ API path: /v1/core/config
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/config?path=system%2Fmax_running_instances' \
+  'http://localhost:8080/v1/securt/config?path=system%2Fmax_running_instances' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1070,7 +1069,7 @@ curl -X 'DELETE' \
 ### Reset configuration to defaults
 Resets the entire system configuration to default values. All existing configuration will be replaced with default values. The configuration is saved to the config file after reset. \
 Warning: This operation will replace all configuration with default values. Consider backing up your configuration before resetting.  \
-API path: /v1/core/config/reset
+API path: /v1/securt/config/reset
 
 **No parameter**
 
@@ -1079,7 +1078,7 @@ API path: /v1/core/config/reset
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/config/reset' \
+  'http://localhost:8080/v1/securt/config/reset' \
   -H 'accept: application/json' \
   -d ''
 ```
@@ -1103,11 +1102,11 @@ curl -X 'POST' \
   ```
 ### Get configuration section (path parameter)
 Returns a specific section of the system configuration at the given path. \
-API path: /v1/core/config/{path}
+API path: /v1/securt/config/{path}
 
 **Parameter**
 * *path* (string): Configuration path using dots as separators. 
-  * Path Format: Use dots . as separators (e.g., system.max_running_instances). Forward slashes / with URL encoding (%2F) are NOT supported due to Drogon routing limitations. Recommended: Use query parameter instead: GET /v1/core/config?path=system/max_running_instances
+  * Path Format: Use dots . as separators (e.g., system.max_running_instances). Forward slashes / with URL encoding (%2F) are NOT supported due to Drogon routing limitations. Recommended: Use query parameter instead: GET /v1/securt/config?path=system/max_running_instances
   * Example paths: system.max_running_instances, system.web_server, gstreamer.decode_pipelines.auto
 
 **No request body**
@@ -1115,7 +1114,7 @@ API path: /v1/core/config/{path}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/config/system.max_running_instances' \
+  'http://localhost:8080/v1/securt/config/system.max_running_instances' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1151,11 +1150,11 @@ curl -X 'GET' \
   ```
 ### Update configuration section (path parameter)
 Updates a specific section of the system configuration at the given path. \
-API path: /v1/core/config/{path}  
+API path: /v1/securt/config/{path}  
 
 **Parameter**
 * *path* (string): Configuration path using dots as separators. 
-  * Path Format: Use dots . as separators (e.g., system.max_running_instances). Forward slashes / with URL encoding (%2F) are NOT supported due to Drogon routing limitations. Recommended: Use query parameter instead: GET /v1/core/config?path=system/max_running_instances
+  * Path Format: Use dots . as separators (e.g., system.max_running_instances). Forward slashes / with URL encoding (%2F) are NOT supported due to Drogon routing limitations. Recommended: Use query parameter instead: GET /v1/securt/config?path=system/max_running_instances
   * Example paths: system.max_running_instances, system.web_server, gstreamer.decode_pipelines.auto
 
 **Request body**
@@ -1167,7 +1166,7 @@ API path: /v1/core/config/{path}
 **Request schema**
 ```
 curl -X 'PATCH' \
-  'http://localhost:8080/v1/core/config/system.max_running_instances' \
+  'http://localhost:8080/v1/securt/config/system.max_running_instances' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -1202,11 +1201,11 @@ curl -X 'PATCH' \
   ```
 ### Delete configuration section (path parameter)
 Delete a specific section of the system configuration at the given path. \
-API path: /v1/core/config/{path} 
+API path: /v1/securt/config/{path} 
 
 **Parameter**
 * *path* (string): Configuration path using dots as separators. 
-  * Path Format: Use dots . as separators (e.g., system.max_running_instances). Forward slashes / with URL encoding (%2F) are NOT supported due to Drogon routing limitations. Recommended: Use query parameter instead: GET /v1/core/config?path=system/max_running_instances
+  * Path Format: Use dots . as separators (e.g., system.max_running_instances). Forward slashes / with URL encoding (%2F) are NOT supported due to Drogon routing limitations. Recommended: Use query parameter instead: GET /v1/securt/config?path=system/max_running_instances
   * Example paths: system.max_running_instances, system.web_server, gstreamer.decode_pipelines.auto
 
 **No request body**
@@ -1214,7 +1213,7 @@ API path: /v1/core/config/{path}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/config/system.max_running_instances' \
+  'http://localhost:8080/v1/securt/config/system.max_running_instances' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1251,7 +1250,7 @@ curl -X 'DELETE' \
 ## Instances API
 ### Get instance status summary
 Returns a summary of instance status including total number of configured instances, number of running instances, and number of stopped instances. \
-API path: /v1/core/instance/status/summary
+API path: /v1/securt/instance/status/summary
 
 **No parameter**
 
@@ -1260,7 +1259,7 @@ API path: /v1/core/instance/status/summary
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/status/summary' \
+  'http://localhost:8080/v1/securt/instance/status/summary' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1291,7 +1290,7 @@ The response includes:
 * Summary information for each instance (ID, display name, running status, solution, etc.)
 
 This endpoint is useful for getting an overview of all instances in the system without fetching detailed information for each one. \
-API path: /v1/core/instance
+API path: /v1/securt/instance
 
 **No parameter**
 
@@ -1300,7 +1299,7 @@ API path: /v1/core/instance
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance' \
+  'http://localhost:8080/v1/securt/instance' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1343,7 +1342,7 @@ Response:
 * Provides counts of total, deleted, and failed instances
 
 Note: This operation cannot be undone. Once deleted, instances must be recreated using the create instance endpoint. \
-API path: /v1/core/instance \
+API path: /v1/securt/instance \
 
 **No parameter**
 
@@ -1352,7 +1351,7 @@ API path: /v1/core/instance \
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/instance' \
+  'http://localhost:8080/v1/securt/instance' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1425,7 +1424,7 @@ Auto Start:
 * If autoStart: true, the instance will automatically start after creation
 * The pipeline will be built and started immediately
 Returns: The created instance information including the generated UUID that can be used for subsequent operations. \
-API path: /v1/core/instance
+API path: /v1/securt/instance
 
 **No parameter**
 
@@ -1457,7 +1456,7 @@ API path: /v1/core/instance
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance' \
+  'http://localhost:8080/v1/securt/instance' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -1542,7 +1541,7 @@ The response includes:
 * Originator information
 
 The instance must exist. If the instance is not found, a 404 error will be returned. \
-API path: /v1/core/instance/{instanceId}
+API path: /v1/securt/instance/{instanceId}
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -1552,7 +1551,7 @@ API path: /v1/core/instance/{instanceId}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/550e8400-e29b-41d4-a716-446655440000' \
+  'http://localhost:8080/v1/securt/instance/550e8400-e29b-41d4-a716-446655440000' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1620,7 +1619,7 @@ Behavior:
 * The instance must exist and not be read-only
 * Only provided fields will be updated; other fields remain unchanged. 
 
-API path: /v1/core/instance/{instanceId}
+API path: /v1/securt/instance/{instanceId}
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -1659,7 +1658,7 @@ API path: /v1/core/instance/{instanceId}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/instance/550e8400-e29b-41d4-a716-446655440000' \
+  'http://localhost:8080/v1/securt/instance/550e8400-e29b-41d4-a716-446655440000' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -1762,7 +1761,7 @@ Prerequisites:
 * Instance must not be read-only (system instances cannot be deleted)
 
 Note: This operation cannot be undone. Once deleted, the instance must be recreated using the create instance endpoint. \
-API path: /v1/core/instance/{instanceId}
+API path: /v1/securt/instance/{instanceId}
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -1772,7 +1771,7 @@ API path: /v1/core/instance/{instanceId}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/instance/string' \
+  'http://localhost:8080/v1/securt/instance/string' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -1814,7 +1813,7 @@ Behavior:
 * Returns the updated instance information with running: true
 
 Note: Starting an instance may take a few seconds as the pipeline is initialized. \
-API path: /v1/core/instance/{instanceId}/start
+API path: /v1/securt/instance/{instanceId}/start
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -1824,7 +1823,7 @@ API path: /v1/core/instance/{instanceId}/start
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/string/start' \
+  'http://localhost:8080/v1/securt/instance/string/start' \
   -H 'accept: application/json' \
   -d ''
 ```
@@ -1896,7 +1895,7 @@ Behavior:
 
 Note: Stopping an instance may take a few seconds as the pipeline is cleaned up. \
 The instance configuration is preserved and can be started again using the start endpoint. \
-API path: /v1/core/instance/{instanceId}/stop
+API path: /v1/securt/instance/{instanceId}/stop
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -1906,7 +1905,7 @@ API path: /v1/core/instance/{instanceId}/stop
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/string/stop' \
+  'http://localhost:8080/v1/securt/instance/string/stop' \
   -H 'accept: application/json' \
   -d ''
 ```
@@ -1982,7 +1981,7 @@ Use Cases:
 * Refresh the pipeline with updated settings
 
 Note: Restarting an instance may take several seconds as the pipeline is stopped and then restarted. \
-API path: /v1/core/instance/{instanceId}/restart
+API path: /v1/securt/instance/{instanceId}/restart
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -1992,7 +1991,7 @@ API path: /v1/core/instance/{instanceId}/restart
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/string/restart' \
+  'http://localhost:8080/v1/securt/instance/string/restart' \
   -H 'accept: application/json' \
   -d ''
 ```
@@ -2063,7 +2062,7 @@ Returns real-time output and processing results for a specific instance at the t
 * Current status and processing state
 
 For instances with FILE output, it includes file count, total size, latest file information, and activity status. For instances with RTMP output, it includes RTMP and RTSP URLs. \
-API path: /v1/core/instance/{instanceId}/output
+API path: /v1/securt/instance/{instanceId}/output
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -2073,7 +2072,7 @@ API path: /v1/core/instance/{instanceId}/output
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/abc-123-def/output' \
+  'http://localhost:8080/v1/securt/instance/abc-123-def/output' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -2199,7 +2198,7 @@ Important Notes:
 * Instance must be running to have a frame
 * Frame is cached automatically each time pipeline processes a new frame. 
 
-API path: /v1/core/instance/{instanceId}/frame
+API path: /v1/securt/instance/{instanceId}/frame
 
 **Parameter**
 * *instanceId* (string): Instance ID (UUID).
@@ -2209,7 +2208,7 @@ API path: /v1/core/instance/{instanceId}/frame
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/string/frame' \
+  'http://localhost:8080/v1/securt/instance/string/frame' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -2267,7 +2266,7 @@ Use Cases:
 * Efficiently start a group of related instances
 
 Note: Starting multiple instances simultaneously may consume significant system resources. Monitor system performance when starting many instances at once. \
-API path: /v1/core/instance/batch/start
+API path: /v1/securt/instance/batch/start
 
 **No parameter**
 
@@ -2284,7 +2283,7 @@ API path: /v1/core/instance/batch/start
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/batch/start' \
+  'http://localhost:8080/v1/securt/instance/batch/start' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -2359,7 +2358,7 @@ Use Cases:
 * Efficiently stop a group of related instances
 
 Note: Stopping multiple instances simultaneously will release system resources. This is useful for managing system load. \
-API path: /v1/core/instance/batch/stop
+API path: /v1/securt/instance/batch/stop
 
 **No parameter**
 
@@ -2376,7 +2375,7 @@ API path: /v1/core/instance/batch/stop
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/batch/stop' \
+  'http://localhost:8080/v1/securt/instance/batch/stop' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -2428,7 +2427,7 @@ curl -X 'POST' \
   ```
 ### Restart multiple instances concurrently
 Restarts multiple instances concurrently by stopping and then starting them. All operations run in parallel for optimal performance. \
-API path: /v1/core/instance/batch/restart
+API path: /v1/securt/instance/batch/restart
 
 **No parameter**
 
@@ -2445,7 +2444,7 @@ API path: /v1/core/instance/batch/restart
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/batch/restart' \
+  'http://localhost:8080/v1/securt/instance/batch/restart' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -2503,7 +2502,7 @@ Input Types:
 * Manual: Uses v4l2_src node for V4L2 devices
 
 The instance must exist and not be read-only. If the instance is currently running, it will be automatically restarted to apply the changes. \
-API path: /v1/core/instance/{instanceId}/input
+API path: /v1/securt/instance/{instanceId}/input
 
 **No parameter**
 
@@ -2517,7 +2516,7 @@ API path: /v1/core/instance/{instanceId}/input
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/string/input' \
+  'http://localhost:8080/v1/securt/instance/string/input' \
   -H 'accept: */*' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -2552,7 +2551,7 @@ curl -X 'POST' \
 ### Get instance configuration
 Returns the configuration of an instance. This endpoint provides the configuration settings of the instance, which are different from runtime state. Configuration includes settings like AutoRestart, AutoStart, Detector settings, Input configuration, etc. \
 Note: This returns the configuration format, not the runtime state. For runtime state information, use the instance details endpoint. \
-API path: /v1/core/instance/{instanceId}/config
+API path: /v1/securt/instance/{instanceId}/config
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -2562,7 +2561,7 @@ API path: /v1/core/instance/{instanceId}/config
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/291a85b8-d4c0-5765-dcb2-48c9b51f48d0/config' \
+  'http://localhost:8080/v1/securt/instance/291a85b8-d4c0-5765-dcb2-48c9b51f48d0/config' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -2623,7 +2622,7 @@ jsonValue Format:
 * For object values: "{\"key\":\"value\"}" (escaped JSON object)
 
 The instance must exist and not be read-only. If the instance is currently running, it will be automatically restarted to apply the changes. \
-API path: /v1/core/instance/{instanceId}/config
+API path: /v1/securt/instance/{instanceId}/config
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -2646,7 +2645,7 @@ API path: /v1/core/instance/{instanceId}/config
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/291a85b8-d4c0-5765-dcb2-48c9b51f48d0/config' \
+  'http://localhost:8080/v1/securt/instance/291a85b8-d4c0-5765-dcb2-48c9b51f48d0/config' \
   -H 'accept: */*' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -2696,7 +2695,7 @@ Important Notes:
 * Statistics reset to 0 when instance is restarted
 * Statistics are not persisted (only calculated when requested)
 * Instance must be running to get statistics 
-API path: /v1/core/instance/{instanceId}/statistics
+API path: /v1/securt/instance/{instanceId}/statistics
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -2706,7 +2705,7 @@ API path: /v1/core/instance/{instanceId}/statistics
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/statistics' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/statistics' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -2759,7 +2758,7 @@ The URI can be in one of the following formats:
 * RTSP: rtsp://host:port/path/stream_key
 * HLS: hls://host:port/path/stream_key 
 
-API path: /v1/core/instance/{instanceId}/output/stream
+API path: /v1/securt/instance/{instanceId}/output/stream
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -2769,7 +2768,7 @@ API path: /v1/core/instance/{instanceId}/output/stream
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/output/stream' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/output/stream' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -2827,7 +2826,7 @@ MediaMTX Setup:
 * Default MediaMTX RTMP endpoint: rtmp://localhost:1935/live/stream
 * Default MediaMTX RTSP endpoint: `rtsp://localhost:8554/live/stream" 
 
-API path: /v1/core/instance/{instanceId}/output/stream
+API path: /v1/securt/instance/{instanceId}/output/stream
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -2842,7 +2841,7 @@ API path: /v1/core/instance/{instanceId}/output/stream
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/output/stream' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/output/stream' \
   -H 'accept: */*' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -2879,7 +2878,7 @@ curl -X 'POST' \
 ## Lines API
 ### Get all crossing lines
 Returns all crossing lines configured for a ba_crossline instance. Lines are used for counting objects crossing a defined line in the video stream. \
-API path: /v1/core/instance/{instanceId}/lines
+API path: /v1/securt/instance/{instanceId}/lines
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -2889,7 +2888,7 @@ API path: /v1/core/instance/{instanceId}/lines
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -2944,7 +2943,7 @@ curl -X 'GET' \
 ### Create a new crossing line
 Creates a new crossing line for a ba_crossline instance. The line will be drawn on the video stream and used for counting objects. \
 Real-time Update: The line is immediately applied to the running video stream without requiring instance restart. \
-API path: /v1/core/instance/{instanceId}/lines
+API path: /v1/securt/instance/{instanceId}/lines
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -2979,7 +2978,7 @@ API path: /v1/core/instance/{instanceId}/lines
 **Request schema**
   ```
   curl -X 'POST' \
-    'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines' \
+    'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines' \
     -H 'accept: application/json' \
     -H 'Content-Type: application/json' \
     -d '{
@@ -3061,7 +3060,7 @@ API path: /v1/core/instance/{instanceId}/lines
 ### Delete all crossing lines
 Deletes all crossing lines for a ba_crossline instance. \
 Real-time Update: Lines are immediately removed from the running video stream without requiring instance restart. \
-API path: /v1/core/instance/{instanceId}/lines
+API path: /v1/securt/instance/{instanceId}/lines
 
 **Parameter**
 * *instanceId* (string): Unique identifier of the instance (UUID).
@@ -3071,7 +3070,7 @@ API path: /v1/core/instance/{instanceId}/lines
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -3098,7 +3097,7 @@ curl -X 'DELETE' \
   ```
 ### Get a specific crossing line
 Returns a specific crossing line by ID for a ba_crossline instance. \
-API path: /v1/core/instance/{instanceId}/lines/{lineId}
+API path: /v1/securt/instance/{instanceId}/lines/{lineId}
 
 **Parameter**
 * *instanceId* (string): The unique identifier of the instance.
@@ -3109,7 +3108,7 @@ API path: /v1/core/instance/{instanceId}/lines/{lineId}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines/b1234567-89ab-cdef-0123-456789abcdef' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines/b1234567-89ab-cdef-0123-456789abcdef' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -3159,7 +3158,7 @@ curl -X 'GET' \
 ### Update a specific crossing line
 Updates a specific crossing line by ID for a ba_crossline instance. The line will be updated on the video stream and used for counting objects. \
 Real-time Update: The line is immediately applied to the running video stream without requiring instance restart. \
-API path: /v1/core/instance/{instanceId}/lines/{lineId}
+API path: /v1/securt/instance/{instanceId}/lines/{lineId}
 
 **Parameter**
 * *instanceId* (string): The unique identifier of the instance.
@@ -3195,7 +3194,7 @@ API path: /v1/core/instance/{instanceId}/lines/{lineId}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines/b1234567-89ab-cdef-0123-456789abcdef' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines/b1234567-89ab-cdef-0123-456789abcdef' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -3277,7 +3276,7 @@ curl -X 'PUT' \
 ### Delete a specific crossing line
 Deletes a specific crossing line by ID. \
 Real-time Update: The line is immediately removed from the running video stream without requiring instance restart. \
-API path: /v1/core/instance/{instanceId}/lines/{lineId}
+API path: /v1/securt/instance/{instanceId}/lines/{lineId}
 
 **Parameter**
 * *instanceId* (string): The unique identifier of the instance.
@@ -3288,7 +3287,7 @@ API path: /v1/core/instance/{instanceId}/lines/{lineId}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines/b1234567-89ab-cdef-0123-456789abcdef' \
+  'http://localhost:8080/v1/securt/instance/a5204fc9-9a59-f80f-fb9f-bf3b42214943/lines/b1234567-89ab-cdef-0123-456789abcdef' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -3317,7 +3316,7 @@ curl -X 'DELETE' \
 ## Solution API
 ### List all solutions
 Returns a list of all available solutions with summary information including solution type and pipeline node count. \
-API path: /v1/core/solution
+API path: /v1/securt/solution
 
 **No parameter**
 
@@ -3326,7 +3325,7 @@ API path: /v1/core/solution
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/solution' \
+  'http://localhost:8080/v1/securt/solution' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -3357,7 +3356,7 @@ curl -X 'GET' \
   ```
 ### Create a new solution
 Creates a new custom solution configuration. Custom solutions can be modified and deleted, unlike default solutions. \
-API path: /v1/core/solution
+API path: /v1/securt/solution
 
 **No parameter**
 
@@ -3398,7 +3397,7 @@ API path: /v1/core/solution
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/solution' \
+  'http://localhost:8080/v1/securt/solution' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -3466,7 +3465,7 @@ curl -X 'POST' \
   ```
   {
     "error": "Conflict",
-    "message": "Solution with ID 'custom_face_detection' already exists. Use PUT /v1/core/solution/custom_face_detection to update it."
+    "message": "Solution with ID 'custom_face_detection' already exists. Use PUT /v1/securt/solution/custom_face_detection to update it."
   }
   ```
 * 500 - Server error
@@ -3479,7 +3478,7 @@ curl -X 'POST' \
   ```
 ### Get solution details
 Returns detailed information about a specific solution including full pipeline configuration. \
-API path: /v1/core/solution/{solutionId}
+API path: /v1/securt/solution/{solutionId}
 
 **Parameter**
 * *solutionId* (string): Solution ID.
@@ -3489,7 +3488,7 @@ API path: /v1/core/solution/{solutionId}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/solution/face_detection' \
+  'http://localhost:8080/v1/securt/solution/face_detection' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -3531,7 +3530,7 @@ curl -X 'GET' \
   ```
 ### Update a solution
 Updates an existing custom solution configuration. Default solutions cannot be updated. \
-API path: /v1/core/solution/{solutionId}
+API path: /v1/securt/solution/{solutionId}
 
 **Parameter**
 * *solutionId* (string): Solution ID.
@@ -3562,7 +3561,7 @@ API path: /v1/core/solution/{solutionId}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/solution/face_detection' \
+  'http://localhost:8080/v1/securt/solution/face_detection' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -3639,7 +3638,7 @@ curl -X 'PUT' \
   ```
 ### Delete a solution 
 Deletes a custom solution. Default solutions cannot be deleted. \
-API path: /v1/core/solution/{solutionId}
+API path: /v1/securt/solution/{solutionId}
 
 **Parameter**
 * *solutionId* (string): Solution ID.
@@ -3649,7 +3648,7 @@ API path: /v1/core/solution/{solutionId}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/solution/string' \
+  'http://localhost:8080/v1/securt/solution/string' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -3688,7 +3687,7 @@ Returns the parameter schema required to create an instance with this solution. 
 * Standard Fields: Common instance creation fields (name, group, persistent, autoStart, etc.)
 * Parameters marked as required must be provided in the additionalParams object when creating an instance. Parameters with default values are optional. 
 
-API path: /v1/core/solution/{solutionId}/parameters
+API path: /v1/securt/solution/{solutionId}/parameters
 
 **Parameter**
 * *solutionId* (string): Solution ID.
@@ -3698,7 +3697,7 @@ API path: /v1/core/solution/{solutionId}/parameters
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/solution/face_detection/parameters' \
+  'http://localhost:8080/v1/securt/solution/face_detection/parameters' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -3829,8 +3828,8 @@ Returns an example request body for creating an instance with this solution, alo
 * Additional Parameters: Solution-specific parameters with example values based on parameter names
 * Schema: Detailed metadata for all fields including types, validation rules, UI hints, descriptions, examples, and categories
 
-The response body can be used directly to create an instance via POST /v1/core/instance. The schema field provides rich metadata for UI to dynamically render forms, validate inputs, and provide better user experience. \
-API path: /v1/core/solution/{solutionId}/instance-body
+The response body can be used directly to create an instance via POST /v1/securt/instance. The schema field provides rich metadata for UI to dynamically render forms, validate inputs, and provide better user experience. \
+API path: /v1/securt/solution/{solutionId}/instance-body
 
 **Parameter**
 * *solutionId* (string): Solution ID.
@@ -3840,7 +3839,7 @@ API path: /v1/core/solution/{solutionId}/instance-body
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/solution/face_detection/instance-body' \
+  'http://localhost:8080/v1/securt/solution/face_detection/instance-body' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4024,7 +4023,7 @@ The response includes:
 * Summary information for each group (ID, name, description, instance count, etc.)
 
 This endpoint is useful for getting an overview of all groups in the system without fetching detailed information for each one. \
-API path: /v1/core/groups
+API path: /v1/securt/groups
 
 **No parameter**
 
@@ -4033,7 +4032,7 @@ API path: /v1/core/groups
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/groups' \
+  'http://localhost:8080/v1/securt/groups' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4089,7 +4088,7 @@ Persistence:
 * Group files are stored in /var/lib/omniapi/groups (configurable via GROUPS_DIR environment variable)
 
 Returns: The created group information including timestamps. \
-API path: /v1/core/groups
+API path: /v1/securt/groups
 
 **No parameter**
 
@@ -4104,7 +4103,7 @@ API path: /v1/core/groups
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/groups' \
+  'http://localhost:8080/v1/securt/groups' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -4151,7 +4150,7 @@ The response includes:
 * List of instance IDs in the group
 
 The group must exist. If the group is not found, a 404 error will be returned. \
-API path: /v1/core/groups/{groupId}
+API path: /v1/securt/groups/{groupId}
 
 **Parameter**
 * *groupId* (string): Group ID.
@@ -4160,7 +4159,7 @@ API path: /v1/core/groups/{groupId}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/groups/cameras' \
+  'http://localhost:8080/v1/securt/groups/cameras' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4211,7 +4210,7 @@ Behavior:
 * Other fields remain unchanged
 * Updated timestamp is automatically set 
 
-API path: /v1/core/groups/{groupId}
+API path: /v1/securt/groups/{groupId}
 
 **Parameter**
 * *groupId* (string): Group ID.
@@ -4226,7 +4225,7 @@ API path: /v1/core/groups/{groupId}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/groups/cameras' \
+  'http://localhost:8080/v1/securt/groups/cameras' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -4284,7 +4283,7 @@ Behavior:
 * All resources associated with the group will be released
 
 Note: This operation cannot be undone. Once deleted, the group must be recreated using the create group endpoint. \
-API path: /v1/core/groups/{groupId}
+API path: /v1/securt/groups/{groupId}
 
 **Parameter**
 * *groupId* (string): Group ID.
@@ -4294,7 +4293,7 @@ API path: /v1/core/groups/{groupId}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/groups/string' \
+  'http://localhost:8080/v1/securt/groups/string' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4341,7 +4340,7 @@ Use Cases:
 * Manage instances by group
 
 The group must exist. If the group is not found, a 404 error will be returned. \
-API path: /v1/core/groups/{groupId}/instances
+API path: /v1/securt/groups/{groupId}/instances
 
 **Parameter**
 * *groupId* (string): Group ID.
@@ -4351,7 +4350,7 @@ API path: /v1/core/groups/{groupId}/instances
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/groups/cameras/instances' \
+  'http://localhost:8080/v1/securt/groups/cameras/instances' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4397,7 +4396,7 @@ curl -X 'GET' \
 ## Models API
 ### Upload a model file
 Uploads a model file (ONNX, weights, etc.) to the server. The file will be saved in the models directory. \
-API path: /v1/core/model/upload
+API path: /v1/securt/model/upload
 
 **No parameter**
 
@@ -4452,7 +4451,7 @@ API path: /v1/core/model/upload
   ```
 ### List uploaded model files
 Returns a list of all model files that have been uploaded to the server. \
-API path: /v1/core/model/list
+API path: /v1/securt/model/list
 
 **No parameter**
 
@@ -4461,7 +4460,7 @@ API path: /v1/core/model/list
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/model/list' \
+  'http://localhost:8080/v1/securt/model/list' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4491,7 +4490,7 @@ curl -X 'GET' \
   ```
 ### Rename a model file
 Renames a model file on the server. \
-API path: /v1/core/model/{modelName}
+API path: /v1/securt/model/{modelName}
 
 **Parameter**
 * *modelName* (string): Current name of the model file to rename.
@@ -4505,7 +4504,7 @@ API path: /v1/core/model/{modelName}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/model/modelName' \
+  'http://localhost:8080/v1/securt/model/modelName' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -4557,7 +4556,7 @@ curl -X 'PUT' \
   ```
 ### Delete a model file
 Deletes a model file from the server. \
-API path: /v1/core/model/{modelName}
+API path: /v1/securt/model/{modelName}
 
 **Parameter**
 * *modelName* (string): Current name of the model file to delete.
@@ -4567,7 +4566,7 @@ API path: /v1/core/model/{modelName}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/model/string' \
+  'http://localhost:8080/v1/securt/model/string' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4607,7 +4606,7 @@ curl -X 'DELETE' \
 ## Video API
 ### Upload a video file
 Uploads a video file (MP4, AVI, MKV, etc.) to the server. The file will be saved in the videos directory. \
-API path: /v1/core/video/upload
+API path: /v1/securt/video/upload
 
 **No parameter**
 
@@ -4662,7 +4661,7 @@ API path: /v1/core/video/upload
   ```
 ### List uploaded video files
 Returns a list of all video files that have been uploaded to the server. \
-API path: /v1/core/video/list
+API path: /v1/securt/video/list
 
 **No parameter**
 
@@ -4671,7 +4670,7 @@ API path: /v1/core/video/list
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/video/list' \
+  'http://localhost:8080/v1/securt/video/list' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4701,7 +4700,7 @@ curl -X 'GET' \
   ```
 ### Rename a video file
 Renames a video file on the server. \
-API path: /v1/core/video/{videoName}
+API path: /v1/securt/video/{videoName}
 
 **Parameter**
 * *videoName* (string): Current name of the video file to rename.
@@ -4715,7 +4714,7 @@ API path: /v1/core/video/{videoName}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/video/videoName' \
+  'http://localhost:8080/v1/securt/video/videoName' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -4767,7 +4766,7 @@ curl -X 'PUT' \
   ```
 ### Delete a video file
 Deletes a video file from the server. \
-API path: /v1/core/video/{videoName}
+API path: /v1/securt/video/{videoName}
 
 **Parameter**
 * *videoName* (string): Current name of the video file to delete.
@@ -4777,7 +4776,7 @@ API path: /v1/core/video/{videoName}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/video/string' \
+  'http://localhost:8080/v1/securt/video/string' \
   -H 'accept: application/json'
 ```
 
@@ -4818,7 +4817,7 @@ curl -X 'DELETE' \
 ## Fonts API
 ### Upload a font file
 Uploads a font file (TTF, OTF, WOFF, WOFF2, etc.) to the server. The file will be saved in the fonts directory. \
-API path: /v1/core/font/upload
+API path: /v1/securt/font/upload
 
 **No parameter**
 
@@ -4879,7 +4878,7 @@ API path: /v1/core/font/upload
   ```
 ### List uploaded font files
 Returns a list of all font files that have been uploaded to the server. \
-API path: /v1/core/font/list
+API path: /v1/securt/font/list
 
 **No parameter**
 
@@ -4888,7 +4887,7 @@ API path: /v1/core/font/list
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/font/list' \
+  'http://localhost:8080/v1/securt/font/list' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -4918,7 +4917,7 @@ curl -X 'GET' \
   ```
 ### Rename a font file
 Renames a font file on the server. \
-API path: /v1/core/font/{fontName}
+API path: /v1/securt/font/{fontName}
 
 **Parameter**
 * *fontName* (string): Current name of the font file to rename
@@ -4932,7 +4931,7 @@ API path: /v1/core/font/{fontName}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/font/fontName' \
+  'http://localhost:8080/v1/securt/font/fontName' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -4985,7 +4984,7 @@ curl -X 'PUT' \
 ## Node API
 ### List all pre-configured nodes
 Returns a list of all pre-configured nodes in the node pool. Can be filtered by availability status and category.  \
-API path: /v1/core/node
+API path: /v1/securt/node
 
 **Parameters**
 * *available* (string):Filter to show only available (not in use) nodes. Available values : true, false, 1, 0
@@ -4996,7 +4995,7 @@ API path: /v1/core/node
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/node?available=true&category=source' \
+  'http://localhost:8080/v1/securt/node?available=true&category=source' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -5024,7 +5023,7 @@ curl -X 'GET' \
           "channel",
           "resize_ratio"
         ],
-        "templateDetailUrl": "/v1/core/node/template/rtsp_src_template",
+        "templateDetailUrl": "/v1/securt/node/template/rtsp_src_template",
         "parameterSchema": {
           "rtsp_url": {
             "name": "rtsp_url",
@@ -5123,7 +5122,7 @@ curl -X 'GET' \
   ```
 ### Create a new pre-configured node
 Creates a new pre-configured node from a template with specified parameters. \
-API path: /v1/core/node
+API path: /v1/securt/node
 
 **No parameter**
 
@@ -5141,7 +5140,7 @@ API path: /v1/core/node
 **Request schema**
 ```
 curl -X 'POST' \
-  'http://localhost:8080/v1/core/node' \
+  'http://localhost:8080/v1/securt/node' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -5176,7 +5175,7 @@ curl -X 'POST' \
       "channel",
       "resize_ratio"
     ],
-    "templateDetailUrl": "/v1/core/node/template/rtsp_src_template",
+    "templateDetailUrl": "/v1/securt/node/template/rtsp_src_template",
     "parameterSchema": {
       "rtsp_url": {
         "name": "rtsp_url",
@@ -5278,7 +5277,7 @@ curl -X 'POST' \
   ```
 ### Get node details
 Returns detailed information about a specific pre-configured node. \
-API path: /v1/core/node/{nodeId}
+API path: /v1/securt/node/{nodeId}
 
 **Parameter**
 * *nodeId* (string): Unique node identifier.
@@ -5288,7 +5287,7 @@ API path: /v1/core/node/{nodeId}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/node/node_a1b2c3d4' \
+  'http://localhost:8080/v1/securt/node/node_a1b2c3d4' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -5313,7 +5312,7 @@ curl -X 'GET' \
       "channel",
       "stream_name"
     ],
-    "templateDetailUrl": "/v1/core/node/template/rtsp_des_template",
+    "templateDetailUrl": "/v1/securt/node/template/rtsp_des_template",
     "input": [
       {
         "type": "video_frames",
@@ -5370,7 +5369,7 @@ curl -X 'GET' \
   ```
 ### Update a node
 Updates an existing node's parameters. Only nodes that are not currently in use can be updated. Note: Update operation deletes the old node and creates a new one with updated parameters. \
-API path: /v1/core/node/{nodeId}
+API path: /v1/securt/node/{nodeId}
 
 **Parameter**
 * *nodeId* (string): Unique node identifier.
@@ -5388,7 +5387,7 @@ API path: /v1/core/node/{nodeId}
 **Request schema**
 ```
 curl -X 'PUT' \
-  'http://localhost:8080/v1/core/node/node_a1b2c3d4' \
+  'http://localhost:8080/v1/securt/node/node_a1b2c3d4' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -5422,7 +5421,7 @@ curl -X 'PUT' \
       "channel",
       "resize_ratio"
     ],
-    "templateDetailUrl": "/v1/core/node/template/rtsp_src_template",
+    "templateDetailUrl": "/v1/securt/node/template/rtsp_src_template",
     "parameterSchema": {
       "rtsp_url": {
         "name": "rtsp_url",
@@ -5540,7 +5539,7 @@ curl -X 'PUT' \
   ```
 ### Delete a node  
 Deletes a pre-configured node. Only nodes that are not currently in use can be deleted. \
-API path: /v1/core/node/{nodeId}
+API path: /v1/securt/node/{nodeId}
 
 **Parameter**
 * *nodeId* (string): Unique node identifier.
@@ -5550,7 +5549,7 @@ API path: /v1/core/node/{nodeId}
 **Request schema**
 ```
 curl -X 'DELETE' \
-  'http://localhost:8080/v1/core/node/node_a1b2c3d4' \
+  'http://localhost:8080/v1/securt/node/node_a1b2c3d4' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -5652,7 +5651,7 @@ Broker Nodes:
 * plate_socket_broker - Plate Socket Broker
 * expr_socket_broker - Expression Socket Broker
 All node templates are automatically imported from CVEDIX SDK nodes available in /opt/cvedix/include/cvedix/nodes/infers. \
-API path: /v1/core/node/template
+API path: /v1/securt/node/template
 
 **No parameter**
 
@@ -5661,7 +5660,7 @@ API path: /v1/core/node/template
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/node/template' \
+  'http://localhost:8080/v1/securt/node/template' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -5702,7 +5701,7 @@ curl -X 'GET' \
   ```
 ### Get template details
 Returns detailed information about a specific node template. \
-API path: /v1/core/node/template/{templateId}
+API path: /v1/securt/node/template/{templateId}
 
 **Parameter**
 * *templateId* (string): Unique template identifier.
@@ -5712,7 +5711,7 @@ API path: /v1/core/node/template/{templateId}
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/node/template/rtsp_src_template' \
+  'http://localhost:8080/v1/securt/node/template/rtsp_src_template' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -5756,7 +5755,7 @@ curl -X 'GET' \
   ```
 ### Get node pool statistics
 Returns statistics about the node pool including total templates, total nodes, available nodes, and nodes by category. \
-API path: /v1/core/node/stats
+API path: /v1/securt/node/stats
 
 **No parameter**
 
@@ -5765,7 +5764,7 @@ API path: /v1/core/node/stats
 **Request schema**
 ```
 curl -X 'GET' \
-  'http://localhost:8080/v1/core/node/stats' \
+  'http://localhost:8080/v1/securt/node/stats' \
   -H 'accept: application/json'
 ```
 **Responses schema**
@@ -5995,7 +5994,7 @@ Deletes a face subject by its image ID or subject name.
 * If the identifier is a subject name, all faces associated with that subject will be deleted.
 
 The endpoint automatically detects whether the identifier is an image_id or subject name. If no face is found with the given identifier, a 404 error is returned.
-API path: /v1/core/recognition/faces/{image_id} \
+API path: /v1/securt/recognition/faces/{image_id} \
 
 **Parameters**
 * *image_id* (string): Either the UUID of the face subject to be deleted, or the subject name. The endpoint will automatically detect the type of identifier. Example : 6b135f5b-a365-4522-b1f1-4c9ac2dd0728

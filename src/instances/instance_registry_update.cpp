@@ -25,9 +25,6 @@
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
@@ -121,9 +118,10 @@ bool InstanceRegistry::updateInstance(const std::string &instanceId,
 
     // Update fields if provided
     if (!req.name.empty()) {
-      std::cerr << "[InstanceRegistry] Updating displayName: "
+      std::cerr << "[InstanceRegistry] Updating name (display & instance): "
                 << info.displayName << " -> " << req.name << std::endl;
       info.displayName = req.name;
+      info.instanceName = req.name;
       hasChanges = true;
       requiresRestart = true;
     }

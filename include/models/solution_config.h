@@ -12,6 +12,8 @@ struct SolutionConfig {
   std::string solutionId;
   std::string solutionName;
   std::string solutionType; // "face_detection", "object_detection", etc.
+  std::string category;     // "security", "its", "armed", "firefighting", "custom"
+  std::string feature;      // "crossline", "intrusion", "loitering", "jam", etc.
   bool isDefault = false;   // If true, solution cannot be deleted
 
   /**

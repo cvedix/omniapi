@@ -26,6 +26,7 @@ Json::Value AnalyticsEntitiesManager::getAnalyticsEntities(
   result["objectLeftAreas"] = getObjectLeftAreas(instanceId);
   result["objectRemovedAreas"] = getObjectRemovedAreas(instanceId);
   result["fallenPersonAreas"] = getFallenPersonAreas(instanceId);
+  result["stopAreas"] = getStopAreas(instanceId);
   
   // Lines
   result["crossingLines"] = getCrossingLines(instanceId);
@@ -213,6 +214,23 @@ Json::Value AnalyticsEntitiesManager::getFallenPersonAreas(
   }
   auto areasMap = area_manager_->getAllAreas(instanceId);
   auto it = areasMap.find("fallenPerson");
+  if (it != areasMap.end()) {
+    Json::Value areasArray(Json::arrayValue);
+    for (const auto &area : it->second) {
+      areasArray.append(area);
+    }
+    return areasArray;
+  }
+  return Json::Value(Json::arrayValue);
+}
+
+Json::Value AnalyticsEntitiesManager::getStopAreas(
+    const std::string &instanceId) const {
+  if (!area_manager_) {
+    return Json::Value(Json::arrayValue);
+  }
+  auto areasMap = area_manager_->getAllAreas(instanceId);
+  auto it = areasMap.find("stop");
   if (it != areasMap.end()) {
     Json::Value areasArray(Json::arrayValue);
     for (const auto &area : it->second) {

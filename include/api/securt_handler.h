@@ -63,6 +63,9 @@ public:
                 "/v1/securt/instance/{instanceId}/performance_profile", Get);
   ADD_METHOD_TO(SecuRTHandler::setFaceDetection,
                 "/v1/securt/instance/{instanceId}/face_detection", Post);
+  ADD_METHOD_TO(SecuRTHandler::getFaceDetection,
+                "/v1/securt/instance/{instanceId}/face_detection", Get);
+
   ADD_METHOD_TO(SecuRTHandler::setLPR,
                 "/v1/securt/instance/{instanceId}/lpr", Post);
   ADD_METHOD_TO(SecuRTHandler::getLPR,
@@ -94,6 +97,7 @@ public:
                 "/v1/securt/instance/{instanceId}/performance_profile", Options);
   ADD_METHOD_TO(SecuRTHandler::handleOptions,
                 "/v1/securt/instance/{instanceId}/face_detection", Options);
+
   ADD_METHOD_TO(SecuRTHandler::handleOptions,
                 "/v1/securt/instance/{instanceId}/lpr", Options);
   ADD_METHOD_TO(SecuRTHandler::handleOptions,
@@ -213,9 +217,14 @@ public:
   void getPerformanceProfile(
       const HttpRequestPtr &req,
       std::function<void(const HttpResponsePtr &)> &&callback);
+
   void setFaceDetection(
       const HttpRequestPtr &req,
       std::function<void(const HttpResponsePtr &)> &&callback);
+  void getFaceDetection(
+      const HttpRequestPtr &req,
+      std::function<void(const HttpResponsePtr &)> &&callback);
+
   void setLPR(const HttpRequestPtr &req,
               std::function<void(const HttpResponsePtr &)> &&callback);
   void getLPR(const HttpRequestPtr &req,

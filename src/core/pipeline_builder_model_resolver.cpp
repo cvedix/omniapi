@@ -99,30 +99,7 @@ std::string PipelineBuilderModelResolver::resolveModelPath(
       return path;
     }
 
-    // If exact file not found, try to find alternative yunet files in the same
-    // directory This handles cases where file is named like
-    // "face_detection_yunet_2023mar.onnx" instead of "yunet.onnx"
-    if (relativePath.find("yunet.onnx") != std::string::npos) {
-      fs::path dirPath = fs::path(path).parent_path();
-      if (fs::exists(dirPath) && fs::is_directory(dirPath)) {
-        // Look for alternative yunet files (prefer newer versions)
-        std::vector<std::string> alternatives = {
-            "face_detection_yunet_2023mar.onnx", // Newer version (preferred)
-            "face_detection_yunet_2022mar.onnx", // Older version
-            "yunet_2023mar.onnx",
-            "yunet_2022mar.onnx",
-        };
 
-        for (const auto &alt : alternatives) {
-          fs::path altPath = dirPath / alt;
-          if (fs::exists(altPath)) {
-            std::cerr << "[PipelineBuilder] Found alternative yunet model: "
-                      << altPath.string() << std::endl;
-            return altPath.string();
-          }
-        }
-      }
-    }
   }
 
   // 5. Try common SDK source locations (relative paths only, no hardcoded
@@ -177,13 +154,9 @@ std::string PipelineBuilderModelResolver::resolveModelByName(
   patterns.push_back(modelName);
 
   // Add common prefixes/suffixes
-  if (modelName.find("yunet") != std::string::npos ||
-      modelName.find("face") != std::string::npos) {
+  if (modelName.find("face") != std::string::npos) {
     patterns.push_back("face_detection_" + modelName);
     patterns.push_back(modelName + "_face_detection");
-    if (modelName.find("yunet") == std::string::npos) {
-      patterns.push_back("face_detection_yunet_" + modelName);
-    }
   }
 
   // Try different search locations

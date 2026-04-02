@@ -17,15 +17,7 @@ class cvedix_node;
  */
 class PipelineBuilderDetectorNodes {
 public:
-  // ========== Face Detection Nodes ==========
-
-  /**
-   * @brief Create face detector node (YuNet)
-   */
-  static std::shared_ptr<cvedix_nodes::cvedix_node>
-  createFaceDetectorNode(const std::string &nodeName,
-                         const std::map<std::string, std::string> &params,
-                         const CreateInstanceRequest &req);
+  // ========== Face Processing Nodes ==========
 
   /**
    * @brief Create SFace feature encoder node
@@ -138,15 +130,6 @@ public:
       const CreateInstanceRequest &req);
 
   /**
-   * @brief Create TensorRT YOLOv11 face detector node
-   */
-  static std::shared_ptr<cvedix_nodes::cvedix_node>
-  createTRTYOLOv11FaceDetectorNode(
-      const std::string &nodeName,
-      const std::map<std::string, std::string> &params,
-      const CreateInstanceRequest &req);
-
-  /**
    * @brief Create TensorRT YOLOv11 plate detector node
    */
   static std::shared_ptr<cvedix_nodes::cvedix_node>
@@ -166,14 +149,6 @@ public:
   createRKNNYOLOv8DetectorNode(const std::string &nodeName,
                                const std::map<std::string, std::string> &params,
                                const CreateInstanceRequest &req);
-
-  /**
-   * @brief Create RKNN face detector node
-   */
-  static std::shared_ptr<cvedix_nodes::cvedix_node>
-  createRKNNFaceDetectorNode(const std::string &nodeName,
-                             const std::map<std::string, std::string> &params,
-                             const CreateInstanceRequest &req);
 
   /**
    * @brief Create RKNN YOLOv11 detector node
@@ -267,6 +242,14 @@ public:
   createYOLOv11PlateDetectorNode(const std::string &nodeName,
                                  const std::map<std::string, std::string> &params,
                                  const CreateInstanceRequest &req);
+
+  /**
+   * @brief Create face detector node
+   */
+  static std::shared_ptr<cvedix_nodes::cvedix_node>
+  createFaceDetectorNode(const std::string &nodeName,
+                         const std::map<std::string, std::string> &params,
+                         const CreateInstanceRequest &req);
 
   /**
    * @brief Create face swap node

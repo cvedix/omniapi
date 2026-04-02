@@ -267,10 +267,10 @@ ModelUploadHandler::extractModelName(const HttpRequestPtr &req) const {
       path = req->getPath();
     }
 
-    // Try /v1/core/model/ pattern first
-    size_t modelPos = path.find("/v1/core/model/");
+    // Try /v1/securt/model/ pattern first
+    size_t modelPos = path.find("/v1/securt/model/");
     if (modelPos != std::string::npos) {
-      size_t start = modelPos + 15;       // length of "/v1/core/model/"
+      size_t start = modelPos + 15;       // length of "/v1/securt/model/"
       size_t end = path.find("?", start); // Stop at query string if present
       if (end == std::string::npos) {
         end = path.length();
@@ -696,7 +696,7 @@ void ModelUploadHandler::uploadModel(
           fileInfo["originalFilename"] = partFilename;
           fileInfo["path"] = std::filesystem::canonical(partFilePath).string();
           fileInfo["size"] = static_cast<Json::Int64>(fileSize);
-          fileInfo["url"] = "/v1/core/model/" + finalFilename;
+          fileInfo["url"] = "/v1/securt/model/" + finalFilename;
           uploadedFiles.append(fileInfo);
 
           fileCount++;
@@ -1026,7 +1026,7 @@ void ModelUploadHandler::uploadModel(
     response["originalFilename"] = originalFilename;
     response["path"] = canonicalPath;
     response["size"] = fileSize;
-    response["url"] = "/v1/core/model/" + sanitizedFilename;
+    response["url"] = "/v1/securt/model/" + sanitizedFilename;
 
     auto resp = HttpResponse::newHttpJsonResponse(response);
     resp->setStatusCode(k201Created);

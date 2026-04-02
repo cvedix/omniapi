@@ -11,20 +11,20 @@ using namespace drogon;
  * @brief License Management endpoint handler
  *
  * Endpoints:
- * - GET /v1/core/license/check - Check license validity
- * - GET /v1/core/license/info - Get license information
+ * - GET /v1/securt/license/check - Check license validity
+ * - GET /v1/securt/license/info - Get license information
  */
 class LicenseHandler : public drogon::HttpController<LicenseHandler> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(LicenseHandler::checkLicense, "/v1/core/license/check", Get);
-  ADD_METHOD_TO(LicenseHandler::getLicenseInfo, "/v1/core/license/info", Get);
-  ADD_METHOD_TO(LicenseHandler::handleOptions, "/v1/core/license/check", Options);
-  ADD_METHOD_TO(LicenseHandler::handleOptions, "/v1/core/license/info", Options);
+  ADD_METHOD_TO(LicenseHandler::checkLicense, "/v1/securt/license/check", Get);
+  ADD_METHOD_TO(LicenseHandler::getLicenseInfo, "/v1/securt/license/info", Get);
+  ADD_METHOD_TO(LicenseHandler::handleOptions, "/v1/securt/license/check", Options);
+  ADD_METHOD_TO(LicenseHandler::handleOptions, "/v1/securt/license/info", Options);
   METHOD_LIST_END
 
   /**
-   * @brief Handle GET /v1/core/license/check
+   * @brief Handle GET /v1/securt/license/check
    * Returns license validity status
    *
    * @param req HTTP request
@@ -34,7 +34,7 @@ public:
                     std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle GET /v1/core/license/info
+   * @brief Handle GET /v1/securt/license/info
    * Returns license information
    *
    * @param req HTTP request

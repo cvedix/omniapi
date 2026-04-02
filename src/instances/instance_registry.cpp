@@ -28,12 +28,9 @@
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
 #ifdef CVEDIX_HAS_OPENPOSE
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
 #endif
 #ifdef CVEDIX_USE_SFACE_FEATURE_ENCODER
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #endif
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>

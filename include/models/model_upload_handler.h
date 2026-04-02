@@ -15,47 +15,47 @@ using namespace drogon;
  * Handles model file uploads for AI instances.
  *
  * Endpoints:
- * - POST /v1/core/model/upload - Upload a model file
- * - GET /v1/core/model/list - List uploaded models
- * - PUT /v1/core/model/{modelName} - Rename a model file
- * - DELETE /v1/core/model/{modelName} - Delete a model file
+ * - POST /v1/securt/model/upload - Upload a model file
+ * - GET /v1/securt/model/list - List uploaded models
+ * - PUT /v1/securt/model/{modelName} - Rename a model file
+ * - DELETE /v1/securt/model/{modelName} - Delete a model file
  */
 class ModelUploadHandler : public drogon::HttpController<ModelUploadHandler> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(ModelUploadHandler::uploadModel, "/v1/core/model/upload", Post);
-  ADD_METHOD_TO(ModelUploadHandler::listModels, "/v1/core/model/list", Get);
-  ADD_METHOD_TO(ModelUploadHandler::renameModel, "/v1/core/model/{modelName}",
+  ADD_METHOD_TO(ModelUploadHandler::uploadModel, "/v1/securt/model/upload", Post);
+  ADD_METHOD_TO(ModelUploadHandler::listModels, "/v1/securt/model/list", Get);
+  ADD_METHOD_TO(ModelUploadHandler::renameModel, "/v1/securt/model/{modelName}",
                 Put);
-  ADD_METHOD_TO(ModelUploadHandler::deleteModel, "/v1/core/model/{modelName}",
+  ADD_METHOD_TO(ModelUploadHandler::deleteModel, "/v1/securt/model/{modelName}",
                 Delete);
-  ADD_METHOD_TO(ModelUploadHandler::handleOptions, "/v1/core/model/upload",
+  ADD_METHOD_TO(ModelUploadHandler::handleOptions, "/v1/securt/model/upload",
                 Options);
   METHOD_LIST_END
 
   /**
-   * @brief Handle POST /v1/core/model/upload
+   * @brief Handle POST /v1/securt/model/upload
    * Uploads a model file (multipart/form-data)
    */
   void uploadModel(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle GET /v1/core/model/list
+   * @brief Handle GET /v1/securt/model/list
    * Lists all uploaded model files
    */
   void listModels(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle PUT /v1/core/model/{modelName}
+   * @brief Handle PUT /v1/securt/model/{modelName}
    * Renames a model file
    */
   void renameModel(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback);
 
   /**
-   * @brief Handle DELETE /v1/core/model/{modelName}
+   * @brief Handle DELETE /v1/securt/model/{modelName}
    * Deletes a model file
    */
   void deleteModel(const HttpRequestPtr &req,

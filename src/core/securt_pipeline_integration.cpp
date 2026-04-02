@@ -250,6 +250,37 @@ std::string SecuRTPipelineIntegration::convertAreasToStopZonesFormat(
 
       if (roi.size() >= 3) {
         zone["roi"] = roi;
+
+        // For stop areas, pass enterAlert/exitAlert directly (maps to ba_stop_node constructor)
+        if (areaType == "stop") {
+          if (area.isMember("enterAlert") && area["enterAlert"].isBool()) {
+            zone["enterAlert"] = area["enterAlert"].asBool();
+          } else {
+            zone["enterAlert"] = true; // Default
+          }
+          if (area.isMember("exitAlert") && area["exitAlert"].isBool()) {
+            zone["exitAlert"] = area["exitAlert"].asBool();
+          } else {
+            zone["exitAlert"] = true; // Default
+          }
+        }
+        // For crossing areas, map areaEvent to enter/exit alerts
+        else if (areaType == "crossing") {
+          if (area.isMember("areaEvent") && area["areaEvent"].isString()) {
+            std::string event = area["areaEvent"].asString();
+            zone["enterAlert"] = (event == "Enter" || event == "Both");
+            zone["exitAlert"] = (event == "Exit" || event == "Both");
+          } else {
+            zone["enterAlert"] = true;
+            zone["exitAlert"] = true;
+          }
+        }
+        // Default for other area types
+        else {
+          zone["enterAlert"] = true;
+          zone["exitAlert"] = true;
+        }
+
         stopZonesArray.append(zone);
       }
     }

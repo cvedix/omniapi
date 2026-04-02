@@ -14,7 +14,7 @@ class IInstanceManager;
 /**
  * @brief WebSocket controller for real-time AI streaming
  *
- * Endpoint: /v1/core/ai/stream
+ * Endpoint: /v1/securt/ai/stream
  * Supports bidirectional communication for streaming AI results
  */
 class AIWebSocketController
@@ -30,8 +30,8 @@ public:
   void handleConnectionClosed(const WebSocketConnectionPtr &wsConnPtr) override;
 
   WS_PATH_LIST_BEGIN
-  WS_PATH_ADD("/v1/core/ai/stream", drogon::Get);
-  WS_PATH_ADD("/v1/core/instance/{instanceId}/stream", drogon::Get);
+  WS_PATH_ADD("/v1/securt/ai/stream", drogon::Get);
+  WS_PATH_ADD("/v1/securt/instance/{instanceId}/stream", drogon::Get);
   WS_PATH_LIST_END
 
   /**

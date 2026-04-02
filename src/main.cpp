@@ -1,8 +1,4 @@
-#include "api/create_instance_handler.h"
 #include "api/health_handler.h"
-#include "api/instance_handler.h"
-#include "api/instance_fps_handler.h"
-#include "api/quick_instance_handler.h"
 #include "api/swagger_handler.h"
 #include "api/scalar_handler.h"
 #include "api/hls_handler.h"
@@ -15,16 +11,9 @@
 #include "api/license_handler.h"
 #include "api/ai_websocket.h"
 #include "api/config_handler.h"
-#include "api/endpoints_handler.h"
-#include "api/group_handler.h"
-#include "api/jams_handler.h"
-#include "api/lines_handler.h"
 #include "api/log_handler.h"
-#include "api/node_handler.h"
 #include "api/onvif_handler.h"
 
-#include "api/solution_handler.h"
-#include "api/stops_handler.h"
 #include "api/securt_handler.h"
 #include "api/securt_line_handler.h"
 #include "api/area_handler.h"
@@ -37,7 +26,6 @@
 #include "core/area_storage.h"
 #include "core/area_manager.h"
 #ifdef ENABLE_METRICS_HANDLER
-#include "api/metrics_handler.h"
 #endif
 #include "config/system_config.h"
 #include "core/system_config_manager.h"
@@ -58,6 +46,9 @@
 #include "core/request_middleware.h"
 #include "core/timeout_constants.h"
 #include "core/device_watchdog.h"
+#include "core/event_storage.h"
+#include "core/omni_database.h"
+#include "core/statistics_storage.h"
 #include "core/watchdog.h"
 #include "fonts/font_upload_handler.h"
 #include "groups/group_registry.h"
@@ -2223,29 +2214,29 @@ int main(int argc, char *argv[]) {
 
     PLOG_INFO << "Server will attempt to listen on: " << host << ":" << port;
     PLOG_INFO << "Available endpoints:";
-    PLOG_INFO << "  GET /v1/core/health  - Health check";
-    PLOG_INFO << "  GET /v1/core/version - Version information";
-    PLOG_INFO << "  POST /v1/core/instance - Create new instance";
-    PLOG_INFO << "  GET /v1/core/instance - List all instances";
-    PLOG_INFO << "  GET /v1/core/instance/{id} - Get instance details";
-    PLOG_INFO << "  POST /v1/core/instance/{id}/input - Set input source";
+    PLOG_INFO << "  GET /v1/securt/health  - Health check";
+    PLOG_INFO << "  GET /v1/securt/version - Version information";
+    PLOG_INFO << "  POST /v1/securt/instance - Create new instance";
+    PLOG_INFO << "  GET /v1/securt/instance - List all instances";
+    PLOG_INFO << "  GET /v1/securt/instance/{id} - Get instance details";
+    PLOG_INFO << "  POST /v1/securt/instance/{id}/input - Set input source";
     PLOG_INFO
-        << "  POST /v1/core/instance/{id}/config - Set config value at path";
-    PLOG_INFO << "  POST /v1/core/instance/{id}/start - Start instance";
-    PLOG_INFO << "  POST /v1/core/instance/{id}/stop - Stop instance";
-    PLOG_INFO << "  DELETE /v1/core/instance/{id} - Delete instance";
-    PLOG_INFO << "  GET /v1/core/instance/{id}/frame - Get last frame";
+        << "  POST /v1/securt/instance/{id}/config - Set config value at path";
+    PLOG_INFO << "  POST /v1/securt/instance/{id}/start - Start instance";
+    PLOG_INFO << "  POST /v1/securt/instance/{id}/stop - Stop instance";
+    PLOG_INFO << "  DELETE /v1/securt/instance/{id} - Delete instance";
+    PLOG_INFO << "  GET /v1/securt/instance/{id}/frame - Get last frame";
     PLOG_INFO
-        << "  GET /v1/core/instance/{id}/statistics - Get instance statistics";
-    PLOG_INFO << "  POST /v1/core/model/upload - Upload model file";
-    PLOG_INFO << "  GET /v1/core/model/list - List uploaded models";
-    PLOG_INFO << "  DELETE /v1/core/model/{modelName} - Delete model file";
-    PLOG_INFO << "  POST /v1/core/video/upload - Upload video file";
-    PLOG_INFO << "  GET /v1/core/video/list - List uploaded videos";
-    PLOG_INFO << "  DELETE /v1/core/video/{videoName} - Delete video file";
-    PLOG_INFO << "  POST /v1/core/font/upload - Upload font file";
-    PLOG_INFO << "  GET /v1/core/font/list - List uploaded fonts";
-    PLOG_INFO << "  DELETE /v1/core/font/{fontName} - Delete font file";
+        << "  GET /v1/securt/instance/{id}/statistics - Get instance statistics";
+    PLOG_INFO << "  POST /v1/securt/model/upload - Upload model file";
+    PLOG_INFO << "  GET /v1/securt/model/list - List uploaded models";
+    PLOG_INFO << "  DELETE /v1/securt/model/{modelName} - Delete model file";
+    PLOG_INFO << "  POST /v1/securt/video/upload - Upload video file";
+    PLOG_INFO << "  GET /v1/securt/video/list - List uploaded videos";
+    PLOG_INFO << "  DELETE /v1/securt/video/{videoName} - Delete video file";
+    PLOG_INFO << "  POST /v1/securt/font/upload - Upload font file";
+    PLOG_INFO << "  GET /v1/securt/font/list - List uploaded fonts";
+    PLOG_INFO << "  DELETE /v1/securt/font/{fontName} - Delete font file";
     PLOG_INFO << "  GET /swagger         - Swagger UI (all versions)";
     PLOG_INFO << "  GET /v1/swagger      - Swagger UI for API v1";
     PLOG_INFO << "  GET /v2/swagger      - Swagger UI for API v2";
@@ -2263,22 +2254,43 @@ int main(int argc, char *argv[]) {
     static SwaggerHandler swaggerHandler;
     static ScalarHandler scalarHandler;
     static HlsHandler hlsHandler;
-    static EndpointsHandler endpointsHandler;
+
     static LogHandler logHandler;
 #ifdef ENABLE_SYSTEM_INFO_HANDLER
     static SystemInfoHandler systemInfoHandler;
 #endif
     static LicenseHandler licenseHandler;
-#ifdef ENABLE_METRICS_HANDLER
-    static MetricsHandler metricsHandler;
-#endif
 
     // Initialize instance management components
     static SolutionRegistry &solutionRegistry = SolutionRegistry::getInstance();
     static PipelineBuilder pipelineBuilder;
 
-    // Instances: INSTANCES_DIR or {OMNIAPI_INSTALL_DIR}/instances (default
-    // /opt/omniapi/instances)
+    // ============================================
+    // UNIFIED DATABASE INITIALIZATION
+    // ============================================
+    // All storage modules share a single SQLite database (omniapi.db)
+    // with WAL mode, foreign keys, and schema versioning.
+    std::string dataDir =
+        EnvConfig::resolveDataDir("OMNIAPI_DATA_DIR", "data");
+    PLOG_INFO << "[Main] Data directory: " << dataDir;
+
+    auto &omniDb = OmniDatabase::getInstance();
+    if (!omniDb.initialize(dataDir)) {
+      std::cerr << "[Main] CRITICAL: Failed to initialize OmniDatabase!"
+                << std::endl;
+      PLOG_FATAL << "[Main] Failed to initialize OmniDatabase";
+      return EXIT_FAILURE;
+    }
+    PLOG_INFO << "[Main] ✓ OmniDatabase initialized: " << omniDb.getDbPath();
+
+    // Run schema migrations
+    if (!omniDb.migrate()) {
+      std::cerr << "[Main] ⚠ Schema migration had issues (non-fatal)"
+                << std::endl;
+      PLOG_WARNING << "[Main] Schema migration had issues";
+    }
+
+    // Instances: legacy dir for JSON/DB migration
     std::string instancesDir =
         EnvConfig::resolveDataDir("INSTANCES_DIR", "instances");
     if (std::filesystem::is_directory(instancesDir)) {
@@ -2290,7 +2302,7 @@ int main(int argc, char *argv[]) {
     }
 
     PLOG_INFO << "[Main] Instances directory: " << instancesDir;
-    static InstanceStorage instanceStorage(instancesDir);
+    static InstanceStorage instanceStorage(omniDb.getHandle(), instancesDir);
 
     // ============================================
     // EXECUTION MODE SELECTION
@@ -2432,13 +2444,12 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // Initialize solution storage and load custom solutions
-    // Default: /opt/omniapi/solutions (auto-created if needed, with
-    // fallback)
+    // Initialize solution storage using unified database
+    // Legacy directory is used for migration from solutions.json
     std::string solutionsDir =
         EnvConfig::resolveDataDir("SOLUTIONS_DIR", "solutions");
-    PLOG_INFO << "[Main] Solutions directory: " << solutionsDir;
-    static SolutionStorage solutionStorage(solutionsDir);
+    PLOG_INFO << "[Main] Solutions directory (legacy): " << solutionsDir;
+    static SolutionStorage solutionStorage(omniDb.getHandle(), solutionsDir);
 
     // Load persisted custom solutions
     auto customSolutions = solutionStorage.loadAllSolutions();
@@ -2480,24 +2491,16 @@ int main(int argc, char *argv[]) {
     PLOG_INFO << "[Main] Auto-start will run after server is ready";
 
     // Register instance manager and solution registry with handlers
-    CreateInstanceHandler::setInstanceManager(instanceManager.get());
-    CreateInstanceHandler::setSolutionRegistry(&solutionRegistry);
-    QuickInstanceHandler::setInstanceManager(instanceManager.get());
-    QuickInstanceHandler::setSolutionRegistry(&solutionRegistry);
-    InstanceHandler::setInstanceManager(instanceManager.get());
-    InstanceFpsHandler::setInstanceManager(instanceManager.get());
 #ifdef ENABLE_SYSTEM_INFO_HANDLER
     SystemInfoHandler::setInstanceManager(instanceManager.get());
 #endif
 
     // Register solution registry and storage with solution handler
-    SolutionHandler::setSolutionRegistry(&solutionRegistry);
-    SolutionHandler::setSolutionStorage(&solutionStorage);
 
-    // Groups: GROUPS_DIR or {OMNIAPI_INSTALL_DIR}/groups
+    // Groups: legacy dir for JSON migration
     std::string groupsDir = EnvConfig::resolveDataDir("GROUPS_DIR", "groups");
-    PLOG_INFO << "[Main] Groups directory: " << groupsDir;
-    static GroupStorage groupStorage(groupsDir);
+    PLOG_INFO << "[Main] Groups directory (legacy): " << groupsDir;
+    static GroupStorage groupStorage(omniDb.getHandle(), groupsDir);
     static GroupRegistry &groupRegistry = GroupRegistry::getInstance();
 
     // Initialize default groups
@@ -2536,19 +2539,13 @@ int main(int argc, char *argv[]) {
 
     // Register group registry, storage, and instance manager with group
     // handler
-    GroupHandler::setGroupRegistry(&groupRegistry);
-    GroupHandler::setGroupStorage(&groupStorage);
-    GroupHandler::setInstanceManager(instanceManager.get());
 
     // Register instance manager with lines handler (supports both InProcess and
     // Subprocess modes)
-    LinesHandler::setInstanceManager(instanceManager.get());
 
     // Register instance manager with stops handler (ba_stop)
-    StopsHandler::setInstanceManager(instanceManager.get());
 
     // Register instance manager with jams handler (ba_jam)
-    JamsHandler::setInstanceManager(instanceManager.get());
 
     // Register instance manager with WebSocket controller
     AIWebSocketController::setInstanceManager(instanceManager.get());
@@ -2587,17 +2584,7 @@ int main(int argc, char *argv[]) {
     // CRITICAL: Create handler instances AFTER dependencies are set
     // This ensures handlers are ready when Drogon registers routes
     // Handlers created here depend on dependencies set above
-    static CreateInstanceHandler createInstanceHandler;
-    static QuickInstanceHandler quickInstanceHandler;
-    static InstanceHandler instanceHandler;
-    static InstanceFpsHandler instanceFpsHandler;
-    static SolutionHandler solutionHandler;
-    static GroupHandler groupHandler;
-    static NodeHandler nodeHandler;
     static ONVIFHandler onvifHandler;
-    static LinesHandler linesHandler;
-    static JamsHandler jamsHandler;
-    static StopsHandler stopsHandler;
     static SecuRTHandler securtHandler;
     static SecuRTLineHandler securtLineHandler;
     static AreaHandler areaHandler;
@@ -2741,78 +2728,78 @@ int main(int argc, char *argv[]) {
     static SystemHandler systemHandler;
 
     PLOG_INFO << "[Main] Instance management initialized";
-    PLOG_INFO << "  POST /v1/core/instance - Create new instance";
-    PLOG_INFO << "  GET /v1/core/instance - List all instances";
-    PLOG_INFO << "  GET /v1/core/instance/{instanceId} - Get instance details";
+    PLOG_INFO << "  POST /v1/securt/instance - Create new instance";
+    PLOG_INFO << "  GET /v1/securt/instance - List all instances";
+    PLOG_INFO << "  GET /v1/securt/instance/{instanceId} - Get instance details";
     PLOG_INFO
-        << "  POST /v1/core/instance/{instanceId}/input - Set input source";
-    PLOG_INFO << "  POST /v1/core/instance/{instanceId}/config - Set config "
+        << "  POST /v1/securt/instance/{instanceId}/input - Set input source";
+    PLOG_INFO << "  POST /v1/securt/instance/{instanceId}/config - Set config "
                  "value at path";
-    PLOG_INFO << "  POST /v1/core/instance/{instanceId}/start - Start instance";
-    PLOG_INFO << "  POST /v1/core/instance/{instanceId}/stop - Stop instance";
-    PLOG_INFO << "  DELETE /v1/core/instance/{instanceId} - Delete instance";
+    PLOG_INFO << "  POST /v1/securt/instance/{instanceId}/start - Start instance";
+    PLOG_INFO << "  POST /v1/securt/instance/{instanceId}/stop - Stop instance";
+    PLOG_INFO << "  DELETE /v1/securt/instance/{instanceId} - Delete instance";
 
     PLOG_INFO << "[Main] Solution management initialized";
-    PLOG_INFO << "  GET /v1/core/solution - List all solutions";
-    PLOG_INFO << "  GET /v1/core/solution/{solutionId} - Get solution details";
-    PLOG_INFO << "  POST /v1/core/solution - Create new solution";
-    PLOG_INFO << "  PUT /v1/core/solution/{solutionId} - Update solution";
-    PLOG_INFO << "  DELETE /v1/core/solution/{solutionId} - Delete solution";
+    PLOG_INFO << "  GET /v1/securt/solution - List all solutions";
+    PLOG_INFO << "  GET /v1/securt/solution/{solutionId} - Get solution details";
+    PLOG_INFO << "  POST /v1/securt/solution - Create new solution";
+    PLOG_INFO << "  PUT /v1/securt/solution/{solutionId} - Update solution";
+    PLOG_INFO << "  DELETE /v1/securt/solution/{solutionId} - Delete solution";
     PLOG_INFO << "  Instances directory: " << instancesDir;
 
     PLOG_INFO << "[Main] Group management initialized";
-    PLOG_INFO << "  GET /v1/core/groups - List all groups";
-    PLOG_INFO << "  GET /v1/core/groups/{groupId} - Get group details";
-    PLOG_INFO << "  POST /v1/core/groups - Create new group";
-    PLOG_INFO << "  PUT /v1/core/groups/{groupId} - Update group";
-    PLOG_INFO << "  DELETE /v1/core/groups/{groupId} - Delete group";
+    PLOG_INFO << "  GET /v1/securt/groups - List all groups";
+    PLOG_INFO << "  GET /v1/securt/groups/{groupId} - Get group details";
+    PLOG_INFO << "  POST /v1/securt/groups - Create new group";
+    PLOG_INFO << "  PUT /v1/securt/groups/{groupId} - Update group";
+    PLOG_INFO << "  DELETE /v1/securt/groups/{groupId} - Delete group";
     PLOG_INFO
-        << "  GET /v1/core/groups/{groupId}/instances - Get instances in group";
+        << "  GET /v1/securt/groups/{groupId}/instances - Get instances in group";
     PLOG_INFO << "  Groups directory: " << groupsDir;
     PLOG_INFO << "[Main] Model upload handler initialized";
-    PLOG_INFO << "  POST /v1/core/model/upload - Upload model file";
-    PLOG_INFO << "  GET /v1/core/model/list - List uploaded models";
-    PLOG_INFO << "  PUT /v1/core/model/{modelName} - Rename model file";
-    PLOG_INFO << "  DELETE /v1/core/model/{modelName} - Delete model file";
+    PLOG_INFO << "  POST /v1/securt/model/upload - Upload model file";
+    PLOG_INFO << "  GET /v1/securt/model/list - List uploaded models";
+    PLOG_INFO << "  PUT /v1/securt/model/{modelName} - Rename model file";
+    PLOG_INFO << "  DELETE /v1/securt/model/{modelName} - Delete model file";
     PLOG_INFO << "  Models directory: " << modelsDir;
     PLOG_INFO << "[Main] Video upload handler initialized";
-    PLOG_INFO << "  POST /v1/core/video/upload - Upload video file";
-    PLOG_INFO << "  GET /v1/core/video/list - List uploaded videos";
-    PLOG_INFO << "  PUT /v1/core/video/{videoName} - Rename video file";
-    PLOG_INFO << "  DELETE /v1/core/video/{videoName} - Delete video file";
+    PLOG_INFO << "  POST /v1/securt/video/upload - Upload video file";
+    PLOG_INFO << "  GET /v1/securt/video/list - List uploaded videos";
+    PLOG_INFO << "  PUT /v1/securt/video/{videoName} - Rename video file";
+    PLOG_INFO << "  DELETE /v1/securt/video/{videoName} - Delete video file";
     PLOG_INFO << "  Videos directory: " << videosDir;
     PLOG_INFO << "[Main] Font upload handler initialized";
-    PLOG_INFO << "  POST /v1/core/font/upload - Upload font file";
-    PLOG_INFO << "  GET /v1/core/font/list - List uploaded fonts";
-    PLOG_INFO << "  PUT /v1/core/font/{fontName} - Rename font file";
-    PLOG_INFO << "  DELETE /v1/core/font/{fontName} - Delete font file";
+    PLOG_INFO << "  POST /v1/securt/font/upload - Upload font file";
+    PLOG_INFO << "  GET /v1/securt/font/list - List uploaded fonts";
+    PLOG_INFO << "  PUT /v1/securt/font/{fontName} - Rename font file";
+    PLOG_INFO << "  DELETE /v1/securt/font/{fontName} - Delete font file";
     PLOG_INFO << "  Fonts directory: " << fontsDir;
 
     PLOG_INFO << "[Main] Video upload handler initialized";
-    PLOG_INFO << "  POST /v1/core/video/upload - Upload video file";
-    PLOG_INFO << "  GET /v1/core/video/list - List uploaded videos";
-    PLOG_INFO << "  PUT /v1/core/video/{videoName} - Rename video file";
-    PLOG_INFO << "  DELETE /v1/core/video/{videoName} - Delete video file";
+    PLOG_INFO << "  POST /v1/securt/video/upload - Upload video file";
+    PLOG_INFO << "  GET /v1/securt/video/list - List uploaded videos";
+    PLOG_INFO << "  PUT /v1/securt/video/{videoName} - Rename video file";
+    PLOG_INFO << "  DELETE /v1/securt/video/{videoName} - Delete video file";
     PLOG_INFO << "  Videos directory: " << videosDir;
 
     PLOG_INFO << "[Main] Font upload handler initialized";
-    PLOG_INFO << "  POST /v1/core/font/upload - Upload font file";
-    PLOG_INFO << "  GET /v1/core/font/list - List uploaded fonts";
-    PLOG_INFO << "  PUT /v1/core/font/{fontName} - Rename font file";
-    PLOG_INFO << "  DELETE /v1/core/font/{fontName} - Delete font file";
+    PLOG_INFO << "  POST /v1/securt/font/upload - Upload font file";
+    PLOG_INFO << "  GET /v1/securt/font/list - List uploaded fonts";
+    PLOG_INFO << "  PUT /v1/securt/font/{fontName} - Rename font file";
+    PLOG_INFO << "  DELETE /v1/securt/font/{fontName} - Delete font file";
     PLOG_INFO << "  Fonts directory: " << fontsDir;
 
     PLOG_INFO << "[Main] Configuration management initialized";
-    PLOG_INFO << "  GET /v1/core/config - Get full configuration";
-    PLOG_INFO << "  GET /v1/core/config/{path} - Get configuration section";
-    PLOG_INFO << "  POST /v1/core/config - Create/update configuration (merge)";
-    PLOG_INFO << "  PUT /v1/core/config - Replace entire configuration";
+    PLOG_INFO << "  GET /v1/securt/config - Get full configuration";
+    PLOG_INFO << "  GET /v1/securt/config/{path} - Get configuration section";
+    PLOG_INFO << "  POST /v1/securt/config - Create/update configuration (merge)";
+    PLOG_INFO << "  PUT /v1/securt/config - Replace entire configuration";
     PLOG_INFO
-        << "  PATCH /v1/core/config/{path} - Update configuration section";
+        << "  PATCH /v1/securt/config/{path} - Update configuration section";
     PLOG_INFO
-        << "  DELETE /v1/core/config/{path} - Delete configuration section";
+        << "  DELETE /v1/securt/config/{path} - Delete configuration section";
     PLOG_INFO
-        << "  POST /v1/core/config/reset - Reset configuration to defaults";
+        << "  POST /v1/securt/config/reset - Reset configuration to defaults";
     PLOG_INFO << "  Config file: " << configPath;
 
     // Note: Infrastructure components (rate limiter, cache, resource manager,
@@ -2841,7 +2828,7 @@ int main(int argc, char *argv[]) {
       g_device_watchdog = std::make_unique<DeviceWatchdog>(deviceReportConfig);
       g_device_watchdog->start();
       WatchdogHandler::setDeviceWatchdog(g_device_watchdog.get());
-      PLOG_INFO << "[Main] Device report (OsmAnd) started - GET /v1/core/watchdog/report-now";
+      PLOG_INFO << "[Main] Device report (OsmAnd) started - GET /v1/securt/watchdog/report-now";
     } else {
       WatchdogHandler::setDeviceWatchdog(nullptr);
     }
@@ -2862,8 +2849,8 @@ int main(int argc, char *argv[]) {
     });
 
     PLOG_INFO << "[Main] Watchdog and health monitor started";
-    PLOG_INFO << "  GET /v1/core/watchdog - Watchdog status";
-    PLOG_INFO << "  GET/PUT /v1/core/watchdog/config - Device report config";
+    PLOG_INFO << "  GET /v1/securt/watchdog - Watchdog status";
+    PLOG_INFO << "  GET/PUT /v1/securt/watchdog/config - Device report config";
 
     // Start debug analysis board thread if debug mode is enabled
     std::thread debugThread;

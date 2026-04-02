@@ -27,9 +27,6 @@
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
@@ -597,71 +594,8 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
   bool modelValidationFailed = false;
   std::string missingModelPath;
 
-  // Check for YuNet face detector node
+
   for (const auto &node : pipelineCopy) {
-    auto yunetNode = std::dynamic_pointer_cast<
-        cvedix_nodes::cvedix_yunet_face_detector_node>(node);
-    if (yunetNode) {
-      // Get model path from additionalParams
-      std::string modelPath;
-      auto modelPathIt = additionalParams.find("MODEL_PATH");
-      if (modelPathIt != additionalParams.end() &&
-          !modelPathIt->second.empty()) {
-        modelPath = modelPathIt->second;
-      } else {
-        // Try to get from solution config or use default
-        // For now, we'll check if the default path exists
-        modelPath = "/usr/share/cvedix/cvedix_data/models/face/"
-                    "face_detection_yunet_2022mar.onnx";
-      }
-
-      // Check if model file exists
-      struct stat modelStat;
-      if (stat(modelPath.c_str(), &modelStat) != 0) {
-        std::cerr
-            << "[InstanceRegistry] ========================================"
-            << std::endl;
-        std::cerr
-            << "[InstanceRegistry] ✗ CRITICAL: YuNet model file not found!"
-            << std::endl;
-        std::cerr << "[InstanceRegistry] Expected path: " << modelPath
-                  << std::endl;
-        std::cerr
-            << "[InstanceRegistry] ========================================"
-            << std::endl;
-        std::cerr << "[InstanceRegistry] Cannot start instance - model file "
-                     "validation failed"
-                  << std::endl;
-        std::cerr << "[InstanceRegistry] The pipeline will crash with "
-                     "assertion failure if started without model file"
-                  << std::endl;
-        std::cerr << "[InstanceRegistry] Please ensure the model file exists "
-                     "before starting the instance"
-                  << std::endl;
-        std::cerr
-            << "[InstanceRegistry] ========================================"
-            << std::endl;
-        modelValidationFailed = true;
-        missingModelPath = modelPath;
-        break;
-      }
-
-      if (!S_ISREG(modelStat.st_mode)) {
-        std::cerr << "[InstanceRegistry] ✗ CRITICAL: Model path is not a "
-                     "regular file: "
-                  << modelPath << std::endl;
-        std::cerr << "[InstanceRegistry] Cannot start instance - model file "
-                     "validation failed"
-                  << std::endl;
-        modelValidationFailed = true;
-        missingModelPath = modelPath;
-        break;
-      }
-
-      std::cerr << "[InstanceRegistry] ✓ YuNet model file validation passed: "
-                << modelPath << std::endl;
-    }
-
     // Check for Mask RCNN detector node
     auto maskRCNNNode =
         std::dynamic_pointer_cast<cvedix_nodes::cvedix_mask_rcnn_detector_node>(
@@ -769,68 +703,7 @@ bool InstanceRegistry::startInstance(const std::string &instanceId,
                 << std::endl;
     }
 
-    // Check for SFace feature encoder node
-    auto sfaceNode = std::dynamic_pointer_cast<
-        cvedix_nodes::cvedix_sface_feature_encoder_node>(node);
-    if (sfaceNode) {
-      // Get model path from additionalParams
-      std::string modelPath;
-      auto modelPathIt = additionalParams.find("SFACE_MODEL_PATH");
-      if (modelPathIt != additionalParams.end() &&
-          !modelPathIt->second.empty()) {
-        modelPath = modelPathIt->second;
-      } else {
-        // Use system-wide default path (no hardcoded user-specific paths)
-        modelPath = "/usr/share/cvedix/cvedix_data/models/face/"
-                    "face_recognition_sface_2021dec.onnx";
-      }
-
-      // Check if model file exists
-      struct stat modelStat;
-      if (stat(modelPath.c_str(), &modelStat) != 0) {
-        std::cerr
-            << "[InstanceRegistry] ========================================"
-            << std::endl;
-        std::cerr
-            << "[InstanceRegistry] ✗ CRITICAL: SFace model file not found!"
-            << std::endl;
-        std::cerr << "[InstanceRegistry] Expected path: " << modelPath
-                  << std::endl;
-        std::cerr
-            << "[InstanceRegistry] ========================================"
-            << std::endl;
-        std::cerr << "[InstanceRegistry] Cannot start instance - model file "
-                     "validation failed"
-                  << std::endl;
-        std::cerr << "[InstanceRegistry] The pipeline will crash with "
-                     "assertion failure if started without model file"
-                  << std::endl;
-        std::cerr << "[InstanceRegistry] Please ensure the model file exists "
-                     "before starting the instance"
-                  << std::endl;
-        std::cerr
-            << "[InstanceRegistry] ========================================"
-            << std::endl;
-        modelValidationFailed = true;
-        missingModelPath = modelPath;
-        break;
-      }
-
-      if (!S_ISREG(modelStat.st_mode)) {
-        std::cerr << "[InstanceRegistry] ✗ CRITICAL: Model path is not a "
-                     "regular file: "
-                  << modelPath << std::endl;
-        std::cerr << "[InstanceRegistry] Cannot start instance - model file "
-                     "validation failed"
-                  << std::endl;
-        modelValidationFailed = true;
-        missingModelPath = modelPath;
-        break;
-      }
-
-      std::cerr << "[InstanceRegistry] ✓ SFace model file validation passed: "
-                << modelPath << std::endl;
-    }
+    // Removed Check for SFace feature encoder node along with models as they are no longer used
   }
 
   // If model validation failed, cleanup and return false

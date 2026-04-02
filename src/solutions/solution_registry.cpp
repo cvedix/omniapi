@@ -152,6 +152,8 @@ void SolutionRegistry::registerFaceDetectionSolution() {
   config.solutionId = "face_detection";
   config.solutionName = "Face Detection";
   config.solutionType = "face_detection";
+  config.category = "security";
+  config.feature = "face";
   config.isDefault = true;
 
   // File Source Node (supports flexible input: file, RTSP, RTMP, HLS via
@@ -170,7 +172,7 @@ void SolutionRegistry::registerFaceDetectionSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   // Use ${MODEL_PATH} placeholder - can be overridden via
   // additionalParams["MODEL_PATH"] in request Default to yunet.onnx if not
@@ -216,7 +218,7 @@ void SolutionRegistry::registerFaceDetectionFileSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
@@ -247,6 +249,8 @@ void SolutionRegistry::registerObjectDetectionSolution() {
   config.solutionId = "object_detection";
   config.solutionName = "Object Detection (YOLO)";
   config.solutionType = "object_detection";
+  config.category = "security";
+  config.feature = "object_detection";
   config.isDefault = true;
 
   // File Source Node (supports flexible input: file, RTSP, RTMP, HLS via
@@ -326,8 +330,8 @@ void SolutionRegistry::registerFaceDetectionRTMPSolution() {
   // YuNet Face Detector Node
   // Use YuNet detector only to align with face-detection-only pipeline.
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
-  faceDetector.nodeName = "yunet_face_detector_{instanceId}";
+  faceDetector.nodeType = "yolo_detector";
+  faceDetector.nodeName = "yolo_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
   faceDetector.parameters["nms_threshold"] = "0.5";
@@ -363,6 +367,8 @@ void SolutionRegistry::registerBACrosslineSolution() {
   config.solutionId = "ba_crossline";
   config.solutionName = "Behavior Analysis - Crossline Detection";
   config.solutionType = "behavior_analysis";
+  config.category = "security";
+  config.feature = "crossline";
   config.isDefault = true;
 
   // File Source Node
@@ -442,6 +448,8 @@ void SolutionRegistry::registerBAStopSolution() {
   config.solutionId = "ba_stop";
   config.solutionName = "Behavior Analysis - Stop Detection";
   config.solutionType = "behavior_analysis";
+  config.category = "its";
+  config.feature = "stop";
   config.isDefault = true;
 
   // File Source Node
@@ -518,6 +526,8 @@ void SolutionRegistry::registerBAJamSolution() {
   config.solutionId = "ba_jam";
   config.solutionName = "Behavior Analysis - Traffic Jam Detection";
   config.solutionType = "behavior_analysis";
+  config.category = "its";
+  config.feature = "jam";
   config.isDefault = true;
 
   // File Source Node
@@ -609,7 +619,7 @@ void SolutionRegistry::registerFaceSwapSolution() {
 
   // YuNet Face Detector Node (for face detection in face swap)
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${FACE_DETECTION_MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "0.7";
@@ -690,7 +700,7 @@ void SolutionRegistry::registerInsightFaceRecognitionSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${FACE_DETECTION_MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "0.7";
@@ -857,7 +867,7 @@ void SolutionRegistry::registerTRTInsightFaceRecognitionSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${FACE_DETECTION_MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "0.7";
@@ -1048,7 +1058,7 @@ void SolutionRegistry::registerFaceDetectionRTMPDefaultSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
@@ -1097,7 +1107,7 @@ void SolutionRegistry::registerFaceDetectionRTSPDefaultSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
@@ -1141,7 +1151,7 @@ void SolutionRegistry::registerFaceDetectionRTSPRTMPDefaultSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
@@ -1190,7 +1200,7 @@ void SolutionRegistry::registerFaceDetectionRTMPRTMPDefaultSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
@@ -1239,7 +1249,7 @@ void SolutionRegistry::registerMinimalDefaultSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "0.5";
@@ -1282,7 +1292,7 @@ void SolutionRegistry::registerFaceDetectionDefaultSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
@@ -1325,7 +1335,7 @@ void SolutionRegistry::registerRTSPFaceDetectionDefaultSolution() {
 
   // YuNet Face Detector Node
   SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yunet_face_detector";
+  faceDetector.nodeType = "yolo_detector";
   faceDetector.nodeName = "face_detector_{instanceId}";
   faceDetector.parameters["model_path"] = "${MODEL_PATH}";
   faceDetector.parameters["score_threshold"] = "${detectionSensitivity}";
@@ -1811,6 +1821,8 @@ void SolutionRegistry::registerBALoiteringSolution() {
   config.solutionId = "ba_loitering";
   config.solutionName = "Behavior Analysis - Loitering Detection";
   config.solutionType = "behavior_analysis";
+  config.category = "security";
+  config.feature = "loitering";
   config.isDefault = true;
 
   // File Source Node
@@ -1887,6 +1899,8 @@ void SolutionRegistry::registerBAAreaEnterExitSolution() {
   config.solutionId = "ba_area_enter_exit";
   config.solutionName = "Behavior Analysis - Area Enter/Exit Detection";
   config.solutionType = "behavior_analysis";
+  config.category = "security";
+  config.feature = "intrusion";
   config.isDefault = true;
 
   // File Source Node
@@ -1957,6 +1971,8 @@ void SolutionRegistry::registerBALineCountingSolution() {
   config.solutionId = "ba_line_counting";
   config.solutionName = "Behavior Analysis - Multiple Line Counting";
   config.solutionType = "behavior_analysis";
+  config.category = "its";
+  config.feature = "line_counting";
   config.isDefault = true;
 
   // File Source Node
@@ -2026,6 +2042,8 @@ void SolutionRegistry::registerBACrowdingSolution() {
   config.solutionId = "ba_crowding";
   config.solutionName = "Behavior Analysis - Crowding Detection";
   config.solutionType = "behavior_analysis";
+  config.category = "security";
+  config.feature = "crowding";
   config.isDefault = true;
 
   // File Source Node
@@ -2090,6 +2108,8 @@ void SolutionRegistry::registerSecuRTSolution() {
   config.solutionId = "securt";
   config.solutionName = "SecuRT Solution";
   config.solutionType = "securt";
+  config.category = "security";
+  config.feature = "";
   config.isDefault = true;
 
   // File Source Node (supports flexible input: file, RTSP, RTMP, HLS via
@@ -2163,6 +2183,8 @@ void SolutionRegistry::registerFireSmokeDetectionSolution() {
   config.solutionId = "fire_smoke_detection";
   config.solutionName = "Fire/Smoke Detection";
   config.solutionType = "object_detection";
+  config.category = "firefighting";
+  config.feature = "";
   config.isDefault = true;
 
   // File Source Node
@@ -2215,6 +2237,8 @@ void SolutionRegistry::registerObstacleDetectionSolution() {
   config.solutionId = "obstacle_detection";
   config.solutionName = "Obstacle Detection";
   config.solutionType = "object_detection";
+  config.category = "its";
+  config.feature = "obstacle";
   config.isDefault = true;
 
   // File Source Node
@@ -2267,6 +2291,8 @@ void SolutionRegistry::registerWrongWayDetectionSolution() {
   config.solutionId = "wrong_way_detection";
   config.solutionName = "Wrong Way Detection";
   config.solutionType = "object_detection";
+  config.category = "its";
+  config.feature = "wrong_way";
   config.isDefault = true;
 
   // File Source Node
@@ -2318,4 +2344,93 @@ void SolutionRegistry::registerWrongWayDetectionSolution() {
   config.defaults["RESIZE_RATIO"] = "1.0";
 
   registerSolution(config);
+}
+
+// ── Tiered Solution API ──────────────────────────────────────────────────────
+
+std::string SolutionRegistry::resolveSolutionByCategory(
+    const std::string &category, const std::string &feature) const {
+  // Normalize inputs to lowercase
+  std::string cat = category;
+  std::transform(cat.begin(), cat.end(), cat.begin(), ::tolower);
+  std::string feat = feature;
+  std::transform(feat.begin(), feat.end(), feat.begin(), ::tolower);
+
+  // Static mapping table: category -> { feature -> solutionId }
+  // Empty feature key "" means the default solution for that category.
+  static const std::map<std::string,
+                        std::map<std::string, std::string>> mapping = {
+    {"security", {
+      {"",            "securt"},
+      {"crossline",   "ba_crossline"},
+      {"intrusion",   "ba_area_enter_exit"},
+      {"loitering",   "ba_loitering"},
+      {"crowding",    "ba_crowding"},
+      {"face",        "face_detection"},
+    }},
+    {"its", {
+      {"",             "ba_crossline"},
+      {"line_counting","ba_line_counting"},
+      {"counting",     "ba_line_counting"},
+      {"jam",          "ba_jam"},
+      {"stop",         "ba_stop"},
+      {"wrong_way",    "wrong_way_detection"},
+      {"obstacle",     "obstacle_detection"},
+      {"crossline",    "ba_crossline"},
+    }},
+    {"firefighting", {
+      {"",             "fire_smoke_detection"},
+      {"fire",         "fire_smoke_detection"},
+      {"smoke",        "fire_smoke_detection"},
+    }},
+    {"armed", {
+      {"",             "securt"},
+    }},
+  };
+
+  auto catIt = mapping.find(cat);
+  if (catIt == mapping.end()) {
+    return ""; // Unknown category
+  }
+
+  const auto &featureMap = catIt->second;
+
+  // Try exact feature match first
+  auto featIt = featureMap.find(feat);
+  if (featIt != featureMap.end()) {
+    return featIt->second;
+  }
+
+  // Fallback to default (empty feature) for the category
+  featIt = featureMap.find("");
+  if (featIt != featureMap.end()) {
+    return featIt->second;
+  }
+
+  return "";
+}
+
+std::vector<std::string> SolutionRegistry::listCategories() const {
+  return {"security", "its", "firefighting", "armed", "custom"};
+}
+
+std::vector<std::string> SolutionRegistry::listCategoryFeatures(
+    const std::string &category) const {
+  std::string cat = category;
+  std::transform(cat.begin(), cat.end(), cat.begin(), ::tolower);
+
+  if (cat == "security") {
+    return {"crossline", "intrusion", "loitering", "crowding", "face"};
+  } else if (cat == "its") {
+    return {"line_counting", "counting", "jam", "stop", "wrong_way",
+            "obstacle", "crossline"};
+  } else if (cat == "firefighting") {
+    return {"fire", "smoke"};
+  } else if (cat == "armed") {
+    return {}; // Uses default securt solution
+  } else if (cat == "custom") {
+    return {}; // User provides solution ID directly
+  }
+
+  return {};
 }

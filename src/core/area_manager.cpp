@@ -185,6 +185,20 @@ std::string AreaManager::createObjectEnterExitArea(
   return storage_->createObjectEnterExitArea(instanceId, "", write);
 }
 
+std::string AreaManager::createStopArea(const std::string &instanceId,
+                                         const StopAreaWrite &write) {
+  if (!validateInstance(instanceId)) {
+    PLOG_WARNING << "[AreaManager] createStopArea - Instance not found: " << instanceId;
+    return "";
+  }
+  std::string error = validateAreaBase(write);
+  if (!error.empty()) {
+    PLOG_WARNING << "[AreaManager] createStopArea - Validation error: " << error;
+    return "";
+  }
+  return storage_->createStopArea(instanceId, "", write);
+}
+
 // ========================================================================
 // Create Area with ID Methods (PUT)
 // ========================================================================
@@ -369,6 +383,19 @@ std::string AreaManager::createObjectEnterExitAreaWithId(
     return "";
   }
   return storage_->createObjectEnterExitArea(instanceId, areaId, write);
+}
+
+std::string AreaManager::createStopAreaWithId(
+    const std::string &instanceId, const std::string &areaId,
+    const StopAreaWrite &write) {
+  if (!validateInstance(instanceId)) {
+    return "";
+  }
+  std::string error = validateAreaBase(write);
+  if (!error.empty()) {
+    return "";
+  }
+  return storage_->createStopArea(instanceId, areaId, write);
 }
 
 // ========================================================================

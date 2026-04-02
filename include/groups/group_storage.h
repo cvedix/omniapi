@@ -2,53 +2,65 @@
 
 #include "models/group_info.h"
 #include <json/json.h>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
 
+// Forward declaration for SQLite
+struct sqlite3;
+
 /**
  * @brief Group Storage
- * Handles persistence of groups to/from filesystem
+ *
+ * Handles persistent storage of groups using SQLite embedded database.
+ * Groups are stored in the shared OmniAPI database (omniapi.db).
+ *
+ * Migration: On first startup, if individual group JSON files exist in the
+ * legacy storage directory, they are automatically migrated to the SQLite
+ * database and renamed to *.json.migrated as backup.
  */
 class GroupStorage {
 public:
   /**
    * @brief Constructor
-   * @param storageDir Directory to store group files
+   * @param db SQLite database handle (from OmniDatabase)
+   * @param legacy_storage_dir Legacy directory for JSON migration (optional)
    */
-  explicit GroupStorage(const std::string &storageDir);
+  explicit GroupStorage(sqlite3 *db,
+                        const std::string &legacy_storage_dir = "");
 
   /**
-   * @brief Save a group to file
+   * @brief Save a group to database
    * @param group Group information
    * @return true if successful
    */
   bool saveGroup(const GroupInfo &group);
 
   /**
-   * @brief Load a group from file
+   * @brief Load a group from database
    * @param groupId Group ID
    * @return GroupInfo if found, nullopt otherwise
    */
   std::optional<GroupInfo> loadGroup(const std::string &groupId);
 
   /**
-   * @brief Load all groups from storage
+   * @brief Load all groups from database
    * @return Vector of GroupInfo
    */
   std::vector<GroupInfo> loadAllGroups();
 
   /**
-   * @brief Delete a group file
+   * @brief Delete a group from database
    * @param groupId Group ID
    * @return true if successful
    */
   bool deleteGroup(const std::string &groupId);
 
   /**
-   * @brief Check if group file exists
+   * @brief Check if group exists in database
    * @param groupId Group ID
-   * @return true if file exists
+   * @return true if exists
    */
   bool groupFileExists(const std::string &groupId) const;
 
@@ -70,18 +82,20 @@ public:
   std::optional<GroupInfo> jsonToGroupInfo(const Json::Value &json,
                                            std::string *error = nullptr) const;
 
+  /**
+   * @brief Create the groups table if it doesn't exist
+   * @return true if successful
+   */
+  bool createTable();
+
 private:
-  std::string storage_dir_;
+  sqlite3 *db_;
+  std::string legacy_storage_dir_;
+  mutable std::mutex mutex_;
 
   /**
-   * @brief Get file path for a group
-   * @param groupId Group ID
-   * @return File path
+   * @brief Migrate existing group JSON files to SQLite
+   * Called automatically on first startup if legacy directory is provided.
    */
-  std::string getGroupFilePath(const std::string &groupId) const;
-
-  /**
-   * @brief Ensure storage directory exists (with fallback if needed)
-   */
-  void ensureStorageDir();
+  void migrateFromJsonFiles();
 };

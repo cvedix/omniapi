@@ -25,9 +25,6 @@
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
@@ -96,18 +93,10 @@ void InstanceRegistry::stopPipeline(
             << std::endl;
 
   try {
-    // Check if pipeline contains DNN models (face detector, feature encoder,
+    // Check if pipeline contains DNN models (feature encoder,
     // etc.) These need extra time to finish processing and clear internal state
     bool hasDNNModels = false;
-    for (const auto &node : nodes) {
-      if (std::dynamic_pointer_cast<
-              cvedix_nodes::cvedix_yunet_face_detector_node>(node) ||
-          std::dynamic_pointer_cast<
-              cvedix_nodes::cvedix_sface_feature_encoder_node>(node)) {
-        hasDNNModels = true;
-        break;
-      }
-    }
+    // Removed sface_feature_encoder_node check as it's no longer used
 
     // CRITICAL: Stop destination nodes (RTMP) FIRST before stopping source
     // nodes This ensures GStreamer elements are properly stopped and flushed
@@ -455,25 +444,9 @@ void InstanceRegistry::stopPipeline(
         continue; // Already handled
       }
 
-      // Detach processing nodes (face_detector, feature_encoder, etc.)
+      // Detach processing nodes (feature_encoder, etc.)
       try {
-        auto faceDetectorNode =
-            std::dynamic_pointer_cast<
-                cvedix_nodes::cvedix_yunet_face_detector_node>(node);
-        auto featureEncoderNode =
-            std::dynamic_pointer_cast<
-                cvedix_nodes::cvedix_sface_feature_encoder_node>(node);
-
-        if (faceDetectorNode || featureEncoderNode) {
-          std::cerr << "[InstanceRegistry] Detaching DNN processing node to stop "
-                       "queue processing..."
-                    << std::endl;
-          // Use exclusive lock for cleanup operations
-          std::unique_lock<std::shared_mutex> gstLock(gstreamer_ops_mutex_);
-          node->detach_recursively();
-          std::cerr << "[InstanceRegistry] ✓ DNN processing node detached"
-                    << std::endl;
-        }
+        // Removed sface_feature_encoder_node cast as it's no longer used
       } catch (const std::exception &e) {
         std::cerr << "[InstanceRegistry] ⚠ Exception detaching processing node: "
                   << e.what() << std::endl;

@@ -17,17 +17,17 @@ using namespace drogon;
  * @brief Watchdog status and device report config endpoint handler
  *
  * Endpoints:
- *   GET/PUT /v1/core/watchdog/config - Cấu hình device report (bật/tắt, server, chu kỳ, ...)
- *   GET /v1/core/watchdog - Trạng thái watchdog và device report
- *   GET /v1/core/watchdog/report-now - Gửi report thủ công
+ *   GET/PUT /v1/securt/watchdog/config - Cấu hình device report (bật/tắt, server, chu kỳ, ...)
+ *   GET /v1/securt/watchdog - Trạng thái watchdog và device report
+ *   GET /v1/securt/watchdog/report-now - Gửi report thủ công
  */
 class WatchdogHandler : public drogon::HttpController<WatchdogHandler> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(WatchdogHandler::getWatchdogStatus, "/v1/core/watchdog", Get);
-  ADD_METHOD_TO(WatchdogHandler::getDeviceReportConfig, "/v1/core/watchdog/config", Get);
-  ADD_METHOD_TO(WatchdogHandler::putDeviceReportConfig, "/v1/core/watchdog/config", Put);
-  ADD_METHOD_TO(WatchdogHandler::watchdogReportNow, "/v1/core/watchdog/report-now", Get);
+  ADD_METHOD_TO(WatchdogHandler::getWatchdogStatus, "/v1/securt/watchdog", Get);
+  ADD_METHOD_TO(WatchdogHandler::getDeviceReportConfig, "/v1/securt/watchdog/config", Get);
+  ADD_METHOD_TO(WatchdogHandler::putDeviceReportConfig, "/v1/securt/watchdog/config", Put);
+  ADD_METHOD_TO(WatchdogHandler::watchdogReportNow, "/v1/securt/watchdog/report-now", Get);
   METHOD_LIST_END
 
   void getWatchdogStatus(const HttpRequestPtr &req,

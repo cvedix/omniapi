@@ -11,17 +11,14 @@
 #include <cstring>
 #include <opencv2/dnn.hpp>
 #ifdef CVEDIX_USE_SFACE_FEATURE_ENCODER
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #else
 #include <cvedix/nodes/infers/cvedix_feature_encoder_node.h>
 #endif
-#include <cvedix/nodes/infers/cvedix_face_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_yolo_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_classifier_node.h>
 #include <cvedix/nodes/infers/cvedix_enet_seg_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
 #ifdef CVEDIX_HAS_OPENPOSE
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
 #endif
 #ifdef CVEDIX_HAS_FACE_SWAP
 #include <cvedix/nodes/infers/cvedix_face_swap_node.h>
@@ -30,6 +27,8 @@
 #include <cvedix/nodes/infers/cvedix_facenet_node.h>
 #endif
 #include <cvedix/nodes/infers/cvedix_lane_detector_node.h>
+#include <cvedix/nodes/infers/cvedix_face_detector_node.h>
+
 #ifdef CVEDIX_HAS_RESTORATION
 #include <cvedix/nodes/infers/cvedix_restoration_node.h>
 #endif
@@ -52,13 +51,11 @@
 #include <cvedix/nodes/infers/cvedix_trt_yolov8_pose_detector.h>
 #include <cvedix/nodes/infers/cvedix_trt_yolov8_seg_detector.h>
 #include <cvedix/nodes/infers/cvedix_trt_insight_face_recognition_node.h>
-// YOLOv11 TensorRT face (plate uses plugin-based cvedix_yolo_detector_node)
-#include <cvedix/nodes/infers/cvedix_trt_yolov11_face_detector_node.h>
+
 #endif
 
 // RKNN Inference Nodes
 #ifdef CVEDIX_WITH_RKNN
-#include <cvedix/nodes/infers/cvedix_rknn_face_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_rknn_yolov11_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_rknn_yolov8_detector_node.h>
 #endif
@@ -270,289 +267,51 @@ static bool isCUDAError(const std::exception &e) {
 }
 
 
-
-std::shared_ptr<cvedix_nodes::cvedix_node>
-PipelineBuilderDetectorNodes::createFaceDetectorNode(
+std::shared_ptr<cvedix_nodes::cvedix_node> PipelineBuilderDetectorNodes::createFaceDetectorNode(
     const std::string &nodeName,
     const std::map<std::string, std::string> &params,
     const CreateInstanceRequest &req) {
 
   try {
-    // Get parameters with defaults - resolve path intelligently
-    std::string modelPath = params.count("model_path")
-                                ? params.at("model_path")
-                                : PipelineBuilderModelResolver::resolveModelPath("models/face/yunet.onnx");
-    float scoreThreshold =
-        params.count("score_threshold")
-            ? static_cast<float>(std::stod(params.at("score_threshold")))
-            : static_cast<float>(
-                  PipelineBuilderModelResolver::mapDetectionSensitivity(req.detectionSensitivity));
-    float nmsThreshold =
-        params.count("nms_threshold")
-            ? static_cast<float>(std::stod(params.at("nms_threshold")))
-            : 0.5f;
-    int topK = params.count("top_k") ? std::stoi(params.at("top_k")) : 50;
+    std::string modelPath = 
+        params.count("model_path") ? params.at("model_path") : "";
+    
+    float scoreThreshold = params.count("score_threshold") 
+        ? std::stof(params.at("score_threshold")) : 0.9f;
+        
+    float nmsThreshold = params.count("nms_threshold")
+        ? std::stof(params.at("nms_threshold")) : 0.3f;
+        
+    int topK = params.count("top_k")
+        ? std::stoi(params.at("top_k")) : 5000;
 
-    // Validate node name
-    if (nodeName.empty()) {
-      throw std::invalid_argument("Node name cannot be empty");
-    }
-
-    // Validate model path
     if (modelPath.empty()) {
-      throw std::invalid_argument("Model path cannot be empty");
+      auto it = req.additionalParams.find("MODEL_PATH");
+      if (it != req.additionalParams.end() && !it->second.empty()) {
+        modelPath = it->second;
+      }
     }
 
-    // Pre-validate model file access before calling SDK constructor
-    // This provides better error messages and fail-fast behavior
-    try {
-      CVEDIXValidator::preCheckBeforeNodeCreation(modelPath);
-    } catch (const std::runtime_error &e) {
-      std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] ✗ Pre-validation failed" << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] " << e.what() << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                << std::endl;
-      throw; // Re-throw to let caller handle
+    if (nodeName.empty() || modelPath.empty()) {
+      throw std::invalid_argument("Node name and model path are required");
     }
 
-    // Check if model file exists (for informational logging)
-    fs::path modelFilePath(modelPath);
-    if (!fs::exists(modelFilePath)) {
-      std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] WARNING: Model file not found!"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] Expected path: " << modelPath
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] Absolute path: "
-                << fs::absolute(modelFilePath).string() << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] SOLUTION: Copy your yunet.onnx file to "
-                   "one of these locations:"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]   1. System-wide location - RECOMMENDED "
-                   "(FHS standard):"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      "
-                   "/usr/share/cvedix/cvedix_data/models/face/yunet.onnx"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      (Create: sudo mkdir -p "
-                   "/usr/share/cvedix/cvedix_data/models/face)"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      (Copy: sudo cp /path/to/yunet.onnx "
-                   "/usr/share/cvedix/cvedix_data/models/face/)"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      NOTE: /usr/share/ is for data files "
-                   "(FHS standard)"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]   1b. Alternative (not recommended, but "
-                   "supported):"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      "
-                   "/usr/include/cvedix/cvedix_data/models/face/yunet.onnx"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      (Create: sudo mkdir -p "
-                   "/usr/include/cvedix/cvedix_data/models/face)"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      NOTE: /usr/include/ is for header "
-                   "files, not data files"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]   2. SDK source location (relative to "
-                   "API directory):"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      "
-                   "../edge_ai_sdk/cvedix_data/models/face/yunet.onnx"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      (Copy: cp /path/to/yunet.onnx "
-                   "../edge_ai_sdk/cvedix_data/models/face/)"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]   3. API working directory: "
-                   "./cvedix_data/models/face/yunet.onnx"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      (Create: mkdir -p "
-                   "./cvedix_data/models/face)"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]   4. Set environment variable "
-                   "CVEDIX_DATA_ROOT=/path/to/cvedix_data"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]   2. Upload via API: POST "
-                   "/v1/core/model/upload"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      Then use MODEL_PATH in "
-                   "additionalParams when creating instance"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]      Example: additionalParams: "
-                   "{\"MODEL_PATH\": \"./models/yunet.onnx\"}"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] NOTE: Face detection will NOT work until "
-                   "model file is available"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] NOTE: Pipeline will continue but face "
-                   "detection will fail"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                << std::endl;
-    } else {
-      std::cerr << "[PipelineBuilderDetectorNodes] ✓ Model file found: "
-                << fs::canonical(modelFilePath).string() << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes]   File size: "
-                << fs::file_size(modelFilePath) << " bytes" << std::endl;
-    }
-
-    // Validate thresholds
-    if (scoreThreshold < 0.0f || scoreThreshold > 1.0f) {
-      std::cerr
-          << "[PipelineBuilderDetectorNodes] Warning: score_threshold out of range [0,1]: "
-          << scoreThreshold << ", clamping to [0,1]" << std::endl;
-      scoreThreshold = std::max(0.0f, std::min(1.0f, scoreThreshold));
-    }
-    if (nmsThreshold < 0.0f || nmsThreshold > 1.0f) {
-      std::cerr
-          << "[PipelineBuilderDetectorNodes] Warning: nms_threshold out of range [0,1]: "
-          << nmsThreshold << ", clamping to [0,1]" << std::endl;
-      nmsThreshold = std::max(0.0f, std::min(1.0f, nmsThreshold));
-    }
-    if (topK < 0) {
-      std::cerr << "[PipelineBuilderDetectorNodes] Warning: top_k must be >= 0, got: "
-                << topK << ", using default 50" << std::endl;
-      topK = 50;
-    }
-
-    std::cerr << "[PipelineBuilderDetectorNodes] Creating YuNet face detector node:"
-              << std::endl;
+    std::cerr << "[PipelineBuilderDetectorNodes] Creating Face Detector node (YuNet):" << std::endl;
     std::cerr << "  Name: '" << nodeName << "'" << std::endl;
     std::cerr << "  Model path: '" << modelPath << "'" << std::endl;
-    std::cerr << "  Score threshold: " << scoreThreshold << std::endl;
-    std::cerr << "  NMS threshold: " << nmsThreshold << std::endl;
-    std::cerr << "  Top K: " << topK << std::endl;
 
-    // Create the YuNet face detector node
-    // Log GPU availability before creating node
-    PipelineBuilderDetectorNodes::logGPUAvailability();
+    auto node = std::make_shared<cvedix_nodes::cvedix_face_detector_node>(
+        nodeName, modelPath, scoreThreshold, nmsThreshold, topK);
 
-    // Ensure CPU first only when FORCE_CPU_INFERENCE=1; otherwise prioritize GPU
-    ensureCPUFirstInDeviceList();
-    ensureGPUFirstInDeviceList();
-
-    std::shared_ptr<cvedix_nodes::cvedix_face_detector_node> node;
-    try {
-      std::cerr << "[PipelineBuilderDetectorNodes] Calling cvedix_face_detector_node "
-                   "constructor..."
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] NOTE: Device selection is handled by "
-                   "CVEDIX SDK based on auto_device_list in config.json"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] NOTE: Check CVEDIX SDK logs to see which "
-                   "device is selected"
-                << std::endl;
-      node = std::make_shared<cvedix_nodes::cvedix_face_detector_node>(
-          nodeName, modelPath, scoreThreshold, nmsThreshold, topK);
-      std::cerr
-          << "[PipelineBuilderDetectorNodes] ✓ YuNet face detector node created successfully"
-          << std::endl;
-      std::cerr
-          << "[PipelineBuilderDetectorNodes] TIP: If queue full errors occur, check if "
-             "GPU is being used (check nvidia-smi or GPU monitoring)"
-          << std::endl;
-      if (!fs::exists(modelFilePath)) {
-        std::cerr << "[PipelineBuilderDetectorNodes] ⚠ WARNING: Model file was not found, "
-                     "node created but may fail during inference"
-                  << std::endl;
-      }
-    } catch (const std::filesystem::filesystem_error &e) {
-      // Handle filesystem errors (including permission denied)
-      if (e.code() == std::errc::permission_denied) {
-        std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] ✗ Permission denied accessing model file"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] Model path: " << modelPath << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] Error: " << e.what() << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] SOLUTION:" << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   1. Check file permissions:" << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]      ls -la " << modelPath << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   2. File should be readable (644 or 664)"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   3. Directory should be traversable (755 or 775)"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   4. Fix permissions and symlinks:" << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]      sudo systemctl restart omniapi"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   5. Restart service:" << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]      sudo systemctl restart omniapi"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                  << std::endl;
-        throw std::runtime_error("Permission denied accessing model file: " +
-                                 modelPath + ". See logs for fix instructions.");
-      }
-      // Re-throw other filesystem errors
-      std::cerr << "[PipelineBuilderDetectorNodes] Filesystem error in constructor: "
-                << e.what() << std::endl;
-      throw;
-    } catch (const std::bad_alloc &e) {
-      std::cerr << "[PipelineBuilderDetectorNodes] Memory allocation failed: " << e.what()
-                << std::endl;
-      throw;
-    } catch (const std::exception &e) {
-      std::cerr << "[PipelineBuilderDetectorNodes] Standard exception in constructor: "
-                << e.what() << std::endl;
-      
-      // Check if this is a CUDA error and suggest CPU fallback
-      if (isCUDAError(e)) {
-        std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] ⚠ CUDA/GPU error detected!"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] Error: " << e.what() << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] SOLUTION:" << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   1. Set environment variable to force CPU:"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]      export FORCE_CPU_INFERENCE=1"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   2. Or modify config.json to prioritize CPU:"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]      Move 'openvino.CPU' to first in auto_device_list"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes]   3. Restart the service"
-                  << std::endl;
-        std::cerr << "[PipelineBuilderDetectorNodes] ========================================"
-                  << std::endl;
-      }
-      throw;
-    } catch (...) {
-      std::cerr << "[PipelineBuilderDetectorNodes] Non-standard exception in "
-                   "cvedix_face_detector_node constructor"
-                << std::endl;
-      std::cerr << "[PipelineBuilderDetectorNodes] Parameters were: name='" << nodeName
-                << "', model_path='" << modelPath
-                << "', score_threshold=" << scoreThreshold
-                << ", nms_threshold=" << nmsThreshold << ", top_k=" << topK
-                << std::endl;
-      throw std::runtime_error("Failed to create YuNet face detector node - "
-                               "check parameters and CVEDIX SDK");
-    }
-
+    std::cerr << "[PipelineBuilderDetectorNodes] ✓ Face Detector node created successfully" << std::endl;
     return node;
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderDetectorNodes] Exception in createFaceDetectorNode: "
               << e.what() << std::endl;
     throw;
-  } catch (...) {
-    std::cerr << "[PipelineBuilderDetectorNodes] Unknown exception in createFaceDetectorNode"
-              << std::endl;
-    throw std::runtime_error("Unknown error creating face detector node");
   }
 }
+
 
 std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilderDetectorNodes::createSFaceEncoderNode(
@@ -602,20 +361,8 @@ PipelineBuilderDetectorNodes::createSFaceEncoderNode(
     std::cerr << "  Name: '" << nodeName << "'" << std::endl;
     std::cerr << "  Model path: '" << modelPath << "'" << std::endl;
 
-#ifdef CVEDIX_USE_SFACE_FEATURE_ENCODER
-    auto node =
-        std::make_shared<cvedix_nodes::cvedix_sface_feature_encoder_node>(
-            nodeName, modelPath);
-    std::cerr << "[PipelineBuilderDetectorNodes] ✓ SFace encoder node created successfully"
-              << std::endl;
-    return node;
-#else
     throw std::runtime_error(
-        "sface_feature_encoder is not available: this CVEDIX/EdgeOS SDK does "
-        "not include cvedix_sface_feature_encoder_node.h (only an abstract "
-        "cvedix_feature_encoder_node base is present). Use a full CVEDIX SDK "
-        "build or trt_vehicle_feature_encoder where applicable.");
-#endif
+        "sface_feature_encoder is no longer used or supported in this application.");
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderDetectorNodes] Exception in createSFaceEncoderNode: "
               << e.what() << std::endl;
@@ -1254,54 +1001,6 @@ PipelineBuilderDetectorNodes::createTRTInsightFaceRecognitionNode(
 }
 
 // YOLOv11 TensorRT Face Detector
-// Note: Uncomment the include at top of file when SDK supports this node
-std::shared_ptr<cvedix_nodes::cvedix_node>
-PipelineBuilderDetectorNodes::createTRTYOLOv11FaceDetectorNode(
-    const std::string &nodeName,
-    const std::map<std::string, std::string> &params,
-    const CreateInstanceRequest &req) {
-
-  try {
-    std::string modelPath =
-        params.count("model_path") ? params.at("model_path") : "";
-    float confThreshold = params.count("conf_threshold")
-                             ? std::stof(params.at("conf_threshold"))
-                             : 0.5f;
-    float nmsThreshold = params.count("nms_threshold")
-                            ? std::stof(params.at("nms_threshold"))
-                            : 0.45f;
-
-    if (modelPath.empty()) {
-      auto it = req.additionalParams.find("MODEL_PATH");
-      if (it != req.additionalParams.end() && !it->second.empty()) {
-        modelPath = it->second;
-      }
-    }
-
-    if (nodeName.empty() || modelPath.empty()) {
-      throw std::invalid_argument("Node name and model path are required");
-    }
-
-    std::cerr << "[PipelineBuilderDetectorNodes] Creating TRT YOLOv11 face detector node:"
-              << std::endl;
-    std::cerr << "  Name: '" << nodeName << "'" << std::endl;
-    std::cerr << "  Model path: '" << modelPath << "'" << std::endl;
-    std::cerr << "  Confidence threshold: " << confThreshold << std::endl;
-    std::cerr << "  NMS threshold: " << nmsThreshold << std::endl;
-
-    auto node = std::make_shared<cvedix_nodes::cvedix_trt_yolov11_face_detector_node>(
-        nodeName, modelPath, confThreshold, nmsThreshold);
-    std::cerr << "[PipelineBuilderDetectorNodes] ✓ TRT YOLOv11 face detector node created "
-                 "successfully"
-              << std::endl;
-    return node;
-  } catch (const std::exception &e) {
-    std::cerr << "[PipelineBuilderDetectorNodes] Exception in createTRTYOLOv11FaceDetectorNode: "
-              << e.what() << std::endl;
-    throw;
-  }
-}
-
 std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilderDetectorNodes::createTRTYOLOv11PlateDetectorNode(
     const std::string &nodeName,
@@ -1500,64 +1199,6 @@ PipelineBuilderDetectorNodes::createRKNNYOLOv8DetectorNode(
     return node;
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderDetectorNodes] Exception in createRKNNYOLOv8DetectorNode: "
-              << e.what() << std::endl;
-    throw;
-  }
-}
-
-std::shared_ptr<cvedix_nodes::cvedix_node>
-PipelineBuilderDetectorNodes::createRKNNFaceDetectorNode(
-    const std::string &nodeName,
-    const std::map<std::string, std::string> &params,
-    const CreateInstanceRequest &req) {
-
-  try {
-    std::string modelPath =
-        params.count("model_path") ? params.at("model_path") : "";
-    float scoreThreshold = params.count("score_threshold")
-                               ? std::stof(params.at("score_threshold"))
-                               : 0.5f;
-    float nmsThreshold = params.count("nms_threshold")
-                             ? std::stof(params.at("nms_threshold"))
-                             : 0.5f;
-    int inputWidth =
-        params.count("input_width") ? std::stoi(params.at("input_width")) : 640;
-    int inputHeight = params.count("input_height")
-                          ? std::stoi(params.at("input_height"))
-                          : 640;
-    int topK = params.count("top_k") ? std::stoi(params.at("top_k")) : 50;
-
-    if (modelPath.empty()) {
-      auto it = req.additionalParams.find("MODEL_PATH");
-      if (it != req.additionalParams.end() && !it->second.empty()) {
-        modelPath = it->second;
-      }
-    }
-
-    if (nodeName.empty() || modelPath.empty()) {
-      throw std::invalid_argument("Node name and model path are required");
-    }
-
-    std::cerr << "[PipelineBuilderDetectorNodes] Creating RKNN face detector node:"
-              << std::endl;
-    std::cerr << "  Name: '" << nodeName << "'" << std::endl;
-    std::cerr << "  Model path: '" << modelPath << "'" << std::endl;
-    std::cerr << "  Score threshold: " << scoreThreshold << std::endl;
-    std::cerr << "  NMS threshold: " << nmsThreshold << std::endl;
-    std::cerr << "  Input size: " << inputWidth << "x" << inputHeight
-              << std::endl;
-    std::cerr << "  Top K: " << topK << std::endl;
-
-    auto node = std::make_shared<cvedix_nodes::cvedix_rknn_face_detector_node>(
-        nodeName, modelPath, scoreThreshold, nmsThreshold, inputWidth,
-        inputHeight, topK);
-
-    std::cerr
-        << "[PipelineBuilderDetectorNodes] ✓ RKNN face detector node created successfully"
-        << std::endl;
-    return node;
-  } catch (const std::exception &e) {
-    std::cerr << "[PipelineBuilderDetectorNodes] Exception in createRKNNFaceDetectorNode: "
               << e.what() << std::endl;
     throw;
   }
@@ -1896,65 +1537,6 @@ PipelineBuilderDetectorNodes::createMaskRCNNDetectorNode(
   }
 }
 
-#ifdef CVEDIX_HAS_OPENPOSE
-std::shared_ptr<cvedix_nodes::cvedix_node>
-PipelineBuilderDetectorNodes::createOpenPoseDetectorNode(
-    const std::string &nodeName,
-    const std::map<std::string, std::string> &params,
-    const CreateInstanceRequest &req) {
-
-  try {
-    std::string modelPath =
-        params.count("model_path") ? params.at("model_path") : "";
-    std::string modelConfigPath =
-        params.count("model_config_path") ? params.at("model_config_path") : "";
-    std::string labelsPath =
-        params.count("labels_path") ? params.at("labels_path") : "";
-    int inputWidth =
-        params.count("input_width") ? std::stoi(params.at("input_width")) : 368;
-    int inputHeight = params.count("input_height")
-                          ? std::stoi(params.at("input_height"))
-                          : 368;
-    int batchSize =
-        params.count("batch_size") ? std::stoi(params.at("batch_size")) : 1;
-    int classIdOffset = params.count("class_id_offset")
-                            ? std::stoi(params.at("class_id_offset"))
-                            : 0;
-    float scoreThreshold = params.count("score_threshold")
-                               ? std::stof(params.at("score_threshold"))
-                               : 0.1f;
-
-    if (modelPath.empty()) {
-      auto it = req.additionalParams.find("MODEL_PATH");
-      if (it != req.additionalParams.end() && !it->second.empty()) {
-        modelPath = it->second;
-      }
-    }
-
-    if (nodeName.empty() || modelPath.empty()) {
-      throw std::invalid_argument("Node name and model path are required");
-    }
-
-    std::cerr << "[PipelineBuilderDetectorNodes] Creating OpenPose detector node:"
-              << std::endl;
-    std::cerr << "  Name: '" << nodeName << "'" << std::endl;
-    std::cerr << "  Model path: '" << modelPath << "'" << std::endl;
-
-    auto node = std::make_shared<cvedix_nodes::cvedix_openpose_detector_node>(
-        nodeName, modelPath, modelConfigPath, labelsPath, inputWidth,
-        inputHeight, batchSize, classIdOffset, scoreThreshold);
-
-    std::cerr
-        << "[PipelineBuilderDetectorNodes] ✓ OpenPose detector node created successfully"
-        << std::endl;
-    return node;
-  } catch (const std::exception &e) {
-    std::cerr << "[PipelineBuilderDetectorNodes] Exception in createOpenPoseDetectorNode: "
-              << e.what() << std::endl;
-    throw;
-  }
-}
-#else
 std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilderDetectorNodes::createOpenPoseDetectorNode(
     const std::string &nodeName,
@@ -1964,10 +1546,8 @@ PipelineBuilderDetectorNodes::createOpenPoseDetectorNode(
   (void)params;
   (void)req;
   throw std::runtime_error(
-      "openpose_detector is not available: this EdgeOS/CVEDIX SDK build does "
-      "not ship cvedix_openpose_detector_node.h");
+      "openpose_detector is no longer available or supported in this application.");
 }
-#endif
 
 std::shared_ptr<cvedix_nodes::cvedix_node>
 PipelineBuilderDetectorNodes::createClassifierNode(

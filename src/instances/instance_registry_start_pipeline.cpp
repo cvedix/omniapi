@@ -25,9 +25,6 @@
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
@@ -165,43 +162,29 @@ bool InstanceRegistry::startPipeline(
       // Detector, etc.) These models are computationally expensive and need
       // lower FPS
       bool hasSlowModel = false;
-      bool hasFaceDetector = false;
       for (const auto &node : nodes) {
         auto maskRCNNNode = std::dynamic_pointer_cast<
             cvedix_nodes::cvedix_mask_rcnn_detector_node>(node);
-        auto openPoseNode = std::dynamic_pointer_cast<
-            cvedix_nodes::cvedix_openpose_detector_node>(node);
-        auto faceDetectorNode = std::dynamic_pointer_cast<
-            cvedix_nodes::cvedix_yunet_face_detector_node>(node);
-        if (maskRCNNNode || openPoseNode) {
+        if (maskRCNNNode) {
           hasSlowModel = true;
           break;
         }
-        if (faceDetectorNode) {
-          hasFaceDetector = true;
-        }
       }
 
-      // Use lower FPS for very slow models, but keep high FPS for face detector
-      // Face detector will use frame dropping based on queue size instead of
-      // FPS limiting Very slow models (Mask RCNN/OpenPose): 10 FPS Others
-      // (including face detector): 30 FPS with queue-based dropping
+      // Use lower FPS for very slow models
+      // Very slow models (Mask RCNN/OpenPose): 10 FPS
+      // Others: 30 FPS with queue-based dropping
       if (hasSlowModel) {
         maxFPS = 10.0; // Very slow models
       } else {
         maxFPS =
-            30.0; // Normal models and face detector - use queue-based dropping
+            30.0; // Normal models - use queue-based dropping
       }
 
       if (hasSlowModel) {
         std::cerr << "[InstanceRegistry] ⚠ Detected slow model (Mask "
                      "RCNN/OpenPose) - using reduced FPS: "
                   << maxFPS << " FPS to prevent queue overflow" << std::endl;
-      } else if (hasFaceDetector) {
-        std::cerr
-            << "[InstanceRegistry] ⚠ Detected face detector - using 30 FPS "
-               "with queue-based frame dropping to prevent queue overflow"
-            << std::endl;
       }
     }
 

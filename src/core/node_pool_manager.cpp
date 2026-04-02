@@ -65,22 +65,6 @@ void NodePoolManager::initializeDefaultTemplates() {
 
   // ========== DETECTOR NODES ==========
 
-  // YuNet Face Detector
-  NodeTemplate yunetDetector;
-  yunetDetector.templateId = "yunet_face_detector_template";
-  yunetDetector.nodeType = "yunet_face_detector";
-  yunetDetector.displayName = "YuNet Face Detector";
-  yunetDetector.description = "Detect faces using YuNet model";
-  yunetDetector.category = "detector";
-  yunetDetector.defaultParameters["score_threshold"] = "0.7";
-  yunetDetector.defaultParameters["nms_threshold"] = "0.5";
-  yunetDetector.defaultParameters["top_k"] = "50";
-  yunetDetector.requiredParameters = {"model_path"};
-  yunetDetector.optionalParameters = {"score_threshold", "nms_threshold",
-                                      "top_k"};
-  yunetDetector.isPreConfigured = false;
-  templates_[yunetDetector.templateId] = yunetDetector;
-
   // YOLO Detector
   NodeTemplate yoloDetector;
   yoloDetector.templateId = "yolo_detector_template";
@@ -519,17 +503,7 @@ void NodePoolManager::initializeDefaultTemplates() {
   rknnYOLOv8Detector.isPreConfigured = false;
   templates_[rknnYOLOv8Detector.templateId] = rknnYOLOv8Detector;
 
-  // RKNN Face Detector
-  NodeTemplate rknnFaceDetector;
-  rknnFaceDetector.templateId = "rknn_face_detector_template";
-  rknnFaceDetector.nodeType = "rknn_face_detector";
-  rknnFaceDetector.displayName = "RKNN Face Detector";
-  rknnFaceDetector.description = "Face detection using RKNN";
-  rknnFaceDetector.category = "detector";
-  rknnFaceDetector.requiredParameters = {"model_path"};
-  rknnFaceDetector.optionalParameters = {};
-  rknnFaceDetector.isPreConfigured = false;
-  templates_[rknnFaceDetector.templateId] = rknnFaceDetector;
+
 
   // ========== PADDLE NODES (conditional compilation) ==========
   // Note: These will only be available if CVEDIX_WITH_PADDLE is defined

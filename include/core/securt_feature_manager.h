@@ -84,6 +84,7 @@ public:
   std::optional<std::string>
   getPerformanceProfile(const std::string &instanceId) const;
 
+
   /**
    * @brief Enable/disable face detection
    * @param instanceId Instance ID

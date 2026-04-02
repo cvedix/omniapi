@@ -10,7 +10,7 @@
 #include "core/securt_instance_manager.h"
 #include "instances/instance_info.h"
 #include "instances/instance_manager.h"
-#include "api/quick_instance_handler.h"
+#include "api/quick_instance_parser.h"
 #include <algorithm>
 #include <chrono>
 #include <drogon/HttpResponse.h>
@@ -103,22 +103,23 @@ void SecuRTHandler::createInstance(
 
     // Detect "full-config" SecuRT request: body giống quick instance (có solution/additionalParams, v.v.)
     bool hasFullConfigKeys =
-        json->isMember("solution") || json->isMember("additionalParams") ||
+        json->isMember("solution") || json->isMember("category") ||
+        json->isMember("additionalParams") ||
         json->isMember("input") || json->isMember("output") ||
         json->isMember("lines") || json->isMember("areas");
 
     std::string createdId;
 
     if (hasFullConfigKeys && core_instance_manager_) {
-      // Full-config mode: dùng QuickInstanceHandler::parseQuickRequest để build CreateInstanceRequest
+      // Full-config mode: dùng QuickInstanceParser::parseQuickRequest để build CreateInstanceRequest
       if (isApiLoggingEnabled()) {
         PLOG_DEBUG << "[API] POST /v1/securt/instance - Detected full-config body, using QuickInstance parser";
       }
 
-      QuickInstanceHandler quickHandler;
+      QuickInstanceParser quickParser;
       CreateInstanceRequest coreReq;
       std::string parseError;
-      if (!quickHandler.parseQuickRequest(*json, coreReq, parseError)) {
+      if (!quickParser.parseQuickRequest(*json, coreReq, parseError)) {
         if (isApiLoggingEnabled()) {
           PLOG_WARNING << "[API] POST /v1/securt/instance - Full-config parse error: "
                        << parseError;
@@ -1250,10 +1251,57 @@ void SecuRTHandler::setFaceDetection(
     bool enable = (*json)["enable"].asBool();
     feature_manager_->setFaceDetection(instanceId, enable);
 
+    // Also inject ENABLE_FACE_DETECTION into instance additionalParams
+    // so pipeline builder can pick it up during next pipeline build (restart)
+    if (core_instance_manager_) {
+      Json::Value configUpdate;
+      Json::Value additionalParams;
+      additionalParams["ENABLE_FACE_DETECTION"] = enable ? "true" : "false";
+      configUpdate["AdditionalParams"] = additionalParams;
+      core_instance_manager_->updateInstance(instanceId, configUpdate);
+    }
+
+    PLOG_INFO << "[API] Face detection " << (enable ? "enabled" : "disabled")
+              << " for instance " << instanceId
+              << " (ENABLE_FACE_DETECTION param injected into AdditionalParams)";
+
     auto resp = HttpResponse::newHttpResponse();
     resp->setStatusCode(k204NoContent);
     resp->addHeader("Access-Control-Allow-Origin", "*");
     MetricsInterceptor::callWithMetrics(req, resp, std::move(callback));
+
+  } catch (const std::exception &e) {
+    callback(createErrorResponse(500, "Internal server error", e.what()));
+  }
+}
+
+void SecuRTHandler::getFaceDetection(
+    const HttpRequestPtr &req,
+    std::function<void(const HttpResponsePtr &)> &&callback) {
+  auto start_time = std::chrono::steady_clock::now();
+  std::string instanceId = extractInstanceId(req);
+
+  if (isApiLoggingEnabled()) {
+    PLOG_INFO << "[API] GET /v1/securt/instance/" << instanceId << "/face_detection - Get face detection";
+  }
+
+  try {
+    if (!instance_manager_ || !instance_manager_->hasInstance(instanceId)) {
+      callback(createErrorResponse(404, "Not Found", "Instance does not exist"));
+      return;
+    }
+
+    if (!feature_manager_) {
+      callback(createErrorResponse(500, "Internal server error",
+                                   "Feature manager not initialized"));
+      return;
+    }
+
+    auto enabled = feature_manager_->getFaceDetection(instanceId);
+    Json::Value response;
+    response["enabled"] = enabled.value_or(false);
+
+    callback(createSuccessResponse(response));
 
   } catch (const std::exception &e) {
     callback(createErrorResponse(500, "Internal server error", e.what()));

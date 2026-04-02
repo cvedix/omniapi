@@ -1,368 +1,175 @@
-# omniapi
+# OmniAPI
 
-**Nền tảng Edge AI**: REST API + xử lý AI trực tiếp trên thiết bị biên. CVEDIX SDK (EdgeOS SDK) là tầng hỗ trợ — API điều khiển instances, nhận diện khuôn mặt, push frame và metrics qua một lớp thống nhất (AI Runtime).
+[English](README.md) | [Tiếng Việt](README_vi.md)
 
-![Edge AI Workflow](docs/image.png)
+**OmniAPI** is a high-performance **REST API Server** designed to make Edge AI **effortless for developers**. Whether you're building a Mobile App, an intelligent AI PC, or seamlessly integrating advanced analytics into a customer's Video Management System (VMS) or Enterprise Server – OmniAPI lets you execute state-of-the-art AI workloads in seconds using simple HTTP & JSON.
 
----
+**Zero AI Knowledge Required.** No need to learn about tensor shapes, ONNX model conversions, PyTorch configurations, or hardware dependencies. If you know how to make an API call, you know how to deploy Vision AI.
 
-## 📌 Định vị sản phẩm
-
-| Thành phần | Vai trò |
-|------------|--------|
-| **OmniAPI** | Nền tảng: REST API + xử lý AI (decode, inference, cache) |
-| **AI Runtime / SDK Helper** | Lớp thống nhất: InferenceSession, AIRuntimeFacade, PipelineHelper |
-| **CVEDIX SDK** | Tay hỗ trợ: pipeline (source → detector → broker → destination) |
-
-Luồng: **API → AI Runtime → CVEDIX SDK**. Chi tiết: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#api--ai-runtime--sdk).
+![OmniAPI Architecture Concept](asset/architecture.png)
 
 ---
 
-## 🎯 Tính năng chính & Execution mode
+## ⚡ What is OmniAPI?
 
-- **Instance** — Tạo, start/stop, cấu hình AI instances (pipeline).
-- **Solution** — Quản lý solution templates.
-- **Recognition** — Nhận diện khuôn mặt (REST), face database, register/list/delete.
-- **Lines / Jams / Stops** — Crossline, traffic jam, stop-line (SecuRT, BA).
-- **Push frame** — Đẩy frame (compressed/encoded) vào instance.
-- **Metrics** — Health, version, watchdog, system info, logs.
+Built on top of the robust CVEDIX EdgeOS engine, OmniAPI abstracts complex GStreamer media pipelines and lower-level inference engines into straightforward, universal **REST API calls**.
 
-**Execution mode:** Mặc định **subprocess** (cách ly process). In-process (legacy): `EDGE_AI_EXECUTION_MODE=in-process` (hoặc `inprocess`, `legacy`, `main`). Xem [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) và [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#khi-nào-dùng-mode-nào).
+By acting as a universal translation layer, OmniAPI empowers application teams to integrate complex Vision AI features (Face Recognition, License Plate Reading, Behavior Analysis) directly into their applications **in a flash**, drastically reducing integration time from weeks to hours. 
+
+### 🌟 Key Developer Benefits
+- **Effortless Integration:** Call our REST API from any platform: iOS, Android, Web UI, Desktop software, or Backend Servers.
+- **Zero AI Knowledge Required:** You send the video stream URL (RTSP/RTMP/File) and tell OmniAPI what you want to detect. OmniAPI handles the AI pipelines, object tracking, scaling, and bounding boxes internally.
+- **Production-Ready Accuracy:** Ships with pre-trained, high-accuracy models that are robust and ready-to-use out-of-the-box in real-world environments.
+- **VMS-Ready:** Seamless integration with existing Video Management Systems (Milestone, Exacq, Nx Witness) via standard streams and HTTP Webhooks.
+- **Hardware Agnostic (Write once, run anywhere):** OmniAPI automatically optimizes processing for the underlying NPUs/GPUs (NVIDIA, Rockchip, Intel, Hailo, Qualcomm). No custom code for different hardware!
 
 ---
 
-## 🏗️ Kiến Trúc
+## 🔌 Integrating in a Flash
 
-![Architecture](asset/architecture.png)
+Everything in OmniAPI is designed with an API-first mindset. Start an advanced Vision pipeline instantly using simple JSON payloads.
+
+### 🟢 Tier 1 — Zero Knowledge (Just pick a category)
+*Turn any camera into a smart AI node — no model configuration needed.*
+
+```bash
+curl -X POST http://localhost:8080/v1/securt/instance \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Lobby Camera",
+    "category": "security",
+    "input": { "url": "rtsp://admin:pass@192.168.1.100/stream", "type": "rtsp" },
+    "output": { "url": "rtmp://localhost:1935/live/lobby", "type": "rtmp" },
+    "autoStart": true
+  }'
 ```
-[Client] → [REST API Server] → [Instance Manager] → [CVEDIX SDK]
-                    ↓
-              [AI Runtime] → decode / infer / cache
-                              
+
+### 🔵 Tier 2 — Choose a Specific Feature
+*Select a targeted AI feature within a category for precise analytics.*
+
+```bash
+# Traffic jam detection — just pick category + feature
+curl -X POST http://localhost:8080/v1/securt/instance \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Intersection Monitor",
+    "category": "its",
+    "feature": "jam",
+    "input": { "url": "rtsp://10.0.0.50/stream", "type": "rtsp" },
+    "autoStart": true
+  }'
 ```
 
-## 🎯 Các Bài Toán & Tính Năng Được Hỗ Trợ
+### 🟣 Tier 3 — Custom Model (Expert)
+*Bring your own trained model — full control for AI researchers and engineers.*
 
-API hỗ trợ các tính năng từ CVEDIX SDK với **43+ processing nodes**, bao gồm:
+```bash
+curl -X POST http://localhost:8080/v1/securt/instance \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Custom Fire Detection v2",
+    "category": "custom",
+    "solution": "fire_smoke_detection",
+    "input": { "url": "rtsp://10.0.0.100/stream", "type": "rtsp" },
+    "additionalParams": {
+      "MODEL_PATH": "/opt/models/fire_v2.weights",
+      "CONFIG_PATH": "/opt/models/fire_v2.cfg",
+      "LABELS_PATH": "/opt/models/fire_labels.txt"
+    },
+    "detectionSensitivity": 0.35
+  }'
+```
 
-### 👤 Nhận Diện & Phân Tích Khuôn Mặt
-- ✅ **Face Detection** - Phát hiện khuôn mặt (YuNet, YOLOv11, RKNN)
-- ✅ **Face Recognition** - Nhận diện khuôn mặt (InsightFace, TensorRT)
-- ✅ **Face Tracking** - Theo dõi khuôn mặt (SORT, ByteTrack, OCSort)
-- ✅ **Face Feature Encoding** - Trích xuất đặc trưng khuôn mặt
-- ✅ **Face Swap** - Hoán đổi khuôn mặt
-- ✅ **Face Database Management** - Quản lý database khuôn mặt
+### Python / Mobile / Backend Example
+*Build security analytics natively into your Backend or App in 5 lines of code.*
 
-### 🚗 Phát Hiện & Phân Tích Phương Tiện
-- ✅ **Vehicle Detection** - Phát hiện phương tiện (TensorRT, YOLO)
-- ✅ **Vehicle Plate Detection & Recognition** - Phát hiện và nhận diện biển số xe
-- ✅ **Vehicle Tracking** - Theo dõi phương tiện
-- ✅ **Vehicle Classification** - Phân loại màu, loại xe (TensorRT)
-- ✅ **Vehicle Feature Encoding** - Trích xuất đặc trưng xe
-- ✅ **Vehicle Body Scan** - Quét thân xe
-- ✅ **Vehicle Clustering** - Phân nhóm xe
+```python
+import requests
 
-### 🎯 Phát Hiện Vật Thể & Phân Tích
-- ✅ **Object Detection** - Phát hiện vật thể (YOLO, YOLOv8, YOLOv11)
-- ✅ **Instance Segmentation** - Phân đoạn instance (Mask R-CNN, YOLOv8)
-- ✅ **Semantic Segmentation** - Phân đoạn ngữ nghĩa (ENet)
-- ✅ **Pose Estimation** - Ước lượng tư thế (OpenPose, YOLOv8)
-- ✅ **Image Classification** - Phân loại ảnh
-- ✅ **Text Detection** - Phát hiện văn bản (PaddleOCR)
+API_BASE = "http://localhost:8080/v1/securt"
 
-### 🚦 Phân Tích Hành Vi (Behavior Analysis)
-- ✅ **Crossline Detection** - Phát hiện vượt đường line (đếm đối tượng)
-- ✅ **Multi-line Crossline** - Nhiều đường crossline
-- ✅ **Traffic Jam Detection** - Phát hiện kẹt xe
-- ✅ **Stop Detection** - Phát hiện dừng tại stop-line
-- ✅ **Wrong Way Detection** - Phát hiện đi ngược chiều
-- ✅ **Obstacle Detection** - Phát hiện chướng ngại vật
+# 1. Start a security instance (zero AI knowledge needed!)
+response = requests.post(f"{API_BASE}/instance", json={
+    "name": "Perimeter Camera",
+    "category": "security",
+    "input": {"url": "rtsp://192.168.1.100:554/live", "type": "rtsp"},
+    "autoStart": True
+})
+instance_id = response.json().get("id")
 
-### 🔥 Phát Hiện An Toàn & Bất Thường
-- ✅ **Fire/Smoke Detection** - Phát hiện lửa/khói
-- ✅ **Video Restoration** - Khôi phục video chất lượng cao
-- ✅ **Lane Detection** - Phát hiện làn đường
+# 2. Add an intrusion line dynamically
+requests.post(f"{API_BASE}/instance/{instance_id}/lines", json={
+    "name": "Fence Zone",
+    "coordinates": [{"x": 100, "y": 500}, {"x": 1800, "y": 500}],
+    "direction": "Up",
+    "classes": ["Person", "Vehicle"]
+})
+print("Intrusion line armed successfully!")
+```
 
-### 📹 Nguồn Video & Đầu Ra
-- ✅ **Source**: RTSP, RTMP, File, Image, App, UDP, FFmpeg
-- ✅ **Destination**: RTSP, RTMP, File, Image, Screen, App, FFmpeg
-- ✅ **Broker**: MQTT, Kafka, Socket, Console, File, SSE
+---
 
-### 🔄 Xử Lý & Tối Ưu
-- ✅ **Object Tracking** - SORT, ByteTrack, OCSort
-- ✅ **Frame Processing** - Fusion, Sync, Split, Skip
-- ✅ **Recording** - Ghi lại video/ảnh
-- ✅ **Clustering** - Phân nhóm đối tượng
-- ✅ **OSD** - Vẽ overlay kết quả
+## 🤝 Supported Hardware Acceleration
 
-### 🤖 AI Models & Hardware
-- ✅ **TensorRT** - NVIDIA GPU (YOLOv8, Vehicle, InsightFace)
-- ✅ **RKNN** - Rockchip NPU (YOLOv8, YOLOv11, Face)
-- ✅ **ONNX Runtime** - Cross-platform
-- ✅ **OpenCV DNN** - YOLO, Caffe, TensorFlow
-- ✅ **PaddlePaddle** - OCR
+OmniAPI automatically leverages available hardware accelerators to maximize inference FPS while minimizing power consumption.
 
-### 🔧 Tính Năng Nâng Cao
-- ✅ **Multi-Channel Pipelines** - Xử lý nhiều nguồn đồng thời
-- ✅ **Dynamic Pipeline** - Thay đổi pipeline trong runtime
-- ✅ **Multi-Detector** - Nhiều detector trong một pipeline
-- ✅ **MLLM Analysis** - Phân tích đa phương thức
-
-Xem chi tiết: [ReleaseNotes.md](ReleaseNotes.md#-các-bài-toán--tính-năng-được-hỗ-trợ)
+| Vendor | Specific SOC / Family | Acceleration Backend |
+|--------|----------------------|-----------------------|
+| ✅ **NVIDIA** | Jetson AGX Orin, Orin Nano, RTX GPUs | TensorRT |
+| ✅ **Rockchip** | RK3588 (OPI5-Plus) | RKNN |
+| ✅ **Hailo** | Hailo-8 (1200 / 3300) | HailoRT |
+| ✅ **Qualcomm** | QCS6490 (DK2721) | SNPE / QNN |
+| ✅ **Intel** | Core Ultra (R360) | OpenVINO |
+| ✅ **AMD** | Ryzen 8000 (2210) | Vitis AI |
 
 ---
 
 ## 🚀 Quick Start
 
-### Development Setup
+### 1. Installation
 
+**Recommended: Debian ALL-IN-ONE Package**  
+The easiest way to get started is by utilizing our pre-built standalone `.deb` package containing the API server and all required edge dependencies.
 ```bash
-# Full setup (dependencies + build)
-./scripts/dev_setup.sh
-
-# Chạy server
-./scripts/load_env.sh
-```
-
-### Production Setup
-
-```bash
-# Full deployment (cần sudo)
-sudo ./scripts/prod_setup.sh
-
-# Hoặc sử dụng deploy script trực tiếp
-sudo ./deploy/deploy.sh
-```
-
-### Build Thủ Công
-
-```bash
-# 1. Cài dependencies
-./scripts/install_dependencies.sh
-
-# 2. Build
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
-
-# 3. Chạy server
-./bin/omniapi
-```
-
-### Build và Cài Đặt Debian Package
-
-**⚠️ Khuyến nghị: Sử dụng ALL-IN-ONE package** - Tự chứa tất cả dependencies, không cần cài thêm packages.
-
-**📥 Tải file .deb ALL-IN-ONE:** [Download từ Google Drive](https://drive.google.com/file/d/1KaGvhSVFqFOc8_XIU6gd7xgWTT52fVub/view?usp=sharing)
-
-**⚠️ QUAN TRỌNG:** Trước khi cài đặt package `.deb`, bạn **BẮT BUỘC** phải chuẩn bị và cài đặt các dependencies trước. Xem chi tiết: [docs/INSTALLATION.md](docs/INSTALLATION.md)
-
-**Quick Start:**
-
-```bash
-# Build ALL-IN-ONE package (khuyến nghị)
-./packaging/scripts/build_deb_all_in_one.sh --sdk-deb <path-to-sdk.deb>
-
-# Hoặc build package thông thường
-./packaging/scripts/build_deb.sh
-
-# Cài đặt package
+# Install the downloaded package
 sudo dpkg -i omniapi-all-in-one-*.deb
-sudo apt-get install -f  # Nếu có lỗi dependencies
+sudo apt-get install -f
+
+# Start the OmniAPI daemon
 sudo systemctl start omniapi
 ```
+*(For manual build instructions, please refer to [INSTALLATION.md](docs/INSTALLATION.md))*
 
-**Lưu ý:** Không cần `sudo` để build! Chỉ cần sudo khi **cài đặt** package.
-
-Xem hướng dẫn chi tiết đầy đủ: **[docs/INSTALLATION.md](docs/INSTALLATION.md)**
-
-### Test
+### 2. Verify Server Status
 
 ```bash
-curl http://localhost:8080/v1/core/health
-curl http://localhost:8080/v1/core/version
+# Check if the API is running correctly
+curl -s http://localhost:8080/v1/securt/health | jq
 ```
 
 ---
 
-## 🌐 Khởi Động Server
+## 🎯 Solution Categories
 
-### Với File .env (Khuyến nghị)
+OmniAPI organizes **43+ optimized edge processing nodes** into **solution categories**. Just pick a category — no need to manage models:
 
-```bash
-# Tạo .env từ template
-cp .env.example .env
-nano .env  # Chỉnh sửa nếu cần
-
-# Load và chạy server
-./scripts/load_env.sh
-```
-
-### Với Logging
-
-```bash
-./build/bin/omniapi --log-api --log-instance --log-sdk-output
-```
-
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `API_HOST` | 0.0.0.0 | Server host |
-| `API_PORT` | 8080 | Server port |
-| `THREAD_NUM` | 0 (auto) | Worker threads |
-| `LOG_LEVEL` | INFO | Log level |
-
-Xem đầy đủ: [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)
+| Category | Default Feature | Available Features | Use Case |
+|----------|----------------|-------|----------|
+| 🛡️ **security** | SecuRT (full pipeline) | `crossline`, `intrusion`, `loitering`, `crowding`, `face` | Enterprise security, perimeter defense |
+| 🚗 **its** | Crossline counting | `line_counting`, `jam`, `stop`, `wrong_way`, `obstacle` | Smart traffic, intelligent transportation |
+| 🔥 **firefighting** | Fire/Smoke detection | `fire`, `smoke` | Fire safety, industrial monitoring |
+| 🎯 **armed** | SecuRT (full pipeline) | — | Military / defense applications |
+| 🔧 **custom** | *(user-defined)* | *(requires explicit solution + model paths)* | Research, custom-trained models |
 
 ---
 
-## 📡 API Endpoints
+## 📚 Ecosystem & Documentation
 
-### Core APIs
-
-```bash
-curl http://localhost:8080/v1/core/health      # Health check
-curl http://localhost:8080/v1/core/version     # Version info
-curl http://localhost:8080/v1/core/watchdog    # Watchdog status
-curl http://localhost:8080/v1/core/endpoints   # List endpoints
-```
-
-### Instance APIs
-
-```bash
-# Create instance
-curl -X POST http://localhost:8080/v1/core/instance \
-  -H "Content-Type: application/json" \
-  -d '{"name": "camera_1", "solution": "face_detection", "autoStart": true}'
-
-# List instances
-curl http://localhost:8080/v1/core/instance
-
-# Start/Stop
-curl -X POST http://localhost:8080/v1/core/instance/{id}/start
-curl -X POST http://localhost:8080/v1/core/instance/{id}/stop
-```
-
-### Swagger UI
-
-- **Swagger UI**: http://localhost:8080/swagger
-- **OpenAPI Spec**: http://localhost:8080/openapi.yaml
-
-Xem đầy đủ: [docs/API.md](docs/API.md)
-
----
-
-## 🏗️ Kiến Trúc (chi tiết)
-
-```
-[Client] → [REST API Server] → [Instance Manager] → [CVEDIX SDK]
-                    ↓
-              [AI Runtime] → InferenceSession, AIRuntimeFacade, PipelineHelper
-```
-
-**Thành phần:**
-- **REST API Server**: Drogon Framework HTTP server
-- **Instance Manager**: Quản lý vòng đời instances (in-process hoặc subprocess)
-- **AI Runtime**: Decode, inference, cache (Recognition, Push frame); SDK là tầng hỗ trợ
-- **CVEDIX SDK**: 43+ processing nodes (source, inference, tracker, broker, destination)
-- **Data Broker**: Message routing và output publishing
-
----
-
-## 📊 Logging & Monitoring
-
-```bash
-# Development - full logging
-./build/bin/omniapi --log-api --log-instance --log-sdk-output
-
-# Production - minimal logging
-./build/bin/omniapi --log-api
-```
-
-**Logs API:**
-```bash
-curl http://localhost:8080/v1/core/log
-curl "http://localhost:8080/v1/core/log/api?level=ERROR&tail=100"
-```
-
----
-
-## 🚀 Production Deployment
-
-```bash
-# Setup với systemd service
-sudo ./scripts/prod_setup.sh
-
-# Hoặc sử dụng deploy script
-sudo ./deploy/deploy.sh
-
-# Kiểm tra service
-sudo systemctl status omniapi
-sudo journalctl -u omniapi -f
-
-# Quản lý
-sudo systemctl restart omniapi
-sudo systemctl stop omniapi
-```
-
-Xem chi tiết: [deploy/README.md](deploy/README.md)
-
----
-
-## ⚠️ Troubleshooting
-
-### Lỗi "Could NOT find Jsoncpp"
-
-```bash
-sudo apt-get install libjsoncpp-dev
-```
-
-### Lỗi CVEDIX SDK symlinks
-
-```bash
-# Chạy lại dev setup để fix symlinks
-./scripts/dev_setup.sh --skip-deps --skip-build
-```
-
-### Build Drogon lâu
-
-Lần đầu build mất ~5-10 phút để download Drogon. Các lần sau nhanh hơn.
-
----
-
-## 📚 Tài Liệu
-
-| File | Nội dung |
-|------|----------|
-| [docs/INSTALLATION.md](docs/INSTALLATION.md) | **Hướng dẫn cài đặt Debian package** |
-| [docs/API.md](docs/API.md) | Full API reference |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Development guide & Pre-commit |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture |
-| [docs/SCRIPTS.md](docs/SCRIPTS.md) | Scripts documentation (dev, prod, build) |
-| [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | Env vars |
-| [docs/LOGGING.md](docs/LOGGING.md) | Logging guide |
-| [docs/DEFAULT_SOLUTIONS_REFERENCE.md](docs/DEFAULT_SOLUTIONS_REFERENCE.md) | Default solutions |
-| [docs/VISION_AI_PROCESSING_PLATFORM.md](docs/VISION_AI_PROCESSING_PLATFORM.md) | Vision: nền tảng Edge AI |
-| [docs/AI_RUNTIME_DESIGN.md](docs/AI_RUNTIME_DESIGN.md) | Thiết kế AI Runtime (InferenceSession, Facade) |
-| [task/omniapi/00_MASTER_PLAN.md](task/omniapi/00_MASTER_PLAN.md) | Master plan & trạng thái phases |
-| [deploy/README.md](deploy/README.md) | Production deployment guide |
-| [packaging/docs/BUILD_DEB.md](packaging/docs/BUILD_DEB.md) | Build Debian package guide |
-| [packaging/docs/BUILD_ALL_IN_ONE.md](packaging/docs/BUILD_ALL_IN_ONE.md) | Build ALL-IN-ONE package guide |
-
----
-
-## 🔧 AI System Support
-
-| Vendor | Device | SOC |
-|--------|--------|-----|
-| Qualcomm | DK2721 | QCS6490 |
-| Intel | R360 | Core Ultra |
-| NVIDIA | 030 | Jetson AGX Orin |
-| NVIDIA | R7300 | Jetson Orin Nano |
-| AMD | 2210 | Ryzen 8000 |
-| Hailo | 1200/3300 | Hailo-8 |
-| Rockchip | OPI5-Plus | RK3588 |
+- **Swagger / OpenAPI Spec:** View the interactive API sandbox at `http://localhost:8080/swagger`
+- **[API Reference](docs/API_document.md):** Complete documentation on every endpoint.
+- **[Architecture Guide](docs/ARCHITECTURE.md):** Deep dive into how OmniAPI communicates with the underlying AI Runtime and EdgeOS SDK.
+- **[Development Guide](docs/DEVELOPMENT.md):** How to structure code, write new controllers, and build custom models.
+- **[Environment Variables](docs/ENVIRONMENT_VARIABLES.md):** Configure ports, thread limits, logging, and database paths.
 
 ---
 

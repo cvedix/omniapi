@@ -30,11 +30,9 @@
 #include <cvedix/nodes/des/cvedix_rtsp_des_node.h>
 #endif
 #ifdef CVEDIX_USE_SFACE_FEATURE_ENCODER
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
 #else
 #include <cvedix/nodes/infers/cvedix_feature_encoder_node.h>
 #endif
-#include <cvedix/nodes/infers/cvedix_face_detector_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
@@ -78,7 +76,6 @@
 
 // RKNN Inference Nodes
 #ifdef CVEDIX_WITH_RKNN
-#include <cvedix/nodes/infers/cvedix_rknn_face_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_rknn_yolov11_detector_node.h>
 #include <cvedix/nodes/infers/cvedix_rknn_yolov8_detector_node.h>
 #endif
@@ -92,7 +89,6 @@
 #include <cvedix/nodes/infers/cvedix_enet_seg_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
 #ifdef CVEDIX_HAS_OPENPOSE
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
 #endif
 // Generic embedding encoder (SDK: cvedix_feature_encoder_node; older SDKs used
 // cvedix_sface_feature_encoder_node). Vehicle TRT path uses
@@ -1902,66 +1898,7 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
                           hasNodeType("ba_stop_osd") ||
                           hasNodeType("ba_loitering_osd");
 
-        // If no OSD node, auto-add face_osd_v2 node for face detection
-        // solutions Check if this is a face detection solution by looking for
-        // yunet_face_detector
-        bool hasFaceDetector = hasNodeType("yunet_face_detector");
-        if (!hasOSDNode && hasFaceDetector) {
-          std::cerr << "[PipelineBuilder] Auto-adding face_osd_v2 node for "
-                       "RTMP overlay"
-                    << std::endl;
-          try {
-            SolutionConfig::NodeConfig osdConfig;
-            osdConfig.nodeType = "face_osd_v2";
-            osdConfig.nodeName = "osd_{instanceId}";
-
-            std::string osdNodeName = osdConfig.nodeName;
-            size_t pos = osdNodeName.find("{instanceId}");
-            while (pos != std::string::npos) {
-              osdNodeName.replace(pos, 12, instanceId);
-              pos = osdNodeName.find("{instanceId}", pos + instanceId.length());
-            }
-
-            auto osdNode = PipelineBuilderOtherNodes::createFaceOSDNode(osdNodeName, osdConfig.parameters);
-            if (osdNode) {
-              // Find detector node to attach OSD to
-              std::shared_ptr<cvedix_nodes::cvedix_node> detectorNode = nullptr;
-              for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
-                auto node = nodes[i];
-                bool isDestNode =
-                    std::dynamic_pointer_cast<
-                        cvedix_nodes::cvedix_file_des_node>(node) ||
-                    std::dynamic_pointer_cast<
-                        cvedix_nodes::cvedix_rtmp_des_node>(node) ||
-                    std::dynamic_pointer_cast<
-                        cvedix_nodes::cvedix_screen_des_node>(node) ||
-                    std::dynamic_pointer_cast<
-                        cvedix_nodes::cvedix_app_des_node>(node);
-                if (!isDestNode) {
-                  detectorNode = node;
-                  break;
-                }
-              }
-
-              if (detectorNode) {
-                osdNode->attach_to({detectorNode});
-                nodes.push_back(osdNode);
-                nodeTypes.push_back("face_osd_v2");
-                hasOSDNode = true;
-                std::cerr << "[PipelineBuilder] ✓ Auto-added face_osd_v2 node"
-                          << std::endl;
-              } else {
-                std::cerr << "[PipelineBuilder] ⚠ Failed to find detector node "
-                             "to attach OSD node"
-                          << std::endl;
-              }
-            }
-          } catch (const std::exception &e) {
-            std::cerr
-                << "[PipelineBuilder] ⚠ Failed to auto-add face_osd_v2 node: "
-                << e.what() << std::endl;
-          }
-        }
+        // Face detector has been removed - no need to auto-add face_osd_v2
 
         // Zero-downtime mode: use FrameRouterSinkNode instead of rtmp_des (output leg is persistent)
         if (frame_router_) {
@@ -2232,6 +2169,97 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     }
   }
 
+  // 4. Auto-add face_detector if ENABLE_FACE_DETECTION is true but not in pipeline
+  // This creates a parallel branch: yolo_detector -> face_detector (split pattern)
+  // The face_detector attaches to the same source as sort_track (yolo_detector output)
+  auto faceDetIt = req.additionalParams.find("ENABLE_FACE_DETECTION");
+  if (faceDetIt != req.additionalParams.end()) {
+    std::string enableFaceDet = faceDetIt->second;
+    std::transform(enableFaceDet.begin(), enableFaceDet.end(),
+                   enableFaceDet.begin(), ::tolower);
+    if ((enableFaceDet == "true" || enableFaceDet == "1" ||
+         enableFaceDet == "yes" || enableFaceDet == "on") &&
+        !hasNodeType("face_detector")) {
+      std::cerr << "[PipelineBuilder] Auto-adding face_detector node "
+                   "(ENABLE_FACE_DETECTION=true detected)"
+                << std::endl;
+      try {
+        // Resolve face detection model path
+        std::string faceModelPath;
+        auto faceModelIt = req.additionalParams.find("FACE_DETECTION_MODEL_PATH");
+        if (faceModelIt != req.additionalParams.end() && !faceModelIt->second.empty()) {
+          faceModelPath = faceModelIt->second;
+        } else {
+          // Default model path
+          faceModelPath = PipelineBuilderModelResolver::resolveModelPath(
+              "models/face/face_detection_yunet_2023mar.onnx");
+        }
+
+        if (!faceModelPath.empty()) {
+          std::string faceNodeName = "face_detector_" + instanceId;
+
+          SolutionConfig::NodeConfig faceConfig;
+          faceConfig.nodeType = "face_detector";
+          faceConfig.nodeName = faceNodeName;
+          faceConfig.parameters["model_path"] = faceModelPath;
+          faceConfig.parameters["score_threshold"] = "0.7";
+          faceConfig.parameters["nms_threshold"] = "0.3";
+          faceConfig.parameters["top_k"] = "5000";
+
+          auto faceNode = PipelineBuilderDetectorNodes::createFaceDetectorNode(
+              faceNodeName, faceConfig.parameters, req);
+
+          if (faceNode) {
+            // Find yolo_detector node to attach to (split pattern: parallel branch)
+            std::shared_ptr<cvedix_nodes::cvedix_node> yoloTarget = nullptr;
+            for (size_t i = 0; i < nodeTypes.size(); ++i) {
+              if (nodeTypes[i] == "yolo_detector" || nodeTypes[i] == "trt_yolov8_detector" ||
+                  nodeTypes[i] == "yolov11_detector" || nodeTypes[i] == "rknn_yolov8_detector") {
+                yoloTarget = nodes[i];
+                break;
+              }
+            }
+
+            if (yoloTarget) {
+              faceNode->attach_to({yoloTarget});
+              nodes.push_back(faceNode);
+              nodeTypes.push_back("face_detector");
+              std::cerr << "[PipelineBuilder] ✓ Auto-added face_detector node "
+                           "(attached parallel to detector - split pattern)"
+                        << std::endl;
+            } else {
+              // Fallback: attach to last non-destination node
+              for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
+                bool isDestNode =
+                    (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
+                     nodeTypes[i] == "frame_router_sink" || nodeTypes[i] == "rtsp_des" ||
+                     nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
+                if (!isDestNode) {
+                  faceNode->attach_to({nodes[i]});
+                  nodes.push_back(faceNode);
+                  nodeTypes.push_back("face_detector");
+                  std::cerr << "[PipelineBuilder] ✓ Auto-added face_detector node "
+                               "(attached to last non-DES node - fallback)"
+                            << std::endl;
+                  break;
+                }
+              }
+            }
+          } else {
+            std::cerr << "[PipelineBuilder] ⚠ Failed to create face_detector node"
+                      << std::endl;
+          }
+        } else {
+          std::cerr << "[PipelineBuilder] ⚠ Face detection model not found, skipping"
+                    << std::endl;
+        }
+      } catch (const std::exception &e) {
+        std::cerr << "[PipelineBuilder] ⚠ Failed to auto-add face_detector: "
+                  << e.what() << std::endl;
+      }
+    }
+  }
+
   std::cerr << "[PipelineBuilder] Successfully built pipeline with "
             << nodes.size() << " nodes" << std::endl;
   edgeos::FrameRouter* unused = frame_router_;
@@ -2292,10 +2320,8 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
     } else if (actualNodeType == "ff_src") {
       return PipelineBuilderSourceNodes::createFFmpegSourceNode(nodeName, params, req);
     }
-    // Face detection nodes
-    else if (nodeConfig.nodeType == "yunet_face_detector") {
-      return PipelineBuilderDetectorNodes::createFaceDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "sface_feature_encoder") {
+    // Face detection related nodes (yunet_face_detector removed)
+    else if (nodeConfig.nodeType == "sface_feature_encoder") {
       return PipelineBuilderDetectorNodes::createSFaceEncoderNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "face_osd_v2") {
       return PipelineBuilderOtherNodes::createFaceOSDNode(nodeName, params);
@@ -2328,8 +2354,6 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderDetectorNodes::createTRTVehicleScannerNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "trt_insight_face_recognition") {
       return PipelineBuilderDetectorNodes::createTRTInsightFaceRecognitionNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_yolov11_face_detector") {
-      return PipelineBuilderDetectorNodes::createTRTYOLOv11FaceDetectorNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "trt_yolov11_plate_detector") {
       return PipelineBuilderDetectorNodes::createTRTYOLOv11PlateDetectorNode(nodeName, params, req);
     }
@@ -2340,12 +2364,12 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderDetectorNodes::createRKNNYOLOv8DetectorNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "rknn_yolov11_detector") {
       return PipelineBuilderDetectorNodes::createRKNNYOLOv11DetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "rknn_face_detector") {
-      return PipelineBuilderDetectorNodes::createRKNNFaceDetectorNode(nodeName, params, req);
     }
 #endif
     // Other inference nodes
-    else if (nodeConfig.nodeType == "yolo_detector") {
+    else if (nodeConfig.nodeType == "face_detector") {
+      return PipelineBuilderDetectorNodes::createFaceDetectorNode(nodeName, params, req);
+    } else if (nodeConfig.nodeType == "yolo_detector") {
       return PipelineBuilderDetectorNodes::createYOLODetectorNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "yolov11_detector") {
       return PipelineBuilderDetectorNodes::createYOLOv11DetectorNode(nodeName, params, req);
@@ -2786,8 +2810,8 @@ PipelineBuilder::buildParameterMap(const SolutionConfig::NodeConfig &nodeConfig,
         if (it != req.additionalParams.end() && !it->second.empty()) {
           value = it->second;
         } else {
-          // Default to yunet.onnx - resolve path intelligently
-          value = PipelineBuilderModelResolver::resolveModelPath("models/face/yunet.onnx");
+          // Default to yolov8n-face.onnx - resolve path intelligently
+          value = PipelineBuilderModelResolver::resolveModelPath("models/face/yolov8n-face.onnx");
         }
       } else {
         value = modelPath;

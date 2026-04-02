@@ -10,17 +10,17 @@ using namespace drogon;
 /**
  * @brief Version endpoint handler
  *
- * Endpoint: GET /v1/core/version
+ * Endpoint: GET /v1/securt/version
  * Returns: JSON with version information
  */
 class VersionHandler : public drogon::HttpController<VersionHandler> {
 public:
   METHOD_LIST_BEGIN
-  ADD_METHOD_TO(VersionHandler::getVersion, "/v1/core/version", Get);
+  ADD_METHOD_TO(VersionHandler::getVersion, "/v1/securt/version", Get);
   METHOD_LIST_END
 
   /**
-   * @brief Handle GET /v1/core/version
+   * @brief Handle GET /v1/securt/version
    *
    * @param req HTTP request
    * @param callback Response callback

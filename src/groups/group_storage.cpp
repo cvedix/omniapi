@@ -7,227 +7,381 @@
 #include <json/json.h>
 #include <set>
 #include <sstream>
+#include <sqlite3.h>
 #include <vector>
 
 namespace fs = std::filesystem;
 
-GroupStorage::GroupStorage(const std::string &storage_dir)
-    : storage_dir_(storage_dir) {
-  ensureStorageDir();
+// ============================================================================
+// Constructor
+// ============================================================================
+
+GroupStorage::GroupStorage(sqlite3 *db, const std::string &legacy_storage_dir)
+    : db_(db), legacy_storage_dir_(legacy_storage_dir) {
+  if (!db_) {
+    std::cerr << "[GroupStorage] WARNING: Database handle is null" << std::endl;
+    return;
+  }
+
+  if (!createTable()) {
+    std::cerr << "[GroupStorage] Error creating groups table" << std::endl;
+    return;
+  }
+
+  // Auto-migrate from JSON files if legacy directory is provided
+  if (!legacy_storage_dir_.empty()) {
+    migrateFromJsonFiles();
+  }
+
+  std::cerr << "[GroupStorage] ✓ GroupStorage ready (SQLite backend)"
+            << std::endl;
 }
 
-void GroupStorage::ensureStorageDir() {
-  // Extract subdir name from storage_dir_ for fallback
-  std::filesystem::path path(storage_dir_);
+// ============================================================================
+// Table Creation
+// ============================================================================
+
+bool GroupStorage::createTable() {
+  if (!db_)
+    return false;
+
+  const char *sql = R"(
+    CREATE TABLE IF NOT EXISTS groups (
+      group_id        TEXT PRIMARY KEY,
+      group_name      TEXT NOT NULL,
+      description     TEXT DEFAULT '',
+      is_default      INTEGER DEFAULT 0,
+      read_only       INTEGER DEFAULT 0,
+      instance_count  INTEGER DEFAULT 0,
+      created_at      TEXT DEFAULT (datetime('now')),
+      updated_at      TEXT DEFAULT (datetime('now'))
+    );
+  )";
+
+  char *errmsg = nullptr;
+  int rc = sqlite3_exec(db_, sql, nullptr, nullptr, &errmsg);
+  if (rc != SQLITE_OK) {
+    std::cerr << "[GroupStorage] Error creating table: "
+              << (errmsg ? errmsg : "unknown") << std::endl;
+    if (errmsg)
+      sqlite3_free(errmsg);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================================
+// Migration from JSON files
+// ============================================================================
+
+void GroupStorage::migrateFromJsonFiles() {
+  if (legacy_storage_dir_.empty())
+    return;
+
+  // Check all possible directories for legacy JSON files
+  std::filesystem::path path(legacy_storage_dir_);
   std::string subdir = path.filename().string();
-  if (subdir.empty()) {
-    subdir = "groups"; // Default fallback subdir
+  if (subdir.empty())
+    subdir = "groups";
+
+  std::vector<std::string> allDirs =
+      EnvConfig::getAllPossibleDirectories(subdir);
+
+  // Also include the legacy_storage_dir_ itself
+  allDirs.insert(allDirs.begin(), legacy_storage_dir_);
+
+  int migrated = 0;
+  int failed = 0;
+
+  for (const auto &dir : allDirs) {
+    if (!fs::exists(dir) || !fs::is_directory(dir))
+      continue;
+
+    try {
+      for (const auto &entry : fs::directory_iterator(dir)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".json")
+          continue;
+
+        std::string filename = entry.path().filename().string();
+        std::string groupId =
+            filename.substr(0, filename.length() - 5); // Remove .json
+
+        // Check if already migrated
+        if (groupFileExists(groupId))
+          continue;
+
+        try {
+          std::ifstream file(entry.path());
+          if (!file.is_open())
+            continue;
+
+          Json::CharReaderBuilder builder;
+          Json::Value json;
+          std::string errors;
+          if (!Json::parseFromStream(builder, file, &json, &errors)) {
+            std::cerr
+                << "[GroupStorage] Migration: failed to parse " << filename
+                << ": " << errors << std::endl;
+            failed++;
+            continue;
+          }
+          file.close();
+
+          std::string error;
+          auto group = jsonToGroupInfo(json, &error);
+          if (!group.has_value()) {
+            std::cerr << "[GroupStorage] Migration: invalid group " << filename
+                      << ": " << error << std::endl;
+            failed++;
+            continue;
+          }
+
+          if (saveGroup(group.value())) {
+            migrated++;
+
+            // Rename original file as backup
+            std::string backupPath = entry.path().string() + ".migrated";
+            try {
+              fs::rename(entry.path(), backupPath);
+            } catch (const std::exception &e) {
+              std::cerr
+                  << "[GroupStorage] Warning: Could not rename JSON file: "
+                  << e.what() << std::endl;
+            }
+          } else {
+            failed++;
+          }
+        } catch (const std::exception &e) {
+          std::cerr << "[GroupStorage] Migration exception for " << filename
+                    << ": " << e.what() << std::endl;
+          failed++;
+        }
+      }
+    } catch (const std::exception &e) {
+      // Skip directory if iteration fails
+      continue;
+    }
   }
 
-  // Use resolveDirectory with 3-tier fallback strategy
-  std::string resolved_dir = EnvConfig::resolveDirectory(storage_dir_, subdir);
-
-  // Update storage_dir_ if fallback was used
-  if (resolved_dir != storage_dir_) {
-    std::cerr << "[GroupStorage] ⚠ Storage directory changed from "
-              << storage_dir_ << " to " << resolved_dir << " (fallback)"
-              << std::endl;
-    storage_dir_ = resolved_dir;
+  if (migrated > 0 || failed > 0) {
+    std::cerr << "[GroupStorage] ✓ JSON migration complete: " << migrated
+              << " migrated, " << failed << " failed" << std::endl;
   }
-
-  // Don't throw - let the application continue even if directory creation
-  // failed
 }
 
-std::string GroupStorage::getGroupFilePath(const std::string &groupId) const {
-  return storage_dir_ + "/" + groupId + ".json";
-}
+// ============================================================================
+// CRUD Operations
+// ============================================================================
 
 bool GroupStorage::saveGroup(const GroupInfo &group) {
-  try {
-    ensureStorageDir();
+  std::lock_guard<std::mutex> lock(mutex_);
 
-    std::string error;
-    Json::Value json = groupInfoToJson(group, &error);
-    if (json.isNull()) {
-      std::cerr << "[GroupStorage] Failed to convert group to JSON: " << error
+  if (!db_)
+    return false;
+
+  try {
+    const char *upsertSql =
+        "INSERT OR REPLACE INTO groups "
+        "(group_id, group_name, description, is_default, read_only, "
+        "instance_count, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, datetime('now'))";
+
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, upsertSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+      std::cerr << "[GroupStorage] Prepare error: " << sqlite3_errmsg(db_)
                 << std::endl;
       return false;
     }
 
-    std::string filepath = getGroupFilePath(group.groupId);
-    std::ofstream file(filepath);
-    if (!file.is_open()) {
-      std::cerr << "[GroupStorage] Failed to open file for writing: "
-                << filepath << std::endl;
+    sqlite3_bind_text(stmt, 1, group.groupId.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, group.groupName.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, group.description.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 4, group.isDefault ? 1 : 0);
+    sqlite3_bind_int(stmt, 5, group.readOnly ? 1 : 0);
+    sqlite3_bind_int(stmt, 6, group.instanceCount);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) {
+      std::cerr << "[GroupStorage] Insert error: " << sqlite3_errmsg(db_)
+                << std::endl;
       return false;
     }
 
-    Json::StreamWriterBuilder builder;
-    builder["indentation"] = "    ";
-    std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-    writer->write(json, &file);
-    file.close();
-
-    std::cerr << "[GroupStorage] Saved group: " << group.groupId << std::endl;
+    std::cerr << "[GroupStorage] ✓ Saved group: " << group.groupId << std::endl;
     return true;
   } catch (const std::exception &e) {
-    std::cerr << "[GroupStorage] Exception saving group: " << e.what()
+    std::cerr << "[GroupStorage] Exception in saveGroup: " << e.what()
               << std::endl;
     return false;
   }
 }
 
 std::optional<GroupInfo> GroupStorage::loadGroup(const std::string &groupId) {
-  // Extract subdir for checking all tiers
-  std::filesystem::path path(storage_dir_);
-  std::string subdir = path.filename().string();
-  if (subdir.empty()) {
-    subdir = "groups";
-  }
+  std::lock_guard<std::mutex> lock(mutex_);
 
-  // Get all possible directories in priority order
-  std::vector<std::string> allDirs =
-      EnvConfig::getAllPossibleDirectories(subdir);
+  if (!db_)
+    return std::nullopt;
 
-  // Try to load from all tiers (later tiers override earlier ones)
-  // We iterate forward and keep the last found version
-  std::optional<GroupInfo> result = std::nullopt;
-  std::string foundInTier;
+  try {
+    const char *selectSql =
+        "SELECT group_id, group_name, description, is_default, read_only, "
+        "instance_count, created_at, updated_at "
+        "FROM groups WHERE group_id = ?";
 
-  for (const auto &dir : allDirs) {
-    std::string filepath = dir + "/" + groupId + ".json";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return std::nullopt;
 
-    if (!fs::exists(filepath)) {
-      continue; // Skip if file doesn't exist
+    sqlite3_bind_text(stmt, 1, groupId.c_str(), -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+      sqlite3_finalize(stmt);
+      return std::nullopt;
     }
 
-    try {
-      std::ifstream file(filepath);
-      if (!file.is_open()) {
-        continue;
-      }
+    GroupInfo group;
+    const char *text;
 
-      Json::CharReaderBuilder builder;
-      Json::Value json;
-      std::string errors;
-      if (Json::parseFromStream(builder, file, &json, &errors)) {
-        std::string error;
-        auto group = jsonToGroupInfo(json, &error);
-        if (group.has_value()) {
-          result = group; // Later tier overrides earlier one
-          foundInTier = dir;
-        }
-      }
-    } catch (const std::exception &e) {
-      // Continue to next tier
-      continue;
-    }
+    text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+    group.groupId = text ? text : "";
+
+    text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+    group.groupName = text ? text : "";
+
+    text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+    group.description = text ? text : "";
+
+    group.isDefault = sqlite3_column_int(stmt, 3) != 0;
+    group.readOnly = sqlite3_column_int(stmt, 4) != 0;
+    group.instanceCount = sqlite3_column_int(stmt, 5);
+
+    text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+    group.createdAt = text ? text : "";
+
+    text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
+    group.updatedAt = text ? text : "";
+
+    sqlite3_finalize(stmt);
+    return group;
+  } catch (const std::exception &e) {
+    std::cerr << "[GroupStorage] Exception in loadGroup: " << e.what()
+              << std::endl;
+    return std::nullopt;
   }
-
-  if (result.has_value()) {
-    std::cerr << "[GroupStorage] Loaded group " << groupId
-              << " from tier: " << foundInTier << std::endl;
-  }
-
-  return result;
 }
 
 std::vector<GroupInfo> GroupStorage::loadAllGroups() {
+  std::lock_guard<std::mutex> lock(mutex_);
   std::vector<GroupInfo> groups;
-  std::set<std::string>
-      loadedGroupIds; // Track loaded group IDs to avoid duplicates
 
-  // Extract subdir for checking all tiers
-  std::filesystem::path path(storage_dir_);
-  std::string subdir = path.filename().string();
-  if (subdir.empty()) {
-    subdir = "groups";
-  }
+  if (!db_)
+    return groups;
 
-  // Get all possible directories in priority order
-  std::vector<std::string> allDirs =
-      EnvConfig::getAllPossibleDirectories(subdir);
+  try {
+    const char *selectSql =
+        "SELECT group_id, group_name, description, is_default, read_only, "
+        "instance_count, created_at, updated_at FROM groups";
 
-  // Load from all tiers (later tiers override earlier ones for same groupId)
-  for (const auto &dir : allDirs) {
-    if (!fs::exists(dir)) {
-      continue; // Skip if directory doesn't exist
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return groups;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      GroupInfo group;
+      const char *text;
+
+      text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      group.groupId = text ? text : "";
+
+      text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+      group.groupName = text ? text : "";
+
+      text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+      group.description = text ? text : "";
+
+      group.isDefault = sqlite3_column_int(stmt, 3) != 0;
+      group.readOnly = sqlite3_column_int(stmt, 4) != 0;
+      group.instanceCount = sqlite3_column_int(stmt, 5);
+
+      text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
+      group.createdAt = text ? text : "";
+
+      text = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 7));
+      group.updatedAt = text ? text : "";
+
+      groups.push_back(group);
     }
-
-    try {
-      for (const auto &entry : fs::directory_iterator(dir)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".json") {
-          std::string filename = entry.path().filename().string();
-          std::string groupId =
-              filename.substr(0, filename.length() - 5); // Remove .json
-
-          // Skip if already loaded (later tier takes precedence)
-          if (loadedGroupIds.find(groupId) != loadedGroupIds.end()) {
-            continue;
-          }
-
-          // Try to load group from this tier
-          std::string filepath = dir + "/" + filename;
-          if (!fs::exists(filepath)) {
-            continue;
-          }
-
-          std::ifstream file(filepath);
-          if (!file.is_open()) {
-            continue;
-          }
-
-          Json::CharReaderBuilder builder;
-          Json::Value json;
-          std::string errors;
-          if (Json::parseFromStream(builder, file, &json, &errors)) {
-            std::string error;
-            auto group = jsonToGroupInfo(json, &error);
-            if (group.has_value()) {
-              // Remove old group if exists (from earlier tier)
-              groups.erase(std::remove_if(groups.begin(), groups.end(),
-                                          [&groupId](const GroupInfo &g) {
-                                            return g.groupId == groupId;
-                                          }),
-                           groups.end());
-              groups.push_back(group.value());
-              loadedGroupIds.insert(groupId);
-              std::cerr << "[GroupStorage] Loaded group " << groupId
-                        << " from tier: " << dir << std::endl;
-            }
-          }
-        }
-      }
-    } catch (const std::exception &e) {
-      // Continue to next tier
-      continue;
-    }
+    sqlite3_finalize(stmt);
+  } catch (const std::exception &e) {
+    std::cerr << "[GroupStorage] Exception in loadAllGroups: " << e.what()
+              << std::endl;
   }
 
   return groups;
 }
 
 bool GroupStorage::deleteGroup(const std::string &groupId) {
-  try {
-    std::string filepath = getGroupFilePath(groupId);
-    if (fs::exists(filepath)) {
-      fs::remove(filepath);
-      std::cerr << "[GroupStorage] Deleted group file: " << groupId
-                << std::endl;
-      return true;
-    }
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!db_)
     return false;
+
+  try {
+    const char *deleteSql = "DELETE FROM groups WHERE group_id = ?";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, deleteSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return false;
+
+    sqlite3_bind_text(stmt, 1, groupId.c_str(), -1, SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+      return false;
+
+    int changes = sqlite3_changes(db_);
+    if (changes > 0) {
+      std::cerr << "[GroupStorage] ✓ Deleted group: " << groupId << std::endl;
+    }
+    return changes > 0;
   } catch (const std::exception &e) {
-    std::cerr << "[GroupStorage] Exception deleting group: " << e.what()
+    std::cerr << "[GroupStorage] Exception in deleteGroup: " << e.what()
               << std::endl;
     return false;
   }
 }
 
 bool GroupStorage::groupFileExists(const std::string &groupId) const {
-  return fs::exists(getGroupFilePath(groupId));
+  if (!db_)
+    return false;
+
+  try {
+    const char *selectSql =
+        "SELECT 1 FROM groups WHERE group_id = ? LIMIT 1";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK)
+      return false;
+
+    sqlite3_bind_text(stmt, 1, groupId.c_str(), -1, SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc == SQLITE_ROW;
+  } catch (...) {
+    return false;
+  }
 }
+
+// ============================================================================
+// JSON Conversion (unchanged from original)
+// ============================================================================
 
 Json::Value GroupStorage::groupInfoToJson(const GroupInfo &group,
                                           std::string *error) const {

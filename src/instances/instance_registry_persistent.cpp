@@ -25,9 +25,6 @@
 #include <cvedix/nodes/des/cvedix_app_des_node.h>
 #include <cvedix/nodes/des/cvedix_rtmp_des_node.h>
 #include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_openpose_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_sface_feature_encoder_node.h>
-#include <cvedix/nodes/infers/cvedix_yunet_face_detector_node.h>
 #include <cvedix/nodes/ba/cvedix_ba_line_crossline_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
@@ -97,7 +94,8 @@ InstanceRegistry::createInstanceInfo(const std::string &instanceId,
   InstanceInfo info;
   info.instanceId = instanceId;
   // Use default name if not provided
-  info.displayName = req.name.empty() ? ("Instance " + instanceId.substr(0, 8)) : req.name;
+  info.instanceName = req.name.empty() ? ("Instance " + instanceId.substr(0, 8)) : req.name;
+  info.displayName = info.instanceName; // By default, display name matches instance name
   info.group = req.group;
   info.persistent = req.persistent;
   info.frameRateLimit = req.frameRateLimit;
@@ -247,23 +245,12 @@ InstanceRegistry::createInstanceInfo(const std::string &instanceId,
 void InstanceRegistry::waitForModelsReady(
     const std::vector<std::shared_ptr<cvedix_nodes::cvedix_node>> &nodes,
     int maxWaitMs) {
-  // Check if pipeline contains DNN models (face detector, feature encoder,
+  // Check if pipeline contains DNN models (feature encoder,
   // etc.)
   bool hasDNNModels = false;
-  for (const auto &node : nodes) {
-    // Check for YuNet face detector
-    if (std::dynamic_pointer_cast<
-            cvedix_nodes::cvedix_yunet_face_detector_node>(node)) {
-      hasDNNModels = true;
-      break;
-    }
-    // Check for SFace feature encoder
-    if (std::dynamic_pointer_cast<
-            cvedix_nodes::cvedix_sface_feature_encoder_node>(node)) {
-      hasDNNModels = true;
-      break;
-    }
-  }
+  
+  // NOTE: sface feature encoder was removed, but other DNN models might set this
+  // Future models should set hasDNNModels = true here
 
   if (!hasDNNModels) {
     // No DNN models, minimal delay

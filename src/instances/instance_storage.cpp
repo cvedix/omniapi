@@ -9,25 +9,151 @@
 #include <iostream>
 #include <json/json.h>
 #include <sstream>
+#include <sqlite3.h>
 #include <vector>
 
+// ============================================================================
+// Constructor / Destructor
+// ============================================================================
+
 InstanceStorage::InstanceStorage(const std::string &storage_dir)
-    : storage_dir_(storage_dir) {
+    : storage_dir_(storage_dir), owns_db_(true) {
   ensureStorageDir();
+  if (!openDatabase()) {
+    std::cerr << "[InstanceStorage] CRITICAL: Failed to open SQLite database!"
+              << std::endl;
+  }
 }
+
+InstanceStorage::InstanceStorage(sqlite3 *db,
+                                 const std::string &legacy_storage_dir)
+    : db_(db), owns_db_(false), storage_dir_(legacy_storage_dir) {
+  if (!db_) {
+    std::cerr << "[InstanceStorage] WARNING: Database handle is null"
+              << std::endl;
+    return;
+  }
+
+  if (!createTables()) {
+    std::cerr << "[InstanceStorage] Error creating tables" << std::endl;
+    return;
+  }
+
+  // Auto-migrate from instances.json if legacy directory is provided
+  if (!legacy_storage_dir.empty()) {
+    migrateFromJson();
+  }
+
+  // Also check for legacy instances.db and migrate data from it
+  if (!legacy_storage_dir.empty()) {
+    std::string legacyDbPath = legacy_storage_dir + "/instances.db";
+    if (std::filesystem::exists(legacyDbPath)) {
+      std::cerr << "[InstanceStorage] Found legacy instances.db, migrating: "
+                << legacyDbPath << std::endl;
+
+      sqlite3 *legacyDb = nullptr;
+      int rc = sqlite3_open_v2(legacyDbPath.c_str(), &legacyDb,
+                               SQLITE_OPEN_READONLY, nullptr);
+      if (rc == SQLITE_OK && legacyDb) {
+        // Read all instances from legacy db
+        const char *selectSql =
+            "SELECT instance_id, display_name, group_name, solution_id, "
+            "solution_name, persistent, auto_start, auto_restart, "
+            "system_instance, read_only, config_json FROM instances";
+        sqlite3_stmt *stmt = nullptr;
+        rc = sqlite3_prepare_v2(legacyDb, selectSql, -1, &stmt, nullptr);
+        if (rc == SQLITE_OK) {
+          int migrated = 0;
+          while (sqlite3_step(stmt) == SQLITE_ROW) {
+            // Read from legacy
+            const char *instanceId = reinterpret_cast<const char *>(
+                sqlite3_column_text(stmt, 0));
+            if (!instanceId)
+              continue;
+
+            // Check if already exists in new db
+            if (instanceExists(instanceId))
+              continue;
+
+            // Copy row into new db using INSERT
+            const char *insertSql =
+                "INSERT OR IGNORE INTO instances "
+                "(instance_id, display_name, group_name, solution_id, "
+                "solution_name, persistent, auto_start, auto_restart, "
+                "system_instance, read_only, config_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            sqlite3_stmt *insertStmt = nullptr;
+            int irc =
+                sqlite3_prepare_v2(db_, insertSql, -1, &insertStmt, nullptr);
+            if (irc == SQLITE_OK) {
+              for (int i = 0; i < 11; i++) {
+                int colType = sqlite3_column_type(stmt, i);
+                if (colType == SQLITE_NULL) {
+                  sqlite3_bind_null(insertStmt, i + 1);
+                } else if (colType == SQLITE_INTEGER) {
+                  sqlite3_bind_int(insertStmt, i + 1,
+                                   sqlite3_column_int(stmt, i));
+                } else {
+                  const char *text = reinterpret_cast<const char *>(
+                      sqlite3_column_text(stmt, i));
+                  sqlite3_bind_text(insertStmt, i + 1, text ? text : "", -1,
+                                    SQLITE_TRANSIENT);
+                }
+              }
+              if (sqlite3_step(insertStmt) == SQLITE_DONE) {
+                migrated++;
+              }
+              sqlite3_finalize(insertStmt);
+            }
+          }
+          sqlite3_finalize(stmt);
+
+          if (migrated > 0) {
+            std::cerr << "[InstanceStorage] ✓ Migrated " << migrated
+                      << " instances from legacy instances.db" << std::endl;
+          }
+        }
+        sqlite3_close(legacyDb);
+
+        // Rename legacy db
+        std::string backupPath = legacyDbPath + ".migrated";
+        try {
+          std::filesystem::rename(legacyDbPath, backupPath);
+          std::cerr << "[InstanceStorage] ✓ Renamed legacy db → "
+                    << backupPath << std::endl;
+        } catch (const std::exception &e) {
+          std::cerr << "[InstanceStorage] Warning: Could not rename legacy db: "
+                    << e.what() << std::endl;
+        }
+      }
+    }
+  }
+
+  std::cerr << "[InstanceStorage] ✓ InstanceStorage ready (OmniDatabase mode)"
+            << std::endl;
+}
+
+InstanceStorage::~InstanceStorage() {
+  if (owns_db_) {
+    closeDatabase();
+  }
+}
+
+// ============================================================================
+// SQLite Database Lifecycle
+// ============================================================================
 
 void InstanceStorage::ensureStorageDir() {
   // Extract subdir name from storage_dir_ for fallback
   std::filesystem::path path(storage_dir_);
   std::string subdir = path.filename().string();
   if (subdir.empty()) {
-    subdir = "instances"; // Default fallback subdir
+    subdir = "instances";
   }
 
   // Use resolveDirectory with 3-tier fallback strategy
   std::string resolved_dir = EnvConfig::resolveDirectory(storage_dir_, subdir);
 
-  // Update storage_dir_ if fallback was used
   if (resolved_dir != storage_dir_) {
     std::cerr << "[InstanceStorage] ⚠ Storage directory changed from "
               << storage_dir_ << " to " << resolved_dir << " (fallback)"
@@ -36,232 +162,563 @@ void InstanceStorage::ensureStorageDir() {
   }
 }
 
-std::string InstanceStorage::getInstancesFilePath() const {
-  return storage_dir_ + "/instances.json";
+bool InstanceStorage::openDatabase() {
+  db_path_ = storage_dir_ + "/instances.db";
+  std::cerr << "[InstanceStorage] Opening SQLite database: " << db_path_
+            << std::endl;
+
+  int rc = sqlite3_open(db_path_.c_str(), &db_);
+  if (rc != SQLITE_OK) {
+    std::cerr << "[InstanceStorage] Error opening database: "
+              << sqlite3_errmsg(db_) << std::endl;
+    db_ = nullptr;
+    return false;
+  }
+
+  // Enable WAL mode for better concurrent read/write performance
+  execSql("PRAGMA journal_mode=WAL");
+  // Enable foreign keys
+  execSql("PRAGMA foreign_keys=ON");
+  // Synchronous NORMAL for balance of safety and speed
+  execSql("PRAGMA synchronous=NORMAL");
+
+  if (!createTables()) {
+    std::cerr << "[InstanceStorage] Error creating tables" << std::endl;
+    closeDatabase();
+    return false;
+  }
+
+  // Auto-migrate from instances.json if it exists
+  migrateFromJson();
+
+  std::cerr << "[InstanceStorage] ✓ SQLite database ready: " << db_path_
+            << std::endl;
+  return true;
 }
 
-Json::Value InstanceStorage::loadInstancesFile() const {
-  Json::Value root(Json::objectValue);
+void InstanceStorage::closeDatabase() {
+  if (db_) {
+    sqlite3_close(db_);
+    db_ = nullptr;
+  }
+}
 
-  // First, try to load from the configured storage_dir_ (highest priority for
-  // tests)
-  std::string primaryFilepath = storage_dir_ + "/instances.json";
-  if (std::filesystem::exists(primaryFilepath)) {
-    try {
-      std::ifstream file(primaryFilepath);
-      if (file.is_open()) {
-        Json::CharReaderBuilder builder;
-        std::string errors;
-        if (Json::parseFromStream(builder, file, &root, &errors)) {
-          std::cerr << "[InstanceStorage] Loaded data from primary: "
-                    << storage_dir_ << std::endl;
-          return root; // Return immediately if found in primary storage
-        }
+bool InstanceStorage::createTables() {
+  const char *sql = R"(
+    CREATE TABLE IF NOT EXISTS instances (
+      instance_id     TEXT PRIMARY KEY,
+      instance_name   TEXT DEFAULT '',
+      display_name    TEXT DEFAULT '',
+      group_name      TEXT DEFAULT '',
+      solution_id     TEXT DEFAULT '',
+      solution_name   TEXT DEFAULT '',
+      persistent      INTEGER DEFAULT 1,
+      auto_start      INTEGER DEFAULT 0,
+      auto_restart    INTEGER DEFAULT 0,
+      system_instance INTEGER DEFAULT 0,
+      read_only       INTEGER DEFAULT 0,
+      config_json     TEXT NOT NULL DEFAULT '{}',
+      created_at      TEXT DEFAULT (datetime('now')),
+      updated_at      TEXT DEFAULT (datetime('now'))
+    );
+  )";
+  return execSql(sql);
+}
+
+bool InstanceStorage::execSql(const char *sql) {
+  if (!db_) return false;
+  char *errmsg = nullptr;
+  int rc = sqlite3_exec(db_, sql, nullptr, nullptr, &errmsg);
+  if (rc != SQLITE_OK) {
+    std::cerr << "[InstanceStorage] SQL error: " << (errmsg ? errmsg : "unknown")
+              << std::endl;
+    if (errmsg) sqlite3_free(errmsg);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================================
+// Migration from instances.json
+// ============================================================================
+
+void InstanceStorage::migrateFromJson() {
+  std::string jsonPath = storage_dir_ + "/instances.json";
+  if (!std::filesystem::exists(jsonPath)) {
+    // Also check fallback tiers for instances.json
+    std::filesystem::path path(storage_dir_);
+    std::string subdir = path.filename().string();
+    if (subdir.empty()) subdir = "instances";
+
+    std::vector<std::string> allDirs =
+        EnvConfig::getAllPossibleDirectories(subdir);
+    bool found = false;
+    for (const auto &dir : allDirs) {
+      std::string tierPath = dir + "/instances.json";
+      if (std::filesystem::exists(tierPath)) {
+        jsonPath = tierPath;
+        found = true;
+        break;
       }
-    } catch (const std::exception &e) {
-      // Continue to fallback tiers
     }
+    if (!found) return; // No JSON file to migrate
   }
 
-  // Fallback: Extract subdir for checking all tiers
-  std::filesystem::path path(storage_dir_);
-  std::string subdir = path.filename().string();
-  if (subdir.empty()) {
-    subdir = "instances";
-  }
+  std::cerr << "[InstanceStorage] Found instances.json, starting migration to "
+               "SQLite: "
+            << jsonPath << std::endl;
 
-  // Get all possible directories in priority order
-  std::vector<std::string> allDirs =
-      EnvConfig::getAllPossibleDirectories(subdir);
-
-  // Try to load from all tiers, merge data (later tiers override earlier ones)
-  for (const auto &dir : allDirs) {
-    // Skip if this is the same as storage_dir_ (already checked above)
-    if (dir == storage_dir_) {
-      continue;
+  try {
+    std::ifstream file(jsonPath);
+    if (!file.is_open()) {
+      std::cerr << "[InstanceStorage] Cannot open instances.json for migration"
+                << std::endl;
+      return;
     }
 
-    std::string filepath = dir + "/instances.json";
-    if (!std::filesystem::exists(filepath)) {
-      continue; // Skip if file doesn't exist
+    Json::CharReaderBuilder builder;
+    std::string errors;
+    Json::Value root(Json::objectValue);
+    if (!Json::parseFromStream(builder, file, &root, &errors)) {
+      std::cerr << "[InstanceStorage] JSON parse error during migration: "
+                << errors << std::endl;
+      return;
     }
+    file.close();
 
-    try {
-      std::ifstream file(filepath);
-      if (!file.is_open()) {
+    int migrated = 0;
+    int failed = 0;
+
+    // Begin transaction for bulk insert
+    execSql("BEGIN TRANSACTION");
+
+    for (const auto &key : root.getMemberNames()) {
+      const Json::Value &value = root[key];
+      if (!value.isObject()) continue;
+
+      // Check if this is an instance config
+      bool isInstance = false;
+      if (value.isMember("InstanceId") && value["InstanceId"].isString()) {
+        isInstance = true;
+      } else if (key.length() >= 36 && key.find('-') != std::string::npos) {
+        isInstance = true;
+      }
+
+      if (!isInstance) continue;
+
+      // Convert JSON to InstanceInfo to validate
+      std::string conversionError;
+      auto info = configJsonToInstanceInfo(value, &conversionError);
+      if (!info.has_value()) {
+        std::cerr << "[InstanceStorage] Migration: skipping invalid instance "
+                  << key << ": " << conversionError << std::endl;
+        failed++;
         continue;
       }
 
-      Json::CharReaderBuilder builder;
-      std::string errors;
-      Json::Value tierData(Json::objectValue);
-      if (Json::parseFromStream(builder, file, &tierData, &errors)) {
-        // Merge data: later tiers override earlier ones
-        for (const auto &key : tierData.getMemberNames()) {
-          root[key] = tierData[key];
-        }
-        std::cerr << "[InstanceStorage] Loaded data from tier: " << dir
-                  << std::endl;
+      // Ensure instanceId matches key
+      if (info->instanceId != key) {
+        info->instanceId = key;
       }
-    } catch (const std::exception &e) {
-      // Continue to next tier
-      continue;
+
+      // Save to SQLite (serialize the full config JSON blob)
+      Json::StreamWriterBuilder writerBuilder;
+      writerBuilder["indentation"] = "";
+      std::string configStr = Json::writeString(writerBuilder, value);
+
+      // Extract metadata fields
+      std::string displayName = info->displayName;
+      std::string groupName = info->group;
+      std::string solutionId = info->solutionId;
+      std::string solutionName = info->solutionName;
+      int autoStart = info->autoStart ? 1 : 0;
+      int autoRestart = info->autoRestart ? 1 : 0;
+      int systemInstance = info->systemInstance ? 1 : 0;
+      int readOnly = info->readOnly ? 1 : 0;
+
+      const char *insertSql =
+          "INSERT OR REPLACE INTO instances "
+          "(instance_id, display_name, group_name, solution_id, solution_name, "
+          "persistent, auto_start, auto_restart, system_instance, read_only, "
+          "config_json, updated_at) "
+          "VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, datetime('now'))";
+
+      sqlite3_stmt *stmt = nullptr;
+      int rc = sqlite3_prepare_v2(db_, insertSql, -1, &stmt, nullptr);
+      if (rc != SQLITE_OK) {
+        std::cerr << "[InstanceStorage] Migration prepare error: "
+                  << sqlite3_errmsg(db_) << std::endl;
+        failed++;
+        continue;
+      }
+
+      sqlite3_bind_text(stmt, 1, key.c_str(), -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 2, displayName.c_str(), -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 3, groupName.c_str(), -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 4, solutionId.c_str(), -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(stmt, 5, solutionName.c_str(), -1, SQLITE_TRANSIENT);
+      sqlite3_bind_int(stmt, 6, autoStart);
+      sqlite3_bind_int(stmt, 7, autoRestart);
+      sqlite3_bind_int(stmt, 8, systemInstance);
+      sqlite3_bind_int(stmt, 9, readOnly);
+      sqlite3_bind_text(stmt, 10, configStr.c_str(), -1, SQLITE_TRANSIENT);
+
+      rc = sqlite3_step(stmt);
+      sqlite3_finalize(stmt);
+
+      if (rc != SQLITE_DONE) {
+        std::cerr << "[InstanceStorage] Migration insert error for " << key
+                  << ": " << sqlite3_errmsg(db_) << std::endl;
+        failed++;
+      } else {
+        migrated++;
+      }
     }
-  }
 
-  return root;
-}
+    execSql("COMMIT");
 
-bool InstanceStorage::saveInstancesFile(const Json::Value &instances) {
-  try {
-    // Ensure directory exists - try to create if it doesn't exist
-    ensureStorageDir();
+    std::cerr << "[InstanceStorage] ✓ Migration complete: " << migrated
+              << " instances migrated, " << failed << " failed" << std::endl;
 
-    // Double-check: if directory still doesn't exist, try one more time
-    if (!std::filesystem::exists(storage_dir_)) {
-      std::cerr << "[InstanceStorage] Directory still doesn't exist, retrying "
-                   "creation: "
-                << storage_dir_ << std::endl;
+    // Rename original JSON file as backup
+    if (migrated > 0) {
+      std::string backupPath = jsonPath + ".migrated";
       try {
-        std::filesystem::create_directories(storage_dir_);
-        if (std::filesystem::exists(storage_dir_)) {
-          std::cerr
-              << "[InstanceStorage] Successfully created directory on retry: "
-              << storage_dir_ << std::endl;
-        }
+        std::filesystem::rename(jsonPath, backupPath);
+        std::cerr << "[InstanceStorage] ✓ Renamed " << jsonPath << " → "
+                  << backupPath << std::endl;
       } catch (const std::exception &e) {
-        std::cerr << "[InstanceStorage] Failed to create directory on retry: "
+        std::cerr << "[InstanceStorage] Warning: Could not rename JSON file: "
                   << e.what() << std::endl;
       }
     }
-
-    std::string filepath = getInstancesFilePath();
-    std::cerr << "[InstanceStorage] Saving instances to: " << filepath
+  } catch (const std::exception &e) {
+    std::cerr << "[InstanceStorage] Migration exception: " << e.what()
               << std::endl;
+    execSql("ROLLBACK");
+  }
+}
 
-    // Create parent directory of file if it doesn't exist (should be same as
-    // storage_dir_, but be safe)
-    std::filesystem::path file_path_obj(filepath);
-    std::filesystem::path parent_dir = file_path_obj.parent_path();
-    if (!parent_dir.empty() && !std::filesystem::exists(parent_dir)) {
-      try {
-        // Use resolveDirectory for parent directory (with fallback if needed)
-        std::string parentDirStr = parent_dir.string();
-        std::string subdir = parent_dir.filename().string();
-        if (subdir.empty()) {
-          subdir = "instances"; // Default fallback subdir
-        }
-        parentDirStr = EnvConfig::resolveDirectory(parentDirStr, subdir);
-        parent_dir = std::filesystem::path(parentDirStr);
-        std::filesystem::create_directories(parent_dir);
-        std::cerr << "[InstanceStorage] Created parent directory for file: "
-                  << parent_dir << std::endl;
-      } catch (const std::exception &e) {
-        std::cerr
-            << "[InstanceStorage] Warning: Could not create parent directory: "
-            << e.what() << std::endl;
-      }
-    }
+// ============================================================================
+// CRUD Operations (SQLite backend)
+// ============================================================================
 
-    // Try to open file for writing with explicit flags
-    // Use truncate mode to overwrite existing file
-    std::ofstream file(filepath, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) {
-      std::cerr << "[InstanceStorage] Error: Failed to open file for writing: "
-                << filepath << " (" << std::strerror(errno) << ")" << std::endl;
+bool InstanceStorage::saveInstance(const std::string &instanceId,
+                                   const InstanceInfo &info) {
+  std::lock_guard<std::mutex> lock(mutex_);
 
-      // Check if parent directory exists and is writable
-      if (std::filesystem::exists(parent_dir)) {
-        std::cerr << "[InstanceStorage] Parent directory exists: " << parent_dir
-                  << std::endl;
-        // Check permissions
-        auto perms = std::filesystem::status(parent_dir).permissions();
-        std::cerr << "[InstanceStorage] Parent directory permissions: "
-                  << std::oct << static_cast<int>(perms) << std::dec
-                  << std::endl;
-        
-        // Check if file exists and its permissions
-        if (std::filesystem::exists(filepath)) {
-          auto file_perms = std::filesystem::status(filepath).permissions();
-          std::cerr << "[InstanceStorage] File exists with permissions: "
-                    << std::oct << static_cast<int>(file_perms) << std::dec
-                    << std::endl;
-        }
-      } else {
-        std::cerr << "[InstanceStorage] Parent directory does not exist: "
-                  << parent_dir << std::endl;
-      }
+  std::cerr << "[InstanceStorage] saveInstance called for instance: "
+            << instanceId << std::endl;
 
-      // Fallback: /opt/... may exist but not writable. Try user dir then ./instances
-      std::vector<std::string> tiers =
-          EnvConfig::getAllPossibleDirectories("instances");
-      for (const auto &dir : tiers) {
-        if (dir == storage_dir_) {
-          continue; // already failed above
-        }
-        try {
-          std::filesystem::create_directories(dir);
-        } catch (...) {
-          continue;
-        }
-        std::string fallbackPath = dir + "/instances.json";
-        std::ofstream fallbackFile(fallbackPath);
-        if (fallbackFile.is_open()) {
-          Json::StreamWriterBuilder builder;
-          builder["indentation"] = "    ";
-          std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-          writer->write(instances, &fallbackFile);
-          fallbackFile.close();
-          if (std::filesystem::exists(fallbackPath)) {
-            std::cerr << "[InstanceStorage] ✓ Saved instances to fallback path (no write access to primary): "
-                      << fallbackPath << std::endl;
-            std::cerr << "[InstanceStorage]   Fix permissions on " << storage_dir_
-                      << " or set writable storage; subsequent saves use fallback until restart."
-                      << std::endl;
-            storage_dir_ = dir; // so getInstancesFilePath() and next save use same dir
-            return true;
-          }
-        }
-      }
+  if (!db_) {
+    std::cerr << "[InstanceStorage] Error: Database not open" << std::endl;
+    return false;
+  }
 
+  try {
+    // Validate instanceId matches
+    if (info.instanceId != instanceId) {
+      std::cerr << "[InstanceStorage] Error: InstanceId mismatch. Expected: "
+                << instanceId << ", Got: " << info.instanceId << std::endl;
       return false;
     }
 
-    // Write JSON to file
-    Json::StreamWriterBuilder builder;
-    builder["indentation"] = "    "; // 4 spaces for indentation
-    std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-    writer->write(instances, &file);
-    file.close();
-
-    // Verify file was written
-    if (std::filesystem::exists(filepath)) {
-      auto file_size = std::filesystem::file_size(filepath);
-      std::cerr << "[InstanceStorage] Successfully saved instances file (size: "
-                << file_size << " bytes)" << std::endl;
-    } else {
-      std::cerr << "[InstanceStorage] Warning: File was written but doesn't "
-                   "exist after close"
+    // Validate InstanceInfo
+    std::string validationError;
+    if (!validateInstanceInfo(info, validationError)) {
+      std::cerr << "[InstanceStorage] Validation error: " << validationError
                 << std::endl;
+      return false;
     }
 
+    // Convert InstanceInfo to config JSON format
+    std::string conversionError;
+    Json::Value config = instanceInfoToConfigJson(info, &conversionError);
+    if (config.isNull() || config.empty()) {
+      std::cerr << "[InstanceStorage] Conversion error: " << conversionError
+                << std::endl;
+      return false;
+    }
+
+    // If instance already exists, merge with existing config to preserve
+    // TensorRT and other nested configs
+    std::string existingConfigStr;
+    {
+      const char *selectSql =
+          "SELECT config_json FROM instances WHERE instance_id = ?";
+      sqlite3_stmt *stmt = nullptr;
+      int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+      if (rc == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, instanceId.c_str(), -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+          const char *text =
+              reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+          if (text) existingConfigStr = text;
+        }
+      }
+      sqlite3_finalize(stmt);
+    }
+
+    if (!existingConfigStr.empty()) {
+      // Parse existing config and merge
+      Json::CharReaderBuilder readerBuilder;
+      std::string parseErrors;
+      Json::Value existingConfig;
+      std::istringstream stream(existingConfigStr);
+      if (Json::parseFromStream(readerBuilder, stream, &existingConfig,
+                                &parseErrors)) {
+        // List of keys to preserve (TensorRT model IDs, Zone IDs, etc.)
+        std::vector<std::string> preserveKeys;
+
+        // Collect UUID-like keys (TensorRT model IDs)
+        for (const auto &key : existingConfig.getMemberNames()) {
+          if (key.length() >= 36 && key.find('-') != std::string::npos) {
+            preserveKeys.push_back(key);
+          }
+        }
+
+        // Add special keys to preserve
+        std::vector<std::string> specialKeys = {
+            "AnimalTracker",     "DetectorRegions",
+            "DetectorThermal",   "Global",
+            "LicensePlateTracker", "ObjectAttributeExtraction",
+            "ObjectMovementClassifier", "PersonTracker",
+            "Tripwire",          "VehicleTracker",
+            "Zone"};
+        preserveKeys.insert(preserveKeys.end(), specialKeys.begin(),
+                            specialKeys.end());
+
+        // Merge configs
+        if (!mergeConfigs(existingConfig, config, preserveKeys)) {
+          std::cerr << "[InstanceStorage] Merge failed for instance "
+                    << instanceId << std::endl;
+          return false;
+        }
+
+        config = existingConfig;
+      }
+    }
+
+    // Serialize config to compact JSON string
+    Json::StreamWriterBuilder writerBuilder;
+    writerBuilder["indentation"] = "";
+    std::string configStr = Json::writeString(writerBuilder, config);
+
+    // Insert or replace in database
+    const char *upsertSql =
+        "INSERT OR REPLACE INTO instances "
+        "(instance_id, instance_name, display_name, group_name, solution_id, solution_name, "
+        "persistent, auto_start, auto_restart, system_instance, read_only, "
+        "config_json, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, datetime('now'))";
+
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, upsertSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+      std::cerr << "[InstanceStorage] Prepare error: " << sqlite3_errmsg(db_)
+                << std::endl;
+      return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, instanceId.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, info.instanceName.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, info.displayName.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, info.group.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, info.solutionId.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, info.solutionName.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 7, info.autoStart ? 1 : 0);
+    sqlite3_bind_int(stmt, 8, info.autoRestart ? 1 : 0);
+    sqlite3_bind_int(stmt, 9, info.systemInstance ? 1 : 0);
+    sqlite3_bind_int(stmt, 10, info.readOnly ? 1 : 0);
+    sqlite3_bind_text(stmt, 11, configStr.c_str(), -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) {
+      std::cerr << "[InstanceStorage] Insert error: " << sqlite3_errmsg(db_)
+                << std::endl;
+      return false;
+    }
+
+    std::cerr << "[InstanceStorage] ✓ Successfully saved instance: "
+              << instanceId << std::endl;
     return true;
-  } catch (const std::filesystem::filesystem_error &e) {
-    std::cerr << "[InstanceStorage] Filesystem exception in saveInstancesFile: "
-              << e.what() << std::endl;
-    std::cerr << "[InstanceStorage] Error code: " << e.code().value() << " ("
-              << e.code().message() << ")" << std::endl;
-    return false;
   } catch (const std::exception &e) {
-    std::cerr << "[InstanceStorage] Exception in saveInstancesFile: "
-              << e.what() << std::endl;
-    return false;
-  } catch (...) {
-    std::cerr << "[InstanceStorage] Unknown exception in saveInstancesFile"
+    std::cerr << "[InstanceStorage] Exception in saveInstance: " << e.what()
               << std::endl;
     return false;
   }
 }
+
+std::optional<InstanceInfo>
+InstanceStorage::loadInstance(const std::string &instanceId) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!db_) return std::nullopt;
+
+  try {
+    if (instanceId.empty()) {
+      std::cerr << "[InstanceStorage] Error: Empty instanceId provided"
+                << std::endl;
+      return std::nullopt;
+    }
+
+    const char *selectSql =
+        "SELECT config_json FROM instances WHERE instance_id = ?";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+      std::cerr << "[InstanceStorage] Prepare error: " << sqlite3_errmsg(db_)
+                << std::endl;
+      return std::nullopt;
+    }
+
+    sqlite3_bind_text(stmt, 1, instanceId.c_str(), -1, SQLITE_TRANSIENT);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+      sqlite3_finalize(stmt);
+      std::cerr << "[InstanceStorage] Instance " << instanceId
+                << " not found in database" << std::endl;
+      return std::nullopt;
+    }
+
+    const char *configText =
+        reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+    std::string configStr = configText ? configText : "{}";
+    sqlite3_finalize(stmt);
+
+    // Parse JSON config
+    Json::CharReaderBuilder readerBuilder;
+    std::string parseErrors;
+    Json::Value config;
+    std::istringstream stream(configStr);
+    if (!Json::parseFromStream(readerBuilder, stream, &config, &parseErrors)) {
+      std::cerr << "[InstanceStorage] JSON parse error for instance "
+                << instanceId << ": " << parseErrors << std::endl;
+      return std::nullopt;
+    }
+
+    // Convert config JSON to InstanceInfo
+    std::string conversionError;
+    auto info = configJsonToInstanceInfo(config, &conversionError);
+    if (!info.has_value()) {
+      std::cerr << "[InstanceStorage] Conversion error for instance "
+                << instanceId << ": " << conversionError << std::endl;
+      return std::nullopt;
+    }
+
+    // Verify instanceId matches
+    if (info->instanceId != instanceId) {
+      info->instanceId = instanceId;
+    }
+
+    return info;
+  } catch (const std::exception &e) {
+    std::cerr << "[InstanceStorage] Exception in loadInstance: " << e.what()
+              << std::endl;
+    return std::nullopt;
+  }
+}
+
+std::vector<std::string> InstanceStorage::loadAllInstances() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::vector<std::string> loaded;
+
+  if (!db_) return loaded;
+
+  try {
+    const char *selectSql = "SELECT instance_id FROM instances";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+      std::cerr << "[InstanceStorage] Prepare error: " << sqlite3_errmsg(db_)
+                << std::endl;
+      return loaded;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+      const char *id =
+          reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+      if (id) {
+        loaded.push_back(std::string(id));
+      }
+    }
+    sqlite3_finalize(stmt);
+  } catch (const std::exception &e) {
+    std::cerr << "[InstanceStorage] Exception in loadAllInstances: " << e.what()
+              << std::endl;
+  }
+
+  return loaded;
+}
+
+bool InstanceStorage::deleteInstance(const std::string &instanceId) {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!db_) return false;
+
+  try {
+    const char *deleteSql = "DELETE FROM instances WHERE instance_id = ?";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, deleteSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+      std::cerr << "[InstanceStorage] Prepare error: " << sqlite3_errmsg(db_)
+                << std::endl;
+      return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, instanceId.c_str(), -1, SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) {
+      std::cerr << "[InstanceStorage] Delete error: " << sqlite3_errmsg(db_)
+                << std::endl;
+      return false;
+    }
+
+    int changes = sqlite3_changes(db_);
+    if (changes > 0) {
+      std::cerr << "[InstanceStorage] ✓ Deleted instance: " << instanceId
+                << std::endl;
+    } else {
+      std::cerr << "[InstanceStorage] Instance " << instanceId
+                << " not found for deletion" << std::endl;
+    }
+
+    return changes > 0;
+  } catch (const std::exception &e) {
+    std::cerr << "[InstanceStorage] Exception in deleteInstance: " << e.what()
+              << std::endl;
+    return false;
+  }
+}
+
+bool InstanceStorage::instanceExists(const std::string &instanceId) const {
+  if (!db_) return false;
+
+  try {
+    const char *selectSql =
+        "SELECT 1 FROM instances WHERE instance_id = ? LIMIT 1";
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_, selectSql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) return false;
+
+    sqlite3_bind_text(stmt, 1, instanceId.c_str(), -1, SQLITE_TRANSIENT);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    return rc == SQLITE_ROW;
+  } catch (const std::exception &e) {
+    return false;
+  }
+}
+
+// ============================================================================
+// Validation Methods (unchanged from original)
+// ============================================================================
 
 bool InstanceStorage::validateInstanceInfo(const InstanceInfo &info,
                                            std::string &error) const {
@@ -346,6 +803,10 @@ bool InstanceStorage::validateConfigJson(const Json::Value &config,
 
   return true;
 }
+
+// ============================================================================
+// Merge Configs (unchanged from original)
+// ============================================================================
 
 bool InstanceStorage::mergeConfigs(
     Json::Value &existingConfig, const Json::Value &newConfig,
@@ -513,6 +974,10 @@ bool InstanceStorage::mergeConfigs(
   return true;
 }
 
+// ============================================================================
+// JSON Conversion: InstanceInfo ↔ Config JSON (unchanged from original)
+// ============================================================================
+
 Json::Value
 InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
                                           std::string *error) const {
@@ -529,6 +994,11 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
 
   // Store InstanceId
   config["InstanceId"] = info.instanceId;
+
+  // Store InstanceName
+  if (!info.instanceName.empty()) {
+    config["InstanceName"] = info.instanceName;
+  }
 
   // Store DisplayName
   if (!info.displayName.empty()) {
@@ -582,8 +1052,6 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
   if (!info.rtspUrl.empty()) {
     input["media_type"] = "IP Camera";
 
-    // Check if user wants to use urisourcebin format (for
-    // compatibility/auto-detect decoder)
     bool useUrisourcebin = false;
     auto urisourcebinIt = info.additionalParams.find("USE_URISOURCEBIN");
     if (urisourcebinIt != info.additionalParams.end()) {
@@ -591,32 +1059,21 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
           (urisourcebinIt->second == "true" || urisourcebinIt->second == "1");
     }
 
-    // Check if decoder is set to "decodebin" (auto-detect)
-    std::string decoderName = "avdec_h264"; // Default decoder
+    std::string decoderName = "avdec_h264";
     auto decoderIt = info.additionalParams.find("GST_DECODER_NAME");
     if (decoderIt != info.additionalParams.end() &&
         !decoderIt->second.empty()) {
       decoderName = decoderIt->second;
-      // If decodebin is specified, use urisourcebin format
       if (decoderName == "decodebin") {
         useUrisourcebin = true;
       }
     }
 
     if (useUrisourcebin) {
-      // Format: gstreamer:///urisourcebin uri=... ! decodebin ! videoconvert !
-      // video/x-raw, format=NV12 ! appsink drop=true name=cvdsink This format
-      // uses decodebin for auto-detection (may help with decoder compatibility
-      // issues)
       input["uri"] = "gstreamer:///urisourcebin uri=" + info.rtspUrl +
                      " ! decodebin ! videoconvert ! video/x-raw, format=NV12 ! "
                      "appsink drop=true name=cvdsink";
     } else {
-      // Format: rtspsrc location=... [protocols=...] !
-      // application/x-rtp,media=video ! rtph264depay ! h264parse ! decoder !
-      // videoconvert ! video/x-raw,format=NV12 ! appsink drop=true name=cvdsink
-      // This format matches SDK template structure (with h264parse before
-      // decoder) Get transport protocol from additionalParams if specified
       std::string protocolsParam = "";
       auto rtspTransportIt = info.additionalParams.find("RTSP_TRANSPORT");
       if (rtspTransportIt != info.additionalParams.end() &&
@@ -628,8 +1085,6 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
           protocolsParam = " protocols=" + transport;
         }
       }
-      // If no transport specified, don't add protocols parameter - let
-      // GStreamer use default
       input["uri"] =
           "rtspsrc location=" + info.rtspUrl + protocolsParam +
           " ! application/x-rtp,media=video ! rtph264depay ! h264parse ! " +
@@ -658,8 +1113,6 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
     Json::Value rtspHandler(Json::objectValue);
     Json::Value handlerConfig(Json::objectValue);
     handlerConfig["debug"] = info.debugMode ? "4" : "0";
-    // Use configuredFps (from API /api/v1/instances/{id}/fps) for output FPS
-    // This ensures output stream matches processing FPS
     handlerConfig["fps"] = info.configuredFps > 0 ? info.configuredFps : 5;
     handlerConfig["pipeline"] =
         "( appsrc name=cvedia-rt ! videoconvert ! videoscale ! x264enc ! "
@@ -691,10 +1144,7 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
 
   // Store SolutionManager settings
   Json::Value solutionManager(Json::objectValue);
-  // Use configuredFps (from API /api/v1/instances/{id}/fps) for frame_rate_limit
-  // This ensures SDK processing matches configured FPS
-  // Fallback to frameRateLimit if configuredFps not set (backward compatibility)
-  solutionManager["frame_rate_limit"] = 
+  solutionManager["frame_rate_limit"] =
       info.configuredFps > 0 ? info.configuredFps : info.frameRateLimit;
   solutionManager["send_metadata"] = info.metadataMode;
   solutionManager["run_statistics"] = info.statisticsMode;
@@ -781,24 +1231,12 @@ InstanceStorage::instanceInfoToConfigJson(const InstanceInfo &info,
       }
 
       // Store model paths and other configs
-      if (pair.first == "MODEL_PATH" || pair.first == "SFACE_MODEL_PATH") {
-        // These might be stored in ObjectAttributeExtraction or Detector
-        // For now, store in a generic AdditionalParams section
-        if (!config.isMember("AdditionalParams")) {
-          config["AdditionalParams"] = Json::Value(Json::objectValue);
-        }
-        std::cerr << "[InstanceStorage] Adding to config: " << pair.first
-                  << " = " << pair.second << std::endl;
-        config["AdditionalParams"][pair.first] = pair.second;
-      } else {
-        // Store other params
-        if (!config.isMember("AdditionalParams")) {
-          config["AdditionalParams"] = Json::Value(Json::objectValue);
-        }
-        std::cerr << "[InstanceStorage] Adding to config: " << pair.first
-                  << " = " << pair.second << std::endl;
-        config["AdditionalParams"][pair.first] = pair.second;
+      if (!config.isMember("AdditionalParams")) {
+        config["AdditionalParams"] = Json::Value(Json::objectValue);
       }
+      std::cerr << "[InstanceStorage] Adding to config: " << pair.first
+                << " = " << pair.second << std::endl;
+      config["AdditionalParams"][pair.first] = pair.second;
     }
   }
 
@@ -845,9 +1283,19 @@ InstanceStorage::configJsonToInstanceInfo(const Json::Value &config,
       return std::nullopt; // InstanceId is required
     }
 
+    // Extract InstanceName
+    if (config.isMember("InstanceName") && config["InstanceName"].isString()) {
+      info.instanceName = config["InstanceName"].asString();
+    }
+
     // Extract DisplayName
     if (config.isMember("DisplayName") && config["DisplayName"].isString()) {
       info.displayName = config["DisplayName"].asString();
+    }
+
+    // Fallback logic for legacy configs without InstanceName
+    if (info.instanceName.empty()) {
+      info.instanceName = info.displayName.empty() ? info.instanceId : info.displayName;
     }
 
     // Extract Solution
@@ -1110,7 +1558,7 @@ InstanceStorage::configJsonToInstanceInfo(const Json::Value &config,
     }
 
     // Set defaults
-    info.persistent = true; // All instances in instances.json are persistent
+    info.persistent = true; // All instances in database are persistent
     info.loaded = true;
     info.running = false; // Will be set when started
 
@@ -1134,361 +1582,5 @@ InstanceStorage::configJsonToInstanceInfo(const Json::Value &config,
       *error = "Unknown exception during conversion";
     }
     return std::nullopt;
-  }
-}
-
-bool InstanceStorage::saveInstance(const std::string &instanceId,
-                                   const InstanceInfo &info) {
-  std::cerr << "[InstanceStorage] saveInstance called for instance: "
-            << instanceId << std::endl;
-  std::cerr << "[InstanceStorage] Storage directory: " << storage_dir_
-            << std::endl;
-
-  try {
-    // Validate instanceId matches
-    if (info.instanceId != instanceId) {
-      std::cerr << "[InstanceStorage] Error: InstanceId mismatch. Expected: "
-                << instanceId << ", Got: " << info.instanceId << std::endl;
-      return false;
-    }
-
-    // Validate InstanceInfo
-    std::string validationError;
-    if (!validateInstanceInfo(info, validationError)) {
-      std::cerr << "[InstanceStorage] Validation error: " << validationError
-                << std::endl;
-      return false;
-    }
-
-    // Load existing instances file
-    Json::Value instances = loadInstancesFile();
-
-    // Convert InstanceInfo to config JSON format
-    std::string conversionError;
-    Json::Value config = instanceInfoToConfigJson(info, &conversionError);
-    if (config.isNull() || config.empty()) {
-      std::cerr << "[InstanceStorage] Conversion error: " << conversionError
-                << std::endl;
-      std::cerr << "[InstanceStorage] InstanceId: " << instanceId << std::endl;
-      return false;
-    }
-
-    std::cerr << "[InstanceStorage] Successfully converted InstanceInfo to "
-                 "JSON for instance: "
-              << instanceId << std::endl;
-
-    // If instance already exists, merge with existing config to preserve
-    // TensorRT and other nested configs
-    if (instances.isMember(instanceId) && instances[instanceId].isObject()) {
-      Json::Value existingConfig = instances[instanceId];
-
-      // List of keys to preserve (TensorRT model IDs, Zone IDs, etc.)
-      std::vector<std::string> preserveKeys;
-
-      // Collect UUID-like keys (TensorRT model IDs)
-      for (const auto &key : existingConfig.getMemberNames()) {
-        if (key.length() >= 36 && key.find('-') != std::string::npos) {
-          preserveKeys.push_back(key);
-        }
-      }
-
-      // Add special keys to preserve
-      std::vector<std::string> specialKeys = {"AnimalTracker",
-                                              "DetectorRegions",
-                                              "DetectorThermal",
-                                              "Global",
-                                              "LicensePlateTracker",
-                                              "ObjectAttributeExtraction",
-                                              "ObjectMovementClassifier",
-                                              "PersonTracker",
-                                              "Tripwire",
-                                              "VehicleTracker",
-                                              "Zone"};
-      preserveKeys.insert(preserveKeys.end(), specialKeys.begin(),
-                          specialKeys.end());
-
-      // Merge configs
-      if (!mergeConfigs(existingConfig, config, preserveKeys)) {
-        std::cerr << "[InstanceStorage] Merge failed for instance "
-                  << instanceId << std::endl;
-        return false;
-      }
-
-      instances[instanceId] = existingConfig;
-    } else {
-      // New instance, just store the config
-      instances[instanceId] = config;
-    }
-
-    // Save updated instances file
-    if (!saveInstancesFile(instances)) {
-      std::cerr << "[InstanceStorage] Failed to save instances file"
-                << std::endl;
-      return false;
-    }
-
-    std::cerr << "[InstanceStorage] ✓ Successfully saved instance: "
-              << instanceId << std::endl;
-    return true;
-  } catch (const std::exception &e) {
-    std::cerr << "[InstanceStorage] Exception in saveInstance: " << e.what()
-              << std::endl;
-    return false;
-  } catch (...) {
-    std::cerr << "[InstanceStorage] Unknown exception in saveInstance"
-              << std::endl;
-    return false;
-  }
-}
-
-std::optional<InstanceInfo>
-InstanceStorage::loadInstance(const std::string &instanceId) {
-  try {
-    // Validate instanceId
-    if (instanceId.empty()) {
-      std::cerr << "[InstanceStorage] Error: Empty instanceId provided"
-                << std::endl;
-      return std::nullopt;
-    }
-
-    // Load instances file
-    Json::Value instances = loadInstancesFile();
-
-    // Check if instance exists
-    if (!instances.isMember(instanceId) || !instances[instanceId].isObject()) {
-      std::cerr << "[InstanceStorage] Instance " << instanceId
-                << " not found in instances.json" << std::endl;
-      return std::nullopt;
-    }
-
-    // Convert config JSON to InstanceInfo
-    std::string conversionError;
-    auto info =
-        configJsonToInstanceInfo(instances[instanceId], &conversionError);
-    if (!info.has_value()) {
-      std::cerr << "[InstanceStorage] Conversion error for instance "
-                << instanceId << ": " << conversionError << std::endl;
-      return std::nullopt;
-    }
-
-    // Verify instanceId matches
-    if (info->instanceId != instanceId) {
-      std::cerr << "[InstanceStorage] Warning: InstanceId mismatch. Expected: "
-                << instanceId << ", Got: " << info->instanceId << std::endl;
-      // Fix it
-      info->instanceId = instanceId;
-    }
-
-    return info;
-  } catch (const std::exception &e) {
-    std::cerr << "[InstanceStorage] Exception in loadInstance: " << e.what()
-              << std::endl;
-    return std::nullopt;
-  } catch (...) {
-    std::cerr << "[InstanceStorage] Unknown exception in loadInstance"
-              << std::endl;
-    return std::nullopt;
-  }
-}
-
-std::vector<std::string> InstanceStorage::loadAllInstances() {
-  std::vector<std::string> loaded;
-
-  try {
-    // Load instances file
-    Json::Value instances = loadInstancesFile();
-
-    // Iterate through all keys in instances object
-    for (const auto &key : instances.getMemberNames()) {
-      // Skip special keys that are not instance IDs (like "AutoRestart",
-      // "AnimalTracker", etc.) Instance IDs are UUIDs, so we check if the key
-      // looks like a UUID or if it has an "InstanceId" field
-      const Json::Value &value = instances[key];
-
-      if (value.isObject()) {
-        // Check if this is an instance config (has InstanceId field) or if key
-        // is a UUID-like string
-        bool isInstance = false;
-
-        // Check if it has InstanceId field
-        if (value.isMember("InstanceId") && value["InstanceId"].isString()) {
-          isInstance = true;
-        } else {
-          // Check if key looks like a UUID (contains dashes and is long enough)
-          // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-          if (key.length() >= 36 && key.find('-') != std::string::npos) {
-            isInstance = true;
-          }
-        }
-
-        if (isInstance) {
-          // Try to load to validate it's a valid instance
-          auto info = loadInstance(key);
-          if (info.has_value()) {
-            loaded.push_back(key);
-          }
-        }
-      }
-    }
-  } catch (const std::exception &e) {
-    // Ignore errors
-  }
-
-  return loaded;
-}
-
-bool InstanceStorage::deleteInstance(const std::string &instanceId) {
-  try {
-    bool success = true;
-    std::vector<std::string> failedTiers;
-
-    // Delete from primary storage directory first
-    Json::Value instances = loadInstancesFile();
-    if (instances.isMember(instanceId)) {
-      instances.removeMember(instanceId);
-      if (!saveInstancesFile(instances)) {
-        std::cerr << "[InstanceStorage] Failed to delete instance "
-                  << instanceId << " from primary storage: " << storage_dir_
-                  << std::endl;
-        success = false;
-        failedTiers.push_back(storage_dir_);
-      } else {
-        std::cerr << "[InstanceStorage] Deleted instance " << instanceId
-                  << " from primary storage: " << storage_dir_ << std::endl;
-      }
-    }
-
-    // Also delete from all fallback tiers to prevent instances from reappearing
-    // on server restart. This ensures complete deletion across all storage
-    // locations.
-    std::filesystem::path path(storage_dir_);
-    std::string subdir = path.filename().string();
-    if (subdir.empty()) {
-      subdir = "instances";
-    }
-
-    std::vector<std::string> allDirs =
-        EnvConfig::getAllPossibleDirectories(subdir);
-
-    for (const auto &dir : allDirs) {
-      // Skip primary storage directory (already handled above)
-      if (dir == storage_dir_) {
-        continue;
-      }
-
-      std::string filepath = dir + "/instances.json";
-      if (!std::filesystem::exists(filepath)) {
-        continue; // Skip if file doesn't exist
-      }
-
-      try {
-        // Load instances from this tier
-        std::ifstream file(filepath);
-        if (!file.is_open()) {
-          continue;
-        }
-
-        Json::CharReaderBuilder builder;
-        std::string errors;
-        Json::Value tierInstances(Json::objectValue);
-        if (!Json::parseFromStream(builder, file, &tierInstances, &errors)) {
-          continue; // Skip if parsing failed
-        }
-        file.close();
-
-        // Check if instance exists in this tier
-        if (!tierInstances.isMember(instanceId)) {
-          continue; // Instance not in this tier, skip
-        }
-
-        // Remove instance from this tier
-        tierInstances.removeMember(instanceId);
-
-        // Save updated file
-        std::ofstream outFile(filepath);
-        if (outFile.is_open()) {
-          Json::StreamWriterBuilder writerBuilder;
-          writerBuilder["indentation"] = "    ";
-          std::unique_ptr<Json::StreamWriter> writer(
-              writerBuilder.newStreamWriter());
-          writer->write(tierInstances, &outFile);
-          outFile.close();
-
-          // Verify deletion by reloading the file
-          std::ifstream verifyFile(filepath);
-          if (verifyFile.is_open()) {
-            Json::Value verifyInstances(Json::objectValue);
-            std::string verifyErrors;
-            if (Json::parseFromStream(builder, verifyFile, &verifyInstances,
-                                      &verifyErrors)) {
-              if (verifyInstances.isMember(instanceId)) {
-                std::cerr << "[InstanceStorage] ERROR: Instance " << instanceId
-                          << " still exists in tier after deletion: " << dir
-                          << std::endl;
-                success = false;
-                failedTiers.push_back(dir);
-              } else {
-                std::cerr
-                    << "[InstanceStorage] ✓ Verified deletion of instance "
-                    << instanceId << " from tier: " << dir << std::endl;
-              }
-            }
-            verifyFile.close();
-          }
-        } else {
-          std::cerr << "[InstanceStorage] Warning: Could not open file for "
-                       "writing in tier: "
-                    << dir << std::endl;
-          success = false;
-          failedTiers.push_back(dir);
-        }
-      } catch (const std::exception &e) {
-        std::cerr << "[InstanceStorage] Exception deleting from tier " << dir
-                  << ": " << e.what() << std::endl;
-        success = false;
-        failedTiers.push_back(dir);
-        // Continue with other tiers
-      }
-    }
-
-    // Final verification: Check if instance still exists in any tier
-    if (instanceExists(instanceId)) {
-      std::cerr << "[InstanceStorage] ERROR: Instance " << instanceId
-                << " still exists after deletion attempt!" << std::endl;
-      std::cerr << "[InstanceStorage] Failed tiers: ";
-      for (const auto &tier : failedTiers) {
-        std::cerr << tier << " ";
-      }
-      std::cerr << std::endl;
-      return false;
-    }
-
-    if (!success && !failedTiers.empty()) {
-      std::cerr << "[InstanceStorage] Warning: Some tiers failed to delete, "
-                   "but instance "
-                << "was removed from primary storage. Failed tiers: ";
-      for (const auto &tier : failedTiers) {
-        std::cerr << tier << " ";
-      }
-      std::cerr << std::endl;
-    }
-
-    return success;
-  } catch (const std::exception &e) {
-    std::cerr << "[InstanceStorage] Exception in deleteInstance: " << e.what()
-              << std::endl;
-    return false;
-  }
-}
-
-bool InstanceStorage::instanceExists(const std::string &instanceId) const {
-  try {
-    // Load instances file
-    Json::Value instances = loadInstancesFile();
-
-    // Check if instance exists
-    return instances.isMember(instanceId) && instances[instanceId].isObject();
-  } catch (const std::exception &e) {
-    return false;
   }
 }

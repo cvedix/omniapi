@@ -16,6 +16,7 @@ class cvedix_node;
  */
 struct InstanceInfo {
   std::string instanceId;
+  std::string instanceName; // Human-readable name for the instance
   std::string displayName;
   std::string group;
   std::string solutionId;
