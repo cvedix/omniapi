@@ -104,13 +104,10 @@ void SolutionRegistry::initializeDefaultSolutions() {
   registerBAJamSolution(); // Add behavior analysis traffic jam solution
 
   // Register new node-based solutions
-  registerYOLOv11DetectionSolution();
+  // yolov11_detection solution removed (yolov11_detector node no longer exists)
   registerFaceSwapSolution();
   registerInsightFaceRecognitionSolution();
   registerMLLMAnalysisSolution();
-  registerMaskRCNNDetectionSolution(); // Add MaskRCNN detection solution
-  registerMaskRCNNRTMPSolution();      // Add MaskRCNN with RTMP streaming
-
   // Register all _default solutions
   registerFaceDetectionFileSolution();          // face_detection_file_default
   registerFaceDetectionDefaultSolution();       // face_detection_default
@@ -138,13 +135,9 @@ void SolutionRegistry::initializeDefaultSolutions() {
   registerObstacleDetectionSolution();           // obstacle_detection
   registerWrongWayDetectionSolution();           // wrong_way_detection
 
-#ifdef CVEDIX_WITH_RKNN
-  registerRKNNYOLOv11DetectionSolution();
-#endif
+  // RKNN YOLOv11 solution (removed)
 
-#ifdef CVEDIX_WITH_TRT
-  registerTRTInsightFaceRecognitionSolution();
-#endif
+  // TRT InsightFace solution (removed)
 }
 
 void SolutionRegistry::registerFaceDetectionSolution() {
@@ -389,11 +382,11 @@ void SolutionRegistry::registerBACrosslineSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Crossline Node (use placeholders so instance additionalParams.input
   // CROSSLINE_* are applied; fallback in pipeline builder also reads CROSSLINE_*
@@ -470,11 +463,11 @@ void SolutionRegistry::registerBAStopSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Stop Node
   SolutionConfig::NodeConfig baStop;
@@ -548,11 +541,11 @@ void SolutionRegistry::registerBAJamSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Jam Node
   SolutionConfig::NodeConfig baJam;
@@ -790,255 +783,11 @@ void SolutionRegistry::registerMLLMAnalysisSolution() {
   registerSolution(config);
 }
 
-#ifdef CVEDIX_WITH_RKNN
-void SolutionRegistry::registerRKNNYOLOv11DetectionSolution() {
-  SolutionConfig config;
-  config.solutionId = "rknn_yolov11_detection";
-  config.solutionName = "RKNN YOLOv11 Object Detection";
-  config.solutionType = "object_detection";
-  config.isDefault = true;
+// RKNN YOLOv11 Detection Solution (removed)
 
-  // File Source Node (supports flexible input: file, RTSP, RTMP, HLS via
-  // auto-detection)
-  SolutionConfig::NodeConfig fileSrc;
-  fileSrc.nodeType = "file_src";
-  fileSrc.nodeName = "file_src_{instanceId}";
-  // Support both FILE_PATH and RTSP_URL for backward compatibility
-  // Pipeline builder will auto-detect input type from FILE_PATH or RTSP_SRC_URL
-  fileSrc.parameters["file_path"] =
-      "${FILE_PATH}"; // Can be file path or RTSP/RTMP URL
-  fileSrc.parameters["channel"] = "0";
-  fileSrc.parameters["resize_ratio"] = "1.0";
-  config.pipeline.push_back(fileSrc);
 
-  // RKNN YOLOv11 Detector Node
-  SolutionConfig::NodeConfig rknnYolov11Detector;
-  rknnYolov11Detector.nodeType = "rknn_yolov11_detector";
-  rknnYolov11Detector.nodeName = "detector_{instanceId}";
-  rknnYolov11Detector.parameters["model_path"] = "${MODEL_PATH}";
-  rknnYolov11Detector.parameters["score_threshold"] = "0.5";
-  rknnYolov11Detector.parameters["nms_threshold"] = "0.5";
-  rknnYolov11Detector.parameters["input_width"] = "640";
-  rknnYolov11Detector.parameters["input_height"] = "640";
-  rknnYolov11Detector.parameters["num_classes"] = "80";
-  config.pipeline.push_back(rknnYolov11Detector);
+// TRT InsightFace Recognition Solution (removed)
 
-  // File Destination Node
-  SolutionConfig::NodeConfig fileDes;
-  fileDes.nodeType = "file_des";
-  fileDes.nodeName = "destination_{instanceId}";
-  fileDes.parameters["save_dir"] = "${SAVE_DIR}";
-  fileDes.parameters["name_prefix"] = "rknn_yolov11_detection";
-  fileDes.parameters["osd"] = "true";
-  config.pipeline.push_back(fileDes);
-
-  // Default configurations
-  config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
-  config.defaults["MODEL_PATH"] = "/opt/omniapi/models/yolov11/yolov11n.rknn";
-  config.defaults["SAVE_DIR"] = "/tmp/output";
-  config.defaults["detectorMode"] = "SmartDetection";
-  config.defaults["detectionSensitivity"] = "0.7";
-  config.defaults["sensorModality"] = "RGB";
-
-  registerSolution(config);
-}
-#endif // CVEDIX_WITH_RKNN
-
-#ifdef CVEDIX_WITH_TRT
-void SolutionRegistry::registerTRTInsightFaceRecognitionSolution() {
-  SolutionConfig config;
-  config.solutionId = "trt_insightface_recognition";
-  config.solutionName = "TensorRT InsightFace Recognition";
-  config.solutionType = "face_recognition";
-  config.isDefault = true;
-
-  // File Source Node (supports flexible input: file, RTSP, RTMP, HLS via
-  // auto-detection)
-  SolutionConfig::NodeConfig fileSrc;
-  fileSrc.nodeType = "file_src";
-  fileSrc.nodeName = "file_src_{instanceId}";
-  // Support both FILE_PATH and RTSP_URL for backward compatibility
-  // Pipeline builder will auto-detect input type from FILE_PATH or RTSP_SRC_URL
-  fileSrc.parameters["file_path"] =
-      "${FILE_PATH}"; // Can be file path or RTSP/RTMP URL
-  fileSrc.parameters["channel"] = "0";
-  fileSrc.parameters["resize_ratio"] = "1.0";
-  config.pipeline.push_back(fileSrc);
-
-  // YuNet Face Detector Node
-  SolutionConfig::NodeConfig faceDetector;
-  faceDetector.nodeType = "yolo_detector";
-  faceDetector.nodeName = "face_detector_{instanceId}";
-  faceDetector.parameters["model_path"] = "${FACE_DETECTION_MODEL_PATH}";
-  faceDetector.parameters["score_threshold"] = "0.7";
-  faceDetector.parameters["nms_threshold"] = "0.5";
-  faceDetector.parameters["top_k"] = "50";
-  config.pipeline.push_back(faceDetector);
-
-  // TensorRT InsightFace Recognition Node
-  SolutionConfig::NodeConfig trtInsightFaceRecognition;
-  trtInsightFaceRecognition.nodeType = "trt_insight_face_recognition";
-  trtInsightFaceRecognition.nodeName = "face_recognition_{instanceId}";
-  trtInsightFaceRecognition.parameters["model_path"] =
-      "${FACE_RECOGNITION_MODEL_PATH}";
-  config.pipeline.push_back(trtInsightFaceRecognition);
-
-  // File Destination Node
-  SolutionConfig::NodeConfig fileDes;
-  fileDes.nodeType = "file_des";
-  fileDes.nodeName = "destination_{instanceId}";
-  fileDes.parameters["save_dir"] = "${SAVE_DIR}";
-  fileDes.parameters["name_prefix"] = "trt_insightface_recognition";
-  fileDes.parameters["osd"] = "true";
-  config.pipeline.push_back(fileDes);
-
-  // Default configurations
-  config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
-  config.defaults["FACE_DETECTION_MODEL_PATH"] =
-      "/opt/omniapi/models/face/yunet.onnx";
-  config.defaults["FACE_RECOGNITION_MODEL_PATH"] =
-      "/opt/omniapi/models/face/insightface.trt";
-  config.defaults["SAVE_DIR"] = "/tmp/output";
-  config.defaults["detectorMode"] = "SmartDetection";
-  config.defaults["detectionSensitivity"] = "0.7";
-  config.defaults["sensorModality"] = "RGB";
-
-  registerSolution(config);
-}
-#endif // CVEDIX_WITH_TRT
-
-void SolutionRegistry::registerMaskRCNNDetectionSolution() {
-  SolutionConfig config;
-  config.solutionId = "mask_rcnn_detection_default";
-  config.solutionName = "MaskRCNN Detection Solution";
-  config.solutionType = "segmentation";
-  config.isDefault = true;
-
-  // File Source Node
-  SolutionConfig::NodeConfig fileSrc;
-  fileSrc.nodeType = "file_src";
-  fileSrc.nodeName = "file_src_{instanceId}";
-  fileSrc.parameters["file_path"] = "${FILE_PATH}";
-  fileSrc.parameters["channel"] = "0";
-  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
-  config.pipeline.push_back(fileSrc);
-
-  // MaskRCNN Detector Node
-  SolutionConfig::NodeConfig maskRCNN;
-  maskRCNN.nodeType = "mask_rcnn_detector";
-  maskRCNN.nodeName = "mask_rcnn_detector_{instanceId}";
-  maskRCNN.parameters["model_path"] = "${MODEL_PATH}";
-  maskRCNN.parameters["model_config_path"] = "${MODEL_CONFIG_PATH}";
-  maskRCNN.parameters["labels_path"] = "${LABELS_PATH}";
-  maskRCNN.parameters["input_width"] = "${INPUT_WIDTH}";
-  maskRCNN.parameters["input_height"] = "${INPUT_HEIGHT}";
-  maskRCNN.parameters["score_threshold"] = "${SCORE_THRESHOLD}";
-  config.pipeline.push_back(maskRCNN);
-
-  // OSD v3 Node (for displaying masks and labels)
-  SolutionConfig::NodeConfig osd;
-  osd.nodeType = "osd_v3";
-  osd.nodeName = "osd_v3_{instanceId}";
-  // Use default font from environment variable if available, otherwise use
-  // relative path Pipeline builder will resolve this using
-  // resolveDefaultFontPath() if empty
-  std::string defaultFont = EnvConfig::resolveDefaultFontPath();
-  if (!defaultFont.empty()) {
-    osd.parameters["font_path"] = defaultFont;
-  } else {
-    // Fallback to relative path (will be resolved by pipeline builder)
-    osd.parameters["font_path"] = "./cvedix_data/font/NotoSansCJKsc-Medium.otf";
-  }
-  config.pipeline.push_back(osd);
-
-  // File Destination Node
-  SolutionConfig::NodeConfig fileDes;
-  fileDes.nodeType = "file_des";
-  fileDes.nodeName = "file_des_{instanceId}";
-  fileDes.parameters["save_dir"] = "./output/{instanceId}";
-  fileDes.parameters["name_prefix"] = "mask_rcnn_detection";
-  fileDes.parameters["osd"] = "true";
-  config.pipeline.push_back(fileDes);
-
-  // Default configurations
-  config.defaults["detectorMode"] = "SmartDetection";
-  config.defaults["detectionSensitivity"] = "Medium";
-  config.defaults["sensorModality"] = "RGB";
-  config.defaults["RESIZE_RATIO"] = "1.0";
-  config.defaults["INPUT_WIDTH"] = "416";
-  config.defaults["INPUT_HEIGHT"] = "416";
-  config.defaults["SCORE_THRESHOLD"] = "0.5";
-
-  registerSolution(config);
-}
-
-void SolutionRegistry::registerMaskRCNNRTMPSolution() {
-  SolutionConfig config;
-  config.solutionId = "mask_rcnn_rtmp_default";
-  config.solutionName = "MaskRCNN Detection with RTMP Streaming";
-  config.solutionType = "segmentation";
-  config.isDefault = true;
-
-  // File Source Node
-  SolutionConfig::NodeConfig fileSrc;
-  fileSrc.nodeType = "file_src";
-  fileSrc.nodeName = "file_src_{instanceId}";
-  fileSrc.parameters["file_path"] = "${FILE_PATH}";
-  fileSrc.parameters["channel"] = "0";
-  // IMPORTANT: Use resize_ratio = 1.0 (no resize) if video already has fixed
-  // resolution This prevents double-resizing which can cause shape mismatch
-  // errors
-  fileSrc.parameters["resize_ratio"] = "${RESIZE_RATIO}";
-  config.pipeline.push_back(fileSrc);
-
-  // MaskRCNN Detector Node
-  SolutionConfig::NodeConfig maskRCNN;
-  maskRCNN.nodeType = "mask_rcnn_detector";
-  maskRCNN.nodeName = "mask_rcnn_detector_{instanceId}";
-  maskRCNN.parameters["model_path"] = "${MODEL_PATH}";
-  maskRCNN.parameters["model_config_path"] = "${MODEL_CONFIG_PATH}";
-  maskRCNN.parameters["labels_path"] = "${LABELS_PATH}";
-  maskRCNN.parameters["input_width"] = "${INPUT_WIDTH}";
-  maskRCNN.parameters["input_height"] = "${INPUT_HEIGHT}";
-  maskRCNN.parameters["score_threshold"] = "${SCORE_THRESHOLD}";
-  config.pipeline.push_back(maskRCNN);
-
-  // OSD v3 Node (for displaying masks and labels)
-  SolutionConfig::NodeConfig osd;
-  osd.nodeType = "osd_v3";
-  osd.nodeName = "osd_v3_{instanceId}";
-  // Use default font from environment variable if available, otherwise use
-  // relative path Pipeline builder will resolve this using
-  // resolveDefaultFontPath() if empty
-  std::string defaultFont = EnvConfig::resolveDefaultFontPath();
-  if (!defaultFont.empty()) {
-    osd.parameters["font_path"] = defaultFont;
-  } else {
-    // Fallback to relative path (will be resolved by pipeline builder)
-    osd.parameters["font_path"] = "./cvedix_data/font/NotoSansCJKsc-Medium.otf";
-  }
-  config.pipeline.push_back(osd);
-
-  // RTMP Destination Node
-  SolutionConfig::NodeConfig rtmpDes;
-  rtmpDes.nodeType = "rtmp_des";
-  rtmpDes.nodeName = "rtmp_des_{instanceId}";
-  rtmpDes.parameters["rtmp_url"] =
-      "${RTMP_URL}"; // Support RTMP_URL (backward compatibility)
-  rtmpDes.parameters["channel"] = "0";
-  config.pipeline.push_back(rtmpDes);
-
-  // Default configurations
-  config.defaults["detectorMode"] = "SmartDetection";
-  config.defaults["detectionSensitivity"] = "Medium";
-  config.defaults["sensorModality"] = "RGB";
-  config.defaults["RESIZE_RATIO"] = "1.0";
-  config.defaults["INPUT_WIDTH"] = "416";
-  config.defaults["INPUT_HEIGHT"] = "416";
-  config.defaults["SCORE_THRESHOLD"] = "0.5";
-
-  registerSolution(config);
-}
 
 void SolutionRegistry::registerFaceDetectionRTMPDefaultSolution() {
   SolutionConfig config;
@@ -1439,11 +1188,11 @@ void SolutionRegistry::registerBACrosslineDefaultSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Crossline Node
   SolutionConfig::NodeConfig baCrossline;
@@ -1455,6 +1204,12 @@ void SolutionRegistry::registerBACrosslineDefaultSolution() {
   baCrossline.parameters["line_end_x"] = "${CROSSLINE_END_X}";
   baCrossline.parameters["line_end_y"] = "${CROSSLINE_END_Y}";
   config.pipeline.push_back(baCrossline);
+
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction;
+  baEventExtraction.nodeType = "ba_event_extraction";
+  baEventExtraction.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction);
 
   // JSON Crossline MQTT Broker Node
   SolutionConfig::NodeConfig jsonMqtt;
@@ -1519,11 +1274,11 @@ void SolutionRegistry::registerBACrosslineMQTTDefaultSolution() {
   yoloDetector.parameters["nms_threshold"] = "0.4";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Crossline Node
   SolutionConfig::NodeConfig baCrossline;
@@ -1535,6 +1290,12 @@ void SolutionRegistry::registerBACrosslineMQTTDefaultSolution() {
   baCrossline.parameters["line_end_x"] = "${CROSSLINE_END_X}";
   baCrossline.parameters["line_end_y"] = "${CROSSLINE_END_Y}";
   config.pipeline.push_back(baCrossline);
+
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction2;
+  baEventExtraction2.nodeType = "ba_event_extraction";
+  baEventExtraction2.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction2);
 
   // JSON Crossline MQTT Broker Node
   SolutionConfig::NodeConfig jsonMqtt;
@@ -1591,11 +1352,11 @@ void SolutionRegistry::registerBAJamDefaultSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Jam Node
   SolutionConfig::NodeConfig baJam;
@@ -1605,6 +1366,12 @@ void SolutionRegistry::registerBAJamDefaultSolution() {
   baJam.parameters["sensitivity"] = "0.6";
   baJam.parameters["JamZones"] = "${JAM_ZONES_JSON}";
   config.pipeline.push_back(baJam);
+
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction;
+  baEventExtraction.nodeType = "ba_event_extraction";
+  baEventExtraction.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction);
 
   // JSON MQTT Broker Node for jam events
   SolutionConfig::NodeConfig jsonMqtt;
@@ -1640,52 +1407,8 @@ void SolutionRegistry::registerBAJamMQTTDefaultSolution() {
   registerBAJamDefaultSolution();
 }
 
-void SolutionRegistry::registerYOLOv11DetectionSolution() {
-  SolutionConfig config;
-  config.solutionId = "yolov11_detection";
-  config.solutionName = "YOLOv11 Object Detection";
-  config.solutionType = "object_detection";
-  config.isDefault = true;
+// yolov11_detection solution removed (yolov11_detector node no longer exists)
 
-  // File Source Node (supports flexible input: file, RTSP, RTMP, HLS via
-  // auto-detection)
-  SolutionConfig::NodeConfig fileSrc;
-  fileSrc.nodeType = "file_src";
-  fileSrc.nodeName = "file_src_{instanceId}";
-  // Support both FILE_PATH and RTSP_URL for backward compatibility
-  // Pipeline builder will auto-detect input type from FILE_PATH or RTSP_SRC_URL
-  fileSrc.parameters["file_path"] =
-      "${FILE_PATH}"; // Can be file path or RTSP/RTMP URL
-  fileSrc.parameters["channel"] = "0";
-  fileSrc.parameters["resize_ratio"] = "1.0";
-  config.pipeline.push_back(fileSrc);
-
-  // YOLOv11 Detector Node
-  SolutionConfig::NodeConfig yolov11Detector;
-  yolov11Detector.nodeType = "yolov11_detector";
-  yolov11Detector.nodeName = "detector_{instanceId}";
-  yolov11Detector.parameters["model_path"] = "${MODEL_PATH}";
-  config.pipeline.push_back(yolov11Detector);
-
-  // File Destination Node
-  SolutionConfig::NodeConfig fileDes;
-  fileDes.nodeType = "file_des";
-  fileDes.nodeName = "destination_{instanceId}";
-  fileDes.parameters["save_dir"] = "${SAVE_DIR}";
-  fileDes.parameters["name_prefix"] = "yolov11_detection";
-  fileDes.parameters["osd"] = "true";
-  config.pipeline.push_back(fileDes);
-
-  // Default configurations
-  config.defaults["RTSP_URL"] = "rtsp://localhost:8554/stream";
-  config.defaults["MODEL_PATH"] = "/opt/omniapi/models/yolov11/yolov11n.onnx";
-  config.defaults["SAVE_DIR"] = "/tmp/output";
-  config.defaults["detectorMode"] = "SmartDetection";
-  config.defaults["detectionSensitivity"] = "0.7";
-  config.defaults["sensorModality"] = "RGB";
-
-  registerSolution(config);
-}
 
 void SolutionRegistry::registerBAStopDefaultSolution() {
   SolutionConfig config;
@@ -1712,11 +1435,11 @@ void SolutionRegistry::registerBAStopDefaultSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // sort_track
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // ba_stop
   SolutionConfig::NodeConfig baStop;
@@ -1725,6 +1448,12 @@ void SolutionRegistry::registerBAStopDefaultSolution() {
   baStop.parameters["min_stop_seconds"] = "${MIN_STOP_SECONDS}";
   baStop.parameters["StopZones"] = "${STOP_ZONES_JSON}";
   config.pipeline.push_back(baStop);
+
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction;
+  baEventExtraction.nodeType = "ba_event_extraction";
+  baEventExtraction.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction);
 
   // json_mqtt_broker
   SolutionConfig::NodeConfig jsonMqtt;
@@ -1785,11 +1514,11 @@ void SolutionRegistry::registerBAStopMQTTDefaultSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // sort_track
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // ba_stop
   SolutionConfig::NodeConfig baStop2;
@@ -1798,6 +1527,12 @@ void SolutionRegistry::registerBAStopMQTTDefaultSolution() {
   baStop2.parameters["min_stop_seconds"] = "${MIN_STOP_SECONDS}";
   baStop2.parameters["StopZones"] = "${STOP_ZONES_JSON}";
   config.pipeline.push_back(baStop2);
+
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction2;
+  baEventExtraction2.nodeType = "ba_event_extraction";
+  baEventExtraction2.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction2);
 
   // json_mqtt_broker
   SolutionConfig::NodeConfig jsonMqtt2;
@@ -1843,11 +1578,11 @@ void SolutionRegistry::registerBALoiteringSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Loitering Node
   SolutionConfig::NodeConfig baLoitering;
@@ -1857,6 +1592,12 @@ void SolutionRegistry::registerBALoiteringSolution() {
   baLoitering.parameters["alarm_seconds"] = "${ALARM_SECONDS}";
   baLoitering.parameters["check_interval"] = "${CHECK_INTERVAL}";
   config.pipeline.push_back(baLoitering);
+
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction;
+  baEventExtraction.nodeType = "ba_event_extraction";
+  baEventExtraction.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction);
 
   // BA Stop OSD Node (ba_loitering uses ba_stop_osd_node)
   SolutionConfig::NodeConfig baLoiteringOSD;
@@ -1935,6 +1676,12 @@ void SolutionRegistry::registerBAAreaEnterExitSolution() {
   baAreaEnterExit.parameters["AreaConfigs"] = "${AREA_CONFIGS_JSON}";
   config.pipeline.push_back(baAreaEnterExit);
 
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction;
+  baEventExtraction.nodeType = "ba_event_extraction";
+  baEventExtraction.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction);
+
   // BA Area Enter/Exit OSD Node
   SolutionConfig::NodeConfig baAreaOSD;
   baAreaOSD.nodeType = "ba_area_enter_exit_osd";
@@ -2006,6 +1753,12 @@ void SolutionRegistry::registerBALineCountingSolution() {
   baLineCounting.parameters["LineSettings"] = "${LINE_SETTINGS_JSON}";
   config.pipeline.push_back(baLineCounting);
 
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction;
+  baEventExtraction.nodeType = "ba_event_extraction";
+  baEventExtraction.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction);
+
   // BA Crossline OSD Node (reuse for visualization)
   SolutionConfig::NodeConfig baCrosslineOSD;
   baCrosslineOSD.nodeType = "ba_crossline_osd";
@@ -2064,11 +1817,11 @@ void SolutionRegistry::registerBACrowdingSolution() {
   yoloDetector.parameters["labels_path"] = "${LABELS_PATH}";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Crowding Node
   SolutionConfig::NodeConfig baCrowding;
@@ -2077,6 +1830,12 @@ void SolutionRegistry::registerBACrowdingSolution() {
   baCrowding.parameters["CrowdingZones"] = "${CROWDING_ZONES_JSON}";
   baCrowding.parameters["check_interval"] = "${CROWDING_CHECK_INTERVAL}";
   config.pipeline.push_back(baCrowding);
+
+  // BA Event Extraction Broker Node
+  SolutionConfig::NodeConfig baEventExtraction;
+  baEventExtraction.nodeType = "ba_event_extraction";
+  baEventExtraction.nodeName = "ba_event_extraction_{instanceId}";
+  config.pipeline.push_back(baEventExtraction);
 
   // BA Crowding OSD Node
   SolutionConfig::NodeConfig baCrowdingOSD;
@@ -2134,11 +1893,11 @@ void SolutionRegistry::registerSecuRTSolution() {
   yoloDetector.parameters["nms_threshold"] = "0.4";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node (for object tracking)
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "sort_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node (for object tracking)
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "bytetrack_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // BA Crossline Node (for line-based analytics - counting, crossing, tailgating)
   // Lines will be passed via CrossingLines parameter from SecuRT lines
@@ -2315,11 +2074,11 @@ void SolutionRegistry::registerWrongWayDetectionSolution() {
   yoloDetector.parameters["nms_threshold"] = "0.4";
   config.pipeline.push_back(yoloDetector);
 
-  // SORT Tracker Node (for tracking vehicles)
-  SolutionConfig::NodeConfig sortTrack;
-  sortTrack.nodeType = "sort_track";
-  sortTrack.nodeName = "vehicle_tracker_{instanceId}";
-  config.pipeline.push_back(sortTrack);
+  // ByteTrack Tracker Node (for tracking vehicles)
+  SolutionConfig::NodeConfig byteTrack;
+  byteTrack.nodeType = "bytetrack";
+  byteTrack.nodeName = "vehicle_tracker_{instanceId}";
+  config.pipeline.push_back(byteTrack);
 
   // OSD v3 Node
   SolutionConfig::NodeConfig osd;

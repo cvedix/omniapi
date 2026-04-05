@@ -154,5 +154,21 @@ public:
   createSSEBrokerNode(const std::string &nodeName,
                       const std::map<std::string, std::string> &params,
                       const CreateInstanceRequest &req);
+
+  // ========== BA Event Broker Nodes ==========
+
+  /**
+   * @brief Create BA Event Extraction broker node
+   *
+   * Extracts ba_results from frame_meta and serializes each event
+   * into structured JSON for publishing via user callback.
+   * Supports all BA event types (crossline, stop, crowding, intrusion, etc.)
+   * with optional base64 crop images.
+   */
+  static std::shared_ptr<cvedix_nodes::cvedix_node>
+  createBAEventExtractionNode(const std::string &nodeName,
+                              const std::map<std::string, std::string> &params,
+                              const CreateInstanceRequest &req,
+                              const std::string &instanceId);
 };
 

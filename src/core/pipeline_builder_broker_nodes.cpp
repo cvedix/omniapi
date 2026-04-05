@@ -43,6 +43,7 @@ class cvedix_json_stop_mqtt_broker_node;
 // #include <cvedix/nodes/broker/cvedix_xml_socket_broker_node.h>
 #include <cvedix/nodes/broker/cvedix_msg_broker_node.h>
 #include <cvedix/nodes/broker/cvedix_ba_socket_broker_node.h>
+#include <cvedix/nodes/broker/cvedix_ba_event_extraction_node.h>
 #include <cvedix/nodes/broker/cvedix_embeddings_socket_broker_node.h>
 #include <cvedix/nodes/broker/cvedix_embeddings_properties_socket_broker_node.h>
 #include <cvedix/nodes/broker/cvedix_plate_socket_broker_node.h>
@@ -1603,6 +1604,53 @@ PipelineBuilderBrokerNodes::createSSEBrokerNode(
     return node;
   } catch (const std::exception &e) {
     std::cerr << "[PipelineBuilderBrokerNodes] Exception in createSSEBrokerNode: "
+              << e.what() << std::endl;
+    throw;
+  }
+}
+
+std::shared_ptr<cvedix_nodes::cvedix_node>
+PipelineBuilderBrokerNodes::createBAEventExtractionNode(
+    const std::string &nodeName,
+    const std::map<std::string, std::string> &params,
+    const CreateInstanceRequest &req, const std::string &instanceId) {
+
+  try {
+    if (nodeName.empty()) {
+      throw std::invalid_argument("Node name cannot be empty");
+    }
+
+    // Parse include_crop_images parameter
+    bool include_crop_images = false;
+    if (params.count("include_crop_images")) {
+      include_crop_images = (params.at("include_crop_images") == "true" ||
+                             params.at("include_crop_images") == "1");
+    }
+
+    std::string instance_id = instanceId;
+
+    std::cerr << "[PipelineBuilderBrokerNodes] Creating BA Event Extraction broker node:"
+              << std::endl;
+    std::cerr << "  Name: '" << nodeName << "'" << std::endl;
+    std::cerr << "  Instance ID: '" << instance_id << "'" << std::endl;
+    std::cerr << "  Include crop images: " << (include_crop_images ? "true" : "false")
+              << std::endl;
+
+    // Create event publisher callback
+    // Default: log events to stderr for console output and debugging
+    // In production, this callback can be replaced with MQTT/WebSocket/HTTP webhook
+    auto event_publisher = [instance_id](const std::string &event_json) {
+      std::cerr << "[BA_EVENT] " << event_json << std::endl;
+    };
+
+    auto node = std::make_shared<cvedix_nodes::cvedix_ba_event_extraction_node>(
+        nodeName, instance_id, event_publisher, include_crop_images);
+
+    std::cerr << "[PipelineBuilderBrokerNodes] ✓ BA Event Extraction broker node created successfully"
+              << std::endl;
+    return node;
+  } catch (const std::exception &e) {
+    std::cerr << "[PipelineBuilderBrokerNodes] Exception in createBAEventExtractionNode: "
               << e.what() << std::endl;
     throw;
   }

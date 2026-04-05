@@ -29,10 +29,7 @@
 #ifdef CVEDIX_WITH_GSTREAMER
 #include <cvedix/nodes/des/cvedix_rtsp_des_node.h>
 #endif
-#ifdef CVEDIX_USE_SFACE_FEATURE_ENCODER
-#else
-#include <cvedix/nodes/infers/cvedix_feature_encoder_node.h>
-#endif
+
 #include <cvedix/nodes/osd/cvedix_ba_line_crossline_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_area_jam_osd_node.h>
 #include <cvedix/nodes/osd/cvedix_ba_stop_osd_node.h>
@@ -45,7 +42,6 @@
 #include <cvedix/nodes/src/cvedix_rtmp_src_node.h>
 #include <cvedix/nodes/src/cvedix_rtsp_src_node.h>
 #include <cvedix/nodes/src/cvedix_udp_src_node.h>
-#include <cvedix/nodes/track/cvedix_sort_track_node.h>
 #include <cvedix/nodes/track/cvedix_bytetrack_node.h>
 // TEMPORARILY DISABLED: cereal/rapidxml macro conflict issue in CVEDIX SDK
 // #include <cvedix/nodes/track/cvedix_ocsort_track_node.h>
@@ -59,58 +55,10 @@
 #include <chrono>
 #include <opencv2/core.hpp> // For cv::Exception
 
-// TensorRT Inference Nodes
-#ifdef CVEDIX_WITH_TRT
-#include <cvedix/nodes/infers/cvedix_trt_vehicle_color_classifier.h>
-#include <cvedix/nodes/infers/cvedix_trt_vehicle_detector.h>
-#include <cvedix/nodes/infers/cvedix_trt_vehicle_feature_encoder.h>
-#include <cvedix/nodes/infers/cvedix_trt_vehicle_plate_detector.h>
-#include <cvedix/nodes/infers/cvedix_trt_vehicle_plate_detector_v2.h>
-#include <cvedix/nodes/infers/cvedix_trt_vehicle_scanner.h>
-#include <cvedix/nodes/infers/cvedix_trt_vehicle_type_classifier.h>
-#include <cvedix/nodes/infers/cvedix_trt_yolov8_classifier.h>
-#include <cvedix/nodes/infers/cvedix_trt_yolov8_detector.h>
-#include <cvedix/nodes/infers/cvedix_trt_yolov8_pose_detector.h>
-#include <cvedix/nodes/infers/cvedix_trt_yolov8_seg_detector.h>
-#endif
 
-// RKNN Inference Nodes
-#ifdef CVEDIX_WITH_RKNN
-#include <cvedix/nodes/infers/cvedix_rknn_yolov11_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_rknn_yolov8_detector_node.h>
-#endif
-
-// Other Inference Nodes
+// Inference Nodes
 #include <cvedix/nodes/infers/cvedix_yolo_detector_node.h>
-// Note: cvedix_yolov11_detector_node.h is not available in CVEDIX SDK
-// Use rknn_yolov11_detector (with CVEDIX_WITH_RKNN) or yolo_detector instead
-// #include <cvedix/nodes/infers/cvedix_yolov11_detector_node.h>
-#include <cvedix/nodes/infers/cvedix_classifier_node.h>
-#include <cvedix/nodes/infers/cvedix_enet_seg_node.h>
-#include <cvedix/nodes/infers/cvedix_mask_rcnn_detector_node.h>
-#ifdef CVEDIX_HAS_OPENPOSE
-#endif
-// Generic embedding encoder (SDK: cvedix_feature_encoder_node; older SDKs used
-// cvedix_sface_feature_encoder_node). Vehicle TRT path uses
-// cvedix_trt_vehicle_feature_encoder separately.
-#ifdef CVEDIX_HAS_FACE_SWAP
-#include <cvedix/nodes/infers/cvedix_face_swap_node.h>
-#endif
-#include <cvedix/nodes/infers/cvedix_lane_detector_node.h>
-#ifdef CVEDIX_WITH_LLM
-#include <cvedix/nodes/infers/cvedix_mllm_analyser_node.h>
-#endif
-#ifdef CVEDIX_WITH_PADDLE
-#include <cvedix/nodes/infers/cvedix_ppocr_text_detector_node.h>
-#endif
-#ifdef CVEDIX_HAS_RESTORATION
-#include <cvedix/nodes/infers/cvedix_restoration_node.h>
-#endif
 
-// TensorRT Additional Inference Nodes
-#ifdef CVEDIX_WITH_TRT
-#include <cvedix/nodes/infers/cvedix_trt_insight_face_recognition_node.h>
-#endif
 #include <atomic>
 #include <functional>
 #include <tuple>
@@ -666,9 +614,8 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
         if (hasMultipleSources && !multipleSourceNodes.empty()) {
           // Check if this node should attach to all sources (detector, tracker, etc.)
           if (nodeConfig.nodeType == "yolo_detector" || 
-              nodeConfig.nodeType == "trt_vehicle_detector" ||
-              nodeConfig.nodeType == "sort_track" ||
-              nodeConfig.nodeType == "sort_tracker") {
+              nodeConfig.nodeType == "bytetrack" ||
+              nodeConfig.nodeType == "bytetrack_track") {
             // Attach to all source nodes
             node->attach_to(multipleSourceNodes);
             std::cerr << "[PipelineBuilder] Attached " << nodeConfig.nodeType 
@@ -894,7 +841,8 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
              nodeConfig.nodeType == "embeddings_socket_broker" ||
              nodeConfig.nodeType == "embeddings_properties_socket_broker" ||
              nodeConfig.nodeType == "plate_socket_broker" ||
-             nodeConfig.nodeType == "expr_socket_broker");
+             nodeConfig.nodeType == "expr_socket_broker" ||
+             nodeConfig.nodeType == "ba_event_extraction");
 
         if (isOptionalNode) {
           std::cerr << "[PipelineBuilder] Skipping optional node: "
@@ -1041,10 +989,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           baStopNodeName, baStopConfig.parameters, mutableReq);
 
       if (baStopNode && !nodes.empty()) {
-        // Find sort_track node to attach to (ba_stop needs tracked objects)
+        // Find tracker node to attach to (ba_stop needs tracked objects)
         std::shared_ptr<cvedix_nodes::cvedix_node> attachTarget = nullptr;
         for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
-          if (nodeTypes[i] == "sort_track" || nodeTypes[i] == "sort_tracker") {
+          if (nodeTypes[i] == "bytetrack" || nodeTypes[i] == "bytetrack_track") {
             attachTarget = nodes[i];
             break;
           }
@@ -1167,10 +1115,10 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
           baLoiteringNodeName, baLoiteringConfig.parameters, mutableReq);
 
       if (baLoiteringNode && !nodes.empty()) {
-        // Find sort_track node to attach to (ba_loitering needs tracked objects)
+        // Find tracker node to attach to (ba_loitering needs tracked objects)
         std::shared_ptr<cvedix_nodes::cvedix_node> attachTarget = nullptr;
         for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
-          if (nodeTypes[i] == "sort_track" || nodeTypes[i] == "sort_tracker") {
+          if (nodeTypes[i] == "bytetrack" || nodeTypes[i] == "bytetrack_track") {
             attachTarget = nodes[i];
             break;
           }
@@ -2169,97 +2117,6 @@ PipelineBuilder::buildPipeline(const SolutionConfig &solution,
     }
   }
 
-  // 4. Auto-add face_detector if ENABLE_FACE_DETECTION is true but not in pipeline
-  // This creates a parallel branch: yolo_detector -> face_detector (split pattern)
-  // The face_detector attaches to the same source as sort_track (yolo_detector output)
-  auto faceDetIt = req.additionalParams.find("ENABLE_FACE_DETECTION");
-  if (faceDetIt != req.additionalParams.end()) {
-    std::string enableFaceDet = faceDetIt->second;
-    std::transform(enableFaceDet.begin(), enableFaceDet.end(),
-                   enableFaceDet.begin(), ::tolower);
-    if ((enableFaceDet == "true" || enableFaceDet == "1" ||
-         enableFaceDet == "yes" || enableFaceDet == "on") &&
-        !hasNodeType("face_detector")) {
-      std::cerr << "[PipelineBuilder] Auto-adding face_detector node "
-                   "(ENABLE_FACE_DETECTION=true detected)"
-                << std::endl;
-      try {
-        // Resolve face detection model path
-        std::string faceModelPath;
-        auto faceModelIt = req.additionalParams.find("FACE_DETECTION_MODEL_PATH");
-        if (faceModelIt != req.additionalParams.end() && !faceModelIt->second.empty()) {
-          faceModelPath = faceModelIt->second;
-        } else {
-          // Default model path
-          faceModelPath = PipelineBuilderModelResolver::resolveModelPath(
-              "models/face/face_detection_yunet_2023mar.onnx");
-        }
-
-        if (!faceModelPath.empty()) {
-          std::string faceNodeName = "face_detector_" + instanceId;
-
-          SolutionConfig::NodeConfig faceConfig;
-          faceConfig.nodeType = "face_detector";
-          faceConfig.nodeName = faceNodeName;
-          faceConfig.parameters["model_path"] = faceModelPath;
-          faceConfig.parameters["score_threshold"] = "0.7";
-          faceConfig.parameters["nms_threshold"] = "0.3";
-          faceConfig.parameters["top_k"] = "5000";
-
-          auto faceNode = PipelineBuilderDetectorNodes::createFaceDetectorNode(
-              faceNodeName, faceConfig.parameters, req);
-
-          if (faceNode) {
-            // Find yolo_detector node to attach to (split pattern: parallel branch)
-            std::shared_ptr<cvedix_nodes::cvedix_node> yoloTarget = nullptr;
-            for (size_t i = 0; i < nodeTypes.size(); ++i) {
-              if (nodeTypes[i] == "yolo_detector" || nodeTypes[i] == "trt_yolov8_detector" ||
-                  nodeTypes[i] == "yolov11_detector" || nodeTypes[i] == "rknn_yolov8_detector") {
-                yoloTarget = nodes[i];
-                break;
-              }
-            }
-
-            if (yoloTarget) {
-              faceNode->attach_to({yoloTarget});
-              nodes.push_back(faceNode);
-              nodeTypes.push_back("face_detector");
-              std::cerr << "[PipelineBuilder] ✓ Auto-added face_detector node "
-                           "(attached parallel to detector - split pattern)"
-                        << std::endl;
-            } else {
-              // Fallback: attach to last non-destination node
-              for (int i = static_cast<int>(nodes.size()) - 1; i >= 0; --i) {
-                bool isDestNode =
-                    (nodeTypes[i] == "file_des" || nodeTypes[i] == "rtmp_des" ||
-                     nodeTypes[i] == "frame_router_sink" || nodeTypes[i] == "rtsp_des" ||
-                     nodeTypes[i] == "screen_des" || nodeTypes[i] == "app_des");
-                if (!isDestNode) {
-                  faceNode->attach_to({nodes[i]});
-                  nodes.push_back(faceNode);
-                  nodeTypes.push_back("face_detector");
-                  std::cerr << "[PipelineBuilder] ✓ Auto-added face_detector node "
-                               "(attached to last non-DES node - fallback)"
-                            << std::endl;
-                  break;
-                }
-              }
-            }
-          } else {
-            std::cerr << "[PipelineBuilder] ⚠ Failed to create face_detector node"
-                      << std::endl;
-          }
-        } else {
-          std::cerr << "[PipelineBuilder] ⚠ Face detection model not found, skipping"
-                    << std::endl;
-        }
-      } catch (const std::exception &e) {
-        std::cerr << "[PipelineBuilder] ⚠ Failed to auto-add face_detector: "
-                  << e.what() << std::endl;
-      }
-    }
-  }
-
   std::cerr << "[PipelineBuilder] Successfully built pipeline with "
             << nodes.size() << " nodes" << std::endl;
   edgeos::FrameRouter* unused = frame_router_;
@@ -2320,122 +2177,21 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
     } else if (actualNodeType == "ff_src") {
       return PipelineBuilderSourceNodes::createFFmpegSourceNode(nodeName, params, req);
     }
-    // Face detection related nodes (yunet_face_detector removed)
-    else if (nodeConfig.nodeType == "sface_feature_encoder") {
-      return PipelineBuilderDetectorNodes::createSFaceEncoderNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "face_osd_v2") {
-      return PipelineBuilderOtherNodes::createFaceOSDNode(nodeName, params);
     }
-#ifdef CVEDIX_WITH_TRT
-    // TensorRT YOLOv8 nodes
-    else if (nodeConfig.nodeType == "trt_yolov8_detector") {
-      return PipelineBuilderDetectorNodes::createTRTYOLOv8DetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_yolov8_seg_detector") {
-      return PipelineBuilderDetectorNodes::createTRTYOLOv8SegDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_yolov8_pose_detector") {
-      return PipelineBuilderDetectorNodes::createTRTYOLOv8PoseDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_yolov8_classifier") {
-      return PipelineBuilderDetectorNodes::createTRTYOLOv8ClassifierNode(nodeName, params, req);
-    }
-    // TensorRT Vehicle nodes
-    else if (nodeConfig.nodeType == "trt_vehicle_detector") {
-      return PipelineBuilderDetectorNodes::createTRTVehicleDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_vehicle_plate_detector") {
-      return PipelineBuilderDetectorNodes::createTRTVehiclePlateDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_vehicle_plate_detector_v2") {
-      return PipelineBuilderDetectorNodes::createTRTVehiclePlateDetectorV2Node(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_vehicle_color_classifier") {
-      return PipelineBuilderDetectorNodes::createTRTVehicleColorClassifierNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_vehicle_type_classifier") {
-      return PipelineBuilderDetectorNodes::createTRTVehicleTypeClassifierNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_vehicle_feature_encoder") {
-      return PipelineBuilderDetectorNodes::createTRTVehicleFeatureEncoderNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_vehicle_scanner") {
-      return PipelineBuilderDetectorNodes::createTRTVehicleScannerNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_insight_face_recognition") {
-      return PipelineBuilderDetectorNodes::createTRTInsightFaceRecognitionNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "trt_yolov11_plate_detector") {
-      return PipelineBuilderDetectorNodes::createTRTYOLOv11PlateDetectorNode(nodeName, params, req);
-    }
-#endif
-#ifdef CVEDIX_WITH_RKNN
-    // RKNN nodes
-    else if (nodeConfig.nodeType == "rknn_yolov8_detector") {
-      return PipelineBuilderDetectorNodes::createRKNNYOLOv8DetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "rknn_yolov11_detector") {
-      return PipelineBuilderDetectorNodes::createRKNNYOLOv11DetectorNode(nodeName, params, req);
-    }
-#endif
     // Other inference nodes
-    else if (nodeConfig.nodeType == "face_detector") {
-      return PipelineBuilderDetectorNodes::createFaceDetectorNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "yolo_detector") {
       return PipelineBuilderDetectorNodes::createYOLODetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "yolov11_detector") {
-      return PipelineBuilderDetectorNodes::createYOLOv11DetectorNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "yolov11_plate_detector") {
       return PipelineBuilderDetectorNodes::createYOLOv11PlateDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "enet_seg") {
-      return PipelineBuilderDetectorNodes::createENetSegNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "mask_rcnn_detector") {
-      return PipelineBuilderDetectorNodes::createMaskRCNNDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "openpose_detector") {
-#ifdef CVEDIX_HAS_OPENPOSE
-      return PipelineBuilderDetectorNodes::createOpenPoseDetectorNode(nodeName, params, req);
-#else
-      throw std::runtime_error(
-          "openpose_detector is not available in this EdgeOS/CVEDIX SDK build");
-#endif
-    } else if (nodeConfig.nodeType == "classifier") {
-      return PipelineBuilderDetectorNodes::createClassifierNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "feature_encoder") {
-      std::cerr << "[PipelineBuilder] feature_encoder node type is not "
-                   "supported (abstract class). Use 'sface_feature_encoder' or "
-                   "'trt_vehicle_feature_encoder' instead."
-                << std::endl;
-      throw std::runtime_error(
-          "feature_encoder node type is not supported. Use "
-          "'sface_feature_encoder' or 'trt_vehicle_feature_encoder' instead.");
-    } else if (nodeConfig.nodeType == "lane_detector") {
-      return PipelineBuilderDetectorNodes::createLaneDetectorNode(nodeName, params, req);
-    } else if (nodeConfig.nodeType == "face_swap") {
-#ifdef CVEDIX_HAS_FACE_SWAP
-      return PipelineBuilderDetectorNodes::createFaceSwapNode(nodeName, params, req);
-#else
-      throw std::runtime_error(
-          "face_swap is not available in this EdgeOS/CVEDIX SDK build");
-#endif
-    } else if (nodeConfig.nodeType == "insight_face_recognition") {
-#ifdef CVEDIX_HAS_FACENET
-      return PipelineBuilderDetectorNodes::createInsightFaceRecognitionNode(nodeName, params, req);
-#else
-      throw std::runtime_error(
-          "insight_face_recognition is not available in this EdgeOS/CVEDIX SDK build");
-#endif
-#ifdef CVEDIX_WITH_LLM
-    } else if (nodeConfig.nodeType == "mllm_analyser") {
-      return PipelineBuilderDetectorNodes::createMLLMAnalyserNode(nodeName, params, req);
-#endif
-#ifdef CVEDIX_WITH_PADDLE
-    } else if (nodeConfig.nodeType == "ppocr_text_detector") {
-      return PipelineBuilderDetectorNodes::createPaddleOCRTextDetectorNode(nodeName, params, req);
-#endif
-    } else if (nodeConfig.nodeType == "restoration") {
-#ifdef CVEDIX_HAS_RESTORATION
-      return PipelineBuilderDetectorNodes::createRestorationNode(nodeName, params, req);
-#else
-      throw std::runtime_error(
-          "restoration is not available in this EdgeOS/CVEDIX SDK build");
-#endif
+    } else if (nodeConfig.nodeType == "face_osd_v2") {
+      return PipelineBuilderOtherNodes::createFaceOSDNode(nodeName, params);
     } else if (nodeConfig.nodeType == "frame_fusion") {
       return PipelineBuilderOtherNodes::createFrameFusionNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "record") {
       return PipelineBuilderOtherNodes::createRecordNode(nodeName, params, req);
     }
     // Tracking nodes
-    else if (nodeConfig.nodeType == "sort_track") {
-      return PipelineBuilderOtherNodes::createSORTTrackNode(nodeName, params);
-    } else if (nodeConfig.nodeType == "bytetrack" || nodeConfig.nodeType == "bytetrack_track") {
+    else if (nodeConfig.nodeType == "bytetrack" || nodeConfig.nodeType == "bytetrack_track") {
       return PipelineBuilderOtherNodes::createByteTrackNode(nodeName, params);
     } else if (nodeConfig.nodeType == "ocsort" || nodeConfig.nodeType == "ocsort_track") {
       // TEMPORARILY DISABLED: cereal/rapidxml macro conflict issue in CVEDIX SDK
@@ -2656,6 +2412,8 @@ PipelineBuilder::createNode(const SolutionConfig::NodeConfig &nodeConfig,
       return PipelineBuilderBrokerNodes::createPlateSocketBrokerNode(nodeName, params, req);
     } else if (nodeConfig.nodeType == "expr_socket_broker") {
       return PipelineBuilderBrokerNodes::createExpressionSocketBrokerNode(nodeName, params, req);
+    } else if (nodeConfig.nodeType == "ba_event_extraction") {
+      return PipelineBuilderBrokerNodes::createBAEventExtractionNode(nodeName, params, req, instanceId);
     }
     // Destination nodes
     else if (nodeConfig.nodeType == "file_des") {
@@ -3594,122 +3352,6 @@ PipelineBuilder::handleMultipleSources(const CreateInstanceRequest &req,
 
 
 
-
-// ========== TensorRT YOLOv8 Nodes Implementation ==========
-
-#ifdef CVEDIX_WITH_TRT
-
-
-
-
-
-
-
-
-// ========== TensorRT Vehicle Nodes Implementation ==========
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#endif // CVEDIX_WITH_TRT
-
-// ========== RKNN Nodes Implementation ==========
-
-#ifdef CVEDIX_WITH_RKNN
-
-
-
-#endif // CVEDIX_WITH_RKNN
-
-// ========== Other Inference Nodes Implementation ==========
-
-
-
-
-
-
-
-
-
-
-
-// Note: createFeatureEncoderNode is disabled because
-// cvedix_feature_encoder_node is abstract Use createSFaceEncoderNode (for
-// "sface_feature_encoder") or createTRTVehicleFeatureEncoderNode (for
-// "trt_vehicle_feature_encoder") instead
-/*
-std::shared_ptr<cvedix_nodes::cvedix_node>
-PipelineBuilder::createFeatureEncoderNode( const std::string& nodeName, const
-std::map<std::string, std::string>& params, const CreateInstanceRequest& req) {
-
-    try {
-        std::string modelPath = params.count("model_path") ?
-params.at("model_path") : "";
-
-        if (modelPath.empty()) {
-            auto it = req.additionalParams.find("MODEL_PATH");
-            if (it != req.additionalParams.end() && !it->second.empty()) {
-                modelPath = it->second;
-            }
-        }
-
-        if (nodeName.empty() || modelPath.empty()) {
-            throw std::invalid_argument("Node name and model path are
-required");
-        }
-
-        std::cerr << "[PipelineBuilder] Creating feature encoder node:" <<
-std::endl; std::cerr << "  Name: '" << nodeName << "'" << std::endl; std::cerr
-<< "  Model path: '" << modelPath << "'" << std::endl;
-
-        auto node = std::make_shared<cvedix_nodes::cvedix_feature_encoder_node>(
-            nodeName,
-            modelPath
-        );
-
-        std::cerr << "[PipelineBuilder] ✓ Feature encoder node created
-successfully" << std::endl; return node; } catch (const std::exception& e) {
-        std::cerr << "[PipelineBuilder] Exception in createFeatureEncoderNode: "
-<< e.what() << std::endl; throw;
-    }
-}
-*/
-
-
-
-#ifdef CVEDIX_WITH_PADDLE
-
-#endif
-
-
-
-// ========== New Inference Nodes Implementation ==========
-
-
-
-
-
-
-
-
-
-#ifdef CVEDIX_WITH_RKNN
-
-#endif // CVEDIX_WITH_RKNN
-
-#ifdef CVEDIX_WITH_TRT
-
-#endif // CVEDIX_WITH_TRT
 
 // ========== Helper Functions for Crossline MQTT Broker ==========
 #ifdef CVEDIX_WITH_MQTT
